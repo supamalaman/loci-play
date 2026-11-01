@@ -191,7 +191,7 @@
         const contract=H.Contracts?.status(s,a,abId);
         const collateral = !!H.Tally && H.Tally.held(s, a) === abId;   // the ledger boss holds it (engine/tally.js)
         const blocked = H.fruitBlocked?.(s, a, abId) || null;   // Sinkerfruit: the sea takes it (engine/fruit.js)
-        return { id: abId, m, contract, source: ownerOfConcept(a, m.concept), ...(collateral ? { collateral: true } : {}), ...(blocked ? { blocked } : {}), affordable: !blocked && (!contract||contract.ready) && !collateral && !a.quickenedSpent?.[abId] && (a.pf >= m.cost || inspiredPay(s, a, m)) && (a.tempo >= m.tempoCost || ["damage", "field"].includes(m.effect)) && ultimateReady, revealed: !!s.disclosures[id][abId] };
+        return { id: abId, m, contract, source: ownerOfConcept(a, m.concept), ...(collateral ? { collateral: true } : {}), ...(blocked ? { blocked } : {}), affordable: !blocked && (!contract||contract.ready) && !collateral && !a.quickenedSpent?.[abId] && !(m.lfPrice && a.lf <= m.lfPrice) && (a.pf >= m.cost || inspiredPay(s, a, m)) && (a.tempo >= m.tempoCost || ["damage", "field"].includes(m.effect)) && ultimateReady, revealed: !!s.disclosures[id][abId] };
       });
     }
 

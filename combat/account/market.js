@@ -15,6 +15,7 @@
 //   catchBase(catch)              → tier base + size premium (maxLF/10 floored)
 //   sellVessel(a, vendor, tier, roll01, persuasion) → { ok, account, seeds, haggled, lines } (mints as "stall")
 //   sellCatch(a, vendor, penIndex, roll01, persuasion) → { ok, account, seeds, haggled, lines } (mints as "stall")
+//   sellOrgonite(a, vendor, roll01, persuasion) → { ok, account, seeds, haggled, lines } (base 6, kind "orgonite"; the Orcish fence only)
 //   swallowPen(a, index)          → { ok, account, learned, lines } (bead progress + learn)
 //   advertise(a, tier)            → { ok, account, lines } (one campaign at a time)
 //   fillOrder(a, orderIdx, have)  → { ok, account, seeds, lines } (have: {pen} or {vessel}; mints as "stall")
@@ -37,6 +38,8 @@
     orderMul: 1.5, totalCap: 2.0, stallDayCap: 100,   // ruling 10: 100 Seeds/market-day across stall + orders
     buyPrice: { shard: 8, bead: 25, orb: 75 },     // shop buy side (craft fee ×1.5, rounded)
     partPrice: { common: 3, uncommon: 8, rare: 20 },
+    orgoniteBase: 6,                               // codex-orgonite §2: under the 10-Seed cast fee at EV
+    orgoniteMax: 9,                                // hard ceiling under the fee: standing 100 x top drift x haggle reaches the 2.0 cap (12), which would print
     battleParts: { common: 1, uncommonWin: 1 },    // ruling 7: 1c+1u per win until salvage routes parts (loops 1a17c4b1310, 1a17ce1c4d1)
     orderPool: ["thief", "rogue", "hacker", "orc", "feralPig", "vampire", "zombie", "tier:shard", "tier:bead", "tier:orb"],
   };
@@ -110,6 +113,21 @@
     const vessels = { ...a.vessels, [tier]: a.vessels[tier] - 1 };
     const out = withMarket({ ...a, seeds: (a.seeds || 0) + seeds, vessels }, { ...flood(bumpStanding(m, vendor, RULES.standingPerSale), tier, vendor), daySales: r.daySales });
     const lines = [`Sold a ${tier} to the ${VENDORS[vendor].name}: +${seeds} Seeds${haggled ? " (haggled up)" : " (talked down)"}.`];
+    if (r.flag) lines.push(`Mint: ${r.flag}.`);
+    if (r.capped) lines.push(`Day tally ${r.daySales}/${RULES.stallDayCap} — the stall pays no more today.`);
+    return { ok: true, account: out, seeds, haggled, lines };
+  }
+  // Orgonite (codex-orgonite spec §2-3): a stall good, not a vessel. The Monster Bank buys vessels only (ruling 6) and the
+  // beggars are the vessel floor (ruling 4), so only the Orcish fence quotes it.
+  function sellOrgonite(a, vendor, roll01 = Math.random(), persuasion = null) {
+    if (vendor !== "orcish") return { ok: false, reason: vendor === "bank" ? "The Monster Bank buys vessels only. Orgonite is not a vessel." : "The beggars have no price for orgonite." };
+    if ((a?.orgonite || 0) <= 0) return { ok: false, reason: "No orgonite to sell." };
+    const m = marketOf(a), haggled = roll01 < haggleChance(m.standing[vendor], persuasion);
+    const quoted = vendorPrice(RULES.orgoniteBase, vendor, null, { day: m.day, kind: "orgonite", floods: m.floods, campaign: m.campaign, standing: m.standing[vendor], haggled });
+    const r = pay(Math.min(quoted, RULES.orgoniteMax), m), seeds = r.paid;
+    if (seeds <= 0) return { ok: false, reason: `Day tally full (${RULES.stallDayCap}/${RULES.stallDayCap}) — the stall pays no more today.` };
+    const out = withMarket({ ...a, seeds: (a.seeds || 0) + seeds, orgonite: a.orgonite - 1 }, { ...flood(bumpStanding(m, vendor, RULES.standingPerSale), "orgonite", vendor), daySales: r.daySales });
+    const lines = [`Sold a puck of orgonite to the ${VENDORS[vendor].name}: +${seeds} Seeds${haggled ? " (haggled up)" : " (talked down)"}.`];
     if (r.flag) lines.push(`Mint: ${r.flag}.`);
     if (r.capped) lines.push(`Day tally ${r.daySales}/${RULES.stallDayCap} — the stall pays no more today.`);
     return { ok: true, account: out, seeds, haggled, lines };
@@ -210,5 +228,5 @@
     const m = marketOf(a), r = pay(Math.max(0, seeds), m);
     return { account: { ...a, market: { ...m, daySales: r.daySales } }, paid: r.paid, flag: r.flag };
   }
-  return { RULES, PART_NAME, VENDORS, marketOf, driftFor, priceOf, vendorPrice, haggleChance, catchTier, catchBase, sellVessel, sellCatch, swallowPen, advertise, fillOrder, refreshOrders, battleParts, tickMarket, stallPayout };
+  return { RULES, PART_NAME, VENDORS, marketOf, driftFor, priceOf, vendorPrice, haggleChance, catchTier, catchBase, sellVessel, sellCatch, sellOrgonite, swallowPen, advertise, fillOrder, refreshOrders, battleParts, tickMarket, stallPayout };
 });

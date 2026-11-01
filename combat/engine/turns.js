@@ -8,6 +8,8 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).turns = install;
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
+    const Spirit = () => (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null;
+    const Orders = () => (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null;
     const { Auras, C, EmergentIdeas, EnemySummons, ClassRuntime, Climate, Director, EM, MaidSystems, Performers, SHADE, Stealth, Vows, actorAt, addStun, auraH, beastTick, callCompanion, companionTick, cornerAdvice, bossRules, classH, conceptName,
       currentId, dist, dreamSpaceRules, edgeUsed, hasSight, heightAt, insightRules, isMonster, key, log, monsterApply, monsterCtx, poisonTick,
       presidentContext, presidentRules, presidentUnits, processRandomEvents, progress, refreshDrowning, ritualTick, riteTick, runWildEnvironment, settleHomeward,
@@ -114,6 +116,8 @@
       advanceSuccessionRound(s);
       checkOutcome(s);
       if (!s.outcome) updateWildTelegraphs(s);
+      if (!s.outcome) Spirit()?.roundHook(s, H);   // group spirit: per-side assessment, cached for the round
+      if (!s.outcome) Orders()?.roundHook(s, H);   // talk orders: rout deeds, then every enemy leader calls the shots
       plateHeavyArmor(s);   // before anyone acts, including the opener
     }
     function patchAt(s, x, y) { return (s.successionPatches || []).find(p => p.x === x && p.y === y); }
@@ -240,14 +244,19 @@
       // Flow state (Mala, 2026-10-15): a full ult bar supercharges its holder — a small ward now, and a
       // per-turn Inspiration roll. Movement and strikes read the full bar live (engine.js, actions.js), so
       // they fall off the moment the bar is spent; the ward is residual and lasts until something eats it.
-      { const F = s.rules.flowState, full = !a.defeated && !s.preview && F?.enabled !== false && (a.ultimateCharge ?? 0) >= (s.rules.ultimateChargeMax || 100);
-        if (full) {
+      { const F = s.rules.flowState, barFull = !a.defeated && !s.preview && F?.enabled !== false && (a.ultimateCharge ?? 0) >= (s.rules.ultimateChargeMax || 100);
+        const gold = !a.defeated && !s.preview && F?.enabled !== false && !!a.form?.golden;   // SR1: gold is flow incarnate — ward only, no bar, no roll
+        if (barFull) {
           if (!a.status.ward) a.status.ward = { label: "Flow state", protection: F.ward ?? 3, flow: true };
           else if (a.status.ward.flow) a.status.ward.protection = F.ward ?? 3;   // refresh our own; never touch a real ward
           const n = (a.flowTurns = (a.flowTurns || 0) + 1);
           if (!a.flowOn) { a.flowOn = true; log(s, { kind: "effect", actor: a.id, text: `${a.name} holds a full bar and settles into a flow state: +${F.ward ?? 3} ward, +${F.moveAdd ?? 1} move, harder strikes.`, why: ["Flow state: a supercharged fighter reinforces the body while the ult stays pocketed."] }); }
           if (seededChance(`${s.seed}:flow:${a.id}:${n}`) < (F.inspirationChance ?? 0.15)) H.Inspiration.gain(s, a, 1, `${a.name} holds the charge (flow state). A ${Math.round((F.inspirationChance ?? 0.15) * 100)}% chance, every full-bar turn.`);
-        } else a.flowOn = false; }
+        } else { a.flowOn = false;
+          if (gold) {
+            if (!a.status.ward) a.status.ward = { label: "Golden flow", protection: F.ward ?? 3, flow: true };
+            else if (a.status.ward.flow) a.status.ward.protection = F.ward ?? 3;
+          } } }
       H.Inspiration?.hardship(s, a);   // Never Give Up (ledgers.js): hardship inspires
       if (ClassRuntime) ClassRuntime.turnStart(s, a, classH());   // ClassRuntime: upkeep, visited tiles, fulcrum
       H.States?.turnStart(s, a);   // States: clocks, adjacency breakers, turn triggers
@@ -413,6 +422,11 @@
         Object.assign(a, held.player); if (!hadSprite) delete a.sprite; if (!held.player.form) a.form = null;
         for (const ev of held.events) log(s, { ...ev, tiles: [[a.x, a.y]] });
       }
+      if (a.form?.golden && a.form?.held && bossRules?.goldHoldTick) {   // gold overtime: drain ΦF, then its own pool; ejection at 10%
+        const held = bossRules.goldHoldTick(a, H.formCtx(s, a)); const hadSprite = "sprite" in held.player;
+        Object.assign(a, held.player); if (!hadSprite) delete a.sprite; if (!held.player.form) a.form = null;
+        for (const ev of held.events) log(s, { ...ev, tiles: [[a.x, a.y]] });
+      }
       if (dreamMods.apPerTurnAdd) {
         a.tempo = Math.max(0, a.tempo + dreamMods.apPerTurnAdd); a.tempoCapacity += dreamMods.apPerTurnAdd;
         const hole = hasTrait(a, "trepanation") && (!s.dreamSpace || !dreamSpaceRules.contains(s.dreamSpace, a.x, a.y));
@@ -542,14 +556,16 @@
         if (dreamSpaceRules && !dreamSpaceRules.summonTurnTicks(dreamSpaceRules.contains(s.dreamSpace,a.x,a.y) ? s.dreamSpace : null)) log(s, { kind: "summon", actor: a.id, text: `${a.name}'s stay is suspended while the Dream Space holds.` });
         else {
           const r = summonRules.afterOwnTurn(a); Object.assign(a, r.actor);
-          if (r.expired) { a.defeated = true; log(s, { kind: "summon", actor: a.id, text: `${a.name} returns to the palace.` }); }
+          if (r.expired) { a.defeated = true; if (a.summon?.pact && s.pactActive?.line === a.summon.pact.line) { (s.pactCodes ||= []).push({ type: "pactEnded", line: a.summon.pact.line, how: "expired" }); s.pactActive = null; } log(s, { kind: "summon", actor: a.id, text: `${a.name} returns to the palace.` }); Spirit()?.onExit?.(s, a, H); }
         }
       }
       if (a.awakened && !a.defeated) {   // Tsukumogami: four of its own turns, then it settles back
         a.awakened.roundsLeft -= 1;
         if (a.awakened.roundsLeft <= 0) H.settleTsukumogami(s, a);
+        if (a.defeated && a.settledBack) Spirit()?.onExit?.(s, a, H);   // SP-05: settling back is a quiet exit
       }
       EnemySummons?.afterOwnTurn(s, a, H);
+      if (a.defeated && a.summonBinding?.expired) Spirit()?.onExit?.(s, a, H);   // SP-05: a group summon's stay ending is a quiet exit
       // The round's environment step runs after the last unit still standing in the order, not only after the last slot:
       // advance() skips defeated units, so when the unit in the last slot was down (or had not arrived yet) the step
       // never ran again and wild animals, fire and floods froze for the rest of the battle (seed 303, 2026-10-11).

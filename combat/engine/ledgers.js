@@ -9,7 +9,13 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).ledgers = install;
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
+    const spiritGone = (s, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(s, u, H); };   // SP-05: every exit refreshes the roster
     const { C, log, hasSight, insightRules } = H;
+    function carryOrder(s, opts) {   // talk orders: trust rides whole, respect rides halved
+      s.trust = JSON.parse(JSON.stringify(opts.orderCarry?.trust || {}));
+      s.respectSeed = { ...(opts.orderCarry?.respect || {}) };
+      s.deeds = {}; s.orderBattles = opts.orderCarry?.battles || 0;
+    }
 
     // ── Contains Multitudes (content.js rules.multitudes; docs/contains-multitudes.md) ──
     // The Warden pays Inspiration to embody one class from his victory ledger (s.victories, carried in from the account)
@@ -185,7 +191,7 @@
         if (mode !== "indifference") return;
         const leaves = u.postHumanLeaves ?? (H.seededChance(`${s.seed}:posthuman:leaves:${u.id}`) < (N?.leaves ?? 0.5)); u.postHuman.leaves = leaves;
         if (!leaves) return log(s, { kind: "faction", actor: u.id, tiles: [[u.x, u.y]], text: `${u.name} stays where it is, and hunts nobody.`, why: ["Indifference: half the time it does not even leave.", "Attacking it changes nothing. It does not keep the battle going."] });
-        u.defeated = true; u.escaped = true; u.leaveReason = "left, indifferent"; u.tempo = 0;
+        u.defeated = true; u.escaped = true; u.leaveReason = "left, indifferent"; u.tempo = 0; spiritGone(s, u);
         log(s, { kind: "flee", actor: u.id, tiles: [[u.x, u.y]], indifferent: true, text: `${u.name} leaves the field. Nothing here concerns it.`, why: ["Indifference: half the time it goes at once, alive."] });
         H.checkOutcome(s);
       },
@@ -383,6 +389,6 @@
       }
     };
 
-    return { Multitudes, Inspiration, PostHuman, Exposure, Support };
+    return { Multitudes, Inspiration, PostHuman, Exposure, Support, carryOrder };
   })();
 });

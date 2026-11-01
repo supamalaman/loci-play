@@ -42,7 +42,7 @@
   else root.ConceptCombat = factory(Observation, Tourist, root.ConceptCombatPostures, root.ConceptCombatPresident, Sight, Belief, GraphLive, ClassRuntime, root.ConceptCombatDirector, RandomEvents, Climate, Auras, Parley, Bonds, Vows, MaidSystems, Workflow, UtilityAI, Communion, Traps, Tsukumogami, Imitation, EmergentIdeas, EnemySummons, MindDuel, root.ConceptCombatConversion, root.ConceptCombatCourtroom, root.ConceptCombatDispatch, root.ConceptCombatPresence, root.ConceptCombatDebt, root.ConceptCombatSealing, root.ConceptCombatVisitors, (root.ConceptCombatBuild && root.ConceptCombatBuild.version) || "dev");
 })(typeof self !== "undefined" ? self : this, function (Observation = null, Tourist = null, Postures = null, President = null, Sight = null, Belief = null, GraphLive = null, ClassRuntime = null, Director = null, RandomEvents = null, Climate = null, Auras = null, Parley = null, Bonds = null, Vows = null, MaidSystems = null, Workflow = null, UtilityAI = null, Communion = null, Traps = null, Tsukumogami = null, Imitation = null, EmergentIdeas = null, EnemySummons = null, MindDuel = null, Conversion = null, Courtroom = null, Dispatch = null, Presence = null, Debt = null, Sealing = null, Visitors = null, BUILD = "dev") {
   // The engine's parts, in install order (web/combat/engine/). Node requires them; the pages load them as scripts first.
-  const ENGINE_PARTS = ["ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","anime-orbit","instinct","injury"].map((name) => typeof module === "object" && module.exports
+  const ENGINE_PARTS = ["ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","anime-orbit","instinct","injury","cards"].map((name) => typeof module === "object" && module.exports
     ? require("./engine/" + name + ".js") : globalThis.ConceptCombatEngineParts[name.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase())]), Affinity = typeof module === "object" && module.exports ? require("./vows/affinity.js") : globalThis.ConceptCombatAffinity, VK = typeof module === "object" && module.exports ? require("./vows/vowkit.js") : globalThis.CombatVowKit;   // W4.5-6: vow-drive audit + declaration kit
 
 
@@ -348,7 +348,7 @@
         log(s, { kind: "trap", actor: unit.id, target: tp.owner, tiles: [[x, y]], amount: before - unit.lf, sprung: true,
           text: `${unit.name} ${verb} at (${x},${y}): ${before - unit.lf} LF.`,
           why: [`Set by ${s.actors[tp.owner]?.name || "someone"}. ${aware && !helpless ? "Knowing does not save you; only staying off does." : `It was ${Math.round(tp.hidden * 100)}% hidden.`}`] });
-        H.concentrationCheck?.(s, unit, before - unit.lf); if (unit.lf <= 0 && !unit.defeated) { unit.defeated = true; log(s, { kind: "defeat", target: unit.id, text: `${unit.name} is defeated by a hidden trap.` }); checkOutcome(s); }
+        H.concentrationCheck?.(s, unit, before - unit.lf); if (unit.lf <= 0 && !unit.defeated) { unit.defeated = true; log(s, { kind: "defeat", target: unit.id, text: `${unit.name} is defeated by a hidden trap.` }); H.pactLeave(s, unit); { const Spirit = (typeof module === "object" && module.exports ? require("./spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onDeath?.(s, unit, tp.owner ?? null, H); } { const OD = typeof module === "object" && module.exports ? require("./spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onDeath?.(s, unit, H); } checkOutcome(s); }
       }
       // C26 spotting: from beside a hidden trap you may notice it; spotted traps are shown and known.
       for (const tp of (s.traps || []).filter(t => !t.spent && (t.x !== x || t.y !== y) && Math.max(Math.abs(t.x - x), Math.abs(t.y - y)) <= 1)) {
@@ -385,7 +385,7 @@
         arena: { ...clone(arena), name: arena.name, w: arena.map[0].length, h: arena.map.length, map: arena.map.slice(), height: height.map((row) => row.slice()), objects: clone(arena.objects || []), structures: clone(arena.structures || []) },
         actors: {}, order: (opts.participants || enc.actors).map((a) => a.id), turnIndex: 0, round: 0, phase: "action",
         barriers: clone(opts.initialBarriers || arena.initialBarriers || []), scheduled: [], pending: null, disclosures: {}, knowledge: {}, observedAbilities: {}, turnDamageCounts: {}, growthMarks: [], pruneBraces: [], terrainEffects: [], successionPatches: [],
-        summonUsed: [], unlockedSummons: Array.isArray(opts.unlockedSummons) ? opts.unlockedSummons.slice() : [], deathDoorUsed: false, communion: { familiarity: {}, closed: {}, communed: 0 }, tsukumogami: { familiarity: {}, warned: false, awakened: 0 }, summonQuestionBoost: 0, summonCorrectAnswers: 0, fragments: [], dreamSpace: null, roundEnvironmentProcessed: false,
+        summonUsed: [], unlockedSummons: Array.isArray(opts.unlockedSummons) ? opts.unlockedSummons.slice() : [], deathDoorUsed: false, communion: { familiarity: {}, closed: {}, communed: 0 }, tsukumogami: { familiarity: {}, warned: false, awakened: 0 }, summonQuestionBoost: 0, summonCorrectAnswers: 0, fragments: [], dreamSpace: null, roundEnvironmentProcessed: false, pactCodes: [], pactActive: null, pactBook: clone(opts.contracts || null),
         victories: clone(opts.victories || {}),   // the account's victory ledger, for Contains Multitudes
         emissaryMemory: clone(opts.emissaryMemory || {}),   // what the Emissary remembers of this account (account.js recordEmissary)
         insight: { decks: {}, knowledge: {}, cognitive: opts.cognitive || insightRules?.emptyCognitive?.() || { subjects: {}, kinds: {} } },
@@ -470,7 +470,7 @@
           reserveSlots: reserveSlotsFor(level), pendingSwap: null,
           lens: { ...(ch.lens || {}) }, reaction: rules.reactionsPerRound,
           moved: false, acted: false, tempo: 0, tempoCapacity: 0, bankedTempo: 0, tempoDebt: 0, tempoSpent: 0, actionsThisTurn: 0, guardUsedThisTurn: false,
-          ownerTurns: 0, lastRecoverTurn: -99, perkApAdd: a.id === "player" ? opts.perkMods?.maxAPAdd || 0 : 0, widenedPalace: a.id === "player" ? opts.perkMods?.widenedPalace || 0 : 0, waterContact: H.waterAt(s,at[0],at[1]) ? key(...at) : null,   // W3.6: vigor pays out at turn start
+          ownerTurns: 0, lastRecoverTurn: -99, perkApAdd: a.id === "player" ? opts.perkMods?.maxAPAdd || 0 : 0, widenedPalace: a.id === "player" ? opts.perkMods?.widenedPalace || 0 : 0, perkMods: a.id === "player" ? opts.perkMods || null : null, waterContact: H.waterAt(s,at[0],at[1]) ? key(...at) : null,   // W3.6: vigor pays out at turn start
           status: { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null, immovable: null, exposed: null, attention: null, rangeBuff: null, tippingPoint: null, ambush: null, catharsis: null, drowning: null }, inventory: a.id === "player" ? (opts.startingInventory || []).slice() : [],
           inventoryCapacity: (pickupRules?.rules?.slots || 2) + (passives.battleSlotsAdd || 0), passives, earthStock: ch.earthStock || 0, lanyardUsed: false,
           bristleconeUsed: false, beliefSummonUsed: false, beliefStrength: traitMods.beliefStrength || 0, lastDamageType: null, heldFragments: [], defeated: false, soul: soulMax, maxSoul: soulMax, soulKind: ch.soulKind || rules.soul?.byCharacter?.[a.character] || null, husk: false,
@@ -558,13 +558,13 @@
       if (opts.bossRush) s.bossRush = true;
       if (opts.houses !== false) H.spawnHouse(s);   // a contested house near the center, on a roll (engine/houses.js)
       for (const u of Object.values(s.actors)) if (u.boss === "gaia") { H.setGaiaForm(s, u, bossRules?.data?.bosses?.gaia?.startForm || "restored"); H.landState(s).gaia = u.id; }   // she starts as the Living Accord   // the boss rush (docs/boss-rush.md): read by the data center's turn-one roll
-      const carriedOrbs = opts.devPlayground ? bossRules?.publicOrbs?.() : opts.orbs; H.carryLearnedForms?.(s, opts); H.nameRandomFoes?.(s); H.assignEnemyLoci?.(s); H.carryLegacy?.(s, opts); H.carryBeasts?.(s, opts); H.carryFruit?.(s, opts); H.fishRound?.(s, true); if (Array.isArray(opts.wildFriends) && opts.wildFriends.length) s.wildFriends = opts.wildFriends.slice();   // learned forms (docs/learned-forms.md)
+      const carriedOrbs = opts.devPlayground ? bossRules?.publicOrbs?.() : opts.orbs; H.carryLearnedForms?.(s, opts); H.nameRandomFoes?.(s); H.assignEnemyLoci?.(s); H.carryLegacy?.(s, opts); H.carryBeasts?.(s, opts); H.carryFruit?.(s, opts); H.carryOrder?.(s, opts); H.fishRound?.(s, true); if (Array.isArray(opts.wildFriends) && opts.wildFriends.length) s.wildFriends = opts.wildFriends.slice();   // learned forms (docs/learned-forms.md)
       if (Array.isArray(carriedOrbs) && carriedOrbs.length) { const hero = s.actors[s.modeSetup?.hero || "player"]; if (hero) hero.orbs = carriedOrbs.filter((id) => bossRules?.data?.orbs?.[id]); } s.vessels = opts.vessels ? { ...opts.vessels } : null;   // orbs kept on the account (docs/brain-chip.md)   // vessel economy: the packed pouch rides in (null → apprentice shard via pouch())
       if (Array.isArray(opts.beads) && opts.beads.length) { const hero = s.actors[s.modeSetup?.hero || "player"]; if (hero) hero.beads = opts.beads.filter(b => b && (wildRules?.data?.monsters?.[b.kind] || (b.kind === "dream" && typeof b.mind?.key === "string" && b.mind.key && b.name))).map(b => b.kind === "dream"
         ? { kind: "dream", name: b.name, maxLF: b.maxLF || 40, mind: { ...b.mind, dream: { ...(b.mind.dream || {}), key: b.mind.key } } }   // a tamed monster of the mind, kept between battles (2026-10-14)
         : { kind: b.kind, name: b.name || wildRules.data.monsters[b.kind].name, maxLF: b.maxLF || wildRules.data.monsters[b.kind].lf }); }
       if (opts.tourist || (opts.randomizeNPCs && opts.tourist !== false && (s.seed % 5 === 0))) Tourist?.spawn(s,touristH(),typeof opts.tourist === "object" ? opts.tourist : {});
-      if (opts.kaiba || (opts.randomizeNPCs && opts.kaiba !== false && H.seededChance(`${s.seed}:kaiba:arrives`) < 0.15)) H.Kaiba.spawn(s,kaibaH(),typeof opts.kaiba === "object" ? opts.kaiba : {});
+      if (opts.kaiba || (opts.randomizeNPCs && opts.kaiba !== false && H.seededChance(`${s.seed}:kaiba:arrives`) < 0.15)) H.Kaiba.spawn(s,kaibaH(),typeof opts.kaiba === "object" ? opts.kaiba : {}); H.Cards?.init(s,opts);
       H.States?.battleStart(s); H.openCourt?.(s, opts); beginRound(s);   // States: startStates + presence breakers
       startTurn(s);
       return s;
@@ -887,7 +887,7 @@
       const m = {
         observedChannel: a.lastDamageType || null, scribedEffects: d.scribedEffects ? clone(d.scribedEffects) : null, ability: abilityId, name: d.name, tier: d.tier, announce: d.announce || null, announced: !!options.announce, revelation: options.announce ? Math.max(1, Math.min(3, Math.round(+options.revelation || 1))) : 0, concept, timing:d.timing||null, effectCategory: d.effectCategory || "uncategorized", delivery: d.delivery, target: d.target, effect: d.effect,
         damageType: d.damageType || C.conceptDamageTypes[concept] || "nigredo",
-        area: clone(d.area || { shape: "single" }), cost: d.cost, potency: d.potency, range: d.range,
+        area: clone(d.area || { shape: "single" }), cost: d.cost, lfPrice: d.lfPrice || 0, potency: d.potency, range: d.range,
         tempoCost: d.tempoCost ?? s.rules.actionCosts.ability[d.tier] ?? s.rules.actionCosts.ability.basic,
         stunTempo: d.stunTempo || 0, piercing: !!d.piercing, destructive: !!d.destructive || d.concepts.includes("anti_urbanism"),   // piercing ignores ward; destructive ×2 vs structures, every Anti-Urbanism technique (Mala, 2026-10-18)
         guardMultiplier: lens.guardMultiplier,
@@ -1143,7 +1143,7 @@
         } else if (event.type === "weather" && Climate) {
           const ids = Object.keys(Climate.data.weather), current = s.weatherState?.id;
           const choices = ids.filter(id => id !== current);
-          const id = choices[Math.floor(event.weatherRoll * choices.length)] || current;
+          const id = (event.weatherId && ids.includes(event.weatherId) && event.weatherId) || choices[Math.floor(event.weatherRoll * choices.length)] || current;   // weatherId: an authored scenario names the sky
           if (s.weatherState) {
             const wind = Climate.rollWeather(moduleArena(s.arena), { seed: s.seed ^ Math.floor(event.weatherRoll * 0xffffffff), archetype: s.arena.archetype });
             s.weatherState = { ...wind, id, since: s.round, forecast: null, rainRounds: 0 };
@@ -1434,7 +1434,7 @@
       moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, aiLastWorkflow, shownTrait,
       aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, approach, retreat, lessonsOf, lessonMul, cannotDodge
     } = H;
-    return { warfareEventOptions, create, apply, preview, targeting, moveOptions, jumpOptions, climbOptions, movementBudget: (s, id) => moveBudgetFor(s, s.actors[id]), movementStepCost: (...a) => H.stepCost(...a), availableAbilities, randomEncounterOptions, manifest: (s, id, abId) => manifest(s, s.actors[id], abId),
+    return { cards: H.Cards, warfareEventOptions, eventParticipantsFor, create, apply, preview, targeting, moveOptions, jumpOptions, climbOptions, movementBudget: (s, id) => moveBudgetFor(s, s.actors[id]), movementStepCost: (...a) => H.stepCost(...a), availableAbilities, randomEncounterOptions, manifest: (s, id, abId) => manifest(s, s.actors[id], abId),
       waterState: (s,x,y) => H.waterState(s,x,y), updateWater: s => H.updateWater(s), recoverWater: (s,id) => H.waterRecovery(s,s.actors[id]),
       abilitiesOf: (s, id) => abilitiesOf(s.actors[id]), riteDraws: (def) => H.riteDraws(def), decider, aiAction, inspectAiAction: (s, options) => H.withAiTrace(() => aiAction(s), options), replay, answerTransfer, progress, report, mysteryFoeView: (s, side) => ({ count: (s.mystery?.[side] || []).length }), mysteryOwnView: (s, side) => (s.mystery?.[side] || []).map((c) => ({ ...c })),
       // For tests and sims: land a hit or a stun through the real pipeline, and read the monster context.

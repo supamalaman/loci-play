@@ -37,7 +37,7 @@
 // It rides the hooks the engine already has (the same places Vows and ClassRuntime are consulted) and does nothing for a
 // unit that holds no state, so an engine with an empty table plays exactly as before. v1: units only, nothing migrated.
 //
-//   grant(s, unit, id, { by?, link?, count? }) / remove(s, unit, id, why?)      the two writes
+//   grant(s, unit, id, { by?, link?, count? }) / remove(s, unit, id, why?)      the two writes (a row may carry clock.max, a cap on count, and refusesGrant: [ids], held states that refuse those grants)
 //   refuses(s, a, action) / refusesAbility / refusesKind / blocksAll            gate: apply, the AI, move options
 //   damageMods(s, src, tgt, inst, damageType)                                   modifier: { mult, notes } or null
 //   afterHit(s, src, tgt, inst, dealt, damageType)                              triggers, hurt breakers, hit clocks
@@ -85,11 +85,16 @@
 
     function grant(s, unit, id, opt = {}) {
       const def = defOf(id); if (!def || !live(unit)) return null;
+      for (const oid of Object.keys(unit.states || {})) {   // a held state may refuse a grant (refusesGrant: ids): incapacitated cannot be extended, and steadied refuses it for a turn
+        const od = defOf(oid);
+        if (od?.refusesGrant?.includes(id)) { if (!quiet(od, unit.states[oid])) log(s, { kind: "state", actor: unit.id, text: `${unit.name} is ${od.name} and shrugs off ${def.name}.` }); return null; }
+      }
       if (unit.states?.[id]) revertBody(unit, unit.states[id]);   // a re-grant refreshes: the old body comes off before the new one goes on
       if (def.group) for (const oid of Object.keys(unit.states || {})) if (oid !== id && defOf(oid)?.group === def.group) remove(s, unit, oid, `${def.name} takes its place`);
       const states = (unit.states ||= {});   // after the group sweep: removing the last state drops unit.states
+      // clock.max caps a technique's own turn count (an incapacitating technique asking for 5 turns gets the row's 2)
       const inst = { id, by: opt.by || null, link: opt.link || null, since: unit.ownerTurns || 0, at: [unit.x, unit.y],
-        count: def.clock ? (opt.count ?? def.clock.n) : null, hurt: 0, fires: {}, revealed: [] };
+        count: def.clock ? Math.min(opt.count ?? def.clock.n, def.clock.max ?? Infinity) : null, hurt: 0, fires: {}, revealed: [] };
       states[id] = inst;
       applyBody(unit, def, inst);
       say(s, unit, def, inst, `${unit.name} is ${def.name}.`, opt.by);

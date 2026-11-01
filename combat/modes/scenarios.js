@@ -146,12 +146,61 @@
     return { crew, ids: pool.slice(0, Math.max(1, Math.min(n, pool.length))) };
   }
 
+  // Authored events (SCENARIOS.md 3.4; slice 2). `force` swaps the rolled event at a checkpoint for an authored one (random-events.js create
+  // with force/checkpoints) and drops the arrivals the rolled event had brought; `wild` lays a field wild form on the map at the start.
+  // The authored event's arrivals are placed by the engine's own eventParticipantsFor (ctx.eventParticipantsFor), so they stand where a rolled one would.
+  const AUTHORABLE = ["visitors", "weather", "terrain", "dream", "monsters", "supervillain"];   // event types whose fill needs nothing but the seed
+  function authorEvents(out, S, seed, ctx) {
+    let result = out;
+    const RE = ctx.RandomEvents;
+    if (S.force && RE && ctx.eventParticipantsFor) {
+      const schedule = (out.randomEventSchedule || []).map((e) => ({ ...e })), fresh = [];
+      let parts = (out.participants || []).slice();
+      for (const [cid, spec] of Object.entries(S.force)) {
+        if (!AUTHORABLE.includes(spec.type)) continue;   // ally and reinforcements need the roster and the hero (engine.js randomEncounterOptions); an authored one would arrive empty
+        // A checkpoint can be missing: a forced sky (S.weather) already dropped every rolled weather event. Then the authored one is added at its place in round order.
+        const i = schedule.findIndex((e) => e.id === cid), old = i >= 0 ? schedule[i] : RE.checkpoints.find((c) => c.id === cid);
+        if (!old) continue;
+        const gone = new Set((i >= 0 && old.actorIds) || []);
+        parts = parts.filter((p) => !gone.has(p.id));
+        const ev = RE.create(seed, { force: { [cid]: spec }, checkpoints: [{ id: old.id, round: old.round, label: old.label }] })[0];
+        if (i >= 0) schedule[i] = ev; else schedule.splice(schedule.findIndex((e) => e.round > ev.round) < 0 ? schedule.length : schedule.findIndex((e) => e.round > ev.round), 0, ev);
+        fresh.push(ev);
+      }
+      // One ship per battle: a rolled visitors event at another checkpoint would land a second one, so it is dropped with its arrivals.
+      let kept = schedule;
+      if (fresh.some((e) => e.type === "visitors")) {
+        const dup = schedule.filter((e) => e.type === "visitors" && !e.forced), gone = new Set(dup.flatMap((e) => e.actorIds || []));
+        parts = parts.filter((p) => !gone.has(p.id)); kept = schedule.filter((e) => !dup.includes(e));
+      }
+      parts = [...parts, ...ctx.eventParticipantsFor(fresh, parts, out.arenaData)];
+      result = { ...result, randomEventSchedule: kept, participants: parts };
+    }
+    const fire = (S.wild || []).find((w) => w.kind === "brushfire");
+    const fuel = ctx.W?.data?.monsters?.brushfire?.fuel;
+    if (fire && fuel && out.arenaData?.map) {
+      // The windward edge: the fuel tile the wind blows from (the smallest projection on windTo, the way it blows), on a tile nobody stands on.
+      // Today the engine's fire spreads on fuel alone (wild/monsters.js frontier has no wind term), so this only picks where it starts, and the windy
+      // midpoint re-rolls the wind; the spec's "spreads downwind" is a premise the engine does not yet keep (NOTE, Decisions).
+      const [dx, dy] = out.weatherState?.windTo || [1, 0], found = [], stood = new Set((result.participants || []).filter((p) => p.at).map((p) => K(...p.at)));
+      out.arenaData.map.forEach((row, y) => [...row].forEach((ch, x) => { if (fuel[ch] != null && !stood.has(K(x, y))) found.push([x, y, x * dx + y * dy]); }));
+      found.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+      if (found.length) {
+        const [x, y] = found[0];
+        result = { ...result, initialWild: [...(result.initialWild || []), { id: "wild-brushfire-0-1", kind: "brushfire", form: "field", name: ctx.W.data.monsters.brushfire.name, reason: "the season's first spark in dry fuel", born: 0, tiles: { [`${x},${y}`]: 0 } }] };
+      }
+    }
+    return result;
+  }
+
   function apply(base, id, seed, ctx = {}) {
     const S = SCENARIOS[id]; if (!S || !base) return base;
     if ((base.participants || []).some((p) => p.boss === "tallyman")) return base;   // the Tallyman walks the roads on his own roll (engine.js:161, Mala 2026-10-19): a seed that rolled him stays a plain battle
     const tier = ctx.tier || tierOf(ctx.wins);
-    const { ids } = pickFoes(S, base, seed, tier, ctx), n = ids.length, maxLF = LF_BY_COUNT[n];
-    const foes = ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: "enemy", at: null, maxLF }));
+    // foes: "roll" keeps the foes the engine rolled (SC07, SC09: the premise is the sky or the visitors, not the crew); the tier trim does not apply.
+    const isFoe = (p) => /^random-foe-/.test(p.id), rolled = S.foes === "roll";
+    const ids = rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : pickFoes(S, base, seed, tier, ctx).ids, n = ids.length, maxLF = LF_BY_COUNT[n];
+    const foes = rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: "enemy", at: null, maxLF }));
     const others = (base.participants || []).filter((p) => !/^random-foe-/.test(p.id));
     let out = { ...base, participants: [others[0], ...foes, ...others.slice(1)] };   // the player first, the foes, then the ally and event arrivals (the engine's order)
     if (Array.isArray(S.arenas) && ctx.G) {
@@ -162,6 +211,7 @@
     if (S.phase) out.startPhase = S.phase;
     if (S.weather) out.randomEventSchedule = (out.randomEventSchedule || []).filter((e) => e.type !== "weather");   // a rolled weather event would re-roll the forced sky at round 1
     if (S.weather && ctx.Climate) out.weatherState = { ...ctx.Climate.rollWeather(out.arenaData, { seed: out.seed ?? seed, archetype: out.arenaData?.archetype }), id: S.weather };
+    if (S.force || S.wild) out = authorEvents(out, S, seed, ctx);
     const spec = { id: S.id, name: S.name, tier, objective: { ...S.objective } };
     const rules = { ...(out.rules || {}), scenario: spec };
     if (S.houses === "always" && ctx.rules?.houses) rules.houses = { ...ctx.rules.houses, chance: { default: 1 } };

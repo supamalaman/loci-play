@@ -12,6 +12,7 @@
   const PACT = { cap: 3, apologyMul: 2, rateEvery: 5, rateStep: 0.10, rateMax: 0.30 };
   const createStore = () => ({ pacts: {}, active: null, blacklist: {}, standing: {}, log: [] });
   const scale = (cost, mul) => ({ pf: Math.ceil((cost.pf || 0) * mul), seeds: Math.ceil((cost.seeds || 0) * mul) });
+  const rateFor = (clean = 0) => Math.min(PACT.rateMax, PACT.rateStep * Math.floor((clean || 0) / PACT.rateEvery));   // pure: standing rate from a clean-call count (engine + UI quote the same number)
 
   // Sign: pact a summon line. First sign is free (a relationship!);
   // re-signing a blacklisted line costs double one call cost (apology).
@@ -41,7 +42,7 @@
     if (!pact) return { error: `no pact with ${line}` };
     if (store.active) return { error: `${store.active.line} already answers — one call at a time` };
     const clean = store.standing[line]?.clean || 0;
-    const rate = Math.min(PACT.rateMax, PACT.rateStep * Math.floor(clean / PACT.rateEvery));
+    const rate = rateFor(clean);
     store.active = { line };
     store.log.push(`${line} answers${rate ? ` (standing rate −${Math.round(rate * 100)}%)` : ""}.`);
     return { ok: true, cost: scale(pact.terms.call, 1 - rate), duration: pact.terms.duration, rate };
@@ -59,6 +60,15 @@
     }
     store.log.push(`${line} goes home (${how}) — free.`);
     return { ok: true };
+  }
+
+  // How a call that is still live when the battle ends closes (Mala 2026-10-31, decision 3): a battle the caller's
+  // side WINS with the pact summon still on the field is a clean close and builds standing, like a dismissal. A loss,
+  // a downed summon or a missing actor builds none ("battleOver"). Abandoned battles clear later ("abandoned").
+  function battleCloseHow(s) {
+    const pa = s && s.pactActive, caller = pa && s.actors[pa.owner], summon = pa && s.actors[pa.summonId];
+    const won = !!(caller && summon && !summon.defeated && s.outcome && s.outcome.winner === caller.side);
+    return won ? "dismissed" : "battleOver";
   }
 
   // Release rite: break cleanly, free the slot, no penalty. Send them
@@ -83,5 +93,5 @@
     return { ok: true, mark };
   }
 
-  return { PACT, createStore, sign, call, endCall, release, breach };
+  return { PACT, createStore, sign, call, endCall, battleCloseHow, release, breach, rateFor, scale };
 });

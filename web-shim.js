@@ -7,7 +7,10 @@
   const macOnly = () => ({ error: "The live agent needs the Loci Mac app." });
   const commands = {
     walks: async () => (await fetch("walks/walks.json", { cache: "no-store" })).json(),
-    version: () => ({ running: self.ConceptCombatVersion || "", updateReady: false }),
+    version: async () => {
+      const v = self.ConceptCombatUpdate ? await self.ConceptCombatUpdate.check() : { running: self.ConceptCombatVersion || "", updateReady: false };
+      return { ...v, restartLabel: "Reload to install" };
+    },
     restart: () => { if (window.confirm("Reload Loci? Any active walk or battle will end.")) location.reload(); return { ok: true }; },   // app.js skips its own confirm when a bridge exists
     openExplainer: () => ({ ok: true }),   // the classic explainer page lives in the Explainer Library, not on this site
     reveal: () => ({ ok: true }),

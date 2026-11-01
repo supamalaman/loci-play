@@ -20,6 +20,7 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).hires = install;
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
+    const spiritGone = (s, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(s, u, H); };   // SP-05: every exit refreshes the roster
     const { C, Parley, accountItems, actorAt, barrierAt, dist, inside, insightRules, log, tileAt } = H;
     const R = () => accountItems?.hires || null;
     const live = (u) => !!u && !u.defeated && !u.escaped && !u.notArrived;
@@ -56,7 +57,7 @@
     function roundStart(s) {
       heralds(s);
       for (const u of Object.values(s.actors)) if (u.hired && u.hired.kind !== "kin" && live(u) && !live(s.actors[u.hired.owner])) {
-        u.defeated = true; u.escaped = true; u.leaveReason = "has no one left to work for and leaves"; u.tempo = 0;
+        u.defeated = true; u.escaped = true; u.leaveReason = "has no one left to work for and leaves"; u.tempo = 0; spiritGone(s, u);
         log(s, { kind: "hire", actor: u.id, left: true, tiles: [[u.x, u.y]], text: `${u.name} has no one left to work for and leaves.` });
       }
       const B = s.hires; if (!B?.pending?.length) return;
@@ -136,7 +137,7 @@
       else if (a.hired.attempts >= rules.attempts) why = "has done all the talking they can and goes home";
       else if ((a.hired.idle || 0) >= rules.idleTurns) why = "finds no one here who will talk and goes home";
       if (!why) return;
-      a.defeated = true; a.escaped = true; a.leaveReason = why; a.tempo = 0;
+      a.defeated = true; a.escaped = true; a.leaveReason = why; a.tempo = 0; spiritGone(s, a);
       log(s, { kind: "hire", actor: a.id, left: true, tiles: [[a.x, a.y]], text: `${a.name} ${why}.` });
       H.checkOutcome(s);
     }

@@ -223,6 +223,22 @@
       return C.opposition.find((e) => e.status === "known" && e.source === source && (e.target === target || e.target === "*") && e.type === type
         && (!delivery || e.conditions.some((c) => c.includes(delivery))) && (!opKind || e.op.kind === opKind)) || null;
     }
+    // Summon pacts: the one leave-path helper. Every defeat site calls it for the fallen: a pact summon going
+    // down ends the call (downed, no standing); the caller going down sends a live call home first (callerDown).
+    // Safe to call for any unit: it no-ops without an active call, and each end pushes exactly one code.
+    function pactLeave(s, u) {
+      const call = s.pactActive;
+      if (!call || !u) return;
+      if (u.summon?.pact && call.line === u.summon.pact.line) {
+        s.pactActive = null;
+        (s.pactCodes ||= []).push({ type: "pactEnded", line: call.line, how: "downed" });
+      } else if (call.owner === u.id) {
+        const ps = s.actors[call.summonId];
+        s.pactActive = null;
+        if (ps && !ps.defeated) { ps.defeated = true; log(s, { kind: "summon", actor: ps.id, text: `${ps.name} goes home: its caller fell.` }); }
+        (s.pactCodes ||= []).push({ type: "pactEnded", line: call.line, how: "callerDown" });
+      }
+    }
     // Final per-target resolution: multiply once, round once, then ward absorbs, then LF.
     function hit(s, src, tgt, inst, potency, why, opts = {}) {
       if (tgt && inst?.answeredBy?.includes(tgt.id)) { log(s, { kind: "negate", actor: src?.id, target: tgt.id, answered: true, text: `${inst.name} meets ${tgt.name}'s answer and is gone.` }); return 0; }   // My Answer Has Changed (window.js castAnswer)
@@ -290,6 +306,7 @@
       const aimed = tgt;
       if (ClassRuntime && src && inst) { const r = ClassRuntime.redirect(s, src, tgt, inst, classH()); if (r === null) return 0; tgt = r; }   // ClassRuntime: intercepts, departures
       if (tgt === aimed) tgt = stepBetweenReaction(s, src, aimed, inst);   // Step Between, the reaction: only if nothing already took the hit
+      const tookFor = tgt !== aimed && tgt.side === aimed.side ? tgt.id : null;   // admiration: an intercept stepped in (deed fires below, only if the hit lands)
       if (potency > 0 && H.prepaidEscape?.(s, src, tgt, inst) === "miss") return 0;   // prepaid escape (machine P4): the designated displacement fires before the hit lands
       if (H.monsterOf(inst)) potency = H.monsterPotency(src, tgt, inst, potency);   // Life Drain: what the gradient allows
       let mult = H.Observation?.damageBonus(s,src,tgt,inst) || 1; const notes = why.slice();
@@ -331,6 +348,7 @@
         mult *= src.passives.summonDamageDealtMul;
         notes.push(`Non-believer deals ×${src.passives.summonDamageDealtMul} damage to a summoned creature.`);
       }
+      if (src?.form?.golden && potency > 0 && inst?.ability === "strike") { mult *= 1.25; notes.push("Whole: the Integrated Self strikes as one — ×1.25 potency."); }   // techniques already carry Whole in their manifest (engine.js: cost -1, potency x1.25); a strike has no manifest
       if(tgt.outlaw&&src&&presidentRules){const office=Object.values(s.actors).map(h=>presidentUnits(s).find(u=>u.id===h.id)).find(h=>h&&h.side===src.side&&presidentRules.officeValid(h)&&presidentRules.inJurisdiction(h,presidentUnits(s).find(u=>u.id===tgt.id),presidentContext(s)));if(office&&presidentRules.recognizers(office,presidentUnits(s),presidentContext(s)).includes(src.id)){mult*=presidentRules.outlawMul(src.id,presidentUnits(s).find(u=>u.id===tgt.id),[src.id]);notes.push("A recognized ally's attack on an outlaw gains ×1.25 under Due Process.");}}
       if (s.mirror && !opts.bleedOut && !s.mirror.channelsUsed.includes(damageType)) s.mirror.channelsUsed.push(damageType);
       // The relationship graph acts here: dampening, compositions, status stripping, attunement bypass (graph/live.js).
@@ -574,15 +592,25 @@
         for (let n = 0, x = tgt.x, y = tgt.y; n < bossRules.data.learnedForms.traits.parachuteMove && (away[0] || away[1]); n++) { x += away[0]; y += away[1]; if (!ctx.free(x, y)) break; tgt.x = x; tgt.y = y; }
         log(s, { kind: "effect", actor: tgt.id, tiles: [[tgt.x, tgt.y]], text: `${tgt.name} glides clear to (${tgt.x},${tgt.y}).` }); }
       if (bossRules?.wantsLarva && dmg > 0 && !tgt.defeated && bossRules.wantsLarva(tgt, dmg, Object.values(s.actors).filter((u) => !u.defeated && u.companion?.key === "brood_larva" && u.companion.owner === tgt.id).length)) H.spawnFormLarva(s, tgt);   // Broodmind
-      const applied = dmg, remaining = tgt.form?.golden ? `${tgt.form.lf}/${bossRules.data.integratedSelf.lf} gold LF` : `${tgt.lf}/${tgt.maxLF}`;
+      const applied = dmg, remaining = tgt.form?.golden ? `${tgt.form.lf}/${tgt.form.maxLF} gold LF` : `${tgt.lf}/${tgt.maxLF}`;
       // warded: what a ward took off this hit (structured, so the map and the duel scene can show it; Muse 2026-10-10).
       log(s, { kind: "damage", actor: src ? src.id : null, target: tgt.id, at:[tgt.x,tgt.y], amount: applied, lfLost: Math.max(0, before - tgt.lf), ability: inst && inst.ability, ...(warded ? { warded, wardBroke } : {}),
         damageType, text: `${opts.label || (inst ? inst.name : "Hit")} → ${tgt.name}: ${applied} LF (${remaining}) · ${C.damageTypes[damageType]?.name || damageType}.`, why: notes, edge: opts.edge });
       ClassRuntime?.Martial?.onDamage(s, src, tgt, Math.max(0, before - tgt.lf), classH());   // Martial Artist: fight counters, charge/feast spill
+      if (src && dmg > 0 && !s.preview) { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onHit(s, src, tgt, dmg, H); }   // admiration: a big shot writes the ledger
+      if (tookFor && dmg > 0 && !s.preview) { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onProtect(s, tookFor, H); }   // admiration: the intercept ate it for a friend
       if (physicallyBlocked) H.Support.grant(s, tgt, "block", "physically blocking an incoming attack");
       if (before > tgt.lf) { concentrationCheck(s, tgt, before - tgt.lf); H.Instinct.painCheck(s, tgt, before - tgt.lf); }   // after the damage line: a hit that gets through tests focus (a fully warded one does not)
+      if (src && tgt.summon?.pact && src.id === tgt.summon.pact.owner && src.id !== tgt.id && tgt.lf < before && !tgt.defeated && s.pactActive?.line === tgt.summon.pact.line) {
+        const pl = tgt.summon.pact.line; s.pactActive = null; tgt.defeated = true; tgt.defeatedBy = src.id;
+        (s.pactCodes ||= []).push({ type: "pactBreach", line: pl, kind: "friendly-fire" });
+        log(s, { kind: "summon", actor: tgt.id, text: `${tgt.name} storms home: struck by its own caller. The pact is BROKEN.` });
+      }
       if (tgt.lf <= 0 && !tgt.defeated && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt)) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
         tgt.defeated = true; delete tgt.status.playingDead; tgt.defeatedBy = src && src.id !== tgt.id ? src.id : null; for (const e of (H.Sealing?.onSealerDown?.(s, tgt) || [])) log(s, { kind: "seal", actor: e.foe, text: e.text });   // the killer, for the corpse (ritual burial; revenge later)   // W2.3: a dead sealer's binds drop
+        H.pactLeave(s, tgt);   // a pact summon falls: downed, no standing; kill the caller: the call ends
+        { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onDeath?.(s, tgt, src && src.id !== tgt.id ? src.id : null, H); }   // group spirit: a fallen leader shocks now (SPIRIT-ORDER SPEC)
+        { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onDeath(s, tgt, H); }   // admiration: first falls, adjacent losses, ordered falls
         if (tgt.possessedByCourt) H.courtVesselFell?.(s, tgt);   // the body dies as itself; the court steps out
         ClassRuntime?.Martial?.onDefeat(s, tgt, classH());   // Martial Artist: an ally's fall in her sight is rage
         if (tgt.boss === "worldGoddess") H.courtGoddessFell?.(s);
@@ -612,7 +640,9 @@
       }
       if (src && tgt && src.id !== tgt.id && s.actors[src.id]) H.mysteryAttacked?.(s, tgt, src);   // MCR-02: springs only after the damage/survival/defeat decision is final (defeated victims don't spring)
       for (const u of sharedVictims) if (u.lf <= 0 && !u.defeated) {
-        u.defeated = true; delete u.status.playingDead; if (Parley && Parley.isImmortal(u)) u.knockedOut = true; log(s, { kind: "defeat", target: u.id, text: `${u.name} is ${u.knockedOut ? "knocked out" : "defeated"} through Shared Burden.` });
+        u.defeated = true; H.pactLeave(s, u); delete u.status.playingDead; if (Parley && Parley.isImmortal(u)) u.knockedOut = true; log(s, { kind: "defeat", target: u.id, text: `${u.name} is ${u.knockedOut ? "knocked out" : "defeated"} through Shared Burden.` });
+        { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onDeath?.(s, u, null, H); }   // group spirit: killerless death still shocks a leaderless side
+        { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onDeath(s, u, H); }
         lootDrop(s, null, u);   // killerless death: ground delivery only
         s.barriers = s.barriers.filter(b => b.owner !== u.id);
         for (const t of Object.values(s.actors)) for (const statusKey of Object.keys(t.status)) if (t.status[statusKey]?.owner === u.id) t.status[statusKey] = null;
@@ -911,7 +941,7 @@
       for (const ev of r.events) log(s, { kind: ev.kind, actor: a?.id || null, tiles: ev.at ? [ev.at] : [], text: ev.text });
       return on.length;
     }
-    return { shooterCover, creeperAt, clearCreeper, roundFn, findOpp, hit, soulFrac, soulMaxFor, woundSoul, concentrationProfile, concentrationCheck, applyFall, applyEntryEffects, lineStop, negateAtBarrier, targetInteractions, strikeTarget, schedule,
+    return { shooterCover, creeperAt, clearCreeper, roundFn, findOpp, hit, soulFrac, soulMaxFor, woundSoul, concentrationProfile, concentrationCheck, applyFall, applyEntryEffects, lineStop, negateAtBarrier, targetInteractions, strikeTarget, schedule, pactLeave,
       resolveScheduled, resolveDelayed, opponentsOn, unitsOn, terrainDamagingArea, areaRecipients, settleDeferredCharge, borrowedCharges };
   })();
 });

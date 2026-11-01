@@ -9,6 +9,7 @@
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
     const { C, Climate, Communion, EM, FEAR, RITUAL, Traps, dist, insightRules, liveSummon, log, summonRules, wildRules } = H;
+    const spiritGone = (s, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(s, u, H); };   // SP-05: every exit refreshes the roster
     // defined by parts installed after this one: reached through H when called
     const checkOutcome = (...args) => H.checkOutcome(...args);
     const moduleArena = (...args) => H.moduleArena(...args);
@@ -133,7 +134,7 @@
       if (visitor) { if (H.Visitors) H.Visitors.abduct(s, m, { log }); return checkOutcome(s); }   // Intergalactic visitors P1: up into the ship, not into a bead
       if (gaiaHeld || m.kind === "gaia") return bindGaia(s, a, m);   // Gaia: bound as a summon, not a bead
       if (mind) {   // a monster of the mind: it leaves the field as a bead, and will come back tamed
-        mind.defeated = true; mind.escaped = true; mind.captured = true; mind.leaveReason = "taken into a bead"; mind.tempo = 0;
+        mind.defeated = true; mind.escaped = true; mind.captured = true; mind.leaveReason = "taken into a bead"; mind.tempo = 0; spiritGone(s, mind);
         (a.beads ||= []).push({ kind: "dream", name: mind.name, maxLF: mind.maxLF, mind: { key: mind.dream.key, character: mind.character, sprite: mind.sprite, primary: mind.primary, secondary: mind.secondary, monster: mind.monster || null, dream: { ...mind.dream } } });
         (s.captureLog ||= []).push({ actor: a.id, kind: `dream:${mind.dream.key}`, ok: true });
         log(s, { kind: "ritual", actor: a.id, tiles: [[mind.x, mind.y]], captured: `dream:${mind.dream.key}`, text: `${a.name} completes the ritual: the ${mind.name.toLowerCase()} is taken into a bead.`, why: ["Released, it comes back tamed: on your side, for the rest of the battle, dream or no dream."] });
@@ -148,7 +149,7 @@
     // Gaia taken by the ritual (Mala, 2026-10-26): she leaves the field and, for the player's side, answers as a summon in
     // battles to come (summons-data.js gaia; the UI adds s.summonUnlocks to the account). The World Goddess is her MAX form.
     function bindGaia(s, a, m) {
-      if (m.boss) { m.defeated = true; m.escaped = true; m.captured = true; m.leaveReason = "bound by the ritual"; m.tempo = 0; }
+      if (m.boss) { m.defeated = true; m.escaped = true; m.captured = true; m.leaveReason = "bound by the ritual"; m.tempo = 0; spiritGone(s, m); }
       else s.wild = (s.wild || []).filter(w => w.id !== m.id);
       const ours = a.side === "player";
       if (ours && !(s.summonUnlocks ||= []).includes("gaia")) s.summonUnlocks.push("gaia");
@@ -606,7 +607,7 @@
       if (a.companion.turnsLeft == null) return;   // turns: null in the def: no clock (the Tech Billionaire's AGI)
       a.companion.turnsLeft -= 1; if (a.companion.turnsLeft > 0) return;
       const cdef = s.rules.companions?.[a.companion.key];
-      a.defeated = true; a.escaped = true; a.leaveReason = cdef?.leave || "went back to the corner"; a.tempo = 0;
+      a.defeated = true; a.escaped = true; a.leaveReason = cdef?.leave || "went back to the corner"; a.tempo = 0; spiritGone(s, a);
       log(s, { kind: "companion", actor: a.id, left: true, tiles: [[a.x, a.y]], text: `${a.name} ${cdef?.leave || "goes back to the corner"}.` }); checkOutcome(s);
     }
     // A released beast stays three of its own turns, then goes back to the wild.
@@ -614,7 +615,7 @@
       if (!a.beast || a.defeated) return;
       if (a.beast.tamed) { harrowingTick(s, a); return; }   // a tamed beast stays for the battle (engine/tamer.js) — unless it stares through the bond
       a.beast.turnsLeft -= 1; if (a.beast.turnsLeft > 0) return;
-      a.defeated = true; a.escaped = true; a.leaveReason = "returned to the wild"; a.tempo = 0;
+      a.defeated = true; a.escaped = true; a.leaveReason = "returned to the wild"; a.tempo = 0; spiritGone(s, a);
       log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} slips its bond and goes back to the wild.` }); checkOutcome(s);
     }
     // Harrowing (Mala, 2026-10-16): a tamed Sasquatch is never truly held. Each of its turns it meets
@@ -629,7 +630,7 @@
         log(s, { kind: "tame", actor: a.id, target: a.beast.owner, tiles: [[a.x, a.y]], text: `${a.name} stares back at ${owner?.name || "its owner"}, looking through his soul. The bond holds — for now.`, why: [`Harrowing: ${Math.round(chance * 100)}% each of its turns to end the tame.`] });
         return;
       }
-      a.defeated = true; a.escaped = true; a.leaveReason = "shattered the bond"; a.tempo = 0;
+      a.defeated = true; a.escaped = true; a.leaveReason = "shattered the bond"; a.tempo = 0; spiritGone(s, a);
       (s.wild ||= []).push({ id: `wild-${a.beast.kind}-${s.round}-freed`, kind: a.beast.kind, form: "unit", name: def.name || a.name, reason: "shattered the bond", born: s.round, x: a.x, y: a.y, lf: a.lf, maxLF: a.maxLF, status: {}, sprite: def.sprite || a.sprite, traits: (a.traits || []).slice(), learned: (a.learned || []).slice(), home: [a.x, a.y] });
       log(s, { kind: "tame", actor: a.id, tiles: [[a.x, a.y]], text: `${def.name || a.name} shatters the bond and walks back into the wild, hostile to all sides.`, why: ["Harrowing: the tame ends. What it learned, it keeps."] });
       checkOutcome(s);
@@ -947,7 +948,7 @@
     // Action points of this Strike that are paid for: a grappler's first Strike each turn on a held opponent.
     const freeStrike = (s, a, t, effort) => isGrappler(s, a) && t && !t.wild && (grappled(s, t) || !!t.status?.held) && a.freeStrikeTurn !== a.ownerTurns ? Math.min(effort, s.rules.grapple.grappler.freeStrikeAp) : 0;
     function fleeBattle(s, a) {
-      a.defeated = true; a.escaped = true; a.leaveReason = "fled in fear"; a.tempo = 0;
+      a.defeated = true; a.escaped = true; a.leaveReason = "fled in fear"; a.tempo = 0; spiritGone(s, a);
       log(s, { kind: "flee", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} flees the battle in fear.`, why: ["It reached the edge of the map. It is out of the fight, alive."] });
       if (a.hired) log(s, { kind: "hire", actor: a.id, left: true, tiles: [[a.x, a.y]],   // a contract that ends by terror still ends (Muse-2: technique oaths exposed the gap)
         text: a.hired.kind === "merc" ? `${a.name} breaks the contract and runs.` : `${a.name} abandons the letter and runs.` });
@@ -1029,7 +1030,7 @@
         const cards = s.insight?.decks?.[g.id]?.cards || [];
         const full = cards.length > 0 && Object.values(s.insight.knowledge || {}).some(k => k?.[g.id] && cards.every(c => k[g.id].revealed.includes(c.id)));
         if (!EM.released(g, { fullyObserved: full })) continue;
-        g.defeated = true; g.released = true; g.lf = 0; g.leaveReason = "released";
+        g.defeated = true; g.released = true; g.lf = 0; g.leaveReason = "released"; spiritGone(s, g);
         log(s, { kind: "monsterRule", actor: g.id, tiles: [[g.x, g.y]], text: `${g.name}'s unfinished business is understood. It departs.` });
         log(s, { kind: "defeat", target: g.id, text: `${g.name} is gone.` }); checkOutcome(s);
       }

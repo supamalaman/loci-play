@@ -553,7 +553,7 @@ const Loci = (() => {
     document.querySelectorAll("[data-version]").forEach((el) => { el.textContent = `v${v.running}`; });
     const t = $("updateTicker"); if (!t) return;
     t.hidden = !v.updateReady;
-    if (v.updateReady) { t.textContent = `Update available: Loci ${v.staged} is ready (you are on ${v.running}) · Restart to install`; t.onclick = () => call("restart"); }
+    if (v.updateReady) { t.textContent = `Update available: Loci ${v.staged} is ready (you are on ${v.running}) · ${v.restartLabel || "Restart to install"}`; t.onclick = () => call("restart"); }
   }
   refreshVersion(); setInterval(refreshVersion, 60000);
   document.querySelectorAll("[data-restart]").forEach((button) => {

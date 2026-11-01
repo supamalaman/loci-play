@@ -15,6 +15,7 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).tamer = install;
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
+    const spiritGone = (s, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(s, u, H); };   // SP-05: every exit refreshes the roster
     const R = (s) => s.rules?.tamer || null;
     const isTamer = (s, a) => !!R(s) && !!a && H.hasTrait(a, R(s).trait) && !a.summon && !a.beast && !a.communed;
     const tamedBy = (s, a) => Object.values(s.actors).filter((u) => u.beast?.owner === a.id && u.beast.tamed && !u.defeated);
@@ -110,7 +111,7 @@
       const attuned = !effigy && a.primary === "resonance" && holds(a, "transmigration") && v.beast?.tamed;   // comp-resonance-transmigration: a tamed vessel takes him in tune
       a.status.ward = { label: attuned ? "Animal vigor, in tune" : "Animal vigor", owner: a.id, protection: r.vigor.ward * (attuned ? 2 : 1) };
       a.bankedTempo = Math.min(s.rules.maxBankedActionPoints ?? 100, (a.bankedTempo || 0) + r.vigor.ap);
-      if (!effigy) { v.defeated = true; v.escaped = true; v.leaveReason = "taken as a vessel"; v.tempo = 0;
+      if (!effigy) { v.defeated = true; v.escaped = true; v.leaveReason = "taken as a vessel"; v.tempo = 0; spiritGone(s, v);
         const at = s.order.indexOf(v.id); s.order = s.order.filter((id) => id !== v.id);
         if (at >= 0 && at < s.turnIndex) s.turnIndex -= 1;   // the vessel's slot is gone: keep the pointer on the same actor (seed 50005 crashed past the end)
         s.turnIndex = Math.min(s.turnIndex, s.order.length - 1); }

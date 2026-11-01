@@ -1,7 +1,7 @@
 "use strict";
 // Random-battle scenarios, the data (spec ~/loci-orbit/ready-to-review/claude-random-scenarios-spec/specs/SCENARIOS.md, 3.1 and 4).
 // A scenario is a premise plus an objective, laid over the options `E.randomEncounterOptions` returns (modes/scenarios.js).
-// Slice 1 holds the two premise-only classic scenarios: SC03 The Open House and SC01 Night Shift at the Quarry. Both end
+// Slice 1 holds the two premise-only classic scenarios: SC03 The Open House and SC01 Night Shift at the Quarry; slice 2 adds the two authored-event ones, SC07 Brushfire Season and SC09 Something Comes Down. Both end
 // the way every classic battle ends (the default branch of checkOutcome, rules.standoff, rules.maxRounds); neither adds a
 // clock, because neither adds an objective. The clocked kinds (survive, hold, break, salvage, ward, bounty, exit) are later slices.
 //
@@ -9,7 +9,8 @@
 //   id, name, minTier (1-3), weight (> 0)               required. minTier gates it by account wins (scenarios.js tierOf)
 //   arenas: "any" | [designedArenaId, ...]              the map is rolled by the engine unless a list is given
 //   phase: "day" | "night", weather: weatherId          forced; else the random roll stands
-//   foes: { crews: [crewId...], exclude: [classId...], count: [min, max] }
+//   foes: "roll" | { crews: [crewId...], exclude: [classId...], count: [min, max] }   "roll" keeps the foes the engine rolled, cut to `count[1]` (top-level count)
+//   force: { <checkpointId>: { type, ...fields } }      authored event at that checkpoint (random-events.js create force); wild: [{ kind: "brushfire" }]  a field form at the start
 //                                                      one crew is drawn, then `count` of its classes (tier trims the count)
 //   houses: "always"                                    rules.houses.chance becomes { default: 1 } for this battle
 //   objective: { kind }                                 required; slice 1 has only "classic" (no deadline field)
@@ -51,6 +52,30 @@
         mid: { when: { round: 5 }, text: "A work light swings over the ledge, and the shadows it throws swing with it." },
         result: { player: "The crew leaves the stone for the night, and the fog takes the work lights.", enemy: "The foreman logs you as a trespass and turns the lights back on.",
           none: "Neither side gives way until the fog lifts. The stone is still warm and still nobody's." } } },
+
+    brushfireSeason: { id: "brushfireSeason", name: "Brushfire Season", minTier: 2, weight: 1,   // SC07
+      arenas: ["desertDunes", "quarryLedge"],
+      weather: "heat",                                                 // the starting sky; the climate may move it before round 5 (same as SC01's fog)
+      foes: "roll", count: [1, 3],                                      // the rolled foes, trimmed to the spec's 1-3; tier 3's "at least 3" does not apply to rolled foes
+      force: { midpoint: { type: "weather", weatherId: "windy" } },   // heat at the start, wind at round 5
+      wild: [{ kind: "brushfire" }],                                   // one front on the windward edge of the fuel
+      objective: { kind: "classic" },
+      text: {
+        open: "The grass is the color of paper and somebody has a match. It may be a foe, or it may be the weather.",
+        mid: { when: { round: 5 }, text: "The wind turns. The fire does not need convincing." },
+        result: { player: "The fire runs out of what it came for.", enemy: "You are the last thing standing in a black field.",
+          none: "The wind drops before anyone does, and the fire has nothing left to say." } } },
+
+    somethingComesDown: { id: "somethingComesDown", name: "Something Comes Down", minTier: 2, weight: 1,   // SC09
+      arenas: "any",
+      foes: "roll", count: [1, 2],
+      force: { opening: { type: "visitors" } },   // the ship arrives at round 1; the visitors are their own side and never hold the battle open
+      objective: { kind: "classic" },
+      text: {
+        open: "The ship does not say hello. It parks.",
+        mid: { when: { round: 5 }, text: "Something small and gray takes an interest in one of you." },
+        result: { player: "The ship leaves with nothing, which is how you know it took something.", enemy: "The ship keeps what it came for.",
+          none: "The ship hangs there until the light changes, and then it is not there." } } },
   };
 
   return { SCENARIOS, LAW };

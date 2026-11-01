@@ -8,6 +8,7 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).astral = install;
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
+    const spiritGone = (s, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(s, u, H); };   // SP-05: every exit refreshes the roster
     const { C, log, key, inside, tileAt, actorAt, barrierAt, hasTrait, seededChance, soulMaxFor, insightRules } = H;
     const RESIDENTS = ["moonflower", "archivist_elf", "bard_elf", "astral_security", "celestial_astral"];
 
@@ -169,7 +170,7 @@
       if (!soul.soulOf) return "That fighter is not a projected soul.";
       const body = s.actors[soul.soulOf];
       if (reason === "portal" && (soul.x !== A?.portal?.[0] || soul.y !== A?.portal?.[1])) return "The way back is through the portal.";
-      soul.returned = true; soul.defeated = true; soul.tempo = 0;
+      soul.returned = true; soul.defeated = true; soul.tempo = 0; spiritGone(s, soul);
       if (body && !body.defeated) {
         body.husk = false; body.soulless = false; body.soulId = null;
         const line = reason === "portal" ? `${soul.name} steps through the portal and wakes in the body.`
@@ -192,7 +193,7 @@
       let faded = 0;
       for (const m of Object.values(s.actors)) {
         if (!m.mirrorOf || m.defeated) continue;
-        m.defeated = true; m.banished = true; m.tempo = 0; faded += 1;
+        m.defeated = true; m.banished = true; m.tempo = 0; faded += 1; spiritGone(s, m);
       }
       if (faded) log(s, { kind: "astral", text: `No soul remains on the plane: ${faded === 1 ? "the mirror fades" : `all ${faded} mirrors fade`} back into the dark.` });
     }

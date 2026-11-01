@@ -3,7 +3,8 @@
 // 7 and 13. Mala, 2026-10-30: "all of the windows need NPC faces and dialogue" (decision doc D1 to D12 approved at the recommendations).
 //
 // Slice S0 (this file's first landing): the whole registry and the WINDOWS table exist as data, but only Rama at the Town Hall is
-// wired (`wired: true`). A later slice sets `wired`, gives the keeper a `lines` key into keeper-lines.js and mounts the window.
+// wired (`wired: true`). Slice S1 wires Sita (Home), Jatayu (the Archive family), Jambavan (Hiring Hall) and the Tallyman (Ledger House frame);
+// `owes: true` marks a keeper whose entry reads the account's Seeds debt (the `owing` greeting). A later slice sets `wired`, gives the keeper a `lines` key into keeper-lines.js and mounts the window.
 // Art rules (spec section 13): a keeper whose faces are not on disk says so here (`status: "staged"` or `"missing"`) and no PNG path
 // is built for it; sprite-manifest.js is generated and never hand-edited.
 //
@@ -29,22 +30,22 @@
     arantxa: { name: "Arantxa", role: "Narrator", windows: ["homeHero", "practiceYard", "quietHouse", "classicMenu", "battleOver", "narratorWindow"], art: { status: "missing", folder: "arantxa", pattern: null, map: {}, fallback: "idle" }, voice: "dry, warm, watchful", lines: null, hook: "H01", perk: null, wired: false, slice: "S4" },
     rama: { name: "Rama", role: "Town Hall", windows: ["townHall"], art: std("rama"), voice: "calm, formal, fair", lines: "rama", hook: "H02", perk: null, wired: true, slice: "S0",
       rematch: ["firstWall", "gapCourt", "rosterScrimmage", "warfare", "bossRush"] },   // the public Town Hall encounters a loss is remembered for (the secret ones never are)
-    sita: { name: "Sita", role: "Home", windows: ["home"], art: std("sita"), voice: "gentle, practical", lines: null, hook: "H03", perk: null, wired: false, slice: "S1" },
-    jatayu: { name: "Jatayu", role: "The Archive", windows: ["archive", "bestiary", "traitWeb", "studioRoster", "studioSheet", "crewWall", "artLibrary"], art: std("jatayu"), voice: "old, exact, patient", lines: null, hook: "H04", perk: null, wired: false, slice: "S1" },
-    tallyman: { name: "The Tallyman", role: "Ledger House", windows: ["ledgerHouse"], art: std("neo-warden-tallyman", "portrait-{x}.png"), voice: "courteous, exact, a little grim", lines: null, hook: "H05", perk: null, wired: false, slice: "S1", counters: { shop: "pioneer", gear: "smith", kiln: "talisman", stall: "kaikeyi" } },
+    sita: { name: "Sita", role: "Home", windows: ["home"], art: std("sita"), voice: "gentle, practical", lines: "sita", hook: "H03", perk: null, wired: true, slice: "S1" },
+    jatayu: { name: "Jatayu", role: "The Archive", windows: ["archive", "bestiary", "traitWeb", "studioRoster", "studioSheet", "crewWall", "artLibrary"], art: std("jatayu"), voice: "old, exact, patient", lines: "jatayu", hook: "H04", perk: null, wired: true, slice: "S1" },
+    tallyman: { name: "The Tallyman", role: "Ledger House", windows: ["ledgerHouse"], art: std("neo-warden-tallyman", "portrait-{x}.png"), voice: "courteous, exact, a little grim", lines: "tallyman", hook: "H05", perk: null, wired: true, owes: true, slice: "S1", counters: { shop: "pioneer", gear: "smith", kiln: "talisman", stall: "kaikeyi" } },
     pioneer: { name: "Pioneer", role: "Field shop", windows: ["ledgerHouse"], art: std("pioneer"), voice: "cheerful, practical", lines: null, hook: "H06", perk: "P1", wired: false, slice: "S3" },
     smith: { name: "The Smith", role: "Gear and repair", windows: ["ledgerHouse"], art: { status: "staged", folder: null, stagedFolder: "blacksmith-review", pattern: null, map: {}, fallback: null }, voice: "terse, proud of the work", lines: null, hook: "H07", perk: "P2", wired: false, slice: "S5" },   // placeholder name (D6); staged art, landed by the Cutter
     talisman: { name: "The Talisman", role: "Kiln", windows: ["ledgerHouse"], art: std("talisman", "portrait-{x}.png"), voice: "patient, exact", lines: null, hook: "H08", perk: null, wired: false, slice: "S3" },
     kaikeyi: { name: "Kaikeyi", role: "The Stall", windows: ["ledgerHouse"], art: std("kaikeyi", "portrait-{x}.png"), voice: "shrewd, cordial", lines: null, hook: "H09", perk: null, wired: false, slice: "S3" },
-    ravana: { name: "Ravana", role: "Threat leaderboard", windows: ["threatBoard"], art: std("ravana"), voice: "boastful, never cruel", lines: null, hook: "H11", perk: null, wired: false, slice: "S2" },
-    hermes: { name: "Hermes", role: "Contract Board", windows: ["contractBoard"], art: std("hermes", "portrait-{x}.png"), voice: "quick, wry", lines: null, hook: "H10", perk: null, wired: false, slice: "S2" },
-    jambavan: { name: "Jambavan", role: "Hiring Hall", windows: ["hiringHall"], art: std("jambavan"), voice: "gruff, fatherly", lines: null, hook: "H12", perk: "P3", wired: false, slice: "S1" },
+    ravana: { name: "Ravana", role: "Threat leaderboard", windows: ["threatBoard"], art: std("ravana"), voice: "boastful, never cruel", lines: "ravana", hook: "H11", perk: null, wired: true, slice: "S2" },
+    hermes: { name: "Hermes", role: "Contract Board", windows: ["contractBoard"], art: std("hermes", "portrait-{x}.png"), voice: "quick, wry", lines: "hermes", hook: "H10", perk: null, wired: true, slice: "S2" },
+    jambavan: { name: "Jambavan", role: "Hiring Hall", windows: ["hiringHall"], art: std("jambavan"), voice: "gruff, fatherly", lines: "jambavan", hook: "H12", perk: "P3", wired: true, slice: "S1" },
     magistrate: { name: "The Magistrate", role: "The Codex", windows: ["codex"], art: { status: "live", folder: "magistrate", pattern: "heads/{x}.png", map: { neutral: "neutral", happy: "smile", angry: "angry", sad: "hurt", surprised: "focused", tired: "tired" }, fallback: "idle" }, voice: "formal, dry", lines: null, hook: "H13", perk: null, wired: false, slice: "S4" },   // six non-standard heads, mapped (D7); a true surprised head is art request A3
     freemason: { name: "The Freemason", role: "Scribing desk", windows: ["scribingDesk"], art: { status: "live", folder: "freemason", pattern: "face-{x}.png", map: { neutral: "neutral", happy: "amused", angry: "angry", sad: "tired", surprised: "thinking", speaking: "speaking" }, fallback: "idle" }, voice: "measured, craftsmanlike", lines: null, hook: "H14", perk: null, wired: false, slice: "S4" },   // seven non-standard faces, mapped (D7); a true surprised face is art request A4
     madScientist: { name: "The Mad Scientist", role: "The Lab", windows: ["lab", "townWalk"], art: { status: "staged", folder: null, stagedFolder: "mad-scientist-review", pattern: null, map: {}, fallback: null }, voice: "delighted, cross, exact", lines: null, hook: "H15", perk: "P4", wired: false, slice: "S5" },
     starfarer: { name: "The Starfarer", role: "Workshop", windows: ["workshop"], art: std("starfarer"), voice: "far-seeing, unhurried", lines: null, hook: "H16", perk: null, wired: false, slice: "S4" },
-    lakshmana: { name: "Lakshmana", role: "School", windows: ["school"], art: std("lakshmana"), voice: "earnest, strict, fair", lines: null, hook: "H17", perk: null, wired: false, slice: "S2" },
-    gambler: { name: "The Gambler", role: "Town square", windows: ["square", "proposeStakes", "sweatIt"], art: std("gambler", "portrait-{x}.png"), voice: "easy, risky, friendly", lines: null, hook: "H18", perk: null, wired: false, slice: "S2" },
+    lakshmana: { name: "Lakshmana", role: "School", windows: ["school"], art: std("lakshmana"), voice: "earnest, strict, fair", lines: "lakshmana", hook: "H17", perk: null, wired: true, slice: "S2" },
+    gambler: { name: "The Gambler", role: "Town square", windows: ["square", "proposeStakes", "sweatIt"], art: std("gambler", "portrait-{x}.png"), voice: "easy, risky, friendly", lines: "gambler", hook: "H18", perk: null, wired: true, slice: "S2" },
   };
 
   const w = (keeper, at, fns, slice, exempt = false) => ({ keeper, exempt, fns, at, slice });

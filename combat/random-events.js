@@ -86,14 +86,21 @@
     const pool = [...startingAllies, ...fav.flatMap((id) => Array(Math.max(1, startingAllies.length)).fill(id))];
     return pool[roll(pool.length)];
   }
-  function create(seed, { allies = ["arantxa"], opponents = [], roster = [], archivistStart = false, mode = null, favored = [], foeFavored = [], fits = null } = {}) {
+  // Authored schedules (random scenarios, SCENARIOS.md 3.4): `checkpoints` replaces the checkpoint list for this call, and `force` maps a
+  // checkpoint id to an event spec, { type, ...fields }. A forced checkpoint skips the weighted pick, is filled the way a rolled one of that
+  // type is (same hash tags), then the spec's own fields win (a fixed duration, monster count or weatherId). With neither option the
+  // function is the one it always was (tests/random-events.test.mjs and the seeded GUARDs pin that).
+  const AUTHORED_KEEP = ["id", "round", "label", "resolved", "type"];
+  function create(seed, { allies = ["arantxa"], opponents = [], roster = [], archivistStart = false, mode = null, favored = [], foeFavored = [], fits = null, force = null, checkpoints: authored = null } = {}) {
     let archivistHere = !!archivistStart;   // she can only ever arrive once
     const arrived = [];   // every earlier wave stands on the enemy side too, so fits() sees them (seed 6: Kumbhakarna, then Rama a wave later)
     const profile = profileFor(mode);
-    const events = (profile?.checkpoints || checkpoints).map((point) => {
+    const events = (authored || profile?.checkpoints || checkpoints).map((point) => {
       const raised = archivistHere;
-      const type = pick(hash(seed, `event:${point.id}`), weightsFor(raised, profile)).id;
+      const forced = force && force[point.id] && Object.prototype.hasOwnProperty.call(labels, force[point.id].type) ? force[point.id] : null;   // an unknown type is ignored, never half-built
+      const type = forced ? forced.type : pick(hash(seed, `event:${point.id}`), weightsFor(raised, profile)).id;
       const event = { ...point, type, resolved: false };
+      if (forced) event.forced = true;
       if (profile) event.profile = mode;
       if (type === "reinforcements" && raised) event.archivistRaisedOdds = true;
       if (type === "ally") {
@@ -131,11 +138,12 @@
         event.duration = 1 + Math.floor(hash(seed, `dream-duration:${point.id}`) * 3);
         event.monsters = 1 + Math.floor(hash(seed, `dream-count:${point.id}`) * 2);   // the rift's per-wave count (was never set: countPerWave undefined, every wave spawned nothing)
       }
+      if (forced) for (const [k, v] of Object.entries(forced)) if (!AUTHORED_KEEP.includes(k)) event[k] = v;
       return event;
     });
     if (!profile) {   // the tofu pack converts reinforcement openings (default encounters only)
       const opening = events.find((e) => e.id === "opening");
-      if (opening?.type === "reinforcements" && !opening.archivistRaisedOdds && hash(seed, "tofu-pack:fire") < TOFU_PACK_Q) {
+      if (opening?.type === "reinforcements" && !opening.forced && !opening.archivistRaisedOdds && hash(seed, "tofu-pack:fire") < TOFU_PACK_Q) {
         opening.characters = tofuPackMembers(seed);
         opening.tofuPack = true;   // marks the converted opening (the Archivist's group-size test and any future reader skip packs)
         arrived.push(...opening.characters);

@@ -143,6 +143,7 @@
       if (unlocks.length) add("You can", unlocks);
     }
     if (t.revealedIntent) add("Likely next", [t.revealedIntent]);
+    if (t.order && s && s.round <= t.order.until) add("Under orders", [`${t.order.role[0].toUpperCase() + t.order.role.slice(1)}${t.order.focus && s.actors?.[t.order.focus] ? ` ▸ ${s.actors[t.order.focus].name}` : ""} (from ${s.actors?.[t.order.by]?.name || "the field"}, ${t.order.until - s.round + 1} rounds left)`]);
 
     const side = me ? sideLabel(t, me.side, stance) : t.side;
     if (side === "neutral") add("Hostile toward", [(hostileSides || []).map(sideName).join(", ") || "no one"]);

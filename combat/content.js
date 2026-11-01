@@ -317,6 +317,8 @@
       cover: { guard: 0.5, immovable: 0.3, barrier: 1, berm: 1, contourBerm: 1, bermRing: 1, swale: 0.5, rainGarden: 0.75, architectDesign: 1, anchor: 0.5, membrane: 0.5, aura: 0.4 } },
     // Forced movement (Mala, 2026-10-30): a holder or a held unit moved by anything but its own Move, Jump or Climb (knockback, pull,
     // throw, dash, swap, teleport, dodge, terrain) loses the hold at once, beside each other or not. Seams: engine/conditions.js settleHolds, breakHoldsApart.
+    spirit: { stage: 3, outAt: 1.5, winAt: 1.5, lfLine: 0.6, focusBonus: 2, protectBonus: 2, spiritCap: 4, dangerNear: 6, dangerFoe: 0.25, spacingAlly: 2, spacingFoe: 1, tempoHold: 2 },   // group spirit (SPIRIT-ORDER SPEC): stage 0 = off, 1 = Focus+Protect, 2 = +Spacing+Tempo, 3 = +roles (Halves measured per stage on the sim pipeline)
+    orders: { ap: 10, rounds: 3, threshold: 2, weight: 3, max: 6, complyBar: 3, nearMiss: 1.5, roleBonus: 4, trustMax: 5 },   // talk orders (SPIRIT-ORDER SPEC half 2): bond mirrors the advice constants (threshold/weight/max); complyBar/nearMiss weigh bond × fit × sense
     grapple: { ap: 35, range: 1, base: 0.6, guardPenalty: 0.25, stunnedBonus: 0.2, apCut: 30, rounds: 1,
       // break (Mala, 2026-10-11): on its own turn a held unit can break the hold. It always works and costs more than
       // the `apCut` the hold already took, so staying held is the cheaper choice and breaking is the freer one.
@@ -1576,6 +1578,15 @@
   // States (Mala, 2026-10-24; docs/state-kit.md, engine/states.js): conditions a unit can be in, one row each, data only.
   // tools/check-states.mjs refuses a row that cannot end.
   const states = {
+    // Nonlethal victory (ready-to-review/claude-ajin-specs NONLETHAL.md N1 and N2; Mala approved 2026-10-31): a bounded loss of agency. Applying it
+    // costs no LF, so no lethal or recovery trigger fires from the incapacitation itself; the holder can still be struck, and a later lethal blow
+    // resolves as for anyone. It cannot be extended (refusesGrant itself), and a unit that wakes is steadied for a turn, so it cannot be chained
+    // into a lock (Mala's rule 3: no indefinite immunity, and so no indefinite incapacity). The clock cap (max) is the builder constant: 2 own turns.
+    incapacitated: { name: "Incapacitated", text: "Cannot act for up to 2 of their turns. No LF is lost, and a later blow still lands.",
+      why: "A fighter who cannot act is not a fighter who is dead: survival, agency and victory are separate dimensions.",
+      gate: { blocks: ["all"], reason: "they are incapacitated" }, clock: { counts: "ownerTurns", n: 2, max: 2, then: [{ grant: "steadied", to: "self", turns: 0 }] }, refusesGrant: ["incapacitated"] },
+    steadied: { name: "Steadied", text: "Just recovered: cannot be incapacitated again for a turn.", why: "Waking is not the start of the next stun: incapacitation does not chain.",
+      hidden: true, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["incapacitated"] },
     // Hanuman (Mala, 2026-10-24; docs/hanuman-build.md). Three forms, one at a time (group "hanumanForm"), switched free once a
     // turn; base and giant cannot Vanish, the monkey can (the scout and infiltrator). Numbers are provisional until simmed.
     hanumanBase: { name: "Base form", text: "Hanuman as he serves Rama: a warrior with a mace.", why: "Valmiki: the devoted messenger who fights beside Rama.",

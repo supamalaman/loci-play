@@ -8,6 +8,7 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).trueForms = install;
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
+    const spiritGone = (s, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(s, u, H); };   // SP-05: every exit refreshes the roster
     const { Communion, Director, Vows, actorAt, addStun, barrierAt, beginRound, bossRules, currentId, dist, dreamSpaceRules, hasTrait, inside, insightRules, log,
       mirrorRules, modeRules, presidentRules, presidentUnits, recordBattleMirrorOutcome, startTurn, summonRules, summonSnapshot, tileAt, Tsukumogami, footprint, vegetation } = H;
     // defined by parts installed after this one: reached through H when called
@@ -148,7 +149,7 @@
       const closed = dreamSpaceRules.close(field, `${inst.name} spent the dream`);
       s.dreamSpace = null;
       for (const ev of closed.events) log(s, { ...ev, kind: "dreamSpace" });
-      for (const id of closed.fades) if (s.actors[id]) s.actors[id].defeated = true;
+      for (const id of closed.fades) if (s.actors[id]) { s.actors[id].defeated = true; spiritGone(s, s.actors[id]); }
       closeDreamSummons(s, field); closeDreamTreeants(s, field);
       if (a.aura?.imbued) a.aura = null; // consume the folded aura without another turn-start pulse
       checkOutcome(s); // called dream threats may have faded after an announced response
@@ -194,7 +195,7 @@
       for (const ev of result.events || []) log(s, ev);
       for (const id of result.fades || []) {
         const actor = s.actors[id]; if (!actor) continue;
-        actor.defeated = true;
+        actor.defeated = true; spiritGone(s, actor);
         log(s, { kind: "dreamFade", actor: id, text: actor.name + " fades as the Dream Space closes." });
       }
       if (!s.dreamSpace && result.summonLinger) closeDreamSummons(s, fieldBefore);
@@ -448,7 +449,10 @@
     }
     // Does this unit hold its side of the battle open? (the default branch of checkOutcome; also Survival Instincts' "is anyone left")
     const sideKey = (u) => (u.side === "posthuman" ? "enemy" : u.side);   // a posthuman counts on the enemy side, as checkOutcome always routed it
+    // Nonlethal victory (NONLETHAL.md N3): a unit incapacitated with at least one own turn still to come does not hold the battle open (a unit on a clock of 0 wakes at its next turn start).
+    const subduedUnit = (a) => !!a?.states?.incapacitated && !a.defeated && !a.notArrived && (a.states.incapacitated.count ?? 0) >= 1;
     function holdsOpen(s, a) {
+      if (subduedUnit(a)) return false;
       if (a.side === "enemy" && a.persuaded && !a.defeated && !a.notArrived) return false;   // Parley: standing down
       if (a.side === "enemy" && a.status?.sealedBeast && !a.defeated) return false;   // Sealing: a bound foe is out of the fight (audit 1.3.448)
       if (a.side === "civilian") return false;   // Civilians never hold the battle open, even after they shove back
@@ -493,7 +497,7 @@
         // arrived heroes leave the battle (alive) instead of standing around.
         const villainy = Object.values(s.actors).some(a => a.side === "villain" && (!a.defeated || a.notArrived));
         if (!villainy) for (const hero of Object.values(s.actors).filter(a => a.eventRole === "superhero" && !a.notArrived && !a.defeated)) {
-          hero.defeated = true; hero.escaped = true; hero.leaveReason = "the villain is beaten"; hero.tempo = 0;
+          hero.defeated = true; hero.escaped = true; hero.leaveReason = "the villain is beaten"; hero.tempo = 0; spiritGone(s, hero);
           log(s, { kind: "flee", actor: hero.id, tiles: [[hero.x, hero.y]], text: `${hero.name} leaves: no villain left to challenge.`, why: ["Heroes never hold the battle open — and with the villain beaten, they go home."] });
         }
         // Mala, 2026-10-11: the wild never holds a battle open, so an event's wild animals are not counted here.
@@ -522,19 +526,28 @@
       { const playerSide = Object.values(s.actors).filter((a) => a.side === "player" && !a.defeated && !a.notArrived);   // Mind duel mirror: talked down on every side, the day is lost (never the lives)
         if (playerSide.length && playerSide.every(stoodDown) && !s.outcome) { s.outcome = { winner: "enemy", round: s.round, forcedTerms: true, nonLethal: true, reason: "Forced terms: retreat." }; s.phase = "over";
           log(s, { kind: "outcome", text: "Forced terms: every player unit has stood down. The enemy dictates the day: retreat with units kept. Talk can lose you the day and the ground. It can never flatline you." }); recordBattleMirrorOutcome(s); return; } }
+      const subOn = (side) => Object.values(s.actors).some((a) => subduedUnit(a) && sideKey(a) === side);   // Nonlethal victory: is anyone on this side subdued (alive, out of the fight)?
+      if (!sides.player && !sides.enemy && subOn("player") && !subOn("enemy")) sides.player = 1;   // the enemy side is gone (killed) and ours lives, subdued: that is a win, not a loss
       if (!sides.enemy || !sides.player) {
         const nonLethal = !!sides.player && !sides.enemy && surrendered.length > 0;
         const persuaded = nonLethal && surrendered.every(a => a.persuaded);   // Parley: came to terms with every enemy left standing
         const nobodyDied = !!sides.player && Object.values(s.actors).every(a => a.side !== "enemy" || !a.defeated || a.knockedOut || a.escaped || a.notArrived);   // Immortals are only knocked out
-        s.outcome = { winner: sides.player ? "player" : "enemy", round: s.round,
-          ...(nonLethal ? { nonLethal: true, surrendered: surrendered.map(a => a.id), reason: persuaded ? "Enemy Persuaded." : "All opponents stand down." } : nobodyDied && sides.player ? { nonLethal: true, reason: Object.values(s.actors).some((a) => a.side === "enemy" && !a.defeated && a.status?.sealedBeast) ? "Sealed, not killed." : "Knocked out, not killed." } : {}), ...(persuaded ? { persuaded: true } : {}) };
+        const outSide = sides.player ? "enemy" : "player";   // the side that is out
+        const subduedOut = Object.values(s.actors).filter((a) => subduedUnit(a) && a.side === outSide);
+        const bothOut = !sides.player && !sides.enemy && subOn("player") && subOn("enemy");   // both sides have a subdued unit and nobody else acts: nobody wins; a side that was killed outright still loses   // every unit on both sides is down or subdued: nobody wins
+        const subdueEnd = (subduedOut.length > 0 || bothOut) && !nonLethal;
+        s.outcome = { winner: bothOut ? "none" : sides.player ? "player" : "enemy", round: s.round,
+          ...(nonLethal ? { nonLethal: true, surrendered: surrendered.map(a => a.id), reason: persuaded ? "Enemy Persuaded." : "All opponents stand down." } : subdueEnd ? { nonLethal: true, subdued: Object.values(s.actors).filter(subduedUnit).map((a) => a.id), reason: "Subdued, not killed." } : nobodyDied && sides.player ? { nonLethal: true, reason: Object.values(s.actors).some((a) => a.side === "enemy" && !a.defeated && a.status?.sealedBeast) ? "Sealed, not killed." : "Knocked out, not killed." } : {}), ...(persuaded ? { persuaded: true } : {}) };
         s.phase = "over";
         const defeated = Object.values(s.actors).filter((a) => a.side === (sides.player ? "enemy" : "player") && !surrendered.includes(a));
         const names = defeated.map((a) => a.name);
         const standingOut = defeated.filter((a) => !a.defeated && !a.notArrived);
         const huskOnly = standingOut.length > 0 && standingOut.every((a) => a.husk) && !defeated.some((a) => a.defeated && !a.husk);
         const sealedOut = standingOut.filter((a) => a.status?.sealedBeast);   // Sealing: caught, not defeated (audit 1.3.450)
-        const result = sides.player
+        const result = bothOut ? "Nobody is left to fight: every unit on both sides is subdued or down."
+          : subdueEnd && sides.player ? (subduedOut.length === 1 ? `Non-lethal victory: ${subduedOut[0].name} is subdued.` : "Non-lethal victory: the opponents are subdued.")
+          : subdueEnd ? "Defeat: your side is subdued, not killed."
+          : sides.player
           ? huskOnly ? (standingOut.length === 1 ? `Victory: ${standingOut[0].name} is an empty husk.` : "Victory: the opponents are empty husks.")
             : persuaded ? "Non-lethal victory: Enemy Persuaded."
             : nonLethal ? surrendered.length === 1 ? `Non-lethal victory: ${surrendered[0].name} stands down.` : "Non-lethal victory: all remaining opponents stand down."

@@ -4,7 +4,7 @@
 // when the player walks back into town), and a re-render only redraws the line already chosen. The strip sits in the card header,
 // outside every <details> fold, so folding a section never hides it.
 //
-//   mount(ov, windowId, { account, store, dialogueOn, onAccount(a), onDialogue(on), reducedMotion? }) → the strip element, or null
+//   mount(ov, windowId, { account, store, dialogueOn, facts?, onAccount(a), onDialogue(on), reducedMotion? }) → the strip element, or null
 //   say(event)  an event from the window (a failed start, a purchase...) changes the face and the line in place
 //   reset()     the player left the keeper's windows: the next entry greets again
 // Hooks (HOOKS) are CHIPS: plain text in the window, drawn whether or not Dialogue is on, so no information lives only in speech.
@@ -19,8 +19,12 @@
 
   const modeOf = (store) => { const m = store && store.get(MODE_KEY, "full"); return MODES[m] ? m : "full"; };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
-  const tokensOf = (a) => ({ name: a.name || undefined, level: a.level > 0 ? a.level : undefined, wins: Number.isFinite(a.wins) ? a.wins : undefined, seeds: Number.isFinite(a.seeds) ? a.seeds : undefined });
+  const tokensOf = (a) => ({ name: a.name || undefined, level: a.level > 0 ? a.level : undefined, wins: Number.isFinite(a.wins) ? a.wins : undefined, seeds: Number.isFinite(a.seeds) ? a.seeds : undefined,
+    owed: a.debt > 0 ? `${a.debt} Seeds` : undefined });   // {owed}: the account's Seeds debt (S1); {price} and {fame} come from a window's say() or are skipped
 
+  // A line that names an effect shows only while the effect is on (spec section 12): the gate "perk" follows the Seeds-perk flag in keepers.js.
+  const openLines = (rows) => rows.filter((r) => !r.gate || (r.gate === "perk" && K.KEEPER_PERKS === true));
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   // Hook chips: each returns the chip's text, from the same data and the same DOM change it describes, or null (no chip).
   const HOOKS = {
     // H02 Rama: the Town Hall encounter you lost last is marked "Rematch" and listed first in the Encounter list.
@@ -32,6 +36,30 @@
       opt.textContent = `Rematch · ${base}`; sel.insertBefore(opt, sel.firstChild);
       return `Rematch: ${label}. You lost it last time, so it is marked Rematch and listed first under Encounter.`;
     },
+    // H03 Sita (S1): what is waiting at home, from the same account and pack state the window shows: unspent perk points, empty pack slots, worn-out gear.
+    H03({ facts }) {
+      if (!facts) return null;
+      const bits = [];
+      if (facts.perkPoints > 0) bits.push(`${plural(facts.perkPoints, "perk point", "perk points")} unspent`);
+      if (facts.packFree > 0) bits.push(`${plural(facts.packFree, "pack slot", "pack slots")} empty of ${facts.packSlots}`);
+      if (facts.worn && facts.worn.length) bits.push(`worn out: ${facts.worn.join(", ")}`);
+      return bits.length ? `Before you go: ${bits.join("; ")}.` : null;
+    },
+    // H05 Tallyman (S1, the frame): the Seeds you owe. Marks and tolls have no account field in v1.3.499, so the chip names the debt only; the counters are S3.
+    H05({ facts }) { return facts && facts.owed > 0 ? `You owe ${facts.owed} Seeds. Seeds you earn in battle pay it down first.` : null; },
+    // H10 Hermes (S2): the accepted contract and the battles it has left before it rots, from the same posting the board shows. No accepted job: no chip.
+    H10({ facts }) { const j = facts && facts.accepted; return j ? `Accepted: ${j.text}. It rots off the board in ${plural(j.left, "battle", "battles")} if you do not finish it.` : null; },
+    // H11 Ravana (S2): where your own main stands on the board, from the same row the board lists as "You". Not among the shown rows: no chip. The spec's "scroll to the row" is not built: the scroll pushed the keeper's strip out of view (NOTE, Decisions).
+    H11({ facts }) { const rank = facts && facts.threatRank; return rank > 0 ? `You stand at rank ${rank} on the board.` : null; },
+    // H17 Lakshmana (S2): the drills left this cycle, from the cycle the School itself counts. The spec's "replay your last missed lesson" has no field to read (tutor.js keeps none), so it is not built.
+    H17({ facts }) { return facts && Number.isFinite(facts.drillsLeft) ? `${plural(facts.drillsLeft, "drill", "drills")} left this cycle.` : null; },
+    // H18 Gambler (S2): says plainly whether glamour plus fame holds the room, the same comparison busking.js uses (below the room is a tomatoed busk); the ui asks one confirm step before a losing busk.
+    H18({ facts }) {
+      const e = facts && facts.busk; if (!e) return null;
+      return `Your glamour and fame make ${e.power}; the room is ${e.diff}. ${e.power >= e.diff ? "You hold the room." : "The room beats you: tomatoes, and the ledger remembers."}`;
+    },
+    // H12 Jambavan (S1): the hire rule from the item text (one per side each battle) and the free pack slots, which a hire takes like any item.
+    H12({ facts }) { return facts ? `A hire is one merc and one mediator per side each battle. ${plural(facts.packFree, "pack slot is", "pack slots are")} free of ${facts.packSlots}.` : null; },
   };
 
   function setFace(strip, keeperId, face) {
@@ -54,7 +82,7 @@
     speech.hidden = !dialogueOn || !speech.textContent; strip.querySelector(".cc-keeper-talk").hidden = !dialogueOn;
   }
   const choose = (k, event, account, ctx) => {
-    const line = M.pick(L.LINES[k.lines] || [], event, { account, keeper: k.id, tokens: tokensOf(account), ring: S.ring, visits: M.recordOf(account, k.id).visits });
+    const line = M.pick(openLines(L.LINES[k.lines] || []), event, { account, keeper: k.id, tokens: tokensOf(account), ring: S.ring, visits: M.recordOf(account, k.id).visits });
     if (line) { S.ring = [...S.ring, line.id].slice(-4); S.last[ctx] = line; }
     return line;
   };
@@ -82,7 +110,7 @@
     let account = o.account, line = null;
     if (!S.entered.has(windowId)) {   // the greeting: once per entry; the record updates, the context comes from the old one
       S.entered.add(windowId);
-      const r = M.enter(account, k.id); account = r.account; if (o.onAccount) o.onAccount(account);
+      const r = M.enter(account, k.id, k.owes ? { owed: account.debt } : {}); account = r.account; if (o.onAccount) o.onAccount(account);
       line = choose(k, r.ctx, account, windowId);
     } else line = S.last[windowId] || null;
     const cur = S.cur = { windowId, k, o: { ...o, account }, mode, strip: null };
@@ -102,7 +130,7 @@
     ms.onchange = () => { o.store.set(MODE_KEY, ms.value); mount(ov, windowId, { ...cur.o }); const next = ov.querySelector(".cc-keeper select") || ov.querySelector(".cc-keeper-off button"); if (next) next.focus(); };
     ml.append(ms); bar.append(talk, dl, ml); strip.append(bar);
     const chips = el("div", "cc-keeper-chips");
-    const text = HOOKS[k.hook] && HOOKS[k.hook]({ account, ov });
+    const text = HOOKS[k.hook] && HOOKS[k.hook]({ account, ov, facts: o.facts });
     if (text) { const chip = el("p", "cc-keeper-chip", text); chip.dataset.hook = k.hook; chips.append(chip); }
     strip.append(chips);
     place(strip); cur.strip = strip; show(strip, k.id, line, !!o.dialogueOn); scheduleIdle(cur);
@@ -115,5 +143,5 @@
   }
   function reset() { clearTimeout(S.timer); S.timer = null; S.entered.clear(); S.idled.clear(); S.last = {}; S.ring = []; S.cur = null; }
 
-  return { mount, say, reset };
+  return { mount, say, reset, HOOKS, openLines };   // HOOKS is exported for the unit tests of the chip text
 });

@@ -105,7 +105,12 @@
         a.lf = Math.max(0, a.lf - n);
         H.log(s, { kind: "bleed", actor: a.id, amount: n, tiles: [[a.x, a.y]], text: `${a.name} bleeds from their wounds (−${n} LF).` });
         H.concentrationCheck?.(s, a, n);
-        if (a.lf <= 0) { a.defeated = true; H.log(s, { kind: "defeat", target: a.id, text: `${a.name} bleeds out from their wounds.` }); H.checkOutcome(s); return true; }
+        if (a.lf <= 0) {
+          a.defeated = true; H.log(s, { kind: "defeat", target: a.id, text: `${a.name} bleeds out from their wounds.` }); H.pactLeave?.(s, a); 
+          { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onDeath?.(s, a, null, H); }   // group spirit: a bleed-out is a fall like any other
+          { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onDeath?.(s, a, H); }   // admiration: the first fall, an adjacent loss, an ordered fall
+          H.checkOutcome(s); return true;
+        }
         return false;
       }
       const TIEBREAK = { legs: 0, arms: 1, head: 2 };

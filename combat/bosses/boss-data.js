@@ -522,10 +522,16 @@
     // Mala, 2026-10-08: the Gold Form has its OWN hit points. Damage goes to the gold, not the character; when the gold
     // is broken (or the 3 turns end) the character returns with exactly the LF they had when they transformed.
     // Excess damage beyond the gold's pool does not carry over. PROVISIONAL: 100 LF for everyone.
-    lf: 180, overflowCarries: false,   // 100 → 180 (learned forms rescale, 2026-10-17)
+    // Self-rebalance (locked decisions 3-6, 2026-10-26): the pool scales 2 per holder maxLF + 50
+    // (100 → 250); the flat lf: 180 is retired. Past four free turns the form holds on the
+    // learned-forms convention rates (drain/eatStart/eatStep/forcedAt/burntOutAp — one convention,
+    // two chassis). Flow lives in the form (ward 3 + strike ×1.15, no bar); vows can't be
+    // declared in gold; Wholeness unchanged (decision 10: the Integrator verifies at build).
+    pool: { perMaxLF: 2, base: 50 },   // 180 flat → formula (2026-10-26)
     drops: { perRoundTaken: 25, perRound: 1, perBattle: 3, table: ["giltEdge", "giltEdge", "sunMote", "sunMote", "dawnWard", "paleFlame"] },   // SPEC muse-fragments (locked decisions 13-14): gold bleeds at 25 pool damage/round, table 2/2/1/1
+    overflowCarries: false,
     damageTakenMul: 0.6, radianceHeal: 10,   // ×0.75 → ×0.6, heal 5 → 10 (2026-10-17)
-    strike: { potency: 16, range: 2, damageType: "albedo", name: "Radiant Palm" }, techniques: ["wholeness"],   // 2026-10-17: its own Strike and ultimate
+    strike: { potency: 20, range: 2, damageType: "albedo", name: "Radiant Palm" }, techniques: ["wholeness"],   // 16 → 20 (locked decision 4, 2026-10-26): 20 ×1.25 whole ×1.15 flow = 28.75, ult class
     effects: {
       hovering: "Ignores terrain: no move costs from height or surface, no falls, no hazards, no forced movement.",
       featureless: "No features to read: enemies can't Observe you and their exploits against your traits can't land; you have no tells.",

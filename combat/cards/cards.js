@@ -5,6 +5,7 @@
 //   payload(card) / price(card)   effect points, then the deck cost (section 5.1); a test fails when a stored cost differs
 //   copiesFor(card)               deck copies: 2 when the cost is 3 or less, else 1 (section 5.2)
 //   textOf(card)                  the rule text, generated from the data and never typed (section 1.1)
+//   needs(card)                   the condition's text alone (the drawer's "Needs: ..." reason, engine/cards.js)
 //   contactsOf(card)              every system the card touches: its own rows plus the auto rows of its kind and effects (section 17)
 //   problems(card)                what is wrong with a card's data (empty = a card may ship live)
 //   liveCards() / byId(id)        the cards a deck may hold: status live, kind live, no problems (no phantom cards)
@@ -227,5 +228,5 @@
     return { ok: !errors.length, errors, points, legal };
   }
 
-  return { CONTACT_SYSTEMS, payload, price, copiesFor, textOf, contactsOf, problems, byId, liveCards, capFor, validate };
+  return { CONTACT_SYSTEMS, payload, price, copiesFor, textOf, needs, contactsOf, problems, byId, liveCards, capFor, validate };
 });

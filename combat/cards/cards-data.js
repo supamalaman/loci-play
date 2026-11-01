@@ -1,7 +1,7 @@
 "use strict";
 // Battle Cards, slice C0 data (specs/CARDS.md sections 1, 2, 5, 15; CARD_STARTER_SET.md; CARD_ART_SET.md). Plain data like items-data.js:
-// the closed menus (kinds, conditions, effects), the tuning surface (rules) and 116 cards. It ships DARK: rules.enabled is false and
-// rules.liveKinds is empty, so no screen shows a deck and no card can be put in one until a battle slice (C1...) turns a kind on.
+// the closed menus (kinds, conditions, effects), the tuning surface (rules) and 116 cards. C0 shipped it DARK; C1 turned it on for the
+// instant kind (rules.enabled, rules.liveKinds), so only live instant cards can be put in a deck until a later slice lists another kind.
 // Numbers are PROVISIONAL. `cost` and `copies` are derived by Cards.price / Cards.copiesFor and a test fails when a stored number differs.
 // The 30 starters (series "Field Almanac, Vol. 1") are status "live"; the 86 art cards are "staged" until their kind is live and their art
 // is registered (a staged card is never dropped, sold or put in a deck). Source of the rows: claude-cards-spec, qa-evidence/art-set-costs.cjs.
@@ -29,7 +29,7 @@
     apGain: { proposed: true },
   };
   const rules = {
-    enabled: false, liveKinds: [],                       // DARK: C1 turns the system on and lists the kinds whose battle slice has landed
+    enabled: true, liveKinds: ["instant"],             // C1 turned the system on for the instant kind; set (C2), summon (C3), field and equip (C4) stay staged until their slice lands
     rarities: ["common", "uncommon", "rare", "legendary"],
     deck: { maxCards: 12, maxLegendary: 1, maxRareUp: 4, copies: { cheapMaxCost: 3, cheap: 2, dear: 1 } },
     cap: { base: 8, levelStep: 2, levelMax: 10, perCardsharp: 2, cardsharpCap: 3, ceiling: 30 },   // 8 + min(10, floor(level / 2)) + fame + 2 per Cardsharp rank, at most 30
@@ -39,6 +39,7 @@
     areaMul: { base: 1, r3: 1.2, r4: 1.4 }, defaultRange: 4, foeLfRange: 3,
     points: { damagePer: 5, damageMin: 2, push: 2, stagger: 3, wardPer: 3, rootShort: 3, rootLong: 4, itemLock: 3, reveal: 2, healPer: 3, modScale: 10, regenPer: 3,
       lethalSave: 4, cardLock: 5, familiarLfPer: 9, familiarPotencyPer: 8, apGainPer: 8 },
+    showHand: { bonusPct: 0.1, bonusMax: 3 },           // Show your hand (CARDS.md 18.4): +10% card damage (half up, at most +3) from the owner's next turn, against foes it showed
     gift: ["deadwoodDrop", "sapwell", "gustStep", "thornguardWrap", "swiftGloves", "hedgeSprite"],   // the starter gift: one copy each, as its kind goes live (18 points)
   };
   const cards = [

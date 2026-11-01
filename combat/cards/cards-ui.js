@@ -1,8 +1,9 @@
 "use strict";
 // Battle Cards, slice C0 (specs/CARDS.md sections 2.1 and 8): the "Battle deck" group of the Field Kit. String builders over the pure rules,
-// so node tests can read the screen; the DOM wiring is one small function. The group renders only when rules.enabled is true: C0 ships dark.
+// so node tests can read the screen; the DOM wiring is one small function. The group renders only when rules.enabled is true (C1 turned it on for the instant kind).
 //
 //   group(ctx)        the <details> html ("" while the system is dark); first read after enabling hands out the starter gift
+//   drawerRows(rows, show)  C1: the battle Cards drawer's menu rows (none for an empty deck); unitLine(view)  C1: the unit panel's Cards line
 //   wire(ov, ctx)     click and drag handlers for the group inside overlay `ov` (drag a collection card onto the deck, or a deck card back off it)
 //   ctx = { account(), classId, className, setAccount(a), rerender(), flash(text), open, onToggle(open) }
 (function (root, factory) {
@@ -77,5 +78,23 @@
       const a = ctx.account(); ctx.setAccount(b.dataset.deckScope === "own" ? CB.useOwnDeck(a, ctx.classId) : CB.useSharedDeck(a, ctx.classId)); ctx.rerender();
     });
   }
-  return { group, wire, move };
+  // ── In battle (C1): the Cards drawer rows, the unit panel line and the log text. Pure, so node tests read them; ui.js only places them.
+  // `rows` is E.cards.options(s, id) (own deck), `show` is E.cards.showOptions(s, id). Empty deck = no rows: the drawer does not exist.
+  function drawerRows(rows, show) {
+    if (!rows || !rows.length) return [];
+    const out = rows.map((r) => ({ id: `card:${r.index}`, card: r.index, needsTarget: r.needsTarget, off: r.state !== "ready",
+      label: `${r.name} · ${r.kindLabel}${r.state === "used" ? " · played" : ""}`, why: r.state === "ready" ? "" : r.reason, help: `${r.text} (${r.kindLabel}, ${word(r.rarity || "common")}, ${r.cost} deck point${r.cost === 1 ? "" : "s"}; no AP, no ΦF, one card a turn.)` }));
+    if (show) out.push({ id: "card:show", off: show.state !== "ready", label: "Show your hand", why: show.state === "ready" ? "" : show.reason,
+      help: "Tell the believers who can see you what is left in your deck, for a small damage edge on your cards against the believers you showed (from your next turn). A skeptic who sees it is shaken (it may wake) but is told nothing unless it converts. Once a battle; no AP." });
+    return out;
+  }
+  // "Cards: 3 of 4 unused" for the owner (and allies); an aware observer who may know gets the numbers; an unaware observer gets "".
+  function unitLine(view) {
+    if (!view) return "";
+    const sets = view.sets ? ` · ${view.sets} set` : "";
+    if (view.full) return `Cards: ${view.unused} of ${view.deckSize} unused${sets}`;
+    const base = `Cards (seen): ${view.unused} of ${view.deckSize} unused${sets}`;
+    return view.unusedList ? `${base} · shown: ${view.unusedList.join(", ")}` : base;
+  }
+  return { group, wire, move, drawerRows, unitLine };
 });

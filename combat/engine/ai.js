@@ -9,6 +9,8 @@
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
     const Sage = () => (typeof module === "object" && module.exports ? require("../castings/sage.js") : globalThis.ConceptCombatSage) || null;
+    const Spirit = () => (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null;
+    const Orders = () => (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null;
     const { Auras, Affinity, Bonds, ClassRuntime, Climate, INTERDICT, Imitation, MED, MindDuel, Parley, REVEAL, RITUAL, Traps, Vows, VK, WX, Workflow, ab, accountItems,
       actorAt, apply, auraH, availableAbilities, beliefSummonCandidate, chanted, classH, decider, dist, edgeDistance, fullCourtPressOptions, hasTrait,
       insightRules, isMonster, knownEnemyTraps, log, manifest, moduleArena, monsterCtx, moveOptions, onEdge, paths, presidentCanRecognize, presidentRules,
@@ -506,6 +508,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
             v += H.houseSite(s, a, to);
             if (mine && d(a.x, a.y) === 1 && d(to[0], to[1]) !== 1) v -= HR.site * 0.5;
           } }
+        v += Spirit()?.spacingValue(s, a, to, H) || 0;   // group spirit: no two allies adjacent at turn end
         return v;   // C27: known-trap routing is filtered before scoring (stays loop), not priced here
       };
       const scheduled = (s.randomEventSchedule || []).filter(e => !e.resolved && e.round >= s.round).sort((x,y) => x.round-y.round)[0];
@@ -609,12 +612,13 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       if (a.aggressive && (!best || best.sc < s.rules.aggressive.pressBelow)) { const press = approach(s, a); if (press) return traceAiReturn("aiDecide:L538", (press)); }   // rules.aggressive
       // Ritual burial: ritual-minded units (the Chanter, Desert Rites) bury a body beside them unless a strong attack is on
       // offer and no foe is close enough to break the rite (muse/ritual-burial/SPEC.md: valuation lands with the build).
-      if (s.rules.rite?.burial && (hasTrait(a, "unendingChant") || (s.rules.rite.burial.fastTraits || []).some((t) => hasTrait(a, t))) && H.corpseBeside?.(s, a)
+      if (s.rules.rite?.burial && (Spirit()?.greedOpen?.(s, a) ?? true) && (hasTrait(a, "unendingChant") || (s.rules.rite.burial.fastTraits || []).some((t) => hasTrait(a, t))) && H.corpseBeside?.(s, a)
         && (!best || best.sc < 8) && !Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "civilian" && Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)) <= 1)
         && apply(s, { type: "riteStep", actor: a.id, section: "burial" }, { preview: true }).ok) return traceAiReturn("aiDecide:L543", ({ type: "riteStep", actor: a.id, section: "burial" }));
       // C15: with nothing good on offer (best under 3) and charge to build, meditate: half the time, Contemplative 80%, Restless 20%.
       const canMeditate = a.tempo >= MED.ap && (a.ultimateCharge ?? 0) < s.rules.ultimateChargeMax && !a.dream && !a.summon && s.rules.meditateAi !== false;
       if (canMeditate && best && best.sc < MED.aiBelowScore
+        && (Spirit()?.canAdmin(s, a) ?? true)
         && seededChance(`${s.seed}:${a.id}:med2:${s.round}:${a.actionsThisTurn || 0}`) < (hasTrait(a, "contemplative") ? MED.contemplativeGate : hasTrait(a, "restless") ? MED.restlessGate : MED.aiGate)
         && apply(s, { type: "meditate", actor: a.id }, { preview: true }).ok) return traceAiReturn("aiDecide:L548", ({ type: "meditate", actor: a.id }));
       // C11: with nothing better to do, an AI unit copies a foe's demonstrated trait (half the time).
@@ -626,9 +630,9 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           if (trait && apply(s, { type: "imitate", actor: a.id, target: foe.id, trait }, { preview: true }).ok) return traceAiReturn("aiDecide:L555", ({ type: "imitate", actor: a.id, target: foe.id, trait }));
         }
       }
-      if (canMeditate && (!best || best.sc <= 0) && seededChance(`${s.seed}:${a.id}:med:${s.round}`) < MED.idleGate && !approach(s, a)
+      if (canMeditate && (!best || best.sc <= 0) && (Spirit()?.canAdmin(s, a) ?? true) && seededChance(`${s.seed}:${a.id}:med:${s.round}`) < MED.idleGate && !approach(s, a)
         && apply(s, { type: "meditate", actor: a.id }, { preview: true }).ok) return traceAiReturn("aiDecide:L559", ({ type: "meditate", actor: a.id }));
-      if (!best || best.sc <= 0) {
+      if (!best || best.sc <= (Spirit()?.holdThreshold(s, a) || 0)) {
         const holdingExit = s.modeSetup?.mode === "escape" && a.side === "enemy" && s.modeSetup.guard?.tiles?.some(([x,y])=>Math.abs(x-a.x)+Math.abs(y-a.y)<=INTERDICT.holdWithin);   // C12: on or beside its post, it does not chase
         if (!holdingExit && s.modeSetup?.mode === "escape" && a.side === "enemy") {
           const goals=(s.modeSetup.guard?.tiles||[]).filter(([x,y])=>!actorAt(s,x,y)||actorAt(s,x,y).id===a.id);
@@ -799,15 +803,15 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const authoredAbilities = a.aiAbilities ? availableAbilities(s, id).filter((x) => a.aiAbilities.includes(x.id)) : availableAbilities(s, id);
       // Rama's word (docs/rama-build.md): once a battle, he gives it early: Dharma's Bow (+3 potency), paid with Open Guard (he
       // stands in the open) and tomorrow's tempo (never blood: level 2, 2026-10-24, the 15% LF cost his side in long fights).
-      if (Vows && H.C?.characters?.[a.character]?.swearsWord && !a.wordGiven) { const once = a.vowApTax > 0 ? null : "spentTomorrow";
+      if (Vows && !a.form?.golden && H.C?.characters?.[a.character]?.swearsWord && !a.wordGiven) { const once = a.vowApTax > 0 ? null : "spentTomorrow";
         if (once) out.push({ type: "vow", actor: id, target: "word", vow: { boon: "dharmasBow", restrictions: ["openGuard", once] } }); }
-      { const vg = Vows && vowTechGains(s, a, foes, authoredAbilities);   // technique stances: one flip analysis per candidate set, gains stashed on the candidate (cand.dmg precedent) — no extra manifest walk
+      { const vg = Vows && !a.form?.golden && vowTechGains(s, a, foes, authoredAbilities);   // technique stances: one flip analysis per candidate set, gains stashed on the candidate (cand.dmg precedent) — no extra manifest walk
         if (vg) for (const boon of ["farShot", "heavyHands", "piercingOath"]) {
           if (Vows.live(s, a).some((v) => v.on === "technique" && v.boon === boon)) continue;
           const pay = vowTechPay(s, a, Vows.BOONS[boon].price);
           if (pay) out.push({ type: "vow", actor: id, target: "technique", vow: { boon, restrictions: pay }, vowGain: vg[boon] });
         } }
-      { const dream = Vows && VK && Affinity && H.C && VK.declareFor(Affinity, H.C, a, H.abilitiesOf(a).map((bid) => VK.textOf(ab(bid))),   // W4.6: the recognized dream, sworn out loud (deliberate = consented)
+      { const dream = Vows && !a.form?.golden && VK && Affinity && H.C && VK.declareFor(Affinity, H.C, a, H.abilitiesOf(a).map((bid) => VK.textOf(ab(bid))),   // W4.6: the recognized dream, sworn out loud (deliberate = consented)
         { round: s.round, isAhead: VK.ahead(s, a.side), live: Vows.live(s, a).some((v) => !v.broken) });
         if (dream) { const pay = vowTechPay(s, a, Vows.BOONS[dream.boon].price);
           if (pay) { for (let i = out.length - 1; i >= 0; i--) if (out[i].type === "vow" && out[i].vow?.boon === dream.boon) out.splice(i, 1);   // the dream outranks the tactics
@@ -1354,7 +1358,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       if(ClassRuntime?.aiVeto?.(s,a,cand) || (cand.type==="ability" && a.status?.overpressure && !ClassRuntime?.wire?.[cand.ability]?.relief))return 0;
       let base=rawScore(s,id,cand);
       if (base >= 0 && animeKitOption(a, cand)) { const floor = observeFloor(s, a); if (floor > base) base = traceAiTerm("animeKitFloor", floor); }   // docs/anime-orbit.md §5a: at least Observe
-      return base < 0 ? traceAiTerm("negativeRawScore", base) : traceAiTerm("rawScore", base) + traceAiTerm("concentration", concentrationValue(s,s.actors[id],cand)) + traceAiTerm("court", H.courtScore?.(s, id, cand) || 0);
+      return base < 0 ? traceAiTerm("negativeRawScore", base) : traceAiTerm("rawScore", base) + traceAiTerm("concentration", concentrationValue(s,s.actors[id],cand)) + traceAiTerm("court", H.courtScore?.(s, id, cand) || 0) + traceAiTerm("spirit", Spirit()?.value(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, { actorAt }) || 0) + traceAiTerm("orders", Orders()?.orderValue(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, H) || 0);
     }
     // The anime kit floor (Mala, 2026-10-27: "they should be scored pretty high, at least up there with Observe, because at
     // the end of the day, they can change the tile or the tide of battle"). Keyed to the kind of option, not the character:
@@ -1392,7 +1396,8 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         const foesLeft = Object.values(s.actors).filter((t) => !t.defeated && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander").length;
         return (foesLeft <= 1 ? 25 : MOTIVE.kill) * MOTIVE.scale;
       }
-      if (["buyHouse", "investHouse", "sueForRestitution"].includes(cand.type)) return H.houseValue(s, a, cand);
+      if (cand.type === "sueForRestitution") return H.houseValue(s, a, cand);
+      if (cand.type === "buyHouse" || cand.type === "investHouse") return H.houseValue(s, a, cand) * (Spirit()?.greedMul?.(s, a) ?? 1);   // SP-02: economy bids ~zero unless the conductor allows admin work
       if (cand.type === "myol") return H.aiMyolValue ? H.aiMyolValue(s, a) : -1;   // W5.1: only buys what flips
       let foundBonus = 0;   // Orbital Drop: the landing scores here, the line through the general preview below
       if (cand.type === "ability" && ["raisePalisade", "raiseFoundry", "foundCity", "orbitalDrop"].includes(ab(cand.ability)?.effect)) {   // Settlement: found where the line holds (Mala, 2026-10-19)
@@ -1423,7 +1428,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           const dmg = foeBld.hp - left; if (dmg > 0) return dmg * 0.8 + (left <= 0 ? 10 : 0); } }
       if (cand.type === "tameBeast" || cand.type === "markVessel" || cand.type === "callPack") return H.tamerValue(s, a, cand);
       if (cand.type === "catchFish") { const R = s.rules.fish, room = s.rules.ultimateChargeMax - (a.ultimateCharge ?? 0), near = Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "civilian" && Math.abs(u.x - a.x) + Math.abs(u.y - a.y) <= 3);
-        return near ? 0 : Math.min(R.ultCharge, room) * (R.aiValuePer ?? 0.2); }   // 20 charge ≈ 4: worth a quiet turn, never worth turning your back on a foe
+        return near ? 0 : Math.min(R.ultCharge, room) * (R.aiValuePer ?? 0.2) * (Spirit()?.greedMul?.(s, a) ?? 1); }   // 20 charge ≈ 4: worth a quiet turn, never worth turning your back on a foe; SP-02: ~zero while conducted
       if (cand.type === "vow" && cand.target === "word") return s.rules.ramaWord?.aiValue ?? 14;   // a whole battle of +3: worth more than one swing
       if (cand.type === "vow" && cand.target === "technique") return vowTechScore(s, a, cand);
       { const o = cand.type === "strike" && cand.target && H.house(s); if (o && o.x === cand.target[0] && o.y === cand.target[1]) {   // the other side's house: what it loses, and the bank with it

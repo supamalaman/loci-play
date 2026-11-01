@@ -12,9 +12,10 @@
 <link rel="stylesheet" href="play.css">
 </head>
 <body>
+<button id="updateTicker" class="update-ticker" type="button" hidden></button>
 <main id="start" class="pk-start">
   <header class="pk-top">
-    <div class="brand">LOCI <span>concept duels · random battle</span></div>
+    <div class="brand">LOCI <span>concept duels · random battle</span> <span class="app-version" data-version title="The Loci build you are running"></span></div>
     <div id="record" class="pk-record"></div>
   </header>
 
@@ -160,6 +161,7 @@
 <script src="combat/summons/summons-data.js"></script>
 <script src="combat/summons/summons.js"></script>
 <script src="combat/summons/questions.js"></script>
+<script src="combat/summons/contracts.js"></script>
 <script src="combat/dream/dream-data.js"></script>
 <script src="combat/dream/dream.js"></script>
 <script src="combat/dream/enemy-dreams-data.js"></script>
@@ -205,6 +207,8 @@
 <script src="combat/engine/resolve.js"></script>
 <script src="combat/engine/window.js"></script>
 <script src="combat/engine/queries.js"></script>
+<script src="combat/spirit/spirit.js"></script>
+<script src="combat/spirit/orders.js"></script>
 <script src="combat/engine/ai.js"></script>
 <script src="combat/engine/focus-plans.js"></script>
 <script src="combat/engine/kaiba.js"></script>
@@ -226,6 +230,7 @@
 <script src="combat/engine/anime-orbit.js"></script>
 <script src="combat/engine/instinct.js"></script>
 <script src="combat/engine/injury.js"></script>
+<script src="combat/engine/cards.js"></script>
 <script src="combat/bystanders/tourist.js"></script>
 <script src="combat/castings/sage.js"></script>
 <script src="combat/insight/observation.js"></script>
@@ -270,6 +275,7 @@
 <script src="combat/emergent/scenarios.js?v=1.2.4"></script>
 <script src="combat/emergent/math-domain.js?v=1.2.4"></script>
 <script src="combat/emergent/lab-ui.js?v=1.2.4"></script>
+<script src="update-check.js"></script>
 <script src="play.js"></script>
 </body>
 </html>

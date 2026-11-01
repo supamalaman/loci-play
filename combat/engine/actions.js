@@ -11,6 +11,9 @@
     const Cooking = () => (typeof module === "object" && module.exports ? require("../account/cooking.js") : globalThis.ConceptCombatCooking) || null;
     const Sage = () => (typeof module === "object" && module.exports ? require("../castings/sage.js") : globalThis.ConceptCombatSage) || null;
     const VerbTech = () => (typeof module === "object" && module.exports ? require("../workshop/verbtech.js") : globalThis.ConceptCombatVerbTech) || null;   // verb techniques, batch 1 (lazy: no engine install)
+    const Spirit = () => (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null;
+    const Orders = () => (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null;
+    const PactLib = () => (typeof module === "object" && module.exports ? require("../summons/contracts.js") : globalThis.ConceptCombatSummonContracts) || null;   // summon pacts: standing rates only (the store lives on the account)
     const { Auras, Affinity, Conversion, Courtroom, Presence, Debt, Sealing, EmergentIdeas, EnemySummons, Bonds, C, CRAFT, CRAFT_OWN, ClassRuntime, Climate, Communion, DIRS, Director, EM, Imitation, MED, MaidSystems, MindDuel, Parley, Performers, Postures,
       REVEAL, RITUAL, Traps, Tsukumogami, UtilityAI, Vows, ab, abilitiesOf, accountItems, actorAt, advance, applyEntryEffects, applyFall, auraH, awakenAlly, barrierAt,
       beadBeast, borrowedCharges, bossRules, chanted, chargeUltimate, checkDreamCollapse, checkOutcome, classH, clone, communeAlly, communeDiscount, conceptName,
@@ -230,7 +233,7 @@
         H.formsAfterAction?.(s);   // learned forms: Hollow takes back any healing
         H.corpseSweep?.(s);   // ritual burial: the fallen leave a body (engine/conditions.js)
         checkOutcome(s);
-        if (s.phase === "action" && !s.outcome && !s.preview && a.tempo <= 0 && !["end", "stall"].includes(action.type) && currentId(s) === a.id) endTurn(s);
+        if (s.phase === "action" && !s.outcome && !s.preview && a.tempo <= 0 && !["end", "stall", "playCard", "showHand"].includes(action.type) && currentId(s) === a.id) endTurn(s);   // a card or a shown hand never ends the turn
       }
       H.finishRitualsOnWin?.(s);   // a win completes a capture still being chanted (conditions.js)
       H.Tourist?.settle(s,H.touristH());
@@ -254,6 +257,7 @@
       H.FocusPlans?.after(s,action);
       markConversation(state,s,action,start);
       if (!opt.preview) delete s.preview;
+      if (!opt.preview) Spirit()?.acted(s, action, H);
       return { ok: true, state: s, events: s.log.slice(start) };
     }
 
@@ -297,6 +301,7 @@
       else log(s,{kind:"observe",actor:a.id,target:t.id,discoveries:result.revealed.length,text:aiText||`${a.name} studies ${t.name} and learns ${result.revealed.length} new detail${result.revealed.length===1?"":"s"}.`});
       if (a.id === "player" && !s.preview) for (const note of H.Injury?.observeNotes(s, a, t) || []) log(s, { kind: "observe", actor: a.id, target: t.id, text: `You notice: ${note}` });
       if (a.id === "player" && Affinity && !s.preview) { const al = Affinity.line(C, t); if (al) log(s, { kind: "observe", actor: a.id, target: t.id, text: al }); }   // W4.5: the soul's vow-drive is visible
+      if (a.id === "player" && !s.preview) for (const line of Orders()?.observeNotes(s, a, t) || []) log(s, { kind: "observe", actor: a.id, target: t.id, text: line });   // orders: respect + the foe's focus read free
       if (a.id === "player" && t.loci && !s.preview) log(s, { kind: "observe", actor: a.id, target: t.id, text: `${t.name} has walked the Lo-ci: ${t.loci.name}${t.loci.meaning ? `. ${t.loci.meaning}` : ""}`, why: ["A lo-ci from the same verbs and table you use (W8.6). It is intel: it changes nothing in this fight."] });   // W8.6
       if (a.id === "player" && t.boss === "sealednext" && s.sealedFight && !s.preview) {
         const SN = sealedNext();
@@ -693,6 +698,7 @@
           log(s, { kind: "effect", actor: a.id, text: `${a.name} moves too far and the held tones break.`, why: ["The verses are lost; Hold the Tone starts the bank again."] });
         }
         settleHomeward(s, a);
+        if (!s.preview && !a.defeated) Orders()?.onMove(s, a, from, H);   // admiration: first to close with a formed enemy
       },
       jump(s, a, act) {
         { const hold = H.relocationHold(s, a); if (hold) return hold; }   // root, position lock, full entangled hold: same as Move
@@ -736,7 +742,7 @@
         if(a.status?.soothed)return "Soothed: hostile actions are unavailable this turn.";
         if(a.status?.detained&&(a.status.detained.until==null||a.status.detained.until>=a.ownerTurns))return "Detained: no actions until the hold ends.";
         if ((H.Injury?.gradeOf(a, "arms") || 0) === 2) return "Maimed arms can't strike: techniques only.";
-        const flowMul = s.rules.flowState?.enabled !== false && (a.ultimateCharge ?? 0) >= (s.rules.ultimateChargeMax || 100) ? s.rules.flowState?.strikeMul || 1 : 1;   // Flow state: a pocketed ult hits harder, live off the bar
+        const flowMul = s.rules.flowState?.enabled !== false && ((a.ultimateCharge ?? 0) >= (s.rules.ultimateChargeMax || 100) || !!a.form?.golden) ? s.rules.flowState?.strikeMul || 1 : 1;   // Flow state: a pocketed ult hits harder, live off the bar; gold is flow incarnate
         const arming = (s.arena.objects || []).find((o) => (o.hp ?? 0) > 0 && o.side === a.side && ((o.type === "foundry" && dist(s, a.x, a.y, o.x, o.y) <= 2) || (o.type === "keep" && Math.max(Math.abs(o.x - a.x), Math.abs(o.y - a.y)) === 1)));
         const foundryBonus = !arming ? 0 : s.actors[arming.owner]?.character === "starfarer" ? 3 : 2;   // Settlement: the line arms its strikers; Ship's Engineer: her works arm +3 (Mala, 2026-10-19)
         const [tx, ty] = act.target || []; const t = actorAt(s, tx, ty) || (s.wild.find((m) => m.form === "unit" && m.x === tx && m.y === ty) ? { ...s.wild.find((m) => m.form === "unit" && m.x === tx && m.y === ty), wild: true, side: "wild", status: {} } : null);
@@ -944,6 +950,9 @@
         log(s, { kind: "cook", actor: a.id, item: r.out, used, text: `${a.name} cooks ${nameOf(r.out)} from ${used.map(nameOf).join(" and ")}.`,
           why: [`${ap} action points${isCook ? " (a cook: every recipe works mid-battle)" : " (a field recipe: anyone can make it mid-battle)"}.`, r.recipe.teach].filter(Boolean) });
       },
+      // Battle Cards (engine/cards.js, specs/CARDS.md 3.2 and 18.4): one door for the player and the AI. No AP, no phi, no reaction, no window.
+      playCard(s, a, act) { return H.Cards.play(s, a, act); },
+      showHand(s, a) { return H.Cards.showHand(s, a); },
       useItem(s, a, act) {
         const item = act.item, at = act.target || [a.x, a.y];
         const held = (x) => x && (x.until == null || x.until >= a.ownerTurns);
@@ -1023,6 +1032,50 @@
         if (s.dreamSpace && dreamSpaceRules?.summonTurnTicks(s.dreamSpace) === false) s.dreamSpace.summons.push(summon.id);
         s.order.splice(s.turnIndex + 1, 0, summon.id); s.summonUsed.push(act.summon);
         log(s, { kind: "summon", actor: summon.id, text: `${summon.name} arrives at (${at[0]},${at[1]}) for ${summon.summon.turnsLeft} turns${score.correct ? ". Correct: " + score.explain : ". " + score.explain}` });
+      },
+      callPact(s, a, act) {
+        if (a.form?.golden) return "The Integrated Self has no need to summon.";
+        if (!summonRules) return "Summoning is unavailable.";
+        const def = summonRules.data?.summons?.[act.line], terms = def?.pact;
+        if (!def || !terms) return "No such pact line.";
+        const book = s.pactBook;
+        if (!book?.pacts?.[act.line]) return `${def.name} answers only a signed pact.`;
+        if (s.pactActive) return `${summonRules.data.summons[s.pactActive.line]?.name || "A summon"} already answers — one call at a time.`;
+        if ((s.summonUsed || []).includes(act.line)) return `${def.name} has already returned to the palace this battle.`;
+        const rate = PactLib()?.rateFor?.(book.standing?.[act.line]?.clean || 0) || 0;   // standing rate off the battle-start book, never the act
+        const cost = summonProfile(s, a.id);
+        const pf = Math.ceil((terms.call.pf || 0) * (1 - rate)), seeds = Math.ceil((terms.call.seeds || 0) * (1 - rate));
+        const summonTax = hasTrait(a, "attentionToDetail") ? 5 : 0;
+        if (a.tempo < cost.apCost + summonTax) return `Calling needs ${cost.apCost + summonTax} action points.`;
+        if (a.pf < pf) return `Calling needs ${pf} ΦF.`;
+        if ((s.seeds || 0) < seeds) return `Calling needs ${seeds} Seeds.`;
+        const at = summonRules.placeSummon(moduleArena(s.arena), [a.x, a.y], new Set(Object.values(s.actors).filter(x => !x.defeated).map(x => `${x.x},${x.y}`)), act.at || null);
+        if (!at) return "There is no open tile nearby for the summon.";
+        if (!dreamSame(s,a.x,a.y,at[0],at[1])) return "Summons cannot cross the sealed Dream Space.";
+        const spend = spendTempo(s, a, cost.apCost + summonTax, `Call ${def.name}`); if (spend) return spend;
+        a.pf -= pf; s.seeds -= seeds;   // the purse pays: act() copies s.seeds back to the account
+        const raw = summonRules.makeSummonActor(act.line, { owner: a.id, at, bond: 2, potencyMul: 1.2, durationAdd: a.passives?.summonDurationAdd || 0 });
+        const summon = liveSummon(s,a,raw);
+        summon.summon.turnsLeft = terms.duration + (summonRules.data.rules.bondBonusDuration || 0) + (a.passives?.summonDurationAdd || 0); summon.summon.pact = { line: act.line, owner: a.id };   // full bond: the correct-answer package (potency 1.2, bond 2, duration bonus) on the pact's own terms
+        if (hasTrait(a, "attentionToDetail")) { summon.maxLF = summon.lf = Math.round(summon.maxLF * 1.25); log(s, { kind: "effect", actor: a.id, target: summon.id, text: `Attention to Detail: ${summon.name} arrives sturdier (${summon.maxLF} LF).` }); }
+        a.status.imaginedRehearsal = null;
+        s.actors[summon.id] = summon; s.disclosures[summon.id] = {}; s.knowledge[summon.id] = {};
+        s.summonHintCount = 0;
+        if (insightRules) { const deck = insightRules.buildDeck({ key: "summon:*", kind: "summon" }, { seed: s.seed }); s.insight.decks[summon.id] = deck; s.insight.knowledge[summon.id] = insightRules.spawnKnowledge(deck); }
+        if (s.dreamSpace && dreamSpaceRules?.summonTurnTicks(s.dreamSpace) === false) s.dreamSpace.summons.push(summon.id);
+        s.order.splice(s.turnIndex + 1, 0, summon.id); s.summonUsed.push(act.line);
+        s.pactActive = { line: act.line, owner: a.id, summonId: summon.id };
+        (s.pactCodes ||= []).push({ type: "pactCalled", line: act.line });
+        log(s, { kind: "summon", actor: summon.id, text: `${summon.name} answers the pact at (${at[0]},${at[1]}) for ${summon.summon.turnsLeft} turns${rate ? ` (standing rate −${Math.round(rate * 100)}%)` : ""}. No question: the pact is the answer, at full bond.` });
+      },
+      dismissPact(s, a, act) {
+        const call = s.pactActive;
+        if (!call) return "No pact call is active.";
+        if (call.owner !== a.id) return "Only the caller dismisses the call.";
+        const summon = s.actors[call.summonId];
+        s.pactActive = null;
+        if (summon && !summon.defeated) { summon.defeated = true; log(s, { kind: "summon", actor: summon.id, text: `${summon.name} bows and goes home — dismissed, free.` }); (s.pactCodes ||= []).push({ type: "pactEnded", line: call.line, how: "dismissed" }); }
+        else (s.pactCodes ||= []).push({ type: "pactEnded", line: call.line, how: "downed" });   // already down: closes the books with no standing
       },
       orderSummonUltimate(s, a, act) {
         if (!summonRules?.orderUltimate) return "Summon ultimates are unavailable.";
@@ -1210,6 +1263,14 @@
       mediate(s, a, act) {   // a hired mediator asks one enemy for a truce (engine/hires.js)
         return H.Hires.mediate(s, a, act) || undefined;
       },
+      order(s, a, act) {   // Talk orders (SPIRIT-ORDER half 2): 10 AP (Speed-Talker halves it) to give an ally a role to weigh for 3 rounds. Refused orders cost only the AP.
+        const O = Orders(); if (!O) return "No orders today.";
+        const t = s.actors[act.target];
+        const spend = spendTempo(s, a, talkCost(a, "talk", s.rules.orders?.ap ?? 10), "Talk"); if (spend) return spend;
+        const r = O.issue(s, a, t, act.role, act.focus, H);
+        if (!r.ok) { a.tempo += talkCost(a, "talk", s.rules.orders?.ap ?? 10); return r.error; }   // invalid orders refund; refused ones don't
+        return;
+      },
       parley(s, a, act) {   // Parley: a talkative NPC talks at someone
         if (!Parley) return "Parley is unavailable.";
         if (a.awakened) return "A woken structure does not talk.";
@@ -1292,11 +1353,11 @@
         }
         if (a.lf > 0) return;
         if (Parley && Parley.isImmortal(a)) {
-          a.defeated = true; a.knockedOut = true; a.tempo = 0;
+          a.defeated = true; a.knockedOut = true; a.tempo = 0; H.pactLeave(s, a); Spirit()?.onDeath?.(s, a, null, H); Orders()?.onDeath?.(s, a, H);   // SP-05: a sacrifice shocks like any death
           log(s, { kind: "defeat", target: a.id, text: `${a.name} is knocked out. Immortal: down, not dead, and no rite begins.` });
           return;
         }
-        a.defeated = true; a.defeatedBy = null; a.tempo = 0;
+        a.defeated = true; a.defeatedBy = null; a.tempo = 0; H.pactLeave(s, a); Spirit()?.onDeath?.(s, a, null, H); Orders()?.onDeath?.(s, a, H);   // SP-05: a sacrifice shocks like any death
         a.sacrifice = { for: beloved.id, ability: "forYou" };
         log(s, { kind: "defeat", target: a.id, sacrifice: true, text: `${a.name} dies for ${beloved.name}.` });
         H.grantSacrifice(s, beloved, a);
@@ -1852,7 +1913,7 @@
         Object.assign(a, r.player); for (const ev of r.events) log(s, { ...ev, tiles: [[a.x, a.y]] });
       },
       releaseForm(s, a) {
-        if (!a.form?.learned) return "You aren't holding a learned form.";
+        if (!a.form?.learned && !a.form?.golden) return "You aren't holding a form you can let go of.";
         const r = bossRules.releaseForm(a); Object.assign(a, r.player); if (!r.player.form) a.form = null;
         for (const ev of r.events) log(s, { ...ev, tiles: [[a.x, a.y]] });
       },
@@ -2020,9 +2081,11 @@
         const zones = t && !t.defeated ? H.Injury?.woundedZones(t) || [] : [];
         if (act.zone && (!["head", "arms", "legs"].includes(act.zone) || !zones.includes(act.zone))) return "MEND that zone? It holds no wound.";
         a.tempo -= VT.RULES.mendAp; a.pf -= VT.RULES.mendPhi;
+        const low = !!t && (t.lf ?? 0) < (t.maxLF || 100) * 0.25;
         const r = VT.mend(s, a, t, zones.length > 0);
         if (!r.ok) { a.tempo += VT.RULES.mendAp; a.pf += VT.RULES.mendPhi; return r.error; }
         log(s, { kind: "verb", verb: 10, actor: a.id, target: t.id, text: r.text });
+        if (low && !s.preview) Orders()?.onSave(s, a.id, H);   // admiration: a save (MEND landing under 25%)
         if (zones.length) H.Injury?.downgrade(s, a, t, act.zone);
       },
       tendVerb(s, a, act) {   // verb 9 TEND: raise a downed ally at 1 LF, or steady a standing one's bleeding — once each
@@ -2032,7 +2095,7 @@
         a.tempo -= VT.RULES.tendAp; a.pf -= VT.RULES.tendPhi;
         const fail = (error) => { a.tempo += VT.RULES.tendAp; a.pf += VT.RULES.tendPhi; return error; };
         const r = VT.tend(s, a, t);
-        if (r.ok) { log(s, { kind: "verb", verb: 9, actor: a.id, target: t.id, text: r.text }); checkOutcome(s); return; }
+        if (r.ok) { log(s, { kind: "verb", verb: 9, actor: a.id, target: t.id, text: r.text }); if (!s.preview) Orders()?.onSave(s, a.id, H); checkOutcome(s); return; }   // admiration: a raise is a save
         if (t && !t.defeated && t.side === a.side && t.id !== a.id) {   // stabilize-the-standing
           const zones = H.Injury?.woundedZones(t) || [];
           if (!zones.length) return fail(r.error);
@@ -2086,7 +2149,7 @@
           const immuneStatus = ({ apLoss:"fear", omen:"fear", forceTarget:"taunt", taunt:"taunt", standDown:"standDown", truce:"truce" })[effect.kind];
           if (immuneStatus === "taunt" && hasTrait(target, "perfectConcentration") && seededChance(`${s.seed}:tauntShrug:${target.id}:${s.round}:${a.id}`) < (s.rules.concentration?.perfect?.tauntShrug ?? 0)) { log(s, { kind: "resist", actor: a.id, target: target.id, text: `${target.name} lets the taunt slide off (Perfect Concentration).`, why: ["Half of taunts do not take hold of a perfectly focused mind."] }); continue; }
           if (target.boss && immuneStatus && bossRules?.statusImmune(target,immuneStatus)) { log(s,{kind:"resist",actor:a.id,target:target.id,text:`${target.name} resists ${immuneStatus} while enraged.`,why:[`The boss condition explicitly grants ${immuneStatus} immunity.`]}); continue; }
-          if (effect.kind === "leaveBattle") { target.defeated = true; target.escaped = !effect.noXp; target.noXp = !!effect.noXp; target.leaveReason = effect.reason; }
+          if (effect.kind === "leaveBattle") { target.defeated = true; target.escaped = !effect.noXp; target.noXp = !!effect.noXp; target.leaveReason = effect.reason; Spirit()?.onExit?.(s, target, H); }
           else if (effect.kind === "spendSeeds") s.seeds = Math.max(0, (s.seeds || 0) - effect.amount);
           else if (effect.kind === "apLoss" && effect.potencyMul) { target.omen = { multiplier: effect.potencyMul, expiresAfterOwnerTurn: target.ownerTurns + (effect.duration || 1) }; target.omenApLoss = effect.fraction || 0; }
           else if (effect.kind === "apLoss") target.insightApLoss = effect.fraction;
@@ -2186,6 +2249,7 @@
       vow(s, a, act) {   // Technique stances (Muse-2): a standalone free oath; the restrictions are the price
         if (!Vows) return "Vows are unavailable.";
         if (a.beast || a.monster) return `${a.name} is soulless: mindless things can neither declare nor complete vows.`;   // W4.4: the canonical refusal
+        if (a.form?.golden) return "The Self has nothing left to promise: vows can't be declared in gold.";   // locked decision 5: silence in gold; sworn vows persist
         const word = act.target === "word";   // Rama's word (docs/rama-build.md): once a battle, by a character who keeps one
         if (act.target !== "technique" && !word) return "Oaths are sworn on techniques alone; auras, dreams and roles ride their own actions.";
         if (word && !C.characters[a.character]?.swearsWord) return `${a.name} has no word to give.`;
@@ -2293,6 +2357,7 @@
           return "A delayed technique needs a living character whose next turn can trigger it; wild creatures have no character turn.";
         const inspired = H.inspiredPay?.(s, a, m);   // a full bar and 1 Inspiration pay an ultimate's whole ΦF
         if (!internal?.prepaid && a.pf < m.cost && !inspired) return `Needs ${m.cost} ΦF (have ${a.pf}).`;
+        if (!internal?.prepaid && m.lfPrice && a.lf <= m.lfPrice) return `${m.name} costs ${m.lfPrice} LF: you need more than that left (have ${a.lf}).`;   // an ability's LF price (Ajin L1; the pattern of the rite cut at ~1334): the caster must stay above 0 LF
         if(presidentRules){for(const h of Object.values(s.actors)){if(!h.law||h.law.until<s.round)continue;const hu=presidentUnits(s).find(u=>u.id===h.id),au=presidentUnits(s).find(u=>u.id===a.id),r=presidentRules.breaksLaw(hu,au,{delivery:m.delivery},{...presidentContext(s),round:s.round});if(r.broke){syncPresidentUnit(s,r.actor);log(s,{kind:"law",actor:a.id,target:h.id,text:`${a.name} breaks ${h.name}'s Due Process rule (${m.delivery}) and becomes an outlaw.`,why:["The rule applies to its maker and units in jurisdiction."]});}}}
         // committed: pay once, snapshot (spec §7)
         const starTax = ClassRuntime?.actor ? ClassRuntime.actor.taxFor(s, a, t.targets || []) : 1;   // GDP: the star's tax lands once per technique, overclock unmultiplied
@@ -2304,6 +2369,7 @@
         if (quickened === "lastWord") { a.quickenedSpent ||= {}; a.quickenedSpent[act.ability] = true; }
         if (inspired && !internal?.prepaid) { const n = s.rules.inspiration?.ultimatePoint ?? 1; H.Inspiration.spend(s, a, n); log(s, { kind: "inspiration", actor: a.id, spent: n, text: `${a.name} spends ${n} Inspiration: it pays ${m.name}'s ${m.cost} ΦF.`, why: [`Inspired ultimate: with a full bar, one Inspiration pays the whole ΦF cost.${mastered ? " Mastery: the bar is not spent." : " The bar and the AP are still spent."}`] }); }   // MCR-04: prepaid ΦF is never paid again with Inspiration
         else if (!internal?.prepaid) a.pf -= m.cost;   // prepaid at set time
+        if (m.lfPrice && !internal?.prepaid) { a.lf -= m.lfPrice; log(s, { kind: "act", actor: a.id, text: `${a.name} pays ${m.lfPrice} LF for ${m.name} (${a.lf}/${a.maxLF}).`, why: ["A technique's LF price is paid on cast, after the cast is legal and before anything resolves; it can never leave the caster below 1 LF."] }); }
         if (m.miseStation) ClassRuntime.mise.redeem(s, a, m, classH());   // Mise en Place: the prepared station is spent with the cast
         if(m.freeFocus)H.FocusPlans?.commit(s,a,act,t);
         if (m.tier === "ultimate" && mastered && !dreamUltimate) log(s, { kind: "charge", actor: a.id, text: `${a.name} needs no charge for ${m.name}: mastery.`, why: ["Mastery: ultimates cost their action points and ΦF, and nothing else."] });

@@ -7,7 +7,7 @@
   else root.ConceptCombatBeliefConversion = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const SUPERNATURAL = new Set(["dreamSpace", "fieldOpen", "dreamAppear", "summon", "summonOrder", "summonUltimate",
-    "monsterSummon", "gaiaSummon", "mythicReveal", "bossAppear", "dragonAppear"]);
+    "monsterSummon", "gaiaSummon", "mythicReveal", "bossAppear", "dragonAppear", "cardPlay", "handShown"]);   // Battle Cards (CARDS.md 18.3): a card play, and showing a hand, are events a skeptic can witness
   const MYTHIC_NAMES = /dragon|kaiju|oni|gaia|vampire|mummy|skeleton|frankenstein|werewolf|ghost|zombie|hydra|griffin|phoenix|unicorn|titan|demon|angel|chimera|basilisk|fae/i;
   const WITNESSES_REQUIRED = 2;
   const OUTCOME_WEIGHTS = { rationalize: 0.4, devout: 0.4, full: 0.2 };
@@ -25,7 +25,7 @@
     return "full";
   }
   function evidenceWeight(event) {
-    return event?.kind === "mythicReveal" || ["dreamSpace", "fieldOpen", "bossAppear", "dragonAppear"].includes(event?.kind) ? 2 : 1;
+    return event?.kind === "mythicReveal" || ["dreamSpace", "fieldOpen", "bossAppear", "dragonAppear", "handShown"].includes(event?.kind) ? 2 : 1;
   }
 
   function isSupernaturalEvent(event) {
@@ -54,6 +54,7 @@
       && !traits.some(id => ["nonBeliever", "believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever"].includes(id));
   }
   function evidenceKey(event) {
+    if (event.kind === "cardPlay" || event.kind === "handShown") return `${event.round ?? "?"}:${event.kind}`;   // one point per witness per round, whoever plays (CARDS.md 18.3)
     return event.evidenceId || event.id || `${event.kind}:${event.round ?? "?"}:${event.actor || ""}:${event.target || event.monster || ""}`;
   }
   function witness(actor, event, { seed = 0, spiritOdds = 0 } = {}) {

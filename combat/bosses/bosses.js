@@ -90,6 +90,13 @@
   }
   function endOfTurnForms(player) {
     if (!player.form || typeof player.form !== "object") return { player, events: [] };   // string forms are a species tag (dream monsters), not a transform timer
+    if (player.form.golden) {   // gold: four free turns, then the form holds on convention rates (never fades by clock)
+      if (player.form.held) return { player, events: [] };   // held gold never times out (return fix 2026-10-30: the learned guard, same line)
+      const left = player.form.turnsLeft - 1;
+      if (left > 0) return { player: { ...player, form: { ...player.form, turnsLeft: left } }, events: [] };
+      return { player: { ...player, form: { ...player.form, turnsLeft: 0, held: true, heldTurns: 0, eatTurns: 0 } },
+        events: [{ kind: "transform", actor: player.id, form: player.form.name, golden: true, text: `${player.form.name} holds on past its four turns: ${LF.drain} ΦF a turn, or it eats its own gold. Let go any time.`, why: ["Held forms end by release or ejection, never by clock."] }] };
+    }
     if (player.form.learned) {   // learned forms: held ones never time out; vowed ones end through releaseForm
       if (player.form.held) return { player, events: [] };
       const left = player.form.turnsLeft - 1;
@@ -141,8 +148,9 @@
     if (player.goldenUsed) return { player, error: "Once per battle." };
     if ((player.ultimateCharge ?? 0) < ultimateChargeMax) return { player, error: "It takes a full ultimate charge." };
     if (player.form) return { player, error: "Let your current form end first." };
+    const pool = (G.pool?.perMaxLF ?? 2) * (player.maxLF || 100) + (G.pool?.base ?? 50);   // decision 3: 2 per holder maxLF + 50
     return { player: { ...player, ultimateCharge: 0, goldenUsed: true,
-        form: { name: G.name, golden: true, turnsLeft: G.duration, effects: G.effects, lf: G.lf, maxLF: G.lf, returnLF: player.lf, ...(G.strike ? { strike: { ...G.strike } } : {}), ...(G.techniques ? { techniques: G.techniques.slice() } : {}) } },
+        form: { name: G.name, golden: true, turnsLeft: G.duration, effects: G.effects, lf: pool, maxLF: pool, returnLF: player.lf, ...(G.strike ? { strike: { ...G.strike } } : {}), ...(G.techniques ? { techniques: G.techniques.slice() } : {}) } },
       // The UI plays G.transformation.sequence (fall → smoke → breach → emerge → clear → hover), then the gold-form sheet.
       events: [{ kind: "transform", actor: player.id, form: G.name, golden: true, sequence: G.transformation.sequence, sprites: G.transformation.sprites, scale: G.transformation.scale, then: G.transformation.then,
         text: "You fall, and the body is gone in a puff of smoke. Something gold rises out of it: featureless, whole. There is nothing left in you for anyone to use." }] };
@@ -186,8 +194,20 @@
       why: [vow ? "Borrowed Form: no action points, no drain. When it ends, this form can't be held again this battle." : `${LF.enterAp} action points. Let go any time on your turn; at ${Math.round(LF.forcedAt * 100)}% LF the form throws you out.`,
         first ? "First form this battle: the ultimate bar is full." : "Not the first entry: the bar stays where it was."] }] };
   }
+  // Gold release: letting go is free on the holder's turn; ejection (pool at 10%) comes back
+  // quiet + Burnt Out. Either way the holder returns with exactly the banked LF, never harmed.
+  function releaseGold(a, burntOut) {
+    const f = a.form;
+    const back = { ...a, form: null, lf: f.returnLF ?? a.lf, goldenUsed: a.goldenUsed };
+    if ("priorSprite" in f) { if (f.priorSprite == null) delete back.sprite; else back.sprite = f.priorSprite; }
+    if (burntOut) back.tempoDebt = (a.tempoDebt || 0) + LF.burntOutAp;
+    const text = burntOut ? `${f.name} throws ${a.name} out at ${back.lf} LF: Burnt Out (${LF.burntOutAp} AP down next turn).` : `${a.name} lets go of ${f.name}.`;
+    return { player: back, events: [{ kind: "transformEnd", actor: a.id, form: f.name, golden: true, text }] };
+  }
   function releaseForm(a, { reason = "let go", burntOut = false } = {}) {
-    const f = a.form; if (!f || !f.learned) return { player: a, events: [] };
+    const f = a.form; if (!f) return { player: a, events: [] };
+    if (f.golden) return releaseGold(a, burntOut);
+    if (!f.learned) return { player: a, events: [] };
     const add = f.stats?.maxLFAdd || 0, maxLF = (a.maxLF || 100) - add;
     const back = { ...a, form: null, maxLF, lf: Math.max(1, Math.min(a.lf, maxLF)), formCooldownUntil: (a.ownerTurns ?? 0) + LF.reentryTurns };
     if ("priorSprite" in f) { if (f.priorSprite == null) delete back.sprite; else back.sprite = f.priorSprite; }
@@ -231,6 +251,24 @@
       next.lf = Math.max(1, next.lf - eat);
       events.push({ kind: "effect", actor: a.id, text: `${F.name} has no ΦF left to drink: it eats ${eat} LF (${next.lf} left).`, why: ["Let go on your turn, or it bites harder each turn."] });
       if (next.lf <= Math.ceil(LF.forcedAt * F.baseMaxLF)) { const r = releaseForm(next, { burntOut: true }); return { player: r.player, events: [...events, ...r.events] }; }
+    }
+    return { player: next, events };
+  }
+  // Gold overtime, past the four free turns: the same convention as learned forms, but the form
+  // eats its own pool, never the holder. Runs at turn start while form.held (turns.js).
+  function goldHoldTick(a, ctx) {
+    const f = a.form; if (!f?.golden || !f.held) return { player: a, events: [] };
+    const events = [], next = { ...a, form: { ...f, heldTurns: (f.heldTurns || 0) + 1 } }, F = next.form;
+    const foes = ctx.foes?.() || [];
+    if (ctx.isAI && (!foes.length || (next.pf < LF.drain && F.lf <= LF.ai.releaseAt * F.maxLF))) {
+      const r = releaseGold(next, false); return { player: r.player, events: [...events, ...r.events] };
+    }
+    if (next.pf >= LF.drain) { next.pf -= LF.drain; events.push({ kind: "resource", actor: a.id, text: `Holding ${F.name} costs ${LF.drain} ΦF (${next.pf} left).` }); }
+    else {
+      const eat = LF.eatStart + LF.eatStep * (F.eatTurns || 0); F.eatTurns = (F.eatTurns || 0) + 1; next.pf = 0;
+      F.lf = Math.max(0, F.lf - eat);
+      events.push({ kind: "effect", actor: a.id, text: `${F.name} has no ΦF left to drink: it eats ${eat} of its own gold (${F.lf}/${F.maxLF} left).`, why: ["The form spends itself; the holder is never harmed. Let go on your turn, or it bites harder each turn."] });
+      if (F.lf <= Math.ceil(LF.forcedAt * F.maxLF)) { const r = releaseGold(next, true); return { player: r.player, events: [...events, ...r.events] }; }
     }
     return { player: next, events };
   }
@@ -330,5 +368,5 @@
   function rushBosses() { return RUSH_ORDER.filter((id) => BD.bosses[id]?.omega); }
 
   const publicOrbs = () => Object.keys(BD.orbs).filter((id) => !BD.bosses[BD.orbs[id]?.boss]?.sealed);
-  return { hollowClamp, formsTurnStart, wantsLarva, formFor, canEnterLearned, enterLearned, releaseForm, holdTick, formDamage, formBeforeApply, formRider, formCastRider, formImmovable, aiFormChoice, makeBoss, footprint, afterDamage, displacementBlocked, damageTakenMul, statusImmune, dropOrb, transform, endOfTurnForms, damageForm, integration, becomeGolden, rushBosses, RUSH_ORDER, RUSH_TAIL, publicOrbs, data: BD };
+  return { hollowClamp, formsTurnStart, wantsLarva, formFor, canEnterLearned, enterLearned, releaseForm, holdTick, goldHoldTick, formDamage, formBeforeApply, formRider, formCastRider, formImmovable, aiFormChoice, makeBoss, footprint, afterDamage, displacementBlocked, damageTakenMul, statusImmune, dropOrb, transform, endOfTurnForms, damageForm, integration, becomeGolden, rushBosses, RUSH_ORDER, RUSH_TAIL, publicOrbs, data: BD };
 });

@@ -8,6 +8,7 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).kaiba = install;
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
+    const spiritGone = (s, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(s, u, H); };   // SP-05: every exit refreshes the roster
     const { clone } = H;   // everything else arrives as h (call-time helpers, like the Tourist module)
     const Kaiba = {
       is: (u) => !!u && u.character === "kaiba",
@@ -76,7 +77,7 @@
             k.status = { ...(k.status || {}), asleep: true };   // marker rail + unit card read status (Z icon)
             h.log(s, { kind: "kaiba", actor: k.id, text: "Kaiba curls up and falls asleep.", why: ["Three pets is plenty. He stays, unbothered and unpettetable."] });
           } else {
-            k.escaped = true; k.defeated = true; k.leaveReason = "got bored and wandered off"; k.tempo = 0;
+            k.escaped = true; k.defeated = true; k.leaveReason = "got bored and wandered off"; k.tempo = 0; spiritGone(s, k);
             s.civilians.members = (s.civilians.members || []).filter((id) => id !== k.id);
             h.log(s, { kind: "kaiba", actor: k.id, text: "Kaiba gets bored and wanders off.", why: ["Three pets is plenty."] });
           }

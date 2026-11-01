@@ -125,12 +125,17 @@
   // snapshot = { round, units: [{ id, side, x, y, defeated }], wild: [monsters] }
   function outcome(setup, snap) {
     const alive = (u) => u && !u.defeated && (u.lf == null || u.lf > 0);
+    // Nonlethal victory (NONLETHAL.md N3): a unit incapacitated with at least one own turn still to come is out of the fight for a side's elimination
+    // (not `standing`: engine/instinct.js already defines that name). It is read for side elimination only, never for a marked target.
+    const subdued = (u) => !!u && alive(u) && (u.states?.incapacitated?.count ?? 0) >= 1;
+    const unsubdued = (u) => alive(u) && !subdued(u);
+    const subdueEnd = (winner, losers, reason) => ({ winner, nonLethal: true, subdued: losers.filter(subdued).map((u) => u.id), reason });
     const hero = snap.units.find((u) => u.id === setup.hero);
     const playerSide = snap.units.filter((u) => u.side === "player");
     if (setup.mode === "warfare") {
       const counts = {
-        player: playerSide.filter(alive).length,
-        enemy: snap.units.filter((u) => u.side === "enemy" && alive(u)).length,
+        player: playerSide.filter(unsubdued).length,
+        enemy: snap.units.filter((u) => u.side === "enemy" && unsubdued(u)).length,
         wild: (snap.wild || []).filter((u) => u.form === "unit" && alive(u)).length,
       };
       // The wild fights as a faction but does not hold the battle open: once only one of the two sides of units is left,
@@ -139,16 +144,18 @@
       const standing = counts.player ? ["player"] : counts.enemy ? ["enemy"] : counts.wild ? ["wild"] : [];
       if (standing.length === 1) {
         const winner = standing[0], name = { player: "Player", enemy: "Enemy", wild: "Wild" }[winner];
-        return { winner, reason: `${name} faction is the last standing.` };
+        const out = snap.units.filter((u) => u.side !== winner && u.side !== "civilian" && subdued(u));   // a faction that was subdued, not killed, loses non-lethally
+        return out.length && winner !== "wild" ? subdueEnd(winner, out, `${name} faction is the last standing; the rest are subdued.`) : { winner, reason: `${name} faction is the last standing.` };
       }
       return { winner: "none", reason: "Every faction has fallen." };
     }
     if (setup.mode === "melee") {   // sub-faction melee (Mala, 2026-10-17): N crews, last standing wins
       const crews = {};
-      for (const u of snap.units) { if (alive(u) && u.side !== "civilian") crews[u.side] = (crews[u.side] || 0) + 1; }
+      for (const u of snap.units) { if (unsubdued(u) && u.side !== "civilian") crews[u.side] = (crews[u.side] || 0) + 1; }
       const standing = Object.keys(crews);
-      if (!crews.player) return { winner: "enemy", reason: "Your crew fell in the melee." };
-      if (standing.length === 1) return { winner: "player", reason: "Your crew is the last standing." };
+      const ownSub = playerSide.filter(subdued), othersSub = snap.units.filter((u) => u.side !== "player" && u.side !== "civilian" && subdued(u));
+      if (!crews.player) return ownSub.length ? subdueEnd("enemy", ownSub, "Your crew is subdued in the melee.") : { winner: "enemy", reason: "Your crew fell in the melee." };
+      if (standing.length === 1) return othersSub.length ? subdueEnd("player", othersSub, "Your crew is the last standing; the rest are subdued.") : { winner: "player", reason: "Your crew is the last standing." };
       return null;
     }
     // Death's door (summons): a downed hero whose unbidden summon still stands has not lost yet.
@@ -156,6 +163,11 @@
     // Mala, 2026-10-11: the fight is not over while anyone on the hero's side is still on the field. A fallen hero's
     // allies, summons and communed plants fight on (or flee); the loss comes when the last of them is down or gone.
     const heroDown = !alive(hero) && !heldAtDoor;
+    if (!playerSide.some(unsubdued) && playerSide.some(alive)) {   // nobody on the hero's side can act, and not all of them are down: subdued (NONLETHAL.md N3)
+      const foes = snap.units.filter((u) => u.side === "enemy");
+      if (!foes.length || foes.some(alive))   // every enemy dead falls through to the base rules (a win); otherwise this side is subdued
+        return foes.length && !foes.some(unsubdued) ? subdueEnd("none", playerSide.concat(foes), "Every unit on both sides is subdued or down.") : subdueEnd("enemy", playerSide, "Your side is subdued.");
+    }
     if (!playerSide.some(alive)) return { winner: "enemy", reason: hero?.deathDoor ? "The hero has fallen, and the summon that stood over them is gone." : playerSide.length > 1 ? "The hero has fallen, and no one is left to fight on." : "The hero has fallen." };
     const enemies = snap.units.filter((u) => u.side === "enemy");
     if (heroDown && ["escape"].includes(setup.mode))   // nobody can carry the hero out; what is left is to win the field
@@ -164,12 +176,12 @@
       case "survive":
         return snap.round > setup.rounds ? { winner: "player", reason: `Survived ${setup.rounds} rounds.` } : null;
       case "totalVictory":
-        return enemies.length && !enemies.some(alive) ? { winner: "player", reason: "Every enemy defeated." } : null;
+        return enemies.length && !enemies.some(unsubdued) ? (enemies.some(alive) ? subdueEnd("player", enemies, "Every enemy is subdued.") : { winner: "player", reason: "Every enemy defeated." }) : null;
       case "escape":
         if (setup.exits.some(([x, y]) => hero.x === x && hero.y === y)) return { winner: "player", reason: "Reached the exit." };
         // Mala, 2026-10-11: with no enemy left standing there is nobody to cut the hero off, so the escape is won.
         // Wild monsters do not hold the battle open.
-        return enemies.length && !enemies.some(alive) ? { winner: "player", reason: "No enemy is left to stop the escape." } : null;
+        return enemies.length && !enemies.some(unsubdued) ? (enemies.some(alive) ? subdueEnd("player", enemies, "No enemy is left to stop the escape; the rest are subdued.") : { winner: "player", reason: "No enemy is left to stop the escape." }) : null;
       case "assassinate":
         // Mala, 2026-10-08: a marked target that leaves alive is a FAILURE, however it leaves: fled in fear,
         // escaped, bribed, talked off the field. Only a target brought down counts.

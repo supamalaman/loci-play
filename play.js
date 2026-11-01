@@ -157,6 +157,20 @@
     if (ev.shiftKey && document.activeElement === f[0]) { ev.preventDefault(); f[f.length - 1].focus(); }
     else if (!ev.shiftKey && document.activeElement === f[f.length - 1]) { ev.preventDefault(); f[0].focus(); }
   });
+  // ── the update bar (Mala, 2026-11-01): the same ticker the Mac app shows; the build's version.json says what is published ──
+  function reloadForUpdate() {
+    if ($("battle").hidden || window.confirm("Reload Loci? Your current battle will end.")) location.reload();
+  }
+  async function refreshVersion() {
+    const U = self.ConceptCombatUpdate; if (!U) return;
+    const v = await U.check(); if (!v.running) return;
+    document.querySelectorAll("[data-version]").forEach((el) => { el.textContent = `v${v.running}`; });
+    const t = $("updateTicker"); if (!t) return;
+    t.hidden = !v.updateReady;
+    if (v.updateReady) { t.textContent = `Update available: Loci ${v.staged} is ready (you are on ${v.running}) · Reload to install`; t.onclick = reloadForUpdate; }
+  }
+  refreshVersion(); setInterval(refreshVersion, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshVersion(); });
   if (!roster.length) { $("detail").innerHTML = `<p class="pk-error">The character list did not load.</p>`; return; }
   renderRoster(); renderDetail();
 })();

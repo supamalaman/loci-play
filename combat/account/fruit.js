@@ -22,6 +22,12 @@
 //   hunterFor(account, { seed })   → a hunter roster id (~1 battle in 8 while posted), or null
 //   sellFruit(account, id)         → { ok, account, line } (stash → sold, 400 owed by the tide)
 //   settleFruit(account, opts)     → { account, lines } (installments, sold returns, hunter purse, loss claim, ripe raise)
+// Respec S1a (Tiller BD, 2026-11-01; spec claude-sinkerfruit-respec-spec "Rev 2026-11-01"; Mala: "start working on the fruit slices").
+// Feats instead of the 30-battle timer, behind RULES.respec (false): off, nothing below changes a single result.
+//   FEATS                          → fruit id → [{ id, label, needsRipe }]: the feats the live basics can earn (S1b adds the rest)
+//   masteryOf(account)             → { feats: [], shapes: [] } (a fresh one when the account has none)
+//   stage(account)                 → null (no fruit) | "fresh" | "ripe" | "awakened"
+//   settleFeats(account, { feats, shapes, won, shaped, drained, test }) → { account, lines } counts each feat once per account
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatFruit = factory();
@@ -33,7 +39,8 @@
   const marketLib = () => need("./market.js", "ConceptCombatMarket");
   const RULES = { dropPerWin: 1 / 40, ripeAfter: 30,
     wantedPost: 20, wantedRipe: 30, hunterPerBattle: 1 / 8, purse: 30,
-    salePrice: 400, installment: 50, soldReturnAfter: 40 };
+    salePrice: 400, installment: 50, soldReturnAfter: 40,
+    respec: false, ripeFeats: 3, awakenFeats: 6 };   // respec: false = the 30-battle timer exactly as landed; true = feats ripen and awaken the fruit
   const HUNTERS = ["fbi_agent", "tactical_operative", "cloaked_drifter"];
   const FRUITS = {
     coil: { name: "Coilfruit", family: "body", line: "A coiled, spiral-skinned fruit. Your body learns to give and to spring back: impact ×0.6, and Wind the Spring." },
@@ -44,7 +51,48 @@
   const poolOf = (account) => Object.fromEntries(IDS.map((id) => [id, account?.fruitPool?.[id] || "pool"]));
   const stashOf = (account) => IDS.filter((id) => poolOf(account)[id] === "stash");
   const eaten = (account) => (account?.fruit && FRUITS[account.fruit.id] ? account.fruit : null);
-  const ripe = (account) => { const f = eaten(account); return !!f && (account.battles || 0) - (f.eatenAt || 0) >= RULES.ripeAfter; };
+  const timerRipe = (account) => { const f = eaten(account); return !!f && (account.battles || 0) - (f.eatenAt || 0) >= RULES.ripeAfter; };
+  // Feats the live basics can earn (S1a). The ids are what engine/fruit.js marks on the battle (s.fruitFeats); a feat counts once per
+  // account. needsRipe feats arrive with the refined techniques (S1b), so none is listed here yet.
+  const FEATS = {
+    coil: [{ id: "coil.store3", label: "store 3 coils" }, { id: "coil.release3", label: "release 3 coils in one Strike" }, { id: "coil.take3", label: "take 3 impact hits at ×0.6 in one battle" }, { id: "coil.winDamped", label: "win a battle in which you were damped" }],
+    hide: [{ id: "hide.shape", label: "take a shape" }, { id: "hide.second", label: "take a second, different beast's shape" }, { id: "hide.winShaped", label: "win while shaped" }],
+    mist: [{ id: "mist.fog", label: "lay a fog bank" }, { id: "mist.drift3", label: "a foe's Strike drifts aside 3 times in one battle" }, { id: "mist.winClean", label: "win a battle without taking a will-less Strike" }],
+  };
+  const masteryOf = (account) => ({ feats: [...(account?.fruitMastery?.feats || [])], shapes: [...(account?.fruitMastery?.shapes || [])] });
+  const stage = (account) => {
+    const f = eaten(account); if (!f) return null;
+    if (!RULES.respec) return timerRipe(account) ? "ripe" : "fresh";
+    const n = masteryOf(migrateMastery(account)).feats.length;
+    return n >= RULES.awakenFeats ? "awakened" : n >= RULES.ripeFeats ? "ripe" : "fresh";
+  };
+  const ripe = (account) => (RULES.respec ? ["ripe", "awakened"].includes(stage(account)) : timerRipe(account));
+  // A fruit already ripe by the timer keeps Ripe when the feat model comes on: it is credited the three feats (spec section 2).
+  function migrateMastery(account) {
+    if (!RULES.respec || !eaten(account) || account.fruitMastery) return account;
+    return { ...account, fruitMastery: { feats: timerRipe(account) ? ["legacy.1", "legacy.2", "legacy.3"] : [], shapes: [] } };
+  }
+  function settleFeats(account, { feats = [], shapes = [], won = false, shaped = false, drained = false, struck = false, test = false } = {}) {
+    const f = eaten(account), lines = [];
+    if (!RULES.respec || test || !f) return { account, lines };
+    let a = migrateMastery(account);
+    if (a !== account && masteryOf(a).feats.length) lines.push("Ripe: the old timer ripened this fruit already, so it keeps Ripe (3 feats credited).");
+    const m = masteryOf(a), before = stage(a), mine = new Set((FEATS[f.id] || []).map((x) => x.id));
+    const got = [...feats];
+    if (won && shaped && f.id === "hide") got.push("hide.winShaped");
+    if (won && drained && f.id === "coil") got.push("coil.winDamped");
+    if (won && !struck && f.id === "mist") got.push("mist.winClean");
+    for (const id of got) {
+      if (!mine.has(id) || m.feats.includes(id)) continue;
+      m.feats.push(id);
+      lines.push(`Feat: ${FEATS[f.id].find((x) => x.id === id).label} (${m.feats.length}/${RULES.awakenFeats}).`);
+    }
+    for (const k of shapes) if (!m.shapes.includes(k)) m.shapes.push(k);
+    a = { ...a, fruitMastery: m };
+    const after = stage(a);
+    if (after !== before) lines.push(after === "awakened" ? "Awakened: the fruit has become all of you." : "Ripe: the fruit has come into itself.");
+    return { account: a, lines };
+  }
   // FNV-1a, the same shape loot.js rolls with; account.battles is mixed in because designed encounters all have seed 0.
   function roll(seed, tag) { let h = 2166136261; for (const c of `${seed}:${tag}`) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 100000) / 100000; }
 
@@ -70,10 +118,11 @@
     return { ok: true, account: { ...next, bingo: store },
       line: `You eat ${FRUITS[id].name}. A power wakes in you, and the water will never hold you up again. The Record posts your head: ${RULES.wantedPost} Seeds. Hunters will come.` };
   }
-  const battleOpts = (account) => (eaten(account) ? { id: eaten(account).id, ripe: ripe(account) } : null);
+  const battleOpts = (account) => (eaten(account) ? { id: eaten(account).id, ripe: ripe(account), ...(RULES.respec ? { respec: true, shapes: masteryOf(account).shapes } : {}) } : null);
   function returnToTide(account) {
     const f = eaten(account); if (!f) return { account, line: "" };
     const next = { ...account, fruit: null, fruitPool: { ...poolOf(account), [f.id]: "pool" } };
+    if (RULES.respec) delete next.fruitMastery;   // a closed saga is a new story: the feats go with it (spec section 2)
     if (next.bingo?.bounties?.player) {   // a closed saga is a new story: the Record strikes your name, hunters stop
       delete next.bingo.bounties.player;
       next.bingo.log.push("your saga closes: the Record strikes your name. The sea forgets you.");
@@ -132,5 +181,5 @@
     }
     return { account: a, lines };
   }
-  return { RULES, FRUITS, HUNTERS, poolOf, stashOf, eaten, ripe, rollDrop, afterBattle, eat, battleOpts, returnToTide, posted, hunterFor, sellFruit, settleFruit };
+  return { RULES, FEATS, masteryOf, stage, settleFeats, FRUITS, HUNTERS, poolOf, stashOf, eaten, ripe, rollDrop, afterBattle, eat, battleOpts, returnToTide, posted, hunterFor, sellFruit, settleFruit };
 });
