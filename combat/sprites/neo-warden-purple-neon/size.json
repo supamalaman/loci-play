@@ -1,0 +1,226 @@
+{
+  "size_class": "person",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 1.0,
+  "world_height_definition": "Intended same person class as Warden; current renderer normalizes idle canvas height including effects.",
+  "foot_point_definition": "Bottom-center of opaque/effect alpha bounds; no new renderer behavior introduced.",
+  "source_idle_body_height_estimate_px": 293,
+  "minimum_pixel_rule": "No formal class threshold is implemented yet (existing size-contract follow-up); source person body is about 293px tall.",
+  "lineup": "lineup.png",
+  "lineup_method": "Current ui.js idle formula, tile width 256, image height tw*.568, baseY=cy+th*.1, aspect preserved, nearest-neighbor. Formula diagnostic, not in-app acceptance.",
+  "runtime_consumed": false,
+  "poses": {
+    "idle": {
+      "file": "idle.png",
+      "pixel_size": [
+        260,
+        332
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        256,
+        328
+      ],
+      "foot_point_px": [
+        130.0,
+        328
+      ],
+      "sha256": "f661179967c6cb18cf576f1ca522c418e93644a11ec23db4defa5b2cde94441a",
+      "facing": "front"
+    },
+    "walk": {
+      "file": "walk.png",
+      "pixel_size": [
+        269,
+        317
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        265,
+        313
+      ],
+      "foot_point_px": [
+        134.5,
+        313
+      ],
+      "sha256": "dfb76f2ee5415bdde013f794bb4b76369a018056af0c0145ca97eb83ce38d50e",
+      "facing": "right"
+    },
+    "cast": {
+      "file": "cast.png",
+      "pixel_size": [
+        311,
+        330
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        307,
+        326
+      ],
+      "foot_point_px": [
+        155.5,
+        326
+      ],
+      "sha256": "46dadcffa31af3607bd688568f7327d10ce3edbcc3cd2cfb63e966483ce72f4d",
+      "facing": "front"
+    },
+    "cast-off": {
+      "file": "cast-off.png",
+      "pixel_size": [
+        311,
+        330
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        307,
+        326
+      ],
+      "foot_point_px": [
+        155.5,
+        326
+      ],
+      "sha256": "46dadcffa31af3607bd688568f7327d10ce3edbcc3cd2cfb63e966483ce72f4d",
+      "facing": "front"
+    },
+    "cast-def": {
+      "file": "cast-def.png",
+      "pixel_size": [
+        262,
+        330
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        258,
+        326
+      ],
+      "foot_point_px": [
+        131.0,
+        326
+      ],
+      "sha256": "c748e907c99c0d344d3d3914fc66289b51c82f2d99d067b079a1e92d409b2e83",
+      "facing": "front"
+    },
+    "dodge": {
+      "file": "dodge.png",
+      "pixel_size": [
+        263,
+        293
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        259,
+        289
+      ],
+      "foot_point_px": [
+        131.5,
+        289
+      ],
+      "sha256": "d2b5f60bd6a424637674c39d8fa35c665ba10093c4d19223db4294a3ee583adc",
+      "facing": "left recoil"
+    },
+    "ultimate": {
+      "file": "ultimate.png",
+      "pixel_size": [
+        349,
+        330
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        345,
+        326
+      ],
+      "foot_point_px": [
+        174.5,
+        326
+      ],
+      "sha256": "dbe6282ec0c245f61dde1aa564da4329a0da47dcb7b7e6c9d5d9f02d08cc8970",
+      "facing": "front"
+    },
+    "block": {
+      "file": "block.png",
+      "pixel_size": [
+        254,
+        305
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        250,
+        301
+      ],
+      "foot_point_px": [
+        127.0,
+        301
+      ],
+      "sha256": "cc938a2cb70612c36785939fd0e6dacd225d5e2971e12aefd4a3e824b3af9320",
+      "facing": "right"
+    },
+    "punch": {
+      "file": "punch.png",
+      "pixel_size": [
+        310,
+        291
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        306,
+        287
+      ],
+      "foot_point_px": [
+        155.0,
+        287
+      ],
+      "sha256": "2998a34079835470b95267f7ec6b2320ccb48ff2266e104cd78d414ea5852bdd",
+      "facing": "right"
+    },
+    "knockback": {
+      "file": "knockback.png",
+      "pixel_size": [
+        256,
+        320
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        252,
+        316
+      ],
+      "foot_point_px": [
+        128.0,
+        316
+      ],
+      "sha256": "671af8fc769c66a192802e7dd66811f9d4a92b497e624cc966cd5c622ceaaa95",
+      "facing": "left recoil"
+    },
+    "knocked-out": {
+      "file": "knocked-out.png",
+      "pixel_size": [
+        230,
+        165
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        226,
+        161
+      ],
+      "foot_point_px": [
+        115.0,
+        161
+      ],
+      "sha256": "f16d05ba35b34b11ec4864a1b590893698cfa9d3aea1903e0c662a88e04c3658",
+      "facing": "front/seated"
+    }
+  }
+}

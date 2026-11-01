@@ -1,0 +1,155 @@
+{
+ "elements": {
+  "fire": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "earth": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "nature": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "shadow": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "ice": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "poison": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "water": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "air": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "holy": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "arcane": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "electric": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  },
+  "blood": {
+   "cast": 3,
+   "projectile": 4,
+   "impact": 3,
+   "linger": 3
+  }
+ },
+ "utility": {
+  "buff": 4,
+  "shield": 4,
+  "teleport": 4,
+  "summon": 3,
+  "debuff": 4
+ },
+ "status": [
+  "stun",
+  "sleep",
+  "doom",
+  "bleed",
+  "burn",
+  "regrow",
+  "confuse",
+  "poison"
+ ],
+ "spells": [
+  "magic-missile",
+  "arcane-blast",
+  "mana-burst",
+  "arcane-shield",
+  "teleport",
+  "firebolt",
+  "flame-wave",
+  "meteor",
+  "fire-nova",
+  "flame-wall",
+  "ice-shard",
+  "frost-nova",
+  "ice-spear",
+  "blizzard",
+  "ice-wall",
+  "chain-lightning",
+  "lightning-bolt",
+  "storm-field",
+  "electric-surge",
+  "thunderclap",
+  "vine-whip",
+  "thorns",
+  "healing-blossom",
+  "entangling-roots",
+  "seed-bomb",
+  "poison-bolt",
+  "acid-splash",
+  "toxic-cloud",
+  "corrupting-touch",
+  "disease-burst",
+  "smite",
+  "radiant-nova",
+  "barrier",
+  "healing-light",
+  "purify",
+  "shadow-bolt",
+  "darkness-field",
+  "telekinetic-slam",
+  "illusion",
+  "vanish"
+ ],
+ "auras": [
+  "power-surge",
+  "power-shatter",
+  "power-storm",
+  "power-wind",
+  "power-dark",
+  "power-ascend",
+  "power-bolt",
+  "power-divine",
+  "commune-vine",
+  "commune-blossom",
+  "commune-thorn",
+  "commune-fern",
+  "commune-broadleaf",
+  "commune-seed",
+  "commune-root",
+  "commune-water"
+ ],
+ "hit": 8,
+ "burst": 9
+}

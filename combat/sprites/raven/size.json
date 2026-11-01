@@ -1,0 +1,9 @@
+{
+  "size_class": "tiny",
+  "footprint_tiles": [1, 1],
+  "world_height": 0.25,
+  "world_height_definition": "Mala, 2026-10-31: \"the raven should be about .25 the size of the normal sprite\". A person (the Warden) = 1.0. The PNGs are drawn at person-scale resolution, so the game must draw the Raven at a quarter of a person's height.",
+  "runtime_consumed": false,
+  "source": "Raven Pixel Sprite Sheet.png (claude-raven-cut-build, Anchor BD)",
+  "note": "Nothing in web/combat reads size_class or world_height yet (the Neo Warden's size.json is the only precedent); the Raven familiar build wires the draw scale (claude-raven-familiar-spec section 2a)."
+}

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loci</title>
+<link rel="stylesheet" href="walk/walk-engine.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="combat/combat.css">
+  <link rel="stylesheet" href="combat/ai/decision-inspector.css">
+</head>
+<body>
+  <!-- Update ticker (Mala, 2026-10-14): shows when a newer build is staged; Restart installs it. -->
+  <button id="updateTicker" class="update-ticker" type="button" hidden></button>
+  <!-- Library: every walkable explainer, with your progress -->
+  <section id="library">
+    <!-- Home (Mala, 2026-10-26): Concept Combat leads; study and labs follow. app.js renderLibrary / renderDuels fill it. -->
+    <header class="lib-top">
+      <div class="brand">LOCI<span>concept duels &amp; memory palaces</span></div>
+      <span class="lib-tools"><span class="app-version" data-version title="The Loci build you are running"></span><button class="app-restart app-restart-icon" type="button" data-restart title="Close and reopen Loci" aria-label="Restart Loci">↻</button></span>
+    </header>
+    <div id="ccHome" class="cc-home" aria-label="Concept Combat"></div>
+    <h2 class="shelf">Study <span>Memory palace walks: read the stations in order, then test yourself in Recall mode</span></h2>
+    <div id="walks" class="walks walks-compact"></div>
+    <h2 class="shelf">Labs <span>Other ways to play</span></h2>
+    <div id="duels" class="walks walks-compact"></div>
+    <p class="lib-foot">New walks come from the Explainer Library: <code>node scaffold.mjs "Walk with X" --kind walk</code> in <code>~/explainers</code>, then ⌘R here.</p>
+  </section>
+
+  <!-- Play: one walk, full window -->
+  <section id="play" hidden>
+    <header class="play-top">
+      <button id="back" type="button" title="Back to library (⌘L)">← Library</button>
+      <div class="play-title"><b id="playTitle"></b><span id="playSub"></span></div>
+      <span class="spacer"></span>
+      <button id="notesBtn" type="button" aria-expanded="false">Field notes</button>
+      <button id="helpBtn" type="button" title="Controls">?</button>
+      <span class="app-version" data-version title="The Loci build you are running"></span><button class="app-restart" type="button" data-restart title="Close and reopen Loci">↻ Restart</button>
+    </header>
+    <div id="stageWrap"><div id="walkHost"></div></div>
+    <aside id="notes" hidden>
+      <div class="notes-head"><b>Field notes</b><button id="notesClose" type="button" aria-label="Close field notes">✕</button></div>
+      <div id="notesBody"></div>
+      <div class="notes-foot"><button id="openClassic" type="button">Open the full explainer ↗</button></div>
+    </aside>
+    <div id="help" class="help" hidden>
+      <b>Controls</b>
+      <div><kbd>W A S D</kbd> / arrows: walk · hold <kbd>Shift</kbd> to hurry</div>
+      <div><kbd>Enter</kbd>: read the station you're facing</div>
+      <div><kbd>Esc</kbd>: route menu (jump to a station, Recall mode, leave)</div>
+      <div><kbd>R</kbd>: Recall mode on/off · <kbd>N</kbd>: field notes</div>
+      <div><kbd>⌘L</kbd>: library</div>
+    </div>
+  </section>
+
+  <!-- Duel: Concept Combat, full window -->
+  <section id="duel" hidden>
+    <header class="play-top">
+      <button id="duelBack" type="button" title="Back: closes what is open, then Concept Combat's menu, then the Loci home (⌘L goes straight home)">← Back</button>
+      <div class="play-title"><b>Concept Combat</b><span>The Gap Court · 1 vs 2 · provisional rules</span></div>
+      <span class="spacer"></span>
+      <button id="duelHelpBtn" type="button" title="Controls">?</button>
+      <span class="app-version" data-version title="The Loci build you are running"></span><button class="app-restart" type="button" data-restart title="Close and reopen Loci">↻ Restart</button>
+    </header>
+    <div id="duelHost"></div>
+    <div id="duelHelp" class="help" hidden>
+      <b>Controls</b>
+      <div><kbd>↑ ↓</kbd> + <kbd>Enter</kbd>: choose a command · <kbd>←</kbd>/<kbd>Esc</kbd>: back</div>
+      <div>Targeting: hover or arrow to a tile for a preview, click or <kbd>Enter</kbd> to commit</div>
+      <div><kbd>G</kbd>: concept map · click an edge id in the log to inspect it</div>
+      <div><kbd>⌘L</kbd>: library</div>
+    </div>
+  </section>
+
+  <section id="story" hidden>
+    <header class="play-top"><button id="storyBack" type="button">← Library</button><div class="play-title"><b>Vignette Campaign</b><span id="storyProgress"></span></div><span class="spacer"></span></header>
+    <main class="cc-card cc-setup" id="storyPanel"></main>
+  </section>
+
+  <!-- Emergent simulation lab: a visible prototype for the field-operator engine. -->
+  <section id="emergent" hidden>
+    <header class="play-top">
+      <button id="fieldBack" type="button" title="Back to library">← Duels</button>
+      <div class="play-title"><b>Emergent Concept Combat</b><span>Field substrate · operator sandbox · prototype</span></div>
+      <span class="spacer"></span>
+      <span class="app-version" data-version title="The Loci build you are running"></span><button class="app-restart" type="button" data-restart title="Close and reopen Loci">↻ Restart</button>
+    </header>
+    <div id="emergentHost"></div>
+  </section>
+
+  <script src="combat/version.js"></script>
+  <script src="walk/walk-engine.js"></script>
+  <script src="combat/kits/kits-data.js"></script>
+  <script src="combat/graph/graph-data.js"></script>
+  <script src="combat/workshop/traversal.js"></script>
+  <script src="combat/workshop/screen.js"></script>
+  <script src="combat/workshop/valence.js"></script>
+  <script src="combat/workshop/verbs.js"></script>
+  <script src="combat/workshop/verbtech.js"></script>
+  <script src="combat/workshop/pairing.js"></script>
+  <script src="combat/workshop/generation.js"></script>
+  <script src="combat/workshop/tutor.js"></script>
+  <script src="combat/workshop/busking.js"></script>
+  <script src="combat/workshop/rewrite.js"></script>
+  <script src="combat/workshop/schools.js"></script>
+  <script src="combat/workshop/hints.js"></script>
+  <script src="combat/classes/class-builds.js"></script>
+  <script src="combat/classes/classes-data.js"></script>
+  <script src="combat/performers/performers.js"></script>
+  <script src="combat/stealth/stealth.js"></script>
+  <script src="combat/monkey/monkey.js"></script>
+  <script src="combat/police/police.js"></script>
+  <script src="combat/law/law.js"></script>
+  <script src="combat/law/sindeaths.js"></script>
+  <script src="combat/law/trial.js"></script>
+  <script src="combat/law/courtroom.js"></script>
+  <script src="combat/law/dispatch.js"></script>
+  <script src="combat/law/bingo.js"></script>
+  <script src="combat/survive.js"></script>
+  <script src="combat/martial/martial.js"></script>
+  <script src="combat/director/director.js"></script>
+  <script src="combat/actor/actor.js"></script>
+  <script src="combat/classes/esker.js"></script>
+  <script src="combat/classes/hot-pot.js"></script>
+  <script src="combat/teleology/teleology.js"></script>
+  <script src="combat/mise/mise.js"></script>
+  <script src="combat/classes/class-runtime.js"></script>
+  <script src="combat/maid-systems.js"></script>
+  <script src="combat/content.js"></script>
+  <script src="combat/classes/roles.js"></script>
+  <script src="combat/emergent-ideas.js"></script>
+  <script src="combat/enemy-summons.js"></script>
+  <script src="combat/landscape-catalog.js"></script>
+  <script src="combat/terrain/authored-arenas.js"></script>
+  <script src="combat/terrain/terrain-data.js"></script>
+  <script src="combat/terrain/mapgen.js"></script>
+  <script src="combat/terrain/vegetation-data.js"></script>
+  <script src="combat/terrain/vegetation.js"></script>
+  <script src="combat/terrain/communion-data.js"></script>
+  <script src="combat/terrain/tsukumogami-data.js"></script>
+  <script src="combat/teach/wisdom-data.js"></script>
+  <script src="combat/teach/concept-questions.js"></script>
+  <script src="combat/teach/teach.js"></script>
+  <script src="combat/terrain/communion.js"></script>
+  <script src="combat/terrain/plant-facts-data.js"></script>
+  <script src="combat/terrain/plant-facts.js"></script>
+  <script src="combat/terrain/tsukumogami.js"></script>
+  <script src="combat/terrain/traps.js"></script>
+  <script src="combat/account/imitation.js"></script>
+  <script src="combat/terrain/structures.js"></script>
+  <script src="combat/terrain/pickups.js"></script>
+  <script src="combat/modes/modes.js"></script>
+  <script src="combat/modes/vignettes.js"></script>
+  <script src="combat/modes/hall.js"></script>
+  <script src="combat/modes/verdict.js"></script>
+  <script src="combat/bosses/boss-data.js"></script>
+  <script src="combat/legacy/legacy.js"></script>
+  <script src="combat/legacy/technique-parts.js"></script>
+  <script src="combat/legacy/legacy-battle.js"></script>
+  <script src="combat/bosses/bosses.js"></script>
+  <script src="combat/modes/boss-rush.js"></script>
+  <script src="combat/modes/secret-warrior.js"></script>
+  <script src="combat/modes/themed-battles.js"></script>
+  <script src="combat/modes/scenarios-data.js"></script>
+  <script src="combat/modes/scenarios.js"></script>
+  <script src="combat/random-events.js"></script>
+  <script src="combat/visitors/visitors.js"></script>
+  <script src="combat/threat-board.js"></script>
+  <script src="combat/wild/monsters-data.js"></script>
+  <script src="combat/wild/monsters.js"></script>
+  <script src="combat/account/items-data.js"></script>
+  <script src="combat/account/cooking.js"></script>
+  <script src="combat/account/account.js"></script>
+  <script src="combat/account/beads.js"></script>
+  <script src="combat/account/ante.js"></script>
+  <script src="combat/account/gaia-bond.js"></script>
+  <script src="combat/account/titles.js"></script>
+  <script src="combat/schools/graduation.js"></script>
+  <script src="combat/account/fruit.js"></script>
+  <script src="combat/schools/gateless.js"></script>
+  <script src="combat/schools/doping.js"></script>
+  <script src="combat/schools/sagas.js"></script>
+  <script src="combat/account/exchange.js"></script>
+  <script src="combat/account/mint.js"></script>
+  <script src="combat/account/board.js"></script>
+  <script src="combat/audio/tracks.js"></script>
+  <script src="combat/ceremony/ceremony.js"></script>
+  <script src="combat/account/crafting.js"></script>
+  <script src="combat/account/market.js"></script>
+  <script src="combat/workshop/jinki.js"></script>
+  <script src="combat/workshop/jinki-states.js"></script>
+  <script src="combat/workshop/jinki-voice.js"></script>
+  <script src="combat/account/loot.js"></script>
+  <script src="combat/cards/cards-data.js"></script>
+  <script src="combat/cards/cards.js"></script>
+  <script src="combat/account/cardbook.js"></script>
+  <script src="combat/cards/cards-ui.js"></script>
+  <script src="combat/summons/summons-data.js"></script>
+  <script src="combat/summons/summons.js"></script>
+  <script src="combat/summons/questions.js"></script>
+  <script src="combat/dream/dream-data.js"></script>
+  <script src="combat/dream/dream.js"></script>
+  <script src="combat/dream/enemy-dreams-data.js"></script>
+  <script src="combat/dream/enemy-monsters.js"></script>
+  <script src="combat/dream/psyche.js"></script>
+  <script src="combat/dream/dreamspace.js"></script>
+  <script src="combat/insight/insight-data.js"></script>
+  <script src="combat/insight/belief-conversion.js"></script>
+  <script src="combat/insight/insight.js"></script>
+  <script src="combat/insight/parley.js"></script>
+  <script src="combat/insight/mind-matrix.js"></script>
+  <script src="combat/insight/mind-duel.js"></script>
+  <script src="combat/insight/conversion.js"></script>
+  <script src="combat/bonds/bonds.js"></script>
+  <script src="combat/vows/vows.js"></script>
+  <script src="combat/vows/affinity.js"></script>
+  <script src="combat/vows/pvrewards.js"></script>
+  <script src="combat/vows/vowkit.js"></script>
+  <script src="combat/vows/presence.js"></script>
+  <script src="combat/vows/debt.js"></script>
+  <script src="combat/vows/sealing.js"></script>
+  <script src="combat/climate/climate-data.js"></script>
+  <script src="combat/climate/climate.js"></script>
+  <script src="combat/status-presentation.js"></script>
+  <script src="combat/insight/hover.js"></script>
+  <script src="combat/mirror/mirror-data.js"></script>
+  <script src="combat/mirror/mirror.js"></script>
+  <script src="combat/classes/president.js"></script>
+  <script src="combat/emergent/postures.js"></script>
+  <script src="combat/terrain/sight.js"></script>
+  <script src="combat/graph/live.js"></script>
+  <script src="combat/auras/auras.js"></script>
+  <script src="combat/ai/workflow.js"></script>
+  <script src="combat/ai/utility.js"></script>
+  <!-- the engine's parts load first; engine.js installs them -->
+  <script src="combat/engine/ledgers.js"></script>
+  <script src="combat/engine/conditions.js"></script>
+  <script src="combat/sealed-next.js"></script>
+  
+  <script src="combat/engine/turns.js"></script>
+  <script src="combat/engine/true-forms.js"></script>
+  <script src="combat/engine/damage.js"></script>
+  <script src="combat/engine/targeting.js"></script>
+  <script src="combat/engine/actions.js"></script>
+  <script src="combat/engine/resolve.js"></script>
+  <script src="combat/engine/window.js"></script>
+  <script src="combat/engine/queries.js"></script>
+  <script src="combat/engine/ai.js"></script>
+  <script src="combat/engine/focus-plans.js"></script>
+  <script src="combat/engine/kaiba.js"></script>
+  <script src="combat/engine/land.js"></script>
+  <script src="combat/engine/houses.js"></script>
+  <script src="combat/engine/tamer.js"></script>
+  <script src="combat/engine/tally.js"></script>
+  <script src="combat/engine/hires.js"></script>
+  <script src="combat/engine/factions.js"></script>
+  <script src="combat/engine/longtermism.js"></script>
+  <script src="combat/engine/living-map.js"></script>
+  <script src="combat/engine/contracts.js"></script>
+  <script src="combat/engine/astral.js"></script>
+  <script src="combat/engine/states.js"></script>
+  <script src="combat/engine/ante.js"></script>
+  <script src="combat/engine/mystery.js"></script>
+  <script src="combat/engine/hyper.js"></script>
+  <script src="combat/engine/fruit.js"></script>
+  <script src="combat/engine/anime-orbit.js"></script>
+  <script src="combat/engine/instinct.js"></script>
+  <script src="combat/engine/injury.js"></script>
+  <script src="combat/bystanders/tourist.js"></script>
+  <script src="combat/castings/sage.js"></script>
+  <script src="combat/insight/observation.js"></script>
+  <script src="combat/engine.js"></script>
+  <script src="combat/poses.js"></script>
+  <script src="combat/sprite-manifest.js"></script>
+  
+  <script src="combat/fx.js"></script>
+  <script src="combat/fx-sprites.js"></script>
+  <script src="combat/asset-usage.js"></script>
+  <script src="combat/dialogue/tracery.js"></script>
+  <script src="combat/dialogue/base-grammar.js"></script>
+  <script src="combat/dialogue/speakers.js"></script>
+  <script src="combat/dialogue/summon-voices.js"></script>
+  <script src="combat/dialogue/dream-voices.js"></script>
+  <script src="combat/dialogue/combat-voice.js"></script>
+  <script src="combat/dialogue/narrator.js"></script>
+  <script src="combat/terrain/arena-iso.js"></script>
+  <script src="combat/terrain/iso-view.js"></script>
+  <script src="combat/terrain/map-dressing.js"></script>
+  <script src="combat/terrain/ground-paint.js"></script>
+  <script src="combat/gaia-field.js"></script>
+  <script src="combat/llm/decision.js"></script>
+  <script src="combat/llm/socket-client.js"></script>
+  <script src="combat/town/town-data.js"></script>
+  <script src="combat/town/town.js"></script>
+  <script src="combat/account/surgery.js"></script>
+  <script src="combat/legacy/contracts.js"></script>
+  <script src="combat/legacy/workshop.js"></script>
+  <script src="combat/legacy/workshop-ui.js"></script>
+  <script src="combat/subfaction-index.js"></script>
+  <script src="combat/ai/decision-codec.js"></script>
+  <script src="combat/ai/decision-sites.js"></script>
+  <script src="combat/ai/decision-inspector.js"></script>
+  <script src="combat/command-search.js"></script>
+  <script src="combat/npc/keepers.js"></script>
+  <script src="combat/account/keepers.js"></script>
+  <script src="combat/npc/keeper-lines.js"></script>
+  <script src="combat/npc/keeper-ui.js"></script>
+  <script src="combat/ui.js"></script>
+  <script src="combat/emergent/engine.js?v=1.2.4"></script>
+  <script src="combat/emergent/content.js?v=1.2.4"></script>
+  <script src="combat/emergent/scenarios.js?v=1.2.4"></script>
+  <script src="combat/emergent/math-domain.js?v=1.2.4"></script>
+  <script src="combat/emergent/lab-ui.js?v=1.2.4"></script>
+  <script src="web-shim.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

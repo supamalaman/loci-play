@@ -1,0 +1,34 @@
+/* Walk engine — shared styles for walkable explainers (see walk-engine.js). */
+.walk { display: grid; gap: 10px; }
+.walk [hidden] { display: none !important; }
+.walk-stage { position: relative; display: grid; place-items: center; background: #1d1b22; border-radius: 12px;
+  padding: 10px; outline: none; overflow: hidden; min-height: 280px; }
+.walk-stage:focus-visible { box-shadow: 0 0 0 3px #7aa2ff; }
+.walk-stage canvas { image-rendering: pixelated; display: block; border-radius: 6px; max-width: 100%; }
+.walk-hud { position: absolute; top: 16px; left: 18px; background: #1d1b22d9; color: #f3eee2; padding: 4px 10px;
+  border-radius: 7px; font: 600 12px/1.4 ui-monospace, Menlo, monospace; pointer-events: none; }
+.walk-start { position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; text-align: center;
+  background: #1d1b22a8; color: #f3eee2; font: 13px/1.4 ui-monospace, Menlo, monospace; }
+.walk-start button { font: 700 16px/1 ui-monospace, Menlo, monospace; padding: 12px 22px; border-radius: 10px; cursor: pointer;
+  background: #f3eee2; color: #1d1b22; border: 3px solid #3d3747; }
+.walk-start button:focus-visible { outline: 3px solid #7aa2ff; outline-offset: 2px; }
+.walk-box { position: absolute; left: 18px; right: 18px; bottom: 16px; max-width: 760px; margin: 0 auto;
+  background: #fbf8f1; color: #23202a; border: 4px solid #3d3747; border-radius: 10px;
+  box-shadow: 0 0 0 3px #fbf8f1, 0 12px 28px #0009; padding: 12px 16px 14px;
+  font: 15px/1.55 ui-monospace, "SF Mono", Menlo, monospace; }
+.walk-box-title { font-weight: 800; margin-bottom: 4px; }
+.walk-box-text em { font-style: normal; color: #6a3f8a; }
+.walk-dim { color: #6b6576; font-size: 13px; }
+.walk-box-opts { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.walk-box-opts li { position: relative; padding-left: 16px; cursor: pointer; }
+.walk-box-opts li.sel::before { content: "▶"; position: absolute; left: 0; font-size: 11px; top: 3px; }
+.walk-box-more { position: absolute; right: 14px; bottom: 8px; font-size: 11px; animation: walk-bob .8s infinite alternate; }
+@keyframes walk-bob { to { transform: translateY(3px); } }
+.walk-legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.walk-legend button { font: 12px/1.3 ui-monospace, Menlo, monospace; padding: 4px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid #c9c2d4; background: #fff; color: #3d3747; }
+.walk-legend button.done { background: #e6f2e9; border-color: #8fc29e; color: #24563a; }
+.walk-legend button:focus-visible { outline: 2px solid #7aa2ff; outline-offset: 1px; }
+.walk-flash { animation: walk-flash 1.6s ease; }
+@keyframes walk-flash { 0%, 40% { background: #fff6c8; } 100% { background: transparent; } }
+@media (max-width: 700px) { .walk-box { font-size: 13px; left: 8px; right: 8px; } }

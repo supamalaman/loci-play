@@ -1,0 +1,12 @@
+{
+  "size_class": "person (same class as the Warden)",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 1.0,
+  "world_height_definition": "A person (the Warden) = 1.0; the Crusader is drawn at person scale.",
+  "runtime_consumed": false,
+  "source": "Paladin Pixel-Art Sprite Sheet.png (Cutter, Keel IN, 2026-10-31)",
+  "note": "No dream-open pose in this sheet: the game falls back to cast. The walk slot holds the sheet's Fly / Advance pose (the sheet has no Walk)."
+}

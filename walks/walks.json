@@ -1,0 +1,28 @@
+[
+ {
+  "slug": "methuselah-walk",
+  "title": "Walk with Methuselah",
+  "dek": "A walkable memory palace: climb a White Mountains trail as a field researcher and read ten stations, from cone to living strip to the ancient tree. Recall mode turns the walk into a self-test.",
+  "accent": "#6b8f5a",
+  "tags": [
+   "plant study",
+   "memory palace"
+  ],
+  "added": "2026-10-07",
+  "data": "walks/methuselah-walk/explainer-data.js",
+  "dir": "walks/methuselah-walk"
+ },
+ {
+  "slug": "richard-iii",
+  "title": "Richard III \u00b7 Five Acts",
+  "dek": "Walk five acts. Hear the private plans, witness the public performances, and follow a crown from ambition to catastrophe.",
+  "accent": "#d8b66a",
+  "tags": [
+   "Shakespeare",
+   "literature"
+  ],
+  "added": "2026-10-11",
+  "data": "walks/richard-iii/explainer-data.js",
+  "dir": "walks/richard-iii"
+ }
+]
