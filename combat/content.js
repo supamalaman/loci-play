@@ -313,7 +313,7 @@
     // ritual start odds by focus trait, ADHD's taste for variety (variety)). Each takes `sides` for a one-sided sim arm.
     aiLedger: { wallLine: false, curiosity: false, lookahead: false, answerModel: { on: true, prior: 0.15, announcedPrior: 0.5, costWeight: 1 }, walkCost: { on: true, weight: 0.5 }, reserve: { on: false, value: 3, range: 6 },
       // Fruitbound (respec fruit, 2026-11-01): a unit with the trait scores each fruit technique this much more when the moment fits (engine/fruit.js fruitboundBonus); `on: false` switches it off everywhere.
-      fruitbound: { on: true, bonus: { windTheSpring: 5, mainspring: 16, fogBank: 14, weatherFront: 14, vapourStep: 12, scent: 12, takeTheShape: 12 } },
+      fruitbound: { on: true, bonus: { windTheSpring: 5, mainspring: 16, fogBank: 14, weatherFront: 14, fullShape: 16, vapourStep: 12, scent: 12, takeTheShape: 12 } },
       traitActs: { on: false, robotHarm: { robotSympathizer: 0.6, robotHater: 1.4 }, preach: ["fullBeliever", "devoutBeliever", "convertedBeliever", "convertedDevout"],
         ritualStart: { perfectConcentration: 1.5, focused: 1.25, scattered: 0.6, adhd: 0.5 }, variety: { adhd: 1 } }, foeMemory: false, regretProbe: false, setupBonus: 0, readyUltimate: 8, animeKitFloor: 6,   // anime kit options (soul verbs/arts, fruit, Bird Mountain) score at least Observe here, or this when Observe is not offered (docs/anime-orbit.md §5a)
           // a full bar means it is time to use it (Mala, 2026-10-27): a ready damage ultimate scores this much more (simmed on/off)
@@ -888,6 +888,13 @@
       mechanism: "Mistfruit: fog in a 3×3 square for 2 rounds. It blocks sightlines and doesn't block movement. Mistfruit's Drift: a strike that doesn't carry will misses 35%.",
       reveal: "Weather that answers to someone.", counter: "Steel will lands through Drift; soak the Mistfruit to still the weather.", teaches: "You can't fight what you can't see; you can still fight what you can't hit with resolve." },
     // Sinkerfruit refined techniques (respec S2a): in the hero's kit only at Ripe, and only when the feat model runs (opts.fruit.respec).
+    fullShape: { name: "Full Shape", tier: "refined", fruitOnly: true, concepts: ["plasticity"], delivery: "self", target: "self", area: { shape: "single" }, cost: 15, tempoCost: 35, range: 0, potency: 0, effect: "fruit", effectCategory: "conditional",
+      announce: "Not a borrowed coat: the creature itself.",
+      mechanism: "Hidefruit, Awakened: take the shape of your largest learned creature as Take the Shape does (its hide and its strongest move), and its passive too when the creature has one (a trait lent for as long as the shape is worn), for 4 of your turns at most. Each turn start holds it for 3 ΦF; it ends if you drop it (free, always), the sea has the power (a soak ends it at once; standing in water, at your next turn start), the ΦF is not there, or the four turns are up. Greyed until you have learned a creature.",
+      reveal: "A shape worn whole is paid for every turn.", counter: "Water ends it; a blow carrying Steel will goes through its hide; starve its ΦF; it cannot outlast four turns.", teaches: "To be something is to keep paying to be it." },
+    dropTheShape: { name: "Drop the Shape", tier: "basic", fruitOnly: true, concepts: ["plasticity"], delivery: "self", target: "self", area: { shape: "single" }, cost: 0, tempoCost: 0, noCharge: true, range: 0, potency: 0, effect: "fruit", effectCategory: "conditional",
+      mechanism: "Hidefruit, Awakened: put the shape down. Free. Ends the borrowed hide and, if you wore the full shape, its passive. Greyed when you wear no shape.",
+      reveal: "What can be put down was never stuck.", counter: "Nothing: it is the way out.", teaches: "The way out is part of the way in." },
     scent: { name: "Scent", tier: "refined", fruitOnly: true, concepts: ["discovery"], delivery: "self", target: "self", area: { shape: "single" }, cost: 3, tempoCost: 0, range: 0, potency: 0, effect: "fruit", effectCategory: "conditional",
       mechanism: "Hidefruit, Ripe: while you wear a borrowed shape, 3 ΦF and no action points reveal every concealed foe within 3 tiles. Greyed with no shape, or with nobody hidden in reach.",
       reveal: "The beast's nose knows who is hiding.", counter: "Water ends the shape and the power; a foe can hide again after it is revealed.", teaches: "A borrowed body brings its senses with it." },

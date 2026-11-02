@@ -11,9 +11,9 @@
 //   partsOf(id, C)                   → parts | null   (boss moves: { ..., boss: true, minStrength: 6 })
 //   disassemble / assemble / memorizeStudy / buyBook / donate / revive: the Codex screen's verbs
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./legacy.js"), require("./technique-parts.js"), require("../bosses/boss-data.js"));
-  else root.ConceptCombatLegacyBattle = factory(root.ConceptCombatLegacy, root.ConceptCombatTechniqueParts, root.ConceptCombatBossData);
-})(typeof self !== "undefined" ? self : this, function (L, TP, BD) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./legacy.js"), require("./technique-parts.js"), require("../bosses/boss-data.js"), require("./desk-margin.js"));
+  else root.ConceptCombatLegacyBattle = factory(root.ConceptCombatLegacy, root.ConceptCombatTechniqueParts, root.ConceptCombatBossData, root.ConceptCombatDeskMargin);
+})(typeof self !== "undefined" ? self : this, function (L, TP, BD, DM) {
   const MEMORIZE_AT = 2;          // practice to memorize: a finished study is 1, a book +1, every 3 more notes +1
   const BOSS_STRENGTH = 6;        // boss arts scribe only with a legendary tradition (6+; Mala, 2026-10-20)
   const BOOK_PRICE = { drill: 30, restricted: 60, sealed: 120 };
@@ -24,7 +24,7 @@
   function fresh(legacy) {
     const l = legacy && typeof legacy === "object" ? clone(legacy) : {};
     l.ledger ||= L.createLedger(); l.journal ||= L.createJournal(); l.memory ||= L.createMemory();
-    l.parts ||= []; l.scribed ||= []; l.practice ||= {}; l.findingNotebook ||= [];
+    l.parts ||= []; l.scribed ||= []; l.practice ||= {}; l.findingNotebook ||= []; l.transcribedAt ||= {};
     return l;
   }
 
@@ -141,9 +141,33 @@
     l.parts.push({ id: `part-${serial}-${id}`, ...parts });
     return { ok: true, legacy: l, parts };
   }
+  // Transcribe (scribing desk B1b, SCRIBING_DESK.md section 4): copy a HELD technique's parts at the desk for Seeds and keep the memory copy (Take apart consumes it).
+  // Price: transcribe.seeds + transcribe.perComponent x the technique's executable components, from the desk table (read lazily: the pages load desk-margin.js after this file).
+  // One unspent bundle per technique, and one Transcribe of a technique per completed battle (`transcribedAt[id] = account.battles`). Atomic: every refusal returns the account untouched.
+  function transcribe(account, id, C) {
+    const fail = (error) => ({ ok: false, error, account });
+    const T = (DM || globalThis.ConceptCombatDeskMargin)?.table?.transcribe; if (!T) return fail("The desk's prices are not loaded.");
+    const l = fresh(account?.legacy), parts = partsOf(id, C);
+    if (!parts) return fail("It resists analysis: no parts are known for it yet.");
+    if (parts.boss) return fail("A boss art cannot be transcribed.");
+    if (!l.memory.held.includes(id)) return fail("Only a held technique can be transcribed.");
+    if (!memorizable(id, C)) return fail("That technique can't be held in memory, so it can't be transcribed.");   // SLICES.md B1b: held and memorizable
+    const n = (parts.effects || []).length;
+    if (!n) return fail("No adapters yet: it can still be Taken apart for its carrier.");
+    if (l.parts.some((p) => p.source === id)) return fail("You already have unspent parts from this technique. Use those before copying it again.");
+    const battles = account.battles || 0; if (l.transcribedAt[id] === battles) return fail("You have already transcribed this technique since your last battle.");
+    const price = T.seeds + T.perComponent * n;
+    if ((account.seeds || 0) < price) return fail(`Transcribing takes ${price} Seeds.`);
+    let serial = 1; while (l.parts.some((p) => p.id === `part-${serial}-${id}`)) serial++;
+    l.parts.push({ id: `part-${serial}-${id}`, ...parts }); l.transcribedAt[id] = battles;
+    return { ok: true, account: { ...account, seeds: account.seeds - price, legacy: l }, parts, price };
+  }
   // An engine ability for a scribed technique (registered into C.abilities by the engine at battle start).
   // The pre-workshop branch below stays for ancient scribed defs in old saves; the desk that made them is gone.
-  function abilityOf(def) {
+  // The carried ability stamps the def's `rev` (0 when it has none): carryLegacy (engine/conditions.js) re-registers a work whose rev differs from the
+  // registered one, so a Recopy or an Amend (a rev bump) is read by the next battle on the same page. Scribing desk slice X1.
+  const abilityOf = (def) => ({ ...abilityBody(def), rev: def.rev || 0 });
+  function abilityBody(def) {
     if (def.workshop && def.workshopAbility) return clone(def.workshopAbility);
     const extra = Object.assign({}, ...(def.riders || []).map((r) => RIDERS[r] || {}));
     const self = def.delivery === "field" || def.delivery === "self";
@@ -171,6 +195,6 @@
   function revive(legacy, id) { const l = fresh(legacy); const r = L.reviveTradition(l.ledger, id); return { ...r, legacy: l }; }
   const shop = (legacy, seed) => L.generateShop(fresh(legacy).ledger, { seed, slots: 3 }).map((b) => ({ ...b, price: BOOK_PRICE[b.tier] || BOOK_PRICE.drill }));
 
-  return { MEMORIZE_AT, BOSS_STRENGTH, BOOK_PRICE, RIDERS, fresh, report, settle, found, bonuses, carry, partsOf, disassemble, abilityOf,
+  return { MEMORIZE_AT, BOSS_STRENGTH, BOOK_PRICE, RIDERS, fresh, report, settle, found, bonuses, carry, partsOf, disassemble, transcribe, abilityOf,
     memorizeStudy, buyBook, donate, revive, shop, alive, legendary, memorizable, unmemorizableWhy };
 });

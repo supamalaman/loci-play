@@ -3,7 +3,7 @@
 // random battle. Reuses the game as it ships: ConceptCombatUI.mount + quickBattle() for the fight, the Loot/Account
 // modules and the same save keys for gear. Nothing in the game itself changes.
 (() => {
-  const CHAR_KEY = "loci:combat:character", ACCOUNT_KEY = "loci:combat:account:v1", PICK_KEY = "loci:web:pick";
+  const CHAR_KEY = "loci:combat:character", ACCOUNT_KEY = "loci:combat:account:v1", PICK_KEY = "loci:web:pick", PROFILE_KEY = "loci:combat:profile", DECK_OPEN_KEY = "loci:web:deck-open";
   // Who a new player can pick. Paladin first (Mala, 2026-10-31). Badge, tagline and sky are flavour only: the ability lines
   // come from the game data (classes-data.js).
   const ROSTER = [
@@ -88,7 +88,7 @@
   const icon = (id) => `<img class="pk-icon" src="combat/sprites/items/${encodeURIComponent(id)}.png" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
   function renderInventory() {
     const a = loadAccount(), E = Loot.data.equipment, Cons = Loot.data.consumables || {};
-    if (!a) { $("invBody").innerHTML = `<h3>Wearing</h3><div class="pk-slots">${SLOTS.map((slot) => `<div class="pk-slot"><span class="pk-slot-name">${slot}</span>${ghost(slot)}<small>empty</small></div>`).join("")}</div><h3>Gear bag</h3><p class="pk-empty-bag">Nothing yet. Win battles to find gear, then equip it here.</p>`; return; }
+    if (!a) { $("invBody").innerHTML = `<h3>Wearing</h3><div class="pk-slots">${SLOTS.map((slot) => `<div class="pk-slot"><span class="pk-slot-name">${slot}</span>${ghost(slot)}<small>empty</small></div>`).join("")}</div><h3>Gear bag</h3><p class="pk-empty-bag">Nothing yet. Win battles to find gear, then equip it here.</p><div id="pkCards"></div>`; renderCards(); return; }
     const eq = a.gear.equipped || {}, owned = [...new Set(a.gear.owned || [])].filter((id) => E[id]);
     const worn = SLOTS.map((slot) => { const id = eq[slot], it = id && E[id];
       return it ? `<div class="pk-slot is-worn" title="${esc(it.text || "")}"><span class="pk-slot-name">${slot}</span>${icon(id)}<b class="r-${esc(it.rarity)}">${esc(it.name)}</b><button type="button" data-unequip="${slot}" aria-label="Remove ${esc(it.name)}">Remove</button></div>`
@@ -100,10 +100,31 @@
     const stashRows = stash.map(([id, n]) => `<div class="pk-item">${icon(id)}<div><b>${esc(Cons[id].name)}</b><span class="pk-meta">×${n}</span><small>${esc(Cons[id].text || "")}</small></div></div>`).join("");
     $("invBody").innerHTML = `<h3>Wearing</h3><div class="pk-slots">${worn}</div>
       <h3>Gear bag</h3>${bagRows || `<p class="pk-empty-bag">No spare gear. Win battles to find more.</p>`}
-      ${stashRows ? `<h3>Battle items · in your stash</h3>${stashRows}` : ""}`;
+      ${stashRows ? `<h3>Battle items · in your stash</h3>${stashRows}` : ""}
+      <div id="pkCards"></div>`;
+    renderCards();
     const after = (sel) => { renderInventory(); ($("invBody").querySelector(sel) || $("invClose")).focus(); };
     $("invBody").querySelectorAll("[data-equip]").forEach((b) => b.onclick = () => { const id = b.dataset.equip, r = Loot.equip(loadAccount(), id); if (r.ok) saveAccount(r.account); after(`[data-unequip="${E[id].slot}"]`); });
     $("invBody").querySelectorAll("[data-unequip]").forEach((b) => b.onclick = () => { const r = Loot.unequip(loadAccount(), b.dataset.unequip); if (r.ok) saveAccount(r.account); after("[data-equip]"); });
+  }
+  // ── Battle cards: the game's deck menu (Field Kit "Battle deck"), under the gear bag (plan ~/loci-orbit/claude/cards-art/PLAN-1b.md rev 2) ──
+  // Opening this writes NOTHING: the starter gift is worked out in memory (CardsUI.inventoryTab) and the save is written only from a deck action, like equip.
+  function cardsAccount() {   // the save; for a player with no save at all, the account the game itself would build (ui.js: fromLegacyProfile); null when a save exists but cannot be read
+    if (localStorage.getItem(ACCOUNT_KEY) === null) { try { return Loot.withBags(Account.fromLegacyProfile(read(PROFILE_KEY, null), { name: "Warden" })); } catch (e) { console.warn("Could not build a starting account", e); return null; } }
+    return loadAccount();
+  }
+  function renderCards() {
+    const host = $("pkCards"), CUI = window.ConceptCombatCardsUI; if (!host) return;
+    if (!CUI?.inventoryTab) { host.hidden = true; return; }
+    const acct = cardsAccount();
+    if (!acct) { host.innerHTML = `<h3>Battle cards</h3><p class="pk-empty-bag">Your save could not be read, so cards are switched off to keep it from being overwritten.</p>`; return; }
+    const el = document.activeElement, kept = el && host.contains(el) ? (el.dataset.deckAdd ? `[data-deck-add="${el.dataset.deckAdd}"]` : el.dataset.deckRemove != null ? `[data-deck-remove="${el.dataset.deckRemove}"]` : "summary") : null;   // keep focus where it was after the redraw
+    const tab = CUI.inventoryTab({ account: () => acct, classId: pick, className: Content.characters[pick]?.name || pick, open: read(DECK_OPEN_KEY, false) === true,
+      setAccount: (next) => saveAccount(next), rerender: renderCards, flash: (t) => { const p = host.querySelector(".pk-card-flash"); if (p) p.textContent = t; },
+      onToggle: (o) => write(DECK_OPEN_KEY, !!o) });
+    host.innerHTML = `<h3>Battle cards</h3>${tab.html}<p class="pk-card-flash" role="status"></p>`;
+    CUI.wire(host, tab.ctx);
+    if (kept) { const t = host.querySelector(kept); (t && !t.disabled ? t : host.querySelector("summary"))?.focus(); }   // a card whose last copy went into the deck is disabled and cannot take focus: use the summary
   }
   function openInventory() { renderInventory(); $("inventory").hidden = false; $("invClose").focus(); }
   function closeInventory() { $("inventory").hidden = true; renderDetail(); $("invOpen").focus(); }
@@ -149,11 +170,13 @@
   $("invClose").onclick = closeInventory;
   $("inventory").addEventListener("click", (ev) => { if (ev.target === $("inventory")) closeInventory(); });
   $("leave").onclick = home;
+  // On screen for the Tab trap: Chrome still reports layout boxes for what sits inside a CLOSED <details>, so a control inside one is hidden unless it is that details' own summary.
+  const onScreen = (el) => !(el.matches("summary") ? el.parentElement?.parentElement : el).closest?.("details:not([open])") && el.getClientRects().length > 0;
   document.addEventListener("keydown", (ev) => {
     if ($("inventory").hidden) return;
     if (ev.key === "Escape") return closeInventory();
     if (ev.key !== "Tab") return;
-    const f = [...$("inventory").querySelectorAll("button:not([disabled])")]; if (!f.length) return;
+    const f = [...$("inventory").querySelectorAll("button:not([disabled]), summary")].filter(onScreen); if (!f.length) return;   // only what is on screen: a closed deck menu hides its buttons
     if (ev.shiftKey && document.activeElement === f[0]) { ev.preventDefault(); f[f.length - 1].focus(); }
     else if (!ev.shiftKey && document.activeElement === f[f.length - 1]) { ev.preventDefault(); f[0].focus(); }
   });

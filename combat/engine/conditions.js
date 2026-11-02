@@ -455,7 +455,7 @@
       const Lg = opts.legacy; if (!Lg) return;
       const hero = s.actors[s.modeSetup?.hero || "player"]; if (!hero) return;
       s.legacy = { bonuses: Lg.bonuses || {}, battle: Lg.battle || null, hero: hero.id };
-      for (const d of Lg.scribed || []) if (d?.id && d.ability && !C.abilities[d.id]) C.abilities[d.id] = d.ability;   // legacy-battle.js carry() builds them
+      for (const d of Lg.scribed || []) if (d?.id && d.ability && (!C.abilities[d.id] || (d.ability.rev || 0) !== (C.abilities[d.id].rev || 0))) C.abilities[d.id] = d.ability;   // legacy-battle.js carry() builds them; a changed rev replaces the registered one (Recopy, Amend)
       const keep = (Lg.memory || []).filter((id) => C.abilities[id]);
       if (keep.length) hero.learned = [...new Set([...(hero.learned || []), ...keep])];
     }

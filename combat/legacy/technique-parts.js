@@ -2342,6 +2342,16 @@
         "fruit:mist"
       ]
     },
+    "fullShape": {
+      "riders": [
+        "fruit:hide"
+      ]
+    },
+    "dropTheShape": {
+      "riders": [
+        "fruit:hide"
+      ]
+    },
     "weatherFront": {
       "riders": [
         "fruit:mist"

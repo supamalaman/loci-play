@@ -6,19 +6,47 @@
 //   drawerRows(rows, show)  C1: the battle Cards drawer's menu rows (none for an empty deck); unitLine(view)  C1: the unit panel's Cards line
 //   wire(ov, ctx)     click and drag handlers for the group inside overlay `ov` (drag a collection card onto the deck, or a deck card back off it)
 //   ctx = { account(), classId, className, setAccount(a), rerender(), flash(text), open, onToggle(open) }
+//   art(card)         the card's art entry from card-art.js ({ src, w, h, baked, activated? }) or null; face() draws it (or a CSS fallback panel for a card with none)
+//   inventoryTab(ctx) { html, ctx, account, gifted }: the same deck menu for the Redux Inventory (tools/web-build/play.js): the starter gift is worked out in memory FIRST, so drawing it writes nothing; ctx.setAccount is called only from a deck action
+//   almanac()         { html, playable, total }: every card in the data by series with its art, for the Codex "Card almanac" section (cards that cannot be played yet say so in words)
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./cards.js"), require("./cards-data.js"), require("../account/cardbook.js"));
-  else root.ConceptCombatCardsUI = factory(root.ConceptCombatCards, root.ConceptCombatCardsData, root.ConceptCombatCardbook);
-})(typeof self !== "undefined" ? self : this, function (Cards, D, CB) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./cards.js"), require("./cards-data.js"), require("../account/cardbook.js"), require("./card-art.js"));
+  else root.ConceptCombatCardsUI = factory(root.ConceptCombatCards, root.ConceptCombatCardsData, root.ConceptCombatCardbook, root.ConceptCombatCardArt);
+})(typeof self !== "undefined" ? self : this, function (Cards, D, CB, CA) {
   const esc = (s) => String(s).replace(/[&<>\x22]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const word = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   // One card face: kind and rarity are words (never colour alone), the generated rule text is the screen-reader text.
+  const ART_BASE = "combat/cards/";
+  const art = (card) => (CA && card?.art?.key && CA.art[card.art.key]) || null;
+  // The picture: the cut art when the manifest has it, else a plain panel with the kind glyph and the kind word (the 30 starters have no art yet).
+  // A card whose art carries its own name plate (`baked`) prints no second name; a suit or a renamed card gets a plain label over the picture (CARDS.md 18.6).
+  function picture(card, A, big = false) {
+    const k = D.kinds[card.kind];
+    if (!A) return `<span class="cc-card-art is-fallback is-${esc(card.kind)}${big ? " is-big" : ""}" aria-hidden="true"><span class="cc-card-glyph">${esc(k.glyph)}</span><span class="cc-card-kindword">${esc(k.label)}</span></span>`;
+    return `<span class="cc-card-art${big ? " is-big" : ""}" aria-hidden="true"><img src="${ART_BASE}${esc(A.src)}" width="${A.w}" height="${A.h}" alt="" draggable="false" loading="lazy" decoding="async">${A.baked ? "" : `<span class="cc-card-plate">${esc(card.name)}</span>`}</span>`;
+  }
+  // One card face: kind and rarity are words (never colour alone), the generated rule text is the screen-reader text.
+  // The name stays in the markup as the first <b> (hidden from the eye when the picture prints it) so a reader and a test still find it.
   function face(card, { attr = "", note = "", count = 0, disabled = false } = {}) {
-    const k = D.kinds[card.kind], text = Cards.textOf(card);
-    return `<button type="button" class="cc-card-face is-${card.kind}${disabled ? " is-off" : ""}" ${attr} ${disabled ? 'disabled aria-disabled="true"' : 'draggable="true"'} title="${esc(text)}">`
-      + `<span class="cc-card-top"><span aria-hidden="true">${k.glyph}</span> <b>${esc(card.name)}</b>${count > 1 ? ` <small>×${count}</small>` : ""}</span>`
+    const k = D.kinds[card.kind], text = Cards.textOf(card), A = art(card);
+    return `<button type="button" class="cc-card-face is-${card.kind}${A ? " has-art" : ""}${disabled ? " is-off" : ""}" ${attr} ${disabled ? 'disabled aria-disabled="true"' : 'draggable="true"'} title="${esc(text)}">`
+      + picture(card, A)
+      + `<span class="cc-card-top"><span aria-hidden="true">${esc(k.glyph)}</span> <b${A ? ' class="cc-sr"' : ""}>${esc(card.name)}</b>${count > 1 ? ` <small>×${count}</small>` : ""}</span>`
       + `<small class="cc-card-meta">${k.label} · ${word(card.rarity)} · ${card.cost} point${card.cost === 1 ? "" : "s"}</small>`
       + `<small class="cc-card-text">${esc(text)}</small>${note ? `<small class="cc-card-note">${esc(note)}</small>` : ""}</button>`;
+  }
+  // The Codex "Card almanac": every card in the data, by series, with its art. A card that cannot be played (staged, or its kind has no battle slice yet)
+  // says so in words; none of this changes what a deck may hold.
+  function almanac() {
+    const playable = new Set(Cards.liveCards().map((c) => c.id)), series = [];
+    for (const c of D.cards) { let g = series.find((x) => x.name === (c.series || "Cards")); if (!g) series.push(g = { name: c.series || "Cards", cards: [] }); g.cards.push(c); }
+    const total = D.cards.length, n = [...playable].length;
+    const html = `<p class="cc-muted">Every card in the game, with its picture. A card marked "not playable yet" is drawn and priced but cannot go in a deck.</p>`
+      + (CA ? `<p class="cc-almanac-back"><span class="cc-card-art is-back" aria-hidden="true"><img src="${ART_BASE}${esc(CA.back)}" alt="" draggable="false" loading="lazy" decoding="async"></span><small>The back of a card: what an opponent's deck looks like face down.</small></p>` : "")
+      + series.map((g) => `<details class="cc-almanac-series"><summary><b>${esc(g.name)}</b> <small>${g.cards.filter((c) => playable.has(c.id)).length} of ${g.cards.length} playable</small></summary><div class="cc-almanac-grid">`
+        + g.cards.map((c) => `<figure class="cc-almanac-card${playable.has(c.id) ? "" : " is-staged"}">${picture(c, art(c), true)}<figcaption><b>${esc(c.name)}</b><small>${esc(D.kinds[c.kind].label)} · ${esc(word(c.rarity))}${playable.has(c.id) ? "" : " · not playable yet"}</small></figcaption></figure>`).join("")
+        + `</div></details>`).join("");
+    return { html, playable: n, total };
   }
   function status(ctx, deck) {
     const a = ctx.account(), v = CB.validate(a, deck);
@@ -96,5 +124,12 @@
     const base = `Cards (seen): ${view.unused} of ${view.deckSize} unused${sets}`;
     return view.unusedList ? `${base} · shown: ${view.unusedList.join(", ")}` : base;
   }
-  return { group, wire, move, drawerRows, unitLine };
+  // The Redux Inventory tab (plan ~/loci-orbit/claude/cards-art/PLAN-1b.md rev 2): group() gifts the starter cards on its first render and would call ctx.setAccount, which the page saves; so the
+  // gift is worked out here first and group() is given the account that already holds it (its own gift step then finds nothing to do). The caller saves only from a deck action, and the gift
+  // persists with that first save (giftedIds makes a repeat gift a no-op). `ctx` returned is the one to pass to wire().
+  function inventoryTab(ctx) {
+    const g = CB.giftStarter(ctx.account()), c2 = { ...ctx, account: () => g.account };
+    return { html: group(c2), ctx: c2, account: g.account, gifted: g.changed };
+  }
+  return { group, wire, move, drawerRows, unitLine, art, face, almanac, inventoryTab };
 });

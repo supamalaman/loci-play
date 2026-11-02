@@ -111,3 +111,10 @@ body { background: radial-gradient(1200px 600px at 70% -10%, #2b2540 0%, transpa
   .pk-slots { grid-template-columns: repeat(3, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { .pk-hero-art img, .pk-shadow { animation: none !important; } .pk-char, .pk-go, .pk-inv { transition: none; } }
+
+/* Battle cards in the Inventory (plan 1b): the game's deck menu inside the modal. The modal's own button and heading rules (specificity 0,1,1) would otherwise restyle the game's card faces. */
+#pkCards { margin-top: 2px; }
+.pk-modal-card .cc-card-face { padding: 6px; border-radius: 6px; font-weight: 400; }
+.pk-modal-card .cc-deck-group h3 { margin: 12px 0 6px; }
+.pk-modal-card .cc-deck-group button:not(.cc-card-face) { padding: 5px 11px; }
+.pk-card-flash { margin: 6px 0 0; min-height: 1.2em; font-size: 12px; color: var(--muted); }

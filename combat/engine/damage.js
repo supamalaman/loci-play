@@ -485,7 +485,9 @@
       EmergentIdeas?.syncSummonWards(s);
       if (inst?.directHit && tgt.status.ward && dmg > 0) notes.push(`Direct hit: the ward cannot catch what it cannot read (${tgt.status.ward.protection} protection untouched).`);
       if (inst?.piercing && tgt.status.ward && dmg > 0) notes.push(`Piercing: the strike passes through the ward (${tgt.status.ward.protection} protection untouched).`);
-      if (tgt.status.ward && dmg > 0 && !inst?.directHit && !inst?.piercing) {
+      const willThroughHide = !!(inst?.carriesWill && tgt.status.ward?.hide && dmg > 0);   // Mala 2026-11-02: Steel will goes through a borrowed hide (Hidefruit counter)
+      if (willThroughHide) notes.push(`Steel will: the blow goes through the borrowed hide (${tgt.status.ward.protection} protection untouched).`);
+      if (tgt.status.ward && dmg > 0 && !inst?.directHit && !inst?.piercing && !willThroughHide) {
         const w = tgt.status.ward; const absorbed = Math.min(w.protection, dmg); warded = absorbed; wardHide = !!w.hide; wardBroke = w.protection - absorbed <= 0;
         w.protection -= absorbed; dmg -= absorbed;
         notes.push(`${w.label || "Fortress ward"} absorbs ${absorbed} (${w.protection} left).`);

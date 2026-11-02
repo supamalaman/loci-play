@@ -1080,6 +1080,21 @@
 .cc-card-face:hover:not(:disabled), .cc-card-face:focus-visible { border-color:#e9c46a; outline:none; }
 .cc-card-face.is-off { opacity:.55; cursor:not-allowed; }
 .cc-card-face.is-set { border-style:dashed; } .cc-card-face.is-summon { border-width:2px; } .cc-card-face.is-field { border-style:double; border-width:3px; } .cc-card-face.is-equip { border-style:dotted; border-width:2px; }
+/* Card art (tools/build-card-manifest.mjs; cards-ui.js picture()): the cut art sits in a dark 3:4-ish box and is never cropped (the art is 0.53 to 0.68 wide for its height); a card with no art draws a plain panel with the kind glyph and word. */
+.cc-card-art { position:relative; display:flex; align-items:center; justify-content:center; height:150px; margin:-2px -2px 3px; background:#0b0d14; border-radius:4px; overflow:hidden; }
+.cc-card-art img { display:block; pointer-events:none; max-width:100%; max-height:100%; width:auto; height:100%; object-fit:contain; image-rendering:auto; }
+.cc-card-art.is-big { width:120px; height:176px; margin:0; }
+.cc-card-art.is-back { width:64px; height:96px; margin:0; flex:none; }
+.cc-card-art.is-fallback { height:44px; flex-direction:row; gap:8px; border:1px dashed #5b6aa8; background:linear-gradient(160deg,#171a2b,#0b0d14); color:#c9d1f5; }
+.cc-card-art.is-fallback.is-big { height:176px; flex-direction:column; gap:4px; }
+.cc-card-glyph { font-size:22px; line-height:1; } .cc-card-art.is-fallback.is-big .cc-card-glyph { font-size:34px; } .cc-card-kindword { font:700 11px ui-monospace, Menlo, monospace; letter-spacing:.08em; text-transform:uppercase; }
+.cc-card-plate { position:absolute; left:6px; right:6px; bottom:6px; padding:3px 4px; text-align:center; font:700 12px ui-monospace, Menlo, monospace; color:#fff7dc; background:rgba(8,10,18,.82); border:1px solid #b8963e; border-radius:3px; }
+.cc-card-face.has-art .cc-card-top { min-height:0; }
+.cc-almanac-series { border-top:1px solid rgba(255,255,255,0.08); padding:4px 0; } .cc-almanac-series > summary { cursor:pointer; padding:4px 2px; }
+.cc-almanac-grid { display:flex; flex-wrap:wrap; gap:10px; margin:8px 0; }
+.cc-almanac-card { display:flex; flex-direction:column; gap:3px; width:120px; margin:0; } .cc-almanac-card figcaption { display:flex; flex-direction:column; font-size:12px; } .cc-almanac-card figcaption small { color:#9aa3c7; }
+.cc-almanac-card.is-staged .cc-card-art { opacity:.62; filter:saturate(.7); }
+.cc-almanac-back { display:flex; align-items:center; gap:10px; margin:6px 0 10px; }
 .cc-card-meta, .cc-card-note { opacity:.8; } .cc-deck-line.is-bad { color:#e9a46a; }
 
 /* AP where you act: the command panel's AP readout, and a dimmed-but-openable opener */

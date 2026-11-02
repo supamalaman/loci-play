@@ -41,7 +41,13 @@
       refined: { hide: ["scent"], mist: ["vapourStep"] },
       // Respec S2b1: the awakened arts (Awakened stage, announced, 15 PhiF). Mainspring: the eater's pushes on a target within 2 travel +1 tile, and the first Strike each turn
       // lets its coils go without spending them, for 2 of your turns (the cast turn and the next).
-      awakened: { coil: ["mainspring"], mist: ["weatherFront"] },
+      awakened: { coil: ["mainspring"], mist: ["weatherFront"], hide: ["fullShape", "dropTheShape"] },
+      // Respec S2b3 Full Shape (Hide, Awakened, 15 PhiF): the shape also brings the beast's passive, for at most 4 of the eater's turns; 3 PhiF upkeep at each later turn start; a free drop.
+      // The creature data has no passive field, so each swallowable kind is mapped to a live biology trait that suits it (a Decision in the NOTE).
+      full: { turns: 4, upkeep: 3 },
+      passives: { feralPig: "denseMuscle", wolf: "insaneReflexes", moa: "survivalInstincts", nettleCaterpillar: "poisonAffinity", sasquatch: "denseMuscle" },
+      // Only a trait the engine reads DURING a battle can be lent (a trait read at battle setup, such as +1 movement, would do nothing). Ducks, porgy, termites and a dream creature have none (Aerodynamic was dropped for the moa: its straight-line cost is not wired, so it would give +2 movement on every route).
+      animeBeasts: ["feralPig", "wolf", "moa", "nettleCaterpillar"],
       mainspring: { turns: 2, within: 2, push: 1 },
       // Respec S2b2 Weather Front (Mist, Awakened, 15 PhiF): a fog ring on the cast tile grows radius 1, 2, 3 over three of the eater's turns, then clears together.
       // Allies standing in it are lent Drift by the ripe-mist rule that already exists; foes standing in it lose apLoss action points as their turn starts.
@@ -79,7 +85,8 @@
       if (id === "fogBank" && ((s.barriers || []).some((b) => b.concept === "fog" && b.owner === a.id) || !foeNear(6))) return 0;
       if (id === "weatherFront" && (frontOn(a) || !foeNear(4))) return 0;   // a front is worth calling with a foe close enough to walk into it
       if (id === "vapourStep" && !foeNear(3)) return 0;
-      if (id === "takeTheShape" && a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns) return 0;   // an expired shape is not worn (the status is never cleared)
+      if ((id === "takeTheShape" || id === "fullShape") && shapeOn(a)) return 0;   // an expired shape is not worn (the status is never cleared)
+      if (id === "fullShape" && !(a.beastSummons || []).length) return 0;   // Full Shape needs a learned creature; the plain shape's card is greyed without one by fruitBlocked   // an expired shape is not worn (the status is never cleared)
       return R.bonus[id];
     }
     function armRival(s, opts) {
@@ -95,7 +102,23 @@
       u.fruit = { id, ripe: true, respec: true, awakened: true, shapes: [] };
       u.passives = { ...(u.passives || {}), cantSwim: true, drowningDamageMul: Math.max(u.passives?.drowningDamageMul || 1, RULES.drowningMul) };
       giveTrait(u);
+      animeEntrance(s, u, id);
       return true;
+    }
+    // Mala, 2026-11-01: meeting the Anime Protagonist should feel like meeting the protagonist of an anime: he opens the battle already in his awakened form. A Hidefruit hero is
+    // given one learned creature at random (seeded: a replay meets the same one) and is already in the full shape; a Coilfruit hero has the Mainspring wound; a Mistfruit hero has a
+    // Weather Front out on his tile. Each runs on the ordinary clocks (4, 2 and 3 of his turns), so nothing here holds a battle open. Free: he did not pay for the entrance.
+    function animeEntrance(s, u, id) {
+      u.status ||= {};
+      // the + 1 in each expiry: his first turn is turn 1 (ownerTurns is 0 until it starts)
+      if (id === "coil") { u.status.mainspring = { expiresAt: (u.ownerTurns || 0) + 1 + RULES.mainspring.turns, usedTurn: null }; log(s, { kind: "effect", actor: u.id, text: `${u.name} enters with the mainspring already wound.`, why: ["The anime orbit: an Awakened fruit hero opens the battle in his awakened form."] }); }
+      if (id === "mist") { u.status.weatherFront = { x: u.x, y: u.y, expiresAt: (u.ownerTurns || 0) + 1 + RULES.front.turns, rings: 0 }; growFront(s, u); log(s, { kind: "effect", actor: u.id, tiles: [[u.x, u.y]], text: `${u.name} enters in a weather front: the fog rolls in with him.`, why: ["The anime orbit: an Awakened fruit hero opens the battle in his awakened form."] }); }
+      if (id === "hide") {
+        const kinds = RULES.animeBeasts, kind = kinds[Math.floor(H.seededChance(`${s.seed}:animeBeast`) * kinds.length)], def = wildRules?.data?.monsters?.[kind];
+        u.beastSummons = [{ key: kind, kind, name: def?.name || kind, maxLF: def?.lf || 20 }];
+        wearShape(s, u, u.beastSummons[0], true, true);
+        log(s, { kind: "effect", actor: u.id, text: `${u.name} enters in the full shape of ${u.beastSummons[0].name}.`, why: ["The anime orbit: an Awakened fruit hero opens the battle in his awakened form."] });
+      }
     }
     function carryFruit(s, opts) {
       if (opts.fruitWorld) s.fruitWorld = { held: opts.fruitWorld.held || null };
@@ -134,8 +157,15 @@
       }
       const own = RULES.kits[f.id].includes(id) || refinedOf(a).includes(id) || awakenedOf(a).includes(id) || (a.status?.hideShape?.move === id && a.status.hideShape.expiresAt > a.ownerTurns);
       if (!own) return null;
+      if (id === "dropTheShape") return shapeOn(a) ? null : "You wear no shape.";   // the way out is never refused, even in the sea
       const why = damped(s, a); if (why) return why;
+      if (id === "takeTheShape" && fullOn(a)) return "You wear the full shape: drop it first.";
       if (id === "takeTheShape" && !(a.beastSummons || []).length) return "You know no shape yet: learn a creature by swallowing its beads.";
+      if (id === "fullShape") {
+        if (!(a.beastSummons || []).length) return "You know no shape yet: learn a creature by swallowing its beads.";
+        if (fullOn(a)) return "You already wear the full shape.";
+        if (a.pf < RULES.full.upkeep + ab("fullShape").cost) return "The full shape needs its cost and a turn's upkeep in ΦF.";
+      }
       if (id === "scent") {
         if (!(a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns)) return "Scent is the beast's nose: take a shape first.";
         if (!hidden(s, a).length) return `Nothing hides within ${RULES.scent.radius} tiles.`;
@@ -153,6 +183,15 @@
     }
     // Weather Front (S2b2). The ring is ordinary fog barriers (concept "fog", front: true) so sight, Vapour Step and the allies' Drift all work as they do for Fog Bank; the
     // status holds the centre, the turn it ends and how many rings are out. Water, Steel will and the eater being damped end it.
+    const shapeOn = (a) => !!a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns;
+    const fullOn = (a) => shapeOn(a) && !!a.status.hideShape.full;
+    // Full Shape lends one trait (the beast's passive); every way out takes it back. Only a trait the eater did not already have is recorded as granted.
+    function unwear(a) { const g = a.status?.hideShape?.granted; if (g) a.traits = (a.traits || []).filter((x) => (x.id || x) !== g); }
+    function endShape(s, a, why) {
+      if (!a.status?.hideShape) return;
+      unwear(a); a.status.hideShape = null; if (a.status.ward?.hide) a.status.ward = null;
+      if (!s.preview) log(s, { kind: "effect", actor: a.id, text: `${a.name} sheds the shape: ${why}.`, why: ["Hidefruit, Awakened: the full shape ends when dropped, damped, unpaid or out of time."] });
+    }
     const frontOn = (a) => !!a.status?.weatherFront && a.status.weatherFront.expiresAt > a.ownerTurns;
     function growFront(s, a) {
       const f = a.status.weatherFront, r = RULES.front.radii[Math.min(f.rings, RULES.front.radii.length - 1)]; f.rings += 1;
@@ -168,6 +207,12 @@
     // At a unit's turn start (engine/turns.js, one line): the eater's front grows a ring (or ends if the fruit went quiet), and anyone standing in a hostile front loses AP.
     function fruitTurnStart(s, a) {
       if (s.preview || a.defeated) return;
+      if (a.status?.hideShape?.full) {   // Full Shape: the clock, the sea and the upkeep, in that order; each way out takes the passive back
+        if (a.status.hideShape.expiresAt <= a.ownerTurns) endShape(s, a, "the four turns are up");
+        else if (damped(s, a)) endShape(s, a, "the sea has the power");
+        else if (a.pf < RULES.full.upkeep) endShape(s, a, "no ΦF left to hold it");
+        else { a.pf -= RULES.full.upkeep; log(s, { kind: "resource", actor: a.id, text: `${a.name} pays ${RULES.full.upkeep} ΦF to hold the full shape (${a.pf}/${a.maxPF}).` }); }
+      }
       if (a.status?.weatherFront) {
         if (a.status.weatherFront.expiresAt <= a.ownerTurns) a.status.weatherFront = null;
         else if (damped(s, a)) endFront(s, a, "fades: the sea has the power");
@@ -281,13 +326,25 @@
       t.status.soaked = { label: "Soaked", owner: t.id, expiresAt: t.ownerTurns + 2 };
       const lost = [t.status.coils?.n ? "the stored coils" : "", t.status.mainspring ? "the wound mainspring" : "", t.status.hideShape || t.status.ward?.hide ? "the borrowed shape and its hide" : "", frontOn(t) ? "the weather front" : ""].filter(Boolean);
       if (t.status.weatherFront) { t.status.weatherFront = null; s.barriers = (s.barriers || []).filter((b) => !(b.front && b.owner === t.id)); }
-      t.status.coils = null; t.status.mainspring = null; t.status.hideShape = null; if (t.status.ward?.hide) t.status.ward = null;   // merge fix (Pantry): the hide ward goes with the shape   // the counters the techniques name: water takes the coil and ends the shape
+      unwear(t); t.status.coils = null; t.status.mainspring = null; t.status.hideShape = null; if (t.status.ward?.hide) t.status.ward = null;   // merge fix (Pantry): the hide ward goes with the shape   // the counters the techniques name: water takes the coil and ends the shape
       log(s, { kind: "effect", actor: t.id, target: t.id, text: `${t.name} is soaked by ${by}: the fruit's power goes quiet.`, why: ["Sinkerfruit: water damps the power for a turn (no fruit technique, no ΦF regen, damage ×1.25).", ...(lost.length ? [`The water takes ${lost.join(" and ")}.`] : [])] });
     }
     function fruitSoak(s, inst) {
       if (!ab(inst?.ability)?.movesWater) return;
       const hit = new Set([...(inst.targets || []), ...Object.values(s.actors).filter((u) => (inst.tiles || []).some(([x, y]) => u.x === x && u.y === y)).map((u) => u.id)]);
       for (const id of hit) soak(s, s.actors[id], ab(inst.ability).name);
+    }
+    // Wear the shape of a learned creature (Take the Shape, Full Shape, and the anime hero's entrance): its hide as a ward, its strongest move, and for the full shape its passive.
+    function wearShape(s, a, beast, full, early) {   // early: the entrance, worn before the hero's first turn (ownerTurns is 0 and becomes 1 as it starts), so the clocks count from 1
+      const def = wildRules?.data?.monsters?.[beast.kind], concept = def?.concept && C.concepts[def.concept] ? def.concept : null;
+      const move = concept ? (C.concepts[concept].abilities || []).filter((x) => ab(x) && ab(x).tier !== "ultimate").sort((x, y) => (ab(y).potency || 0) - (ab(x).potency || 0))[0] || null : null;
+      const turns = full ? RULES.full.turns - 1 : a.fruit.ripe ? 5 : RULES.hide.turns, hide = Math.min(RULES.hide.tempCap, Math.round((beast.maxLF || 0) * RULES.hide.tempShare));
+      const at = (a.ownerTurns || 0) + (early ? 1 : 0);
+      unwear(a); a.status.hideShape = { kind: beast.kind, name: beast.name, move, expiresAt: at + turns + 1 };
+      const gift = full ? RULES.passives[beast.kind] : null;
+      if (full) { a.status.hideShape.full = true; if (gift && !(a.traits || []).some((x) => (x.id || x) === gift)) { a.traits = [...(a.traits || []), gift]; a.status.hideShape.granted = gift; } }
+      if (!a.status.ward || a.status.ward.hide) a.status.ward = { label: `${beast.name} hide`, owner: a.id, hide: true, protection: Math.max(hide, a.status.ward?.protection || 0), expiresAt: at + turns + 1 };   // hide: the soak ends it with the shape; a ward from elsewhere (a Shield Wall) is left as it is (merge fix)
+      log(s, { kind: "effect", actor: a.id, text: `${a.name} takes the ${full ? "full " : ""}shape of ${beast.name}: ${hide} borrowed hide${move ? `, and its ${ab(move).name}` : ""}${full && gift ? `, and its ${gift} passive` : ""}, for ${full ? RULES.full.turns : turns} turns${full ? ` (${RULES.full.upkeep} ΦF upkeep at each turn start)` : ""}.`, why: ["Hidefruit: a quarter of the creature's life as a ward (at most 25), and its strongest move."] });
     }
     function fruitResolve(s, a, inst) {
       const id = inst.ability;
@@ -296,16 +353,13 @@
         log(s, { kind: "effect", actor: a.id, text: `${a.name} winds the spring: ${n} coil${n === 1 ? "" : "s"} stored (next Strike +${n * RULES.coil.potencyPerCoil} potency, +${n * RULES.coil.reachPerCoil} reach).`, why: ["Coilfruit: the next Strike releases every stored coil."] });
         return true;
       }
-      if (id === "takeTheShape") {
+      if (id === "dropTheShape") { endShape(s, a, "dropped, for nothing"); return true; }
+      if (id === "takeTheShape" || id === "fullShape") {
         const beast = (a.beastSummons || []).slice().sort((x, y) => (y.maxLF || 0) - (x.maxLF || 0))[0];
         if (!beast) { log(s, { kind: "effect", actor: a.id, text: `${a.name} knows no shape yet.`, why: ["Hidefruit takes the shape of a creature learned by swallowing its beads."] }); return true; }
-        const def = wildRules?.data?.monsters?.[beast.kind], concept = def?.concept && C.concepts[def.concept] ? def.concept : null;
-        const move = concept ? (C.concepts[concept].abilities || []).filter((x) => ab(x) && ab(x).tier !== "ultimate").sort((x, y) => (ab(y).potency || 0) - (ab(x).potency || 0))[0] || null : null;
-        const turns = a.fruit.ripe ? 5 : RULES.hide.turns, hide = Math.min(RULES.hide.tempCap, Math.round((beast.maxLF || 0) * RULES.hide.tempShare));
+        const full = id === "fullShape";
         markFeat(s, a, "hide.shape"); if ((a.fruit.shapes || []).some((k) => k !== beast.kind)) markFeat(s, a, "hide.second"); if (tracking(s, a)) (s.fruitShapes ||= []).includes(beast.kind) || s.fruitShapes.push(beast.kind);
-        a.status.hideShape = { kind: beast.kind, name: beast.name, move, expiresAt: a.ownerTurns + turns + 1 };
-        if (!a.status.ward || a.status.ward.hide) a.status.ward = { label: `${beast.name} hide`, owner: a.id, hide: true, protection: Math.max(hide, a.status.ward?.protection || 0), expiresAt: a.ownerTurns + turns + 1 };   // hide: the soak ends it with the shape; a ward from elsewhere (a Shield Wall) is left as it is (merge fix)
-        log(s, { kind: "effect", actor: a.id, text: `${a.name} takes the shape of ${beast.name}: ${hide} borrowed hide${move ? `, and its ${ab(move).name}` : ""}, for ${turns} turns.`, why: ["Hidefruit: a quarter of the creature's life as a ward (at most 25), and its strongest move."] });
+        wearShape(s, a, beast, full);
         return true;
       }
       if (id === "fogBank") {

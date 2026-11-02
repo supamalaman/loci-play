@@ -1,9 +1,9 @@
 "use strict";
 // Codex workshop prototype. Pure account transactions; proving uses an isolated real-engine state.
 (function(root,factory){
-  if(typeof module==="object"&&module.exports)module.exports=factory(require("./legacy-battle.js"),require("./contracts.js"));
-  else root.ConceptCombatWorkshop=factory(root.ConceptCombatLegacyBattle,root.ConceptCombatContracts);
-})(typeof self!=="undefined"?self:this,function(LB,D){
+  if(typeof module==="object"&&module.exports)module.exports=factory(require("./legacy-battle.js"),require("./contracts.js"),require("./desk-margin.js"));
+  else root.ConceptCombatWorkshop=factory(root.ConceptCombatLegacyBattle,root.ConceptCombatContracts,root.ConceptCombatDeskMargin);
+})(typeof self!=="undefined"?self:this,function(LB,D,DM){
   const copy=x=>JSON.parse(JSON.stringify(x));
   const hash=s=>{let a=2166136261,b=5381;for(const c of s){a=Math.imul(a^c.charCodeAt(0),16777619);b=Math.imul(b,33)^c.charCodeAt(0);}return (a>>>0).toString(36)+(b>>>0).toString(36);};
   const state=a=>{const l=LB.fresh(a?.legacy);l.workshop={version:1,drafts:[],next:1,...l.workshop};return l;};
@@ -55,8 +55,8 @@
     if(errors.length)return {ok:false,errors};
     const scale={light:.75,balanced:1,heavy:1.25}[r.scale],radius=delivery==="field"?(r.shape==="wide"?2:1):0;
     const range=delivery==="self"||delivery==="field"?0:delivery==="contact"?Math.max(1,Math.min(2,Number(pd.load.range)||1)):Math.max(1,Math.min(5,Number(pd.load.range)||3));   // placed mirrors line (provisional)
-    if(!hostile&&!ally&&range>1)warnings.push("This pays for reach it cannot use: self-only effects land on the caster.");
-    const power=Math.min(1,Math.max(.25,Number(r.power)||1)),SCALABLE=["damage","ward","push","stagger"],pow=effects.some(e=>SCALABLE.includes(e.key))?power:1;
+    if(!hostile&&!ally&&range>1)warnings.push("This reaches farther than it can use: self-only effects land on the caster.");
+    const power=Math.min(1,Math.max(.25,Number(r.power)||1)),pow=effects.some(e=>SCALABLE.includes(e.key))?power:1;
     // Interaction matrix (prototype, Mala 2026-10-22): pairwise price factors over effect keys. 1.0 is
     // neutral; below rewards natural pairings, above taxes friction. Lookup is symmetric (sorted pair key);
     // unlisted pairs are neutral, so existing prices hold until a cell is authored. All cells provisional.
@@ -65,10 +65,7 @@
     let pairMult=1;for(let i=0;i<ek.length;i++)for(let j=i+1;j<ek.length;j++)pairMult*=INTERACTIONS[pairKey(ek[i],ek[j])]??1;
     if(power<1&&pow===1)warnings.push("Power has nothing to scale here.");
     for(const e of effects){if(e.params.potency)e.params.potency=Math.max(1,Math.round(Math.min(16,e.params.potency)*scale*pow));if(e.params.protection)e.params.protection=Math.max(1,Math.round(e.params.protection*scale*pow));if(e.params.tiles)e.params.tiles=Math.max(1,Math.round(e.params.tiles*pow));if(e.params.ap)e.params.ap=Math.max(1,Math.round(e.params.ap*pow));}
-    const efactor=e=>((e.key==="damage"||e.key==="ward")?scale:1)*(SCALABLE.includes(e.key)?pow:1);
-    const grossEffects=effects.reduce((n,e)=>n+e.phi*efactor(e),0),complexity=Math.pow(1.35,Math.max(0,effects.length-1))*pairMult;
-    const gross=Math.ceil((2+grossEffects+Math.max(0,range-1)+radius*2)*complexity);
-    const ap=20+effects.reduce((n,e)=>n+Math.round(e.ap*(SCALABLE.includes(e.key)?pow:1)),0)+Math.max(0,range-1)+radius*3;
+    const authored=Object.fromEntries([...new Set(effects.map(e=>e.source))].map(s=>[s,C.abilities[s]?.cost]).filter(([,c])=>c!=null)),{gross,ap,complexity,bundle}=priceOf(effects,{scale,pow,pairMult,radius,authored,F:DM.table.tariff.F,C:DM.table.tariff.C});   // the price, as a pure function of the effects and these inputs (scribing desk A2a)
     const ability={name:String(r.name||"Untitled technique").trim().slice(0,40)||"Untitled technique",tier:"refined",concepts,delivery,target:hostile&&delivery!=="field"?"enemy":ally?"ally":"self",area:radius?{shape:"radius",radius}:{shape:"single"},range,potency:effects.filter(e=>e.key==="damage").reduce((n,e)=>n+e.params.potency,0),cost:gross,tempoCost:ap,effect:"scribedEffects",scribed:true,scribedEffects:effects,mechanism:"Ordered composition of recovered effects."};
     if(r.contract?.spend==="strength"&&!effects.some(e=>["damage","ward"].includes(e.key)))return {ok:false,errors:["Strength allocation needs a damage or ward component; use ΦF efficiency for control and resistance."]};
     if(r.contract?.specialization&&r.contract.specialization!=="none"&&!effects.some(e=>e.key==="damage"))return {ok:false,errors:["A damage specialization needs a damage component."]};
@@ -86,7 +83,7 @@
     ability.cost=phi;if(design.enabled){ability.contract=design.contract;ability.contractDuration=design.duration;ability.contractPulsePotency=ability.potency;}
     ability.reveal=effects.map((e,i)=>`${i+1}. ${e.label} → ${e.recipient}${e.params.duration?` (${e.params.duration} turns)`:""}${e.params.potency?` (${e.params.potency} potency)`:""}`).join("; ");
     const id=`scribed_work_${hash(JSON.stringify(ability))}`,inscription=30+10*used.size+(design.specialty.seeds||0);
-    return {ok:true,recipe:copy(r),ability,id,ap,phi,inscription,used:[...used.keys()],provenance:[...used.values()].map(p=>({id:p.id,source:p.source,name:p.sourceName})),summary:ability.reveal,breakdown:[`${effects.length} effects`,`${complexity.toFixed(2)}× complexity`,...(pairMult===1?[]:[`${pairMult.toFixed(2)}× pairing`]),`${gross} gross ΦF`,`${Math.round(reduction*100)}% responsibility reduction`,`${phi} final ΦF`],pricing:{gross,complexity,responsibility,reduction,phi,interactions:pairMult},contractDesign:design,sample,warnings};
+    return {ok:true,recipe:copy(r),ability,id,ap,phi,inscription,used:[...used.keys()],provenance:[...used.values()].map(p=>({id:p.id,source:p.source,name:p.sourceName})),summary:ability.reveal,breakdown:[`${effects.length} effects`,`${complexity.toFixed(2)}× complexity`,...(pairMult===1?[]:[`${pairMult.toFixed(2)}× pairing`]),`${gross} gross ΦF`,`${Math.round(reduction*100)}% responsibility reduction`,`${phi} final ΦF`],pricing:{gross,bundle,complexity,responsibility,reduction,phi,interactions:pairMult,effects:effects.map(e=>({key:e.key,source:e.source,phi:e.phi,ap:e.ap})),inputs:{scale,pow,pairMult,radius,authored,F:DM.table.tariff.F,C:DM.table.tariff.C}},contractDesign:design,sample,warnings};
   }
   function migrateRecipe(recipe){
     if(!recipe||Array.isArray(recipe.effects))return recipe;
@@ -95,6 +92,20 @@
     else if(r.effect==="ward")effects.push({part:r.load,key:"ward"});
     else effects.push({part:r.load,key:"damage"});
     return {name:r.name,delivery:r.delivery,scale:r.scale||"balanced",shape:r.shape||"focused",power:1,effects,contract:r.contract||{},training:r.training,migratedFrom:"blueprint"};
+  }
+  const SCALABLE=["damage","ward","push","stagger"];
+  // The price of a set of effects, pure (scribing desk A2a): gross phi and AP from each effect's own phi and AP and four inputs (scale, pow, pairMult, radius).
+  // `compile` calls it; Recopy and Amend (later slices) call it over a stored work, because inscribing consumes the parts and compile cannot be run again.
+  function priceOf(effects,inp){
+    const efactor=e=>((e.key==="damage"||e.key==="ward")?inp.scale:1)*(SCALABLE.includes(e.key)?inp.pow:1);
+    // The bundle cap (scribing desk A2): per source, the DISTINCT component keys' phi sum is capped at that source's authored phi (taking all of Cuff costs 4, not 9);
+    // a key picked again is not collapsed, it costs its full phi. Each share is then scaled by efactor as before. `inp.authored` maps a source to its authored phi.
+    const by=new Map();for(const e of effects){const g=by.get(e.source)||{seen:new Set(),du:0,ds:0,extra:0};const v=e.phi*efactor(e);if(g.seen.has(e.key))g.extra+=v;else{g.seen.add(e.key);g.du+=e.phi;g.ds+=v;}by.set(e.source,g);}
+    let grossEffects=0;for(const [src,g] of by){const cap=inp.authored?.[src];grossEffects+=(cap!=null&&g.du>cap?g.ds*(cap/g.du):g.ds)+g.extra;}
+    const complexity=Math.pow(inp.C??1.35,Math.max(0,effects.length-1))*inp.pairMult;   // C: the complexity base, 1.15 from the desk-margin table (A3); an input without one keeps the old 1.35
+    const gross=Math.ceil(((inp.F??2)+grossEffects+inp.radius*2)*complexity);   // F: the foundation, 1 from the desk-margin table (A3); an input without one keeps the old 2   // no reach term: reach is bought only by the reach spend (scribing desk A1)
+    const ap=20+effects.reduce((n,e)=>n+Math.round(e.ap*(SCALABLE.includes(e.key)?inp.pow:1)),0)+inp.radius*3;
+    return {gross,ap,complexity,grossEffects,bundle:grossEffects};
   }
   function compile(account,recipe,C,{sample=false}={}){
     if(!recipe||!Array.isArray(recipe.effects))return {ok:false,errors:["This draft predates the sentence desk. Reopen it at the desk to translate it."]};
@@ -113,7 +124,8 @@
     if(l.scribed.some(d=>d.id===q.id))return {ok:false,error:"This exact blueprint is already inscribed. Equip it from your library.",account};
     if((account.seeds||0)<q.inscription)return {ok:false,error:`Inscription costs ${q.inscription} Seeds.`,account};
     l.parts=l.parts.filter(p=>!q.used.includes(p.id));
-    const def={id:q.id,name:q.ability.name,workshop:true,workshopAbility:copy(q.ability),recipe:copy(q.recipe),provenance:q.provenance,ap:q.ap,cost:q.phi,concepts:q.ability.concepts};
+    const def={id:q.id,name:q.ability.name,workshop:true,workshopAbility:copy(q.ability),recipe:copy(q.recipe),provenance:q.provenance,ap:q.ap,cost:q.phi,concepts:q.ability.concepts,
+      tariff:DM.table.tariff.defStamp,tempoCost:q.ap,pricing:{gross:q.pricing.gross,effects:copy(q.pricing.effects),inputs:copy(q.pricing.inputs)}};   // scribing desk A5: the tariff this work was priced under, and what priceOf needs to price it again (Recopy, Amend); an older def has none (= tariff 1)
     l.scribed.push(def);
     return {ok:true,account:{...account,seeds:account.seeds-q.inscription,legacy:l},technique:def};
   }
@@ -172,5 +184,5 @@
     }catch(e){return {ok:false,errors:[e.message]};}
     finally{if(old)C.abilities[q.id]=old;else delete C.abilities[q.id];}
   }
-  return {state,training,materials,groups,components,describePart,compile,migrateRecipe,saveDraft,inscribe,equip,unequip,prove};
+  return {state,training,materials,groups,components,describePart,compile,priceOf,migrateRecipe,saveDraft,inscribe,equip,unequip,prove};
 });

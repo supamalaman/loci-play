@@ -11,7 +11,7 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatCeremony = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  const RITES = ["claim", "mint", "naming", "rewrite"];
+  const RITES = ["claim", "mint", "naming", "rewrite", "inscribe", "margin"];   // inscribe and margin: the scribing desk (SCRIBING_DESK.md, slice C4a)
   const STUBS = ["care", "ascension", "gold"];
   function rite(id, ctx = {}) {
     switch (id) {
@@ -29,6 +29,12 @@
         return { beats: [`The cascade runs ${depth} deep.`, "The tree holds its new shape — sealed."],
           cues: [{ slot: "ripple-bell", opts: { pitchStep: depth } }] };
       }
+      case "inscribe":   // a technique is written into the desk's book
+        return { beats: [`${ctx.name || "The work"} is inscribed.`, "The desk holds it, sealed in the book."],
+          cues: [{ slot: "seal-thump", opts: {} }] };
+      case "margin":   // a note is set in a work's margin
+        return { beats: [`A note is set in the margin of ${ctx.name || "the work"}.`, "It is read at the next carry."],
+          cues: [{ slot: "claim-chime", opts: {} }] };
       default: return null;   // stubs + unknowns: no rite, no sound
     }
   }
