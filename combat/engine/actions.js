@@ -1002,7 +1002,7 @@
         if (!summonRules || !summonQuestions) return "Summoning is unavailable.";
         const def = summonRules.data?.summons?.[act.summon];
         if (!def) return "No such summon.";
-        if (a.character !== "warden") return "Only the Warden calls the palace.";   // summon-owner: palace summons are Warden-only (Mala, 2026-10-22)
+        if (!summonRules.callsPalace(a)) return "Only the Warden calls the palace.";   // summon-owner: palace summons are Warden-only (Mala, 2026-10-22)
         const unlocked = (act.unlocked || []).includes(act.summon);
         if (!unlocked) return `${def.name} is not unlocked yet.`;
         const cost = summonProfile(s, a.id);

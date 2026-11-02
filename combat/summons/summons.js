@@ -407,6 +407,8 @@
     return Object.assign(summon, ownerState.fresh());
   }
 
-  return { ownerState, freshen, revealTrueForm, revealMaxForm, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
+  // Palace summons are the Warden's (Mala 2026-10-22); the menu, the readiness check and the action all ask this one question.
+  const callsPalace = (actor) => actor?.character === "warden";
+  return { callsPalace, ownerState, freshen, revealTrueForm, revealMaxForm, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
     canOrderUltimate, orderUltimate, resolveUltimate, orderLost, data: SD };
 });

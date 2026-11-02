@@ -283,6 +283,7 @@
       if (!actor || actor.defeated || actor.lf <= 0) return { ok: false, reason: "Choose a living summoner." };
       if (actor.form?.golden) return { ok: false, reason: "The Integrated Self has no need to summon." };
       if (!summonRules || !summonQuestions) return { ok: false, reason: "Summoning is unavailable." };
+      if (!summonRules.callsPalace(actor)) return { ok: false, reason: "Only the Warden calls the palace." };
       return summonRules.canSummon({ ...summonProfile(s, id), used: s.summonUsed, ap: actor.tempo, pf: actor.pf }, summon, { unlocked });
     }
     function proficientSummonerTestOptions() {

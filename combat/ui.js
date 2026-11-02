@@ -4435,7 +4435,7 @@
         ...(p.birdMountain?.red?[{id:"dismissUlaula",label:"Let the red go out · free",off:!!p.birdMountain.vows?.neverQuench,why:p.birdMountain.vows?.neverQuench?"Sworn: Never-Quench cannot be dismissed.":"Dismiss ʻUlaʻula. Free, on your turn."}]:[]),
         { id: "tech", label: "Techniques ▸", opensIfShort: true, off: !E.availableAbilities(U.s, controlledId(U.s)).some(x => x.affordable||x.contract?.next?.kind==="invoke"||x.contract?.canPrepare),
           why: E.availableAbilities(U.s, controlledId(U.s)).some(x => x.affordable||x.contract?.next?.kind==="invoke"||x.contract?.canPrepare) ? "The techniques your concepts give you, grouped by concept. Each row shows its AP and ΦF cost." : "No technique is affordable right now: check each row's AP and ΦF cost." },
-        ...(SM ? [{ id: "summons", label: `Summon ally ▸ (${summonUnlocks().length + (p.beastSummons || []).length} unlocked · ${E.summonProfile(s,p.id).apCost} AP)`, off: !summonUnlocks().some(id => E.summonReadiness(s,p.id,id,summonUnlocks()).ok) && !(p.beastSummons || []).some((b) => !s.beastCalled?.[`${p.id}:${b.key}`]) && !pactCallable(s, p) && !s.pactActive,
+        ...(SM && (SM.callsPalace(p) || (p.beastSummons || []).length || Object.keys(U.account?.contracts?.pacts || {}).length) ? [{ id: "summons", label: `Summon ally ▸ (${(SM.callsPalace(p) ? summonUnlocks().length : 0) + (p.beastSummons || []).length} unlocked · ${E.summonProfile(s,p.id).apCost} AP)`, off: !summonUnlocks().some(id => E.summonReadiness(s,p.id,id,summonUnlocks()).ok) && !(p.beastSummons || []).some((b) => !s.beastCalled?.[`${p.id}:${b.key}`]) && !pactCallable(s, p) && !s.pactActive,
           why: `Call an unlocked ally: ${E.summonProfile(s,p.id).apCost} AP and ${E.summonProfile(s,p.id).phiCost} ΦF each, and you answer its question before it arrives.` }] : []),
         ...(SM ? Object.values(s.actors).filter(a => a.summon && a.summon.owner === p.id && !a.defeated).map(a => {
           const def = SM.data.summons[a.summon.key], ult = SM.activeUltimate(a), can = SM.canOrderUltimate(p, a, { ultimateChargeMax: s.rules.ultimateChargeMax });
@@ -4591,7 +4591,7 @@
       if (U.menu === "cook") return Cook.available(p.inventory || [], { inBattle: true, cook: Cook.isCook(p) }).map((rid) => { const r = Cook.recipes[rid], ap = p.passives?.cookApOverride ?? Cook.rules.cookAp[r.field ? "field" : "full"];
         return { id: `cook:${rid}`, recipe: rid, label: `${r.name} → ${Loot.data.consumables[r.out]?.name || r.out} · ${ap} AP`, why: r.teach, off: p.tempo < ap }; });
       if (U.menu === "drop") return (p.inventory || []).map((id, i) => ({ id: `drop:${id}:${i}`, drop: id, label: `Drop ${Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id}`, why: `Set ${Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id} down and leave it behind. Costs no AP.` }));
-      if (U.menu === "summons") return [...SM.available({ unlocked: summonUnlocks() }).filter(x => x.unlocked).map(x => {
+      if (U.menu === "summons") return [...SM.available({ unlocked: summonUnlocks() }).filter(x => x.unlocked && SM.callsPalace(p)).map(x => {
         const cost = E.summonProfile(s, p.id), can = E.summonReadiness(s, p.id, x.id, summonUnlocks());
         const tax = (p.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === "attentionToDetail") ? 5 : 0;   // sturdier craft costs slightly (engine/actions.js summonTax)
         return { id: x.id, summon: x.id, label: `${x.name} · ${cost.apCost + tax} AP · ${cost.phiCost} ΦF · ${cost.active.length}/${cost.maxActive} active`,
