@@ -312,6 +312,8 @@
     // answer with a shooter in range; traitActs lets beliefs and focus act (robot harm multipliers, believers preach,
     // ritual start odds by focus trait, ADHD's taste for variety (variety)). Each takes `sides` for a one-sided sim arm.
     aiLedger: { wallLine: false, curiosity: false, lookahead: false, answerModel: { on: true, prior: 0.15, announcedPrior: 0.5, costWeight: 1 }, walkCost: { on: true, weight: 0.5 }, reserve: { on: false, value: 3, range: 6 },
+      // Fruitbound (respec fruit, 2026-11-01): a unit with the trait scores each fruit technique this much more when the moment fits (engine/fruit.js fruitboundBonus); `on: false` switches it off everywhere.
+      fruitbound: { on: true, bonus: { windTheSpring: 5, mainspring: 16, fogBank: 14, weatherFront: 14, vapourStep: 12, scent: 12, takeTheShape: 12 } },
       traitActs: { on: false, robotHarm: { robotSympathizer: 0.6, robotHater: 1.4 }, preach: ["fullBeliever", "devoutBeliever", "convertedBeliever", "convertedDevout"],
         ritualStart: { perfectConcentration: 1.5, focused: 1.25, scattered: 0.6, adhd: 0.5 }, variety: { adhd: 1 } }, foeMemory: false, regretProbe: false, setupBonus: 0, readyUltimate: 8, animeKitFloor: 6,   // anime kit options (soul verbs/arts, fruit, Bird Mountain) score at least Observe here, or this when Observe is not offered (docs/anime-orbit.md §5a)
           // a full bar means it is time to use it (Mala, 2026-10-27): a ready damage ultimate scores this much more (simmed on/off)
@@ -889,6 +891,14 @@
     scent: { name: "Scent", tier: "refined", fruitOnly: true, concepts: ["discovery"], delivery: "self", target: "self", area: { shape: "single" }, cost: 3, tempoCost: 0, range: 0, potency: 0, effect: "fruit", effectCategory: "conditional",
       mechanism: "Hidefruit, Ripe: while you wear a borrowed shape, 3 ΦF and no action points reveal every concealed foe within 3 tiles. Greyed with no shape, or with nobody hidden in reach.",
       reveal: "The beast's nose knows who is hiding.", counter: "Water ends the shape and the power; a foe can hide again after it is revealed.", teaches: "A borrowed body brings its senses with it." },
+    mainspring: { name: "Mainspring", tier: "refined", fruitOnly: true, concepts: ["elasticity"], delivery: "self", target: "self", area: { shape: "single" }, cost: 15, tempoCost: 35, range: 0, potency: 0, effect: "fruit", effectCategory: "conditional",
+      announce: "The whole body is the spring.",
+      mechanism: "Coilfruit, Awakened: for 2 turns, every push you cause on a target within 2 tiles travels 1 tile further, and your first Strike each turn lets its coils go without spending them. Not recast while wound.",
+      reveal: "A body that gives back more than it was given.", counter: "Water unwinds it; a blow carrying Steel will snaps it; stand 3 or more tiles away, where its pushes grow no longer.", teaches: "Stored energy is borrowed time." },
+    weatherFront: { name: "Weather Front", tier: "refined", fruitOnly: true, concepts: ["stealth"], delivery: "self", target: "self", area: { shape: "single" }, cost: 15, tempoCost: 35, range: 0, potency: 0, effect: "fruit", effectCategory: "constructive",
+      announce: "The weather turns.",
+      mechanism: "Mistfruit, Awakened: a ring of fog on your tile grows from radius 1 to 2 to 3 over your next two turns, then clears all at once (3 turns in all). Allies standing in it Drift, as in your fog; foes standing in it lose 10 AP as their turn starts. Not recast while it stands.",
+      reveal: "Weather does not choose a side, only a place: whoever stands in it is held by it.", counter: "Water takes the power and the ring with it; a blow carrying Steel will parts it; leave the ring.", teaches: "A field is a clock: it grows, it costs, it ends." },
     vapourStep: { name: "Vapour Step", tier: "refined", fruitOnly: true, concepts: ["stealth"], delivery: "placed", target: "tile", area: { shape: "single" }, cost: 5, range: 4, tempoCost: 15, potency: 0, effect: "fruit", effectCategory: "conditional",
       mechanism: "Mistfruit, Ripe: standing in fog, step to any empty fog tile within 4 tiles, no line needed. A step, not a leap: it provokes nothing, but what is on the tile you land on still happens.",
       reveal: "Weather you can walk through.", counter: "Water takes the power; with no fog to land in the step is refused; Steel will lands through the Drift you keep.", teaches: "You can be where the weather is." },

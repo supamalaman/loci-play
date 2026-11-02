@@ -51,7 +51,7 @@
     },
 
     oni: {
-      name: "Oni", kind: "oni", omega: true, size: { w: 2, h: 2 }, lf: 330, concepts: ["deception", "threshold", "selectivity"],
+      name: "Oni", kind: "oni", omega: true, size: { w: 2, h: 2 }, lf: 330, flatResist: { mul: 0.1, text: "Its hide turns every blow to a tenth (x0.1, and no damaging blow does less than 1 before a ward absorbs it); only piercing gets through: any piercing strike (an oath or a rite) or the Albedo channel; once enraged it takes 30% less from even those." }, concepts: ["deception", "threshold", "selectivity"],
       look: "Mala's design: a red oni (large sprite).",
       teaches: "A spirit of a place is known by its rules; learn the rule and it loses its power over you.",
       abilities: {

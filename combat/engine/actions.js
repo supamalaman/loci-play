@@ -407,6 +407,24 @@
       log(s, { kind: "imitate", actor: a.id, target: t.id, trait, ok: true, text: practice ? `${a.name} practises ${name}, watching ${t.name}.` : `${a.name} takes on ${t.name}'s ${name}. It will fade unless it is practised.`,
         why: [...(whyBase || [`${Math.round(p * 100)}% chance.`]), `A copy lasts ${Imitation.rules.tempBattles} battles. Practise it ${Imitation.needed(difficulty)} points' worth (watching them act on it counts double) and it stays.`] });
     }
+    // Investigate a place, a plant or a structure (spec INVESTIGATE.md slice I3): the same price and the same ending as Investigating a character (all the AP, at
+    // least the minimum, a wounded head's tax, not while held; the turn ends and the reaction is spent), the look itself is the matching Observe with `deep` set.
+    const deepLook = (s, a, act) => {
+      if (!H.Observation.eligible(a)) return "This unit cannot Investigate.";   // a summon may Investigate a character, but the place, plants and structures answer only what Observe lets look at them
+      if (!insightRules?.investigate) return "Investigate is unavailable.";
+      const V = insightRules.data.rules.investigate;
+      const woundTax = (H.Injury?.gradeOf(a, "head") || 0) === 1 ? (s.rules.injury?.headWoundedObserveAp ?? 10) : 0;
+      if (a.tempo < V.minAP + woundTax) return `Investigate needs at least ${V.minAP + woundTax} AP${woundTax ? ` (${woundTax} more with a wounded head)` : ""}. It spends everything you have left.`;
+      if (H.heldCostMul && H.heldCostMul(s, a) !== 1) return "You can't Investigate while held: every action costs more than the AP you have left.";
+      const kind = act.place ? "place" : (s.arena.objects || []).find((o) => o.id === act.object)?.kind === "plant" ? "plant" : "structure";
+      const deep = { ap: a.tempo - woundTax, spent: false };
+      const refused = handlers[{ place: "observePlace", plant: "observePlant", structure: "observeStructure" }[kind]](s, a, act, deep);
+      if (refused) return refused;
+      if (!deep.spent) return;   // a free warning (a structure answers only an Animist): nothing was paid, so the turn goes on
+      a.tempo = 0; a.reaction = 0; a.absorbedRound = s.round;
+      log(s, { kind: "tempo", actor: a.id, text: `${a.name} is absorbed: no reaction until next round.` });
+      if (!s.outcome && currentId(s) === a.id) endTurn(s);
+    };
     const handlers = {
       openGate(s, a, act) {
         const SN = sealedNext();
@@ -828,7 +846,7 @@
         if (H.fruitDrift?.(s, a, t, inst)) { log(s, { kind: "act", actor: a.id, target: t.id, fizzled: true, text: `${a.name}'s strike passes through ${t.name}: Drift.`, why: ["Mistfruit: a strike that doesn't carry will misses 35% of the time. Steel will (+10 AP) lands through it."] }); hermitCharge(s, a, "strike"); return; }
         log(s, { kind: "act", actor: a.id, text: `${a.name} strikes ${t.name} (contact, no ΦF), investing ${effort}% of a turn for ${roundFn(s)(potency)} potency.${dense ? " Dense Muscle doubles it." : ""}${quad ? " Four Arms double it (×1.5 AP)." : ""}${gearBlade ? ` The weapon adds +${gearBlade}.` : ""}${autoArm ? " The automail arm adds +3." : ""}${vesselBulk ? " The vessel body adds +1." : ""}`, ...(starTax > 1 ? { why: [`Genre-Defining Performance: ×${starTax} AP to touch the star.`] } : {}) });
         strikeTarget(s, a, t, inst, potency, [`Universal strike: no concept, no edges beyond parries. ${effort} action points invested; damage scales with tempo committed.`, ...(foundryBonus ? [`The line arms the blow: +${foundryBonus} (Foundry).`] : []), ...(autoArm ? ["Automail arm +3."] : []), ...(vesselBulk ? ["Vessel body +1."] : []), ...(armG === 1 ? ["Wounded arms: −20% potency."] : [])]);
-        if (coils.n && H.fruitOf?.(a)?.ripe && !t.defeated && !s.outcome) { log(s, { kind: "effect", actor: a.id, target: t.id, text: `The ripe coils let go all at once: ${t.name} is knocked back ${coils.n}.`, why: ["Sinkerfruit: a ripened release knocks the target back one tile per coil."] }); H.knock(s, a, t, coils.n, inst, "push"); }
+        if (coils.n && H.fruitOf?.(a)?.ripe && !t.defeated && !s.outcome) { log(s, { kind: "effect", actor: a.id, target: t.id, text: `The ripe coils let go all at once: ${t.name} is knocked back ${H.fruitPushBonus?.(s, a, t, coils.n, "push") ?? coils.n}.`, why: ["Sinkerfruit: a ripened release knocks the target back one tile per coil."] }); { const mk = s.log.length, from = [t.x, t.y]; H.knock(s, a, t, coils.n, inst, "push"); H.fruitKnocked?.(s, a, t, mk, from); } }
         hermitCharge(s, a, "strike");   // Train Hard
         if (blade?.rider && bossRules?.formRider && !s.outcome) bossRules.formRider(a, t, blade.rider, H.formCtx(s, a, t));   // learned forms: the form Strike's effect
       },
@@ -1608,6 +1626,7 @@
         log(s, { kind: "effect", actor: a.id, text: `${a.name} notes ${opt.name} in the journal.`, why: ["Three notes complete a study (the Magistrate's Codex)."] });
       },
       investigate(s, a, act) {   // Investigate (spec INVESTIGATE.md): all remaining AP on one look, deepest first; the turn ends and the reaction is spent
+        if (act.place || act.object) return deepLook(s, a, act);   // I3: the place, a plant or a structure instead of a character
         if (!H.Observation.eligible(a) && !(a.summon && !a.defeated && !a.notArrived)) return "This unit cannot Investigate.";   // a summon may Investigate (Mala, 2026-10-31); the AI never picks it for one
         if (!insightRules?.investigate) return "Investigate is unavailable.";
         const V = insightRules.data.rules.investigate;
@@ -1678,18 +1697,21 @@
           why: learned.length ? learned.map((id) => `Learned ${ab(id).name}: ${ab(id).reveal}`) : ["Nothing new to learn."] });
         if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe");   // Mystery: Observe rips a foe's oldest set plan; allies' cards are left alone (Harbor round-2 item 7 ruling)
       },
-      observePlace(s, a, act) {
+      observePlace(s, a, act, deep = null) {
         if (!H.Observation.eligible(a)) return "This unit cannot Observe the place.";
         if (!Climate || !insightRules || !s.weatherState) return "There is no active weather to survey here.";
+        // Investigate the place (I3): all the AP the caller allowed, deepest first (deepLook)
         const invest = Math.max(10, Math.min(50, Math.floor((act.invest || 20) / 10) * 10));
-        if (a.tempo < s.rules.actionCosts.utility) return `Observe needs ${s.rules.actionCosts.utility} action points.`;
-        if (a.tempo < invest) return `Observing the place needs ${invest} action points.`;
+        if (!deep && a.tempo < s.rules.actionCosts.utility) return `Observe needs ${s.rules.actionCosts.utility} action points.`;
+        if (!deep && a.tempo < invest) return `Observing the place needs ${invest} action points.`;
         const deck = s.insight.decks[(a.id==="player"?s.placeObservation:s.placeObservations?.[a.id])?.key] || Climate.placeDeck(moduleArena(s.arena), s.weatherState, { seed: s.seed });
         const bySubject = H.Observation.knowledge(s,a,true);
         const know = bySubject[deck.subject.key] || insightRules.spawnKnowledge(deck);
-        const result = Climate.observePlace({ deck, know, cognitive: H.Observation.cognitive(s,a), invest, dreamField: s.dreamSpace, seed: s.seed + s.round });
+        const result = deep ? Climate.investigatePlace({ deck, know, cognitive: H.Observation.cognitive(s,a), ap: deep.ap, dreamField: s.dreamSpace })
+          : Climate.observePlace({ deck, know, cognitive: H.Observation.cognitive(s,a), invest, dreamField: s.dreamSpace, seed: s.seed + s.round });
         if (result.error) return result.lines.join(" ");
-        const spend = spendTempo(s, a, invest, "Observe the place"); if (spend) return spend;
+        const spend = spendTempo(s, a, deep ? a.tempo : invest, deep ? "Investigate the place" : "Observe the place"); if (spend) return spend;
+        if (deep) deep.spent = true;
         H.Observation.recordCards(s,a,deck.subject.key,result.revealed,"observePlace");
         bySubject[deck.subject.key] = result.know; H.Observation.setCognitive(s,a,result.cognitive);
         (s.observationTurns ||= {})[a.id]=a.ownerTurns;
@@ -1715,7 +1737,7 @@
           }
         }
       },
-      observePlant(s, a, act) {   // Plant communion step 1: get to know one plant
+      observePlant(s, a, act, deep = null) {   // Plant communion step 1: get to know one plant
         if (!Communion) return "Plant communion is unavailable.";
         if (!H.Observation.eligible(a)) return "This unit cannot study a plant.";
         const book=H.Observation.plantBook(s,a,true);
@@ -1728,8 +1750,13 @@
         const hiker = (a.traits || []).some(t => (typeof t === "string" ? t : t?.id) === "hiker");
         const before = book.familiarity[obj.id] || 0;
         const BT = Communion.rules.botanist, botanist = !!BT && hasTrait(a, BT.trait);
-        const result = Communion.observe(before, act.invest || Communion.rules.observeStep, (hiker ? Communion.rules.hikerBonus : 0) + (botanist ? BT.observeBonus : 0));
-        const spend = spendTempo(s, a, result.spend, "Observe a plant"); if (spend) return spend;
+        // Investigate a plant (I3): the rest of the turn buys familiarity at Observe's rate, plus the depth bonus, with no per-look cap
+        if (deep && before >= prof.need) return `You already know the ${prof.common} as well as it can be known: there is nothing left to Investigate.`;
+        const bonusNow = (hiker ? Communion.rules.hikerBonus : 0) + (botanist ? BT.observeBonus : 0);
+        const result = deep ? { familiarity: before + Math.floor(deep.ap / Communion.rules.observeStep) + insightRules.data.rules.investigate.depthBonus + bonusNow, spend: a.tempo }
+          : Communion.observe(before, act.invest || Communion.rules.observeStep, bonusNow);
+        const spend = spendTempo(s, a, result.spend, deep ? "Investigate a plant" : "Observe a plant"); if (spend) return spend;
+        if (deep) deep.spent = true;
         book.familiarity[obj.id] = result.familiarity; scoutNoted(s, a, null); H.Exposure.looked(s, a);
         const ready = result.familiarity >= prof.need, fam = Math.min(result.familiarity, prof.need);
         H.Observation.recordFact(s,a,{id:`plant:${obj.id}:${fam}`,kind:"plant",subject:obj.id,type:obj.type,familiarity:fam,text:`${prof.common}: familiarity ${fam}/${prof.need}.`},"observePlant");
@@ -1742,7 +1769,7 @@
         const next = !forYou ? "" : book.closed?.[obj.id] ? " It will not answer you again this battle."
           : ready ? ` Next: approach and perform the ritual. ${d <= Communion.rules.range ? "You are beside it" : `Stand beside the ${prof.common} (${d} tiles away)`}, then Rituals ▸ Commune · ${Communion.rules.communeAp} AP + ${phi} ΦF. It will ask what you just learned.`
           : ` Next: observe again. ${prof.need - fam} more familiarity (about ${Math.max(Communion.rules.observeStep, (prof.need - fam - bonus) * Communion.rules.observeStep)} AP).`;
-        log(s, { kind: "observePlant", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} studies the ${prof.common}: familiarity ${fam}/${prof.need}.${q?.clue ? ` Study note: ${q.clue}` : ""}${next}`,
+        log(s, { kind: "observePlant", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${fam}/${prof.need}.${q?.clue ? ` Study note: ${q.clue}` : ""}${next}`,
           why: [`As an ally: ${prof.name}, ${prof.hp} LF, ${conceptName(prof.primary)} with ${conceptName(prof.secondary)}.`, `Communing costs ${Communion.rules.communeAp} action points and ${prof.phi} ΦF from an adjacent tile.`, ...(hiker ? ["Hiker: +1 familiarity for reading the ground."] : []), ...(botanist ? [`Field Botany: +${BT.observeBonus} familiarity for knowing what they are looking at.`] : [])] });
       },
       commune(s, a, act) {   // Plant communion step 2: a botany question; a right answer brings the plant out as an ally
@@ -1769,7 +1796,7 @@
         log(s, { kind: "commune", actor: ally.id, target: a.id, tiles: [[obj.x, obj.y]], text: `The ${prof.common} answers ${a.name} and steps out of the ground as ${ally.name} (${ally.lf} LF). ${score.explain}`,
           why: ["It fights beside you until its life runs out. Then it dies, and its body stays where it fell."] });
       },
-      observeStructure(s, a, act) {   // Tsukumogami step 1: get to know one structure
+      observeStructure(s, a, act, deep = null) {   // Tsukumogami step 1: get to know one structure
         if (!Tsukumogami) return "Tsukumogami is unavailable.";
         if (!H.Observation.eligible(a)) return "This unit cannot study a structure.";
         const book = H.Observation.structureBook(s, a, true);
@@ -1785,13 +1812,17 @@
           return;
         }
         const before = book.familiarity[obj.id] || 0;
-        const result = Tsukumogami.observe(before, act.invest || Tsukumogami.rules.observeStep);
-        const spend = spendTempo(s, a, result.spend, "Study a structure"); if (spend) return spend;
+        // Investigate a structure (I3): as a plant, after the free Animist warning
+        if (deep && before >= prof.need) return `You already know the ${prof.common} as well as it can be known: there is nothing left to Investigate.`;
+        const result = deep ? { familiarity: before + Math.floor(deep.ap / Tsukumogami.rules.observeStep) + insightRules.data.rules.investigate.depthBonus, spend: a.tempo }
+          : Tsukumogami.observe(before, act.invest || Tsukumogami.rules.observeStep);
+        const spend = spendTempo(s, a, result.spend, deep ? "Investigate a structure" : "Study a structure"); if (spend) return spend;
+        if (deep) deep.spent = true;
         book.familiarity[obj.id] = result.familiarity; scoutNoted(s, a, null); H.Exposure.looked(s, a);
         const ready = result.familiarity >= prof.need;
         const matDef = insightRules?.data?.traits?.[Tsukumogami.materialTrait(prof.material)] || null;
         H.Observation.recordFact(s, a, { id: `structure:${obj.id}:${Math.min(result.familiarity, prof.need)}`, kind: "structure", subject: obj.id, type: obj.type, familiarity: Math.min(result.familiarity, prof.need), text: `${prof.common}: familiarity ${Math.min(result.familiarity, prof.need)}/${prof.need}.` }, "observeStructure");
-        log(s, { kind: "observeStructure", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} studies the ${prof.common}: familiarity ${Math.min(result.familiarity, prof.need)}/${prof.need}${ready ? ". It will answer if you wake it." : "."}`,
+        log(s, { kind: "observeStructure", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${Math.min(result.familiarity, prof.need)}/${prof.need}${ready ? ". It will answer if you wake it." : "."}`,
           why: [`As an ally: ${prof.name}, ${Math.max(1, obj.hp * 2)} LF.`, `Waking costs ${Tsukumogami.rules.communeAp} action points and ${prof.phi} ΦF from an adjacent tile.`, ...(matDef ? [`Material: ${matDef.text}`] : [])] });
       },
       communeStructure(s, a, act) {   // Tsukumogami step 2: answer its question; a right answer wakes it as an ally

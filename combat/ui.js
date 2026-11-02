@@ -7,6 +7,7 @@
   const C = root.ConceptCombatContent;
   const FX = root.ConceptCombatFX;
   const FXS = root.ConceptCombatFXSprites;
+  const SMOKE = root.ConceptCombatSmoke;   // smoke art for fog and smoke barriers (smoke-fx.js)
   const TEACH = root.ConceptCombatTeach;   // Teach mode: Wisdom and Inquiry cards (teach/teach.js)
   const SG = root.ConceptCombatSage;   // Hatsu Sage casting (castings/sage.js; AP-01 wired: demo bout + declarations)
   const CM = root.ConceptCombatCommunion, PF = root.ConceptCombatPlantFacts, TRP = root.ConceptCombatTraps, IM = root.ConceptCombatImitation, TK = root.ConceptCombatTsukumogami;
@@ -823,6 +824,11 @@
         onGround(x, y, (px, py) => { const img = worldSprite("objects", id); if (!img) return; groundDrawn++; const w = geo.tw, h = w * img.naturalHeight / img.naturalWidth; g.drawImage(img, px, py, w, h); }, false);
       }
     }
+    const smokeImages = new Map();   // strip name -> Image; a redraw when one loads, so fog is never blank (the old barrier art draws until then)
+    function smokeImage(strip) {
+      if (!smokeImages.has(strip)) { const img = new Image(); img.src = new URL(`combat/sprites/smoke/${strip}.png`, document.baseURI).href; img.onload = () => { if (U.s && !U.destroyed) draw(); }; img.onerror = () => { img.failed = true; }; smokeImages.set(strip, img); }   // a failed load stays cached as failed: one request, not one per redraw
+      const img = smokeImages.get(strip); return !img.failed && img.complete && img.naturalWidth ? img : null;
+    }
     function worldSprite(group, id) {
       if (!id || !["objects", "items", "plants", "walls"].includes(group)) return null;
       const key = `${group}/${id}`;
@@ -1232,6 +1238,8 @@
           return `<div class="cc-hall-offer"><div><b>${esc(nameOf(st.technique))}</b> <small>${st.complete ? `study complete · practice ${pr}/${LB.MEMORIZE_AT}${pr < LB.MEMORIZE_AT ? " · +1 from its book or another study in battle" : ""}` : `${st.notes}/3 notes`}${boss ? " · boss art" : ""}</small></div>
             ${st.complete && !st.donated ? `<button type="button" data-donate="${esc(st.technique)}">Donate (+1 favor)</button>` : ""}${st.complete && canMem && !lg.memory.held.includes(st.technique) ? `<button type="button" data-memorize="${esc(st.technique)}" ${pr < LB.MEMORIZE_AT ? "disabled" : ""}>Memorize</button>` : ""}${st.complete && !canMem ? `<small class="cc-muted">can't be held: ${esc(LB.unmemorizableWhy(st.technique, C) || "sealed")}</small>` : ""}${st.complete && boss ? `<button type="button" data-take="${esc(st.technique)}" ${LB.legendary(lg) && !lg.parts.some(p=>p.source===st.technique) ? "" : "disabled"}>Take apart${LB.legendary(lg) ? "" : " (needs a legendary tradition)"}</button>` : ""}</div>`; }).join("") : `<p class="cc-muted">Empty. In battle, Observe ▸ Take notes on a technique a foe used: it spends your reaction. Three notes finish a study.</p>`}`)}
         ${cx("notebook", "Field notebook", lg.findingNotebook.length, `${lg.findingNotebook.length ? lg.findingNotebook.map(f=>`<p>${esc(f.text)} <small>· ${esc(f.method)} · via ${esc(f.viaName||f.originName||f.via||f.origin)}</small></p>`).join("") : `<p class="cc-muted">Record a learned or verified finding during battle to preserve it here.</p>`}`)}
+        ${PF && CM ? (() => { const rows = PF.species().map((t) => ({ t, pr: CM.profile(t), nt: PF.notes(U.account.plantFacts, t) })).filter((r) => r.pr && r.nt.N), heard = rows.reduce((n, r) => n + r.nt.n, 0), all = rows.reduce((n, r) => n + r.nt.N, 0);
+          return cx("plantnotes", "Plant field notes", `${heard}/${all}`, `<p class="cc-muted">What each plant has told you when it answered a commune. A fact you have not heard yet shows as a numbered blank. Each time a plant answers a commune you hear one of its facts, a new one first until you have heard them all.</p>${rows.map((r) => `<details class="cc-fn-species"><summary><b>${esc(r.pr.common)}</b> <small>${r.nt.n} of ${r.nt.N} heard${r.nt.cycles ? ` · ${r.nt.n >= r.nt.N ? "all" : "the earlier facts"} ${r.nt.cycles > 1 ? `${r.nt.cycles} times` : "once"}` : ""}</small></summary><ol>${r.nt.bank.map((f, i) => r.nt.heard.includes(f.id) ? `<li><span>${esc(f.text)}</span> <small class="cc-muted">Source: ${esc(f.source)}</small></li>` : `<li class="cc-fn-blank" aria-label="Not heard yet">Not heard yet</li>`).join("")}</ol></details>`).join("")}`); })() : ""}
         ${cx("books", "The Magistrate's books", books.length, `${books.length ? books.map((b) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(b.technique))}</b> <small>${esc(b.tier)} · ${b.price} Seeds</small><p>Practice +1 toward memorizing it.</p></div><button type="button" data-book="${esc(b.id)}" ${U.account.seeds < b.price ? "disabled" : ""}>Buy · ${b.price}</button></div>`).join("") : `<p class="cc-muted">The shelves stock what the codex holds: found a tradition or donate a study.</p>`}`)}
         ${cx("memory", "Memory", `${lg.memory.held.length}/${lg.memory.slots}`, `<p class="cc-muted">Held techniques come into every battle with you. A fourth pushes out the oldest; relearning it takes half the practice.</p>${lg.memory.held.map((id) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(id))}</b><small>${esc(takeInfo(id))}</small></div>${LB.partsOf(id, C) ? `<button type="button" data-take="${esc(id)}" ${lg.parts.some(p=>p.source===id)?"disabled":""}>Take apart</button>` : `<small class="cc-muted">resists analysis</small>`}</div>`).join("") || `<p class="cc-muted">Nothing held.</p>`}`)}
         ${cx("scribing", "Scribing desk", `${lg.parts.length} parts`, `<button type="button" class="cc-primary" id="ccOpenWorkshop">Open scribing desk ↗</button>${lg.parts.length >= 1 ? `<p class="cc-muted">Shape recovered parts into a technique at the desk: draft, test, inscribe, equip.</p>` : `<p class="cc-muted">Take apart a held technique to get its parts (the notebook copy is used up).</p>`}
@@ -2416,6 +2424,7 @@
       { const esc = U.account.stakeEscrow || U.stakeHeld; if (esc && AN) { const left = !esc.outcome, st = { ...(esc.stakes || {}), state: "agreed", held: { vessels: esc.vessels || [], levels: esc.levels || 0 } }; const r = AN.applyResolution({ ...U.account, stakeEscrow: null }, st, esc.outcome || "enemy", A.stripLevels); U.account = { ...r.account, stakeEscrow: null }; saveAccount(); flashTip(`${left ? "You left a staked fight: your lot is forfeit. " : ""}${r.lines.join(" ")}`.trim()); } U.stakeHeld = null; }   // a stake left unsettled (exit, reload) settles here: by its recorded outcome, else as a loss (Mala 2026-10-27: "by staking im commiting to finishing")
       U.practiceBattle = practice; U.setupOpts.wildFriends = practice ? [] : A.friendsOf(U.account); U.setupOpts.legacy = practice || !LB ? null : LB.carry(U.account.legacy, { battle: `b${Date.now().toString(36)}` }); U.setupOpts.orbs = practice ? [] : [...A.orbsOf(U.account), ...(A.formsOf(U.account).includes("symbiote") ? ["symbiote"] : [])]; U.setupOpts.learnedFormsMap = U.account.learnedForms || {};   // learned forms, per character: kept even in practice (they're known, not spent)   // orbs kept on the account; a practice battle carries none, so it cannot spend one; an unlocked Symbiote rides along free
       U.setupOpts.beads = (U.account.beads || []).map((b) => ({ ...b })); U.setupOpts.beastSummons = (U.account.beastSummons || []).map((b) => ({ ...b })); U.setupOpts.fruit = root.ConceptCombatFruit?.battleOpts(U.account) || null;   // beads kept from earlier battles; fixed at the start so a resumed battle replays the same
+      if (root.ConceptCombatFruit?.RULES.respec) U.setupOpts.fruitWorld = { held: root.ConceptCombatFruit.battleOpts(U.account)?.id || null }; else delete U.setupOpts.fruitWorld;   // respec S4c: the anime orbit knows the feat model is on and which fruit you hold
       { const enc = !practice && root.ConceptCombatFruit ? root.ConceptCombatFruit.encounterFor(U.account, { seed }) : { hunter: null, rival: null }; U.setupOpts.hunter = enc.hunter; if (enc.rival && o && o.randomEncounter && !testBattle()) U.setupOpts.rival = enc.rival; else delete U.setupOpts.rival; }   // a rival eater only in a real random battle (not story, practice, test or autoplay)   // OP1 §6: a posted head draws a hunter, ~1 real battle in 8 (practice draws none)
       U.setupOpts.orderCarry = root.ConceptCombatOrders && !practice ? root.ConceptCombatOrders.carryOpts(U.account) : null;   // talk orders: trust rides whole, respect rides halved
       if (!o?.setupOpts?.vessels && !U.setupOpts.vessels) { U.setupOpts.vessels = practice ? { shard: 3, bead: 2, orb: 1, free: 0 } : SL ? SL.takePack(U.account.vessels || (U.account.vessels = { shard: 0, bead: 0, orb: 0 })) : null; U.packedVessels = !practice && !!SL; if (U.packedVessels) saveAccount(); } else U.packedVessels = false;   // vessel economy: pack the pouch from the stash (practice/playground pouches come from thin air and never return)
@@ -3685,6 +3694,12 @@
         if (unseen(b.x, b.y)) continue;
         upright(b.x, b.y, () => { const [px, py] = tileXY(b.x, b.y); const own = s.actors[b.owner];
         const berm = b.concept === "berm", swale = b.concept === "swale", foldC = b.concept === "foldCrossing", foldP = b.concept === "foldPanel";
+        const smk = SMOKE && SMOKE.isSmoke(b) ? SMOKE.pick(b, own, performance.now(), U.fullAnimation && !params.fast) : null, smkImg = smk && smokeImage(smk.strip);
+        if (smkImg) {   // fog and smoke draw as smoke (smoke-fx.js); a fled or deleted owner leaves `own` undefined, so no label rather than a throw
+          SMOKE.draw(g, smkImg, smk, px, py, tw, th);
+          if (own && !b.permanent) { g.save(); g.font = `700 ${Math.round(tw * .14)}px ui-monospace, Menlo, monospace`; g.textAlign = "right"; g.fillStyle = "#fff6d8"; g.strokeStyle = "rgba(0,0,0,.75)"; g.lineWidth = 3; g.lineJoin = "round"; const t = `${Math.max(0, b.expiresAt - own.ownerTurns)}t`; g.strokeText(t, px + tw - 6, py + th - 6); g.fillText(t, px + tw - 6, py + th - 6); g.restore(); }
+          return;
+        }
         const wallImg = worldSprite("walls", wallArt(s, b));
         if (wallImg) {
           const dw = tw * .92, dh = dw * wallImg.naturalHeight / wallImg.naturalWidth;
@@ -3710,10 +3725,10 @@
         g.fillStyle = "#fff6d8"; g.font = `700 ${Math.round(tw * .2)}px ui-monospace, Menlo, monospace`; g.textAlign = "center";
         g.strokeStyle = "rgba(0,0,0,.75)"; g.lineWidth = 3; g.lineJoin = "round";   // legible over wall art
         const label = (text, ty) => { g.strokeText(text, px + tw / 2, ty); g.fillText(text, px + tw / 2, ty); };
-        if (swale) { g.font = `700 ${Math.round(tw * .14)}px ui-monospace, Menlo, monospace`; g.textAlign = "right"; if (!b.permanent) { const t = `${b.expiresAt - own.ownerTurns}t`, tx = px + tw - 6, ty = py + th - 6; g.strokeText(t, tx, ty); g.fillText(t, tx, ty); } g.textAlign = "center"; }   // the basin: just its turns left, in the corner
+        if (swale) { g.font = `700 ${Math.round(tw * .14)}px ui-monospace, Menlo, monospace`; g.textAlign = "right"; if (!b.permanent) { const t = `${own ? b.expiresAt - own.ownerTurns : "?"}t`, tx = px + tw - 6, ty = py + th - 6; g.strokeText(t, tx, ty); g.fillText(t, tx, ty); } g.textAlign = "center"; }   // the basin: just its turns left, in the corner
         else {
           label(foldC ? "V" : foldP ? "M" : berm ? "B" : Math.round(b.protection), py + th * .15);
-          g.font = `${Math.round(tw * .14)}px ui-monospace, Menlo, monospace`; if (!b.permanent) label(`${b.expiresAt - own.ownerTurns}t`, py + th * .55);
+          g.font = `${Math.round(tw * .14)}px ui-monospace, Menlo, monospace`; if (!b.permanent) label(`${own ? b.expiresAt - own.ownerTurns : "?"}t`, py + th * .55);
         }
         }, { w: .55, up: .8 });
       }
@@ -4254,6 +4269,8 @@
         const transforming = Object.values(U.transformAnimations).some(x => x && now - x.started < x.sequence.reduce((n, f) => n + f.ms, 0));
         const gaiaVeilActive = !!(U.s && GF?.veil(U.s));
         if (U.closeup || (U.fxFrame&&!U.fxFrame.done) || U.bubbles.some((b) => b.until > now) || (U.s && (U.s.pending || U.s.dreamSpace)) || gaiaVeilActive || posing || actionCueActive || transforming) U.raf = requestAnimationFrame(loop);
+        // Smoke and fog breathe at about 8 frames a second while animation is Full (Fast and reduced motion draw them still); the same slow timer as weather.
+        else if (U.s && !U.s.outcome && U.mode !== "setup" && U.fullAnimation && !params.fast && SMOKE && SMOKE.any(U.s)) { clearTimeout(U.weatherTimer); U.weatherTimer = setTimeout(() => { U.raf = requestAnimationFrame(loop); }, 120); }
         // Weather with an overlay keeps moving, but at about 8 frames a second: a full redraw every frame for rain alone is waste.
         else if (U.s && !U.s.outcome && Climate && U.s.weatherState && WEATHER_ART[U.s.weatherState.id] && U.mode !== "setup") { clearTimeout(U.weatherTimer); U.weatherTimer = setTimeout(() => { U.raf = requestAnimationFrame(loop); }, 120); }
       };
@@ -4629,7 +4646,7 @@
               : [{ id: `finish:${t.id}`, submitOn: t.id, finish: true, off: !canFinish, label: `Finish the submission on ${t.name} · full ULT or 1 Inspiration`, why: `${t.name} gets one answer: break the hold (${R.finishBreakAp} AP owed and their reaction) or submit. The bar or Inspiration is spent either way.${canFinish ? "" : " You need a full ultimate bar or 1 Inspiration."}` }])];
         }) : []),
         { id: "grapple", grapple: true, off: p.tempo < E.grappleCost(s, controlledId(s)), label: `Grapple · ${E.grappleCost(s, controlledId(s))} AP · ${E.strongGrip(s, controlledId(s)) ? "always holds (Strong Grip)" : `${Math.round(s.rules.grapple.base * 100)}% to hold`}`, why: `No damage. A held target cannot move or dodge for the rest of this round and the next, and loses ${s.rules.grapple.apCut} AP. Harder against a guard, easier on a stunned target. A hold breaks when either unit is moved by anything but its own Move, Jump or Climb (a shove, pull, throw, dash, swap, teleport or dodge).` }];
-      if (U.menu === "investigate") return Object.values(s.actors).filter((a) => a.id !== "player" && !a.defeated).map((a) => { const sees = E.geometry.hasSight(s, p.x, p.y, a.x, a.y); return { id: a.id, label: `${a.name}${a.side === "player" ? " · ally" : ""}${sees ? "" : " · unseen"}`, off: !sees || p.tempo < INS.data.rules.investigate.minAP + invTax(s, p) || E.heldCostMul(s, controlledId(s)) !== 1, why: sees ? `Investigate ${a.name}: all ${p.tempo} AP, at least ${Math.floor((p.tempo - invTax(s, p)) / INS.data.rules.observe.apPerPoint) + INS.data.rules.investigate.depthBonus} points${invTax(s, p) ? ` (a wounded head costs ${invTax(s, p)} AP of the study)` : ""} (progress carried from earlier looks and some traits add more).` : `${a.name} is out of your line of sight, so you cannot investigate them.` }; });
+      if (U.menu === "investigate") return [...investigateThings(s, p), ...Object.values(s.actors).filter((a) => a.id !== "player" && !a.defeated).map((a) => { const sees = E.geometry.hasSight(s, p.x, p.y, a.x, a.y); return { id: a.id, label: `${a.name}${a.side === "player" ? " · ally" : ""}${sees ? "" : " · unseen"}`, off: !sees || p.tempo < INS.data.rules.investigate.minAP + invTax(s, p) || E.heldCostMul(s, controlledId(s)) !== 1, why: sees ? `Investigate ${a.name}: all ${p.tempo} AP, at least ${Math.floor((p.tempo - invTax(s, p)) / INS.data.rules.observe.apPerPoint) + INS.data.rules.investigate.depthBonus} points${invTax(s, p) ? ` (a wounded head costs ${invTax(s, p)} AP of the study)` : ""} (progress carried from earlier looks and some traits add more).` : `${a.name} is out of your line of sight, so you cannot investigate them.` }; })];
       if (U.menu === "observe") return [
         ...((p.traits || []).some((t) => (t.id || t) === "scout") ? (() => { const c = E.reportCheck(s, controlledId(s)), d = INS.data.actions.report; return [{ id: "report", label: `Report · ${d.cost} AP`, off: !!c.error, why: c.error ? `${c.error} ${d.text}` : d.text }]; })() : []),
         ...(Climate && s.weatherState ? [{ id: "place", label: `Observe the place · ${U.observeInvest} AP`, off: p.tempo < U.observeInvest, why: "Read the weather, forecast and microclimate here. Place familiarity makes a Dream Space easier to open and hold." }] : []),
@@ -5064,6 +5081,8 @@
       if (U.menu === "summons" && it.pactLine) return act({ type: "callPact", actor: "player", line: it.pactLine, at: it.at });   // a pacted line: no question either (the engine reads the sign + standing off its battle-start book, not the act)
       if (U.menu === "summons" && it.id === "dismissPact") return act({ type: "dismissPact", actor: "player" });
       if (U.menu === "summons") return showSummonQuestion(it.summon);
+      if (U.menu === "investigate" && it.id === "investigatePlace") { const ok = act({ type: "investigate", actor: "player", place: true }); if (ok) { U.menu = "root"; render(); } return; }
+      if (U.menu === "investigate" && (it.id === "investigatePlant" || it.id === "investigateStructure")) { const ok = act({ type: "investigate", actor: "player", object: it.object }); if (ok) { U.menu = "root"; render(); } return; }
       if (U.menu === "investigate") { U.insightTarget = it.id; const ok = act({ type: "investigate", actor: "player", target: it.id, focus: U.investigateFocus || undefined }); if (ok) { U.menu = "root"; render(); } return; }
       if (U.menu === "observe") {
         if (it.id === "report") { act({ type: "insight", actor: "player", action: "report" }); return; }
@@ -5304,6 +5323,18 @@
         .sort((a, b) => d(a) - d(b)).slice(0, 6);
       return { s, p, d, fam, spend, active, list };
     }
+    // Investigate the place, a plant or a structure (I3): the same Observe rows, priced as Investigate (all the AP, the turn ends).
+    function investigateThings(s, p) {
+      const V = INS.data.rules.investigate, tax = invTax(s, p), held = E.heldCostMul(s, controlledId(s)) !== 1, short = p.tempo < V.minAP + tax;
+      const pts = Math.floor((p.tempo - tax) / INS.data.rules.observe.apPerPoint) + V.depthBonus, note = `All ${p.tempo} AP and your turn ends; your reaction is spent until next round.`;
+      const off = (o) => o || short || held;
+      const seen = (it) => { const o = (s.arena.objects || []).find((x) => x.id === it.object); return !!o && (E.geometry.dist(s, p.x, p.y, o.x, o.y) <= 1 || E.geometry.hasSight(s, p.x, p.y, o.x, o.y)); };
+      const place = Climate && s.weatherState ? [{ id: "investigatePlace", label: `Investigate the place · all ${p.tempo} AP`, off: off(false), why: `Read the weather, forecast and microclimate with about ${pts} points (hardest cards first, plus any progress you carried from earlier looks). ${note}` }] : [];
+      const swap = (it, id, what) => ({ ...it, id, invest: undefined, label: it.label.replace(/ · \d+ AP/, ` · all ${p.tempo} AP`), off: off(!seen(it)), why: `${what} ${note}` });
+      const plants = (typeof plantMenu === "function" ? plantMenu() : []).map((it) => swap(it, "investigatePlant", `Learn about ${pts} familiarity with this plant (a hiker or a botanist learns more); it spends all your action points and ends your turn, even if less would do.`));
+      const structures = (typeof structureMenu === "function" ? structureMenu() : []).map((it) => swap(it, "investigateStructure", `Learn about ${pts} familiarity with this structure; it spends all your action points and ends your turn, even if less would do.`));
+      return [...place, ...plants, ...structures];
+    }
     function plantMenu() {
       const ctx = nearbyPlants(); if (!ctx) return [];
       const { s, p, d, fam, spend, list } = ctx;
@@ -5321,7 +5352,7 @@
         const pr = CM.profile(o.type);
         const can = CM.canCommune({ obj: o, familiarity: fam(o), active, ap: p.tempo, pf: p.pf, dist: d(o) });
         return { id: "commune", object: o.id, label: `Commune with ${pr.common} ▸ ${CM.rules.communeAp} AP + ${Math.max(0, pr.phi - E.communeDiscount(U.s, p.id))} ΦF`, off: !can.ok,
-          why: can.reason || `Answer its question and it fights beside you as ${pr.name} (${pr.hp} LF). It is not fodder: if it dies, its body stays and Gaia thinks less of you.` };
+          why: can.reason || `Answer its question and it fights beside you as ${pr.name} (${pr.hp} LF). It is not fodder: if it dies, its body stays and Gaia thinks less of you.${PF ? (() => { const nt = PF.notes(U.account.plantFacts, o.type); return nt.N ? ` A right answer also earns a field note: ${nt.n} of ${nt.N} heard from this kind.` : ""; })() : ""}` };
       });
     }
     function showCommuneQuestion(objectId) {
@@ -5539,7 +5570,7 @@
         if (U.menu === "root") { const selected = rootRows()[U.menuIndex]; if (selected?.id === "orderSummonUltimate") { const summon = s.actors[selected.summonId], ult = SM.activeUltimate(summon), can = SM.canOrderUltimate(p, summon, { ultimateChargeMax: s.rules.ultimateChargeMax }); el.innerHTML = `<div class="cc-title">${esc(ult.name)}</div><p class="cc-muted">Spend your full ${s.rules.ultimateChargeMax}-point ULT bar and 20 AP. ${esc(summon.name)} will fire this on its next turn${ult.play.type === "nova" ? "; the area is committed now and opponents can Guard or reposition." : "."}</p><p class="cc-muted">${esc(selected.why || (can.ok ? "Ready to order." : can.reason))}</p>`; return; } }
         if (U.menu === "investigate") {
           const V = INS.data.rules.investigate, kinds = ["", ...Object.keys(INS.data.kinds || {}), "trait"].filter((k, i, all) => all.indexOf(k) === i);
-          el.innerHTML = `<div class="cc-title">Investigate · all ${p.tempo} AP</div><p class="cc-muted">Spend the rest of your turn studying one target. Finds the hardest things first (your focus kind first, if you chose one), +${V.depthBonus} points for the depth, carries up to ${V.carryCap}. Your turn ends and your reaction is spent until next round.</p><label>Focus <select id="ccInvestigateFocus">${kinds.map((k) => `<option value="${esc(k)}" ${k === (U.investigateFocus || "") ? "selected" : ""}>${k ? esc(k) : "any kind"}</option>`).join("")}</select></label>`;
+          el.innerHTML = `<div class="cc-title">Investigate · all ${p.tempo} AP</div><p class="cc-muted">Spend the rest of your turn studying one target. Finds the hardest things first (your focus kind first, if you chose one), +${V.depthBonus} points for the depth, carries up to ${V.carryCap}. Your turn ends and your reaction is spent until next round. The focus applies to a character's cards only: the place has one kind of card, and a plant or a structure is learned in familiarity.</p><label>Focus <select id="ccInvestigateFocus">${kinds.map((k) => `<option value="${esc(k)}" ${k === (U.investigateFocus || "") ? "selected" : ""}>${k ? esc(k) : "any kind"}</option>`).join("")}</select></label>`;
           el.querySelector("#ccInvestigateFocus").onchange = (e) => { U.investigateFocus = e.target.value; render(); }; return;
         }
         if (U.menu === "observe") {
@@ -5884,7 +5915,7 @@
       const sealedEnd = U.s.encounter === SN?.ENCOUNTER ? SN.ending?.(U.s) : "";
       const nextSceneTitle = ({ courtyard: "The Hearing", lastVerdict: "The Last Verdict" })[U.campaignResult?.nextScene];
       const campaignContinueLabel = nextSceneTitle ? `Next Vignette: ${nextSceneTitle} →` : "Return to campaign";
-      return `<div class="cc-title">${title} in ${r.rounds} rounds</div>
+      return `${rushVictoryHtml(U.rushOutcome, BR, C, U.s)}<div class="cc-title">${title} in ${r.rounds} rounds</div>
         ${r.decisive ? `<div><b>Decisive interaction:</b> ${esc(r.decisive.id)} (${esc(r.decisive.type)}). ${esc(r.decisive.example)}</div>` : ""}
         ${r.missed.length ? `<div><b>Missed opportunity:</b> ${esc(r.missed[0])}</div>` : ""}
         <div class="cc-muted">${U.reward ? U.reward.lines.map(esc).join(" · ") : `+${r.xpGain} XP`} · Level ${U.account.level}</div>
@@ -6019,8 +6050,10 @@
         const cliff = S?.cliffInfo?.(s.arena, t[0], t[1]);
         if (cliff) parts.push(`Soil probe: cliff integrity ${Math.max(0, cliff.integrity - cliff.damage)}/${cliff.integrity} · fall ${cliff.drop} · direction ${cliff.dir.join(",")}`);
       }
-      if (b?.coverFraction > 0) parts.push(`${s.actors[b.owner].name}'s Berm · partial cover (${Math.round(b.coverFraction * 100)}% line-damage reduction)`);
-      else if (b) parts.push(`${s.actors[b.owner].name}'s Shield Wall · protection ${Math.round(b.protection)}`);
+      const barrierOwner = b ? (s.actors[b.owner]?.name || "Someone") : "";   // a fled owner stays in actors; a deleted one must not throw here
+      if (b?.coverFraction > 0) parts.push(`${barrierOwner}'s Berm · partial cover (${Math.round(b.coverFraction * 100)}% line-damage reduction)`);
+      else if (b && SMOKE?.isSmoke(b)) parts.push(`${barrierOwner}'s ${b.concept === "fog" ? "Fog" : "Smoke"} · blocks sight${!b.permanent && s.actors[b.owner] ? ` · ${Math.max(0, b.expiresAt - s.actors[b.owner].ownerTurns)} owner turns left` : ""}`);
+      else if (b) parts.push(`${barrierOwner}'s Shield Wall · protection ${Math.round(b.protection)}`);
       // Hover card (insight/hover.js): public condition + everything you've seen or Observed about this unit.
       const HC = root.ConceptCombatHover;
       const wildHere = !a && (s.wild || []).find((m) => m.form === "unit" && m.lf > 0 && m.x === t[0] && m.y === t[1]);   // wild animals card too (Muse, 2026-10-15)
@@ -6129,7 +6162,7 @@
     document.addEventListener("keydown", onKey);
     $("ccGraphBtn").onclick = () => ($("ccGraph").hidden ? openGraph() : ($("ccGraph").hidden = true));
     $("ccAnimation").textContent = `Animation: ${U.fullAnimation?"Full":"Fast"}`;
-    $("ccAnimation").onclick = () => { U.fullAnimation=!U.fullAnimation;store.set("loci:combat:full-animation",U.fullAnimation);$("ccAnimation").textContent=`Animation: ${U.fullAnimation?"Full":"Fast"}`;if(!U.fullAnimation&&U.closeup)closeAttackPopup(); };
+    $("ccAnimation").onclick = () => { U.fullAnimation=!U.fullAnimation;store.set("loci:combat:full-animation",U.fullAnimation);$("ccAnimation").textContent=`Animation: ${U.fullAnimation?"Full":"Fast"}`;if(!U.fullAnimation&&U.closeup)closeAttackPopup(); if(U.fullAnimation&&U.s)animate(); };   // switching back to Full restarts the redraw loop, so standing fog and smoke breathe again
     $("ccPace").textContent = `Pace: ${U.pace === "slow" ? "Slow" : "Normal"}`;
     $("ccPace").onclick = () => { U.pace = U.pace === "slow" ? "normal" : "slow"; setPace(U.pace); store.set("loci:combat:pace", U.pace); $("ccPace").textContent = `Pace: ${U.pace === "slow" ? "Slow" : "Normal"}`; if (U.pace !== "slow" && U.reading) skipReading(true); };
     $("ccLog").addEventListener("click", (ev) => { if (U.reading && !ev.target.closest("a")) skipReading(false); });   // a click on the log skips the wait for the line on screen
@@ -6176,7 +6209,7 @@
       },
       // Play duel scenes directly (attack or dodge), for checking the cutscene without staging a battle around it.
       previewCloseup(scenes) { if (U.s && scenes?.length) { openAttackPopup(scenes); animate(); } return !!U.closeup; },
-      destroy() { decisionInspector?.destroy(); U.destroyed = true; clearTimeout(U.readTimer); cancelAnimationFrame(U.camRaf); clearTimeout(U.followHoldT); U.reading = null; ++U.llmEpoch; clearInterval(U.agentStatusTimer); clearTimeout(U.ultWatchTimer); U.narrationHold = false; root.ConceptCombatNarrator?.close(); stopAi(); Promise.resolve(opts.llmBridge?.stop?.()).catch(() => {}); U.llmConnection = null; cancelAnimationFrame(U.raf); ro.disconnect(); document.removeEventListener("keydown", onKey); document.removeEventListener("mouseup", endPan); host.innerHTML = ""; },
+      destroy() { decisionInspector?.destroy(); U.destroyed = true; clearTimeout(U.readTimer); clearTimeout(U.weatherTimer); cancelAnimationFrame(U.camRaf); clearTimeout(U.followHoldT); U.reading = null; ++U.llmEpoch; clearInterval(U.agentStatusTimer); clearTimeout(U.ultWatchTimer); U.narrationHold = false; root.ConceptCombatNarrator?.close(); stopAi(); Promise.resolve(opts.llmBridge?.stop?.()).catch(() => {}); U.llmConnection = null; cancelAnimationFrame(U.raf); ro.disconnect(); document.removeEventListener("keydown", onKey); document.removeEventListener("mouseup", endPan); host.innerHTML = ""; },
       useSocketAI(connection) {
         if (!U.s || U.s.outcome || !connection?.url || !connection?.token ||
             (connection.actorId && U.s.actors[connection.actorId]?.side !== "enemy")) return false;
@@ -6207,5 +6240,16 @@
     const w = rx * 2 * S.size, h = ih * w / iw;
     return { x: cx - w * S.at[0], y: cy + th * .12 - h * S.at[1], w, h };   // th * .12: where the unit's shadow is drawn
   }
-  root.ConceptCombatUI = { FOLLOW, followTarget, framePair, followable, camAt, camAlong, easeInOut, sceneMs, setPace, readingGapMs, createInspectorEngine, portraitSource, portraitMarkup, mindDuelMarkup, conversationMarkup, conversationScenes, learningScenes, auraPlacement: UI_auraPlacement, AURA_STANDING, FACE_ART, faceFile, SKY, skyFor, LEXICON_ART, lexiconOrder, statusMarks, WEATHER_ART, weatherTiles, heldPrices, HAZARD_ART, hazardFrame, SCENE_MS, menuBrief, menuRollover, apGate, apHead, defensiveResponsePrices, TEXT_SCENE_MS, DREAM_TIMELINE, dreamScenes, closeupScenes, boonScenes, arrivalScenes, eventScenes, pepTalkScenes, missedCallScenes, beliefScenes, heldBeliefScenes, BELIEF_TIMELINE, dodgeScene, DODGE_TIMELINE, scenePose, mount, modeAfterEngineAction, graphLayout, pickupPresentation, shouldFlipSprite, SPRITE_DIR };   // SPRITE_DIR: tools/check-sprite-facing.mjs
+  // The boss rush victory screen (Mala, 2026-10-31: "there should be a victory screen after winning the boss rush"): the panel above the battle report when the last Omega threat fell.
+  // Pure: the run's outcome in, markup out (BR is modes/boss-rush.js, C the content).
+  function rushVictoryHtml(outcome, BR, C, s) {   // s: the battle state; only a boss rush battle's report shows the clear, so a stale outcome never reaches a later ordinary battle
+    if (outcome?.result !== "cleared" || !BR || !s?.bossRush) return "";
+    const run = outcome.run, names = run.ids.map((id) => BR.list().find((e) => e.id === id)?.name || id), ally = run.ally ? (C.characters[run.ally]?.name || run.ally) : null;
+    const orbs = [...new Set(run.orbs.map((o) => BR.orbName(o)))];
+    return `<section class="cc-rush-victory" id="ccRushVictory" role="region" aria-label="Boss rush cleared"><div class="cc-rush-crown" aria-hidden="true">✦</div><h2>Boss Rush cleared</h2>
+      <p class="cc-rush-badge">${esc(outcome.badge)}</p><p class="cc-muted">Every threat on the list fell${ally ? `, with ${esc(ally)} at your side` : ""}.</p>
+      <ol class="cc-rush-roll">${names.map((n) => `<li><span aria-hidden="true">✓</span> ${esc(n)}</li>`).join("")}</ol>
+      ${orbs.length ? `<p class="cc-rush-orbs"><b>Kept:</b> ${orbs.map(esc).join(" · ")}</p>` : ""}</section>`;
+  }
+  root.ConceptCombatUI = { rushVictoryHtml, FOLLOW, followTarget, framePair, followable, camAt, camAlong, easeInOut, sceneMs, setPace, readingGapMs, createInspectorEngine, portraitSource, portraitMarkup, mindDuelMarkup, conversationMarkup, conversationScenes, learningScenes, auraPlacement: UI_auraPlacement, AURA_STANDING, FACE_ART, faceFile, SKY, skyFor, LEXICON_ART, lexiconOrder, statusMarks, WEATHER_ART, weatherTiles, heldPrices, HAZARD_ART, hazardFrame, SCENE_MS, menuBrief, menuRollover, apGate, apHead, defensiveResponsePrices, TEXT_SCENE_MS, DREAM_TIMELINE, dreamScenes, closeupScenes, boonScenes, arrivalScenes, eventScenes, pepTalkScenes, missedCallScenes, beliefScenes, heldBeliefScenes, BELIEF_TIMELINE, dodgeScene, DODGE_TIMELINE, scenePose, mount, modeAfterEngineAction, graphLayout, pickupPresentation, shouldFlipSprite, SPRITE_DIR };   // SPRITE_DIR: tools/check-sprite-facing.mjs
 })(typeof self !== "undefined" ? self : this);

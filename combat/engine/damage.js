@@ -311,7 +311,9 @@
       if (H.monsterOf(inst)) potency = H.monsterPotency(src, tgt, inst, potency);   // Life Drain: what the gradient allows
       let mult = H.Observation?.damageBonus(s,src,tgt,inst) || 1; const notes = why.slice();
       if(mult>1)notes.push(`Discernment: ${H.Observation.discoveries(s,src,tgt.id)} discoveries, damage ×${mult.toFixed(2)}.`);
-      if (tgt.boss && bossRules) { const bossMul = bossRules.damageTakenMul(tgt); if (bossMul !== 1) { mult *= bossMul; notes.push(`${tgt.name}'s enraged mass resists damage ×${bossMul}.`); } }
+      const flatFr = potency > 0 && tgt.boss && s.bossRush && bossRules?.flatResist ? bossRules.flatResist(tgt) : null, flatPierced = !!flatFr && (!!inst?.piercing || (inst?.damageType || opts.damageType) === "albedo"), flatHolds = !!flatFr && !flatPierced;   // a flat hide (the Oni) is x0.1 whatever else the boss wears: the enraged mass does not stack on it (Mala, 2026-10-31: "oni should be flat")
+      if (tgt.boss && bossRules && !flatHolds) { const bossMul = bossRules.damageTakenMul(tgt); if (bossMul !== 1) { mult *= bossMul; notes.push(`${tgt.name}'s enraged mass resists damage ×${bossMul}.`); } }
+      if (flatFr) { if (flatPierced) notes.push(`Piercing: ${tgt.name}'s hide cannot turn it.`); else { mult *= flatFr.mul; notes.push(`${tgt.name}: ${flatFr.text}`); } }
       if (s.sealedFight && tgt.boss === "sealednext" && s.sealedFight.takenMul && s.sealedFight.takenMul !== 1) { mult *= s.sealedFight.takenMul; notes.push(`The turn after the water leaves, blows against ${tgt.name} are ×${s.sealedFight.takenMul}.`); }
       const damageType = inst?.damageType || opts.damageType || "nigredo";
       if (tgt.awakened && potency > 0) {   // Tsukumogami: it is still a structure — destructive doubles; its material drinks or shatters by channel
@@ -479,12 +481,12 @@
           const slip = 0.25 + H.seededChance(`${s.seed}:godly:${tgt.id}:${s.godlyN}`) * 0.75;
           mult *= (1 - slip); notes.push(`Godly agility: ${Math.round(slip * 100)}% of the blow never touches him.`); }
       }
-      let dmg = Math.max(0, roundFn(s)(potency * mult) + (potency > 0 ? formFlat : 0)), warded = 0, wardBroke = false;
+      let dmg = Math.max(flatHolds ? 1 : 0, roundFn(s)(potency * mult) + (potency > 0 ? formFlat : 0)), warded = 0, wardBroke = false, wardHide = false;
       EmergentIdeas?.syncSummonWards(s);
       if (inst?.directHit && tgt.status.ward && dmg > 0) notes.push(`Direct hit: the ward cannot catch what it cannot read (${tgt.status.ward.protection} protection untouched).`);
       if (inst?.piercing && tgt.status.ward && dmg > 0) notes.push(`Piercing: the strike passes through the ward (${tgt.status.ward.protection} protection untouched).`);
       if (tgt.status.ward && dmg > 0 && !inst?.directHit && !inst?.piercing) {
-        const w = tgt.status.ward; const absorbed = Math.min(w.protection, dmg); warded = absorbed; wardBroke = w.protection - absorbed <= 0;
+        const w = tgt.status.ward; const absorbed = Math.min(w.protection, dmg); warded = absorbed; wardHide = !!w.hide; wardBroke = w.protection - absorbed <= 0;
         w.protection -= absorbed; dmg -= absorbed;
         notes.push(`${w.label || "Fortress ward"} absorbs ${absorbed} (${w.protection} left).`);
         if (w.protection <= 0) { tgt.status.ward = null; notes.push("The ward breaks."); }
@@ -579,7 +581,7 @@
       }
       if (potency > 0 && before > tgt.lf && mult >= 0.99) fearCheck(s, tgt, src);   // C8: a clean hit on someone already cowed may rout them
       if (tgt.boss && bossRules && tgt.lf > 0) {
-        const enraged = bossRules.afterDamage(tgt); Object.assign(tgt, enraged.actor);
+        const enraged = bossRules.afterDamage(tgt, { bossRush: !!s.bossRush }); Object.assign(tgt, enraged.actor);
         for (const id of enraged.events.flatMap(ev => ev.unlocked || []).map(k => `boss_${tgt.boss}_${k}`)) if (!tgt.bossAbilityIds.includes(id)) tgt.bossAbilityIds.push(id);
         for (const ev of enraged.events) log(s, ev);
         if (tgt.boss === "gaia" && tgt.conditions?.enraged && tgt.gaiaForm === "restored") H.setGaiaForm(s, tgt, "disturbed", "Enraged: she drops the accord.");
@@ -606,7 +608,7 @@
         (s.pactCodes ||= []).push({ type: "pactBreach", line: pl, kind: "friendly-fire" });
         log(s, { kind: "summon", actor: tgt.id, text: `${tgt.name} storms home: struck by its own caller. The pact is BROKEN.` });
       }
-      if (dmg > 0) H.fruitRecoil?.(s, src, tgt, damageType, inst);   // Sinkerfruit (respec S2a): Ripe Coilfruit answers an impact hit
+      if (dmg > 0 || warded > 0) H.fruitAfterHit?.(s, src, tgt, damageType, inst, { dmg, warded, wardHide });   // Sinkerfruit (respec S2a, S1b): Ripe Coilfruit answers an impact hit; the hide and the borrowed move earn feats
       if (tgt.lf <= 0 && !tgt.defeated && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt)) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
         tgt.defeated = true; delete tgt.status.playingDead; tgt.defeatedBy = src && src.id !== tgt.id ? src.id : null; for (const e of (H.Sealing?.onSealerDown?.(s, tgt) || [])) log(s, { kind: "seal", actor: e.foe, text: e.text });   // the killer, for the corpse (ritual burial; revenge later)   // W2.3: a dead sealer's binds drop
         H.pactLeave(s, tgt);   // a pact summon falls: downed, no standing; kill the caller: the call ends
@@ -641,6 +643,7 @@
         s.scheduled = s.scheduled.filter((e) => e.owner !== tgt.id);
         checkOutcome(s);
       }
+      if (tgt.defeated && src) H.fruitKilled?.(s, src, tgt, inst);   // Sinkerfruit (respec S1b): a kill the engine let stand, with the borrowed move
       if (src && tgt && src.id !== tgt.id && s.actors[src.id]) H.mysteryAttacked?.(s, tgt, src);   // MCR-02: springs only after the damage/survival/defeat decision is final (defeated victims don't spring)
       for (const u of sharedVictims) if (u.lf <= 0 && !u.defeated) {
         u.defeated = true; H.pactLeave(s, u); delete u.status.playingDead; if (Parley && Parley.isImmortal(u)) u.knockedOut = true; log(s, { kind: "defeat", target: u.id, text: `${u.name} is ${u.knockedOut ? "knocked out" : "defeated"} through Shared Burden.` });

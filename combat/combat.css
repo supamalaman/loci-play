@@ -1110,3 +1110,20 @@
   .cc-view button, .cc-zoom button { padding: 5px 9px; }
   .cc-banner { gap: 6px; }
 }
+/* Boss rush victory screen (Mala, 2026-10-31): the panel above the battle report when the last Omega threat falls. */
+.cc-rush-victory { margin: 4px 0 14px; padding: 18px 16px 14px; text-align: center; border: 1px solid #b8963e; border-radius: 12px; background: radial-gradient(ellipse at 50% 0%, #3a2e12 0%, #1d1a10 70%); box-shadow: 0 0 22px rgba(184, 150, 62, .25); }
+.cc-rush-victory h2 { margin: 2px 0 4px; font: 800 22px ui-monospace, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; color: #ffe39a; }
+.cc-rush-crown { font-size: 26px; color: #ffd166; line-height: 1; }
+.cc-rush-badge { margin: 0 0 4px; font: 700 15px ui-monospace, Menlo, monospace; color: #fff; }
+.cc-rush-roll { list-style: none; margin: 10px auto 6px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 4px 14px; max-width: 640px; text-align: left; }
+.cc-rush-roll li { color: #e8dcc0; }
+.cc-rush-roll li span { color: #7ddf9a; font-weight: 800; margin-right: 4px; }
+.cc-rush-orbs { margin: 6px 0 0; color: #ffe39a; }
+@media (prefers-reduced-motion: no-preference) { .cc-rush-victory { animation: ccRushGlow 2.4s ease-in-out infinite alternate; } }
+@keyframes ccRushGlow { from { box-shadow: 0 0 14px rgba(184, 150, 62, .18); } to { box-shadow: 0 0 30px rgba(255, 209, 102, .38); } }
+/* Plant field notes (Communion cutscenes S2): a species is a fold, heard facts read as text, the rest as numbered blanks. */
+.cc-fn-species { border-top: 1px solid rgba(255,255,255,0.08); padding: 4px 0; }
+.cc-fn-species > summary { cursor: pointer; padding: 4px 2px; }
+.cc-fn-species ol { margin: 4px 0 8px 22px; padding: 0; display: grid; gap: 6px; }
+.cc-fn-species li small { display: block; margin-top: 2px; overflow-wrap: anywhere; }
+.cc-fn-blank { color: #8f9bb8; font-style: italic; }

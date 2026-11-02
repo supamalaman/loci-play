@@ -1713,7 +1713,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const taste = TA && cand.type === "ability" && a.adhdChain?.ability ? Object.entries(TA.variety || {}).reduce((n, [k, v]) => hasTrait(a, k) ? n + v : n, 0) : 0;
       const variety = taste ? (a.adhdChain.ability === cand.ability ? -taste : taste) : 0;   // ADHD: something new appeals, the same again bores
       return dmg - self * 1.5 - cost * 0.3 - reserveCost(s, a, cand, cost) + variety + (pv.answerCost || 0) * (AM?.costWeight ?? 1) + (cand.announce ? 2 : 0) + spite - heed + playful + bait + curiousBonus(s, id, cand) + setupBo + rgBo + readyUlt + foundBonus
-        + scribedComponentValue(s,a,cand,pv) + threatValue(s, a, cand, def) + infoValue(s, a, cand, pv, def) + develop + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus;   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill
+        + scribedComponentValue(s,a,cand,pv) + threatValue(s, a, cand, def) + infoValue(s, a, cand, pv, def) + develop + (H.fruitboundBonus?.(s, a, cand) || 0) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus;   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill
     }
     // ── In-match lessons (Mala, 2026-10-14: "AI should learn during the match if an attack is effective or not AND
     // understand why"). What a preview already shows (a Shield Wall across a line, a resistance in the damage sum) is

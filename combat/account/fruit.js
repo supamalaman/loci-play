@@ -63,12 +63,12 @@
   const stashOf = (account) => IDS.filter((id) => poolOf(account)[id] === "stash");
   const eaten = (account) => (account?.fruit && FRUITS[account.fruit.id] ? account.fruit : null);
   const timerRipe = (account) => { const f = eaten(account); return !!f && (account.battles || 0) - (f.eatenAt || 0) >= RULES.ripeAfter; };
-  // Feats the live basics can earn (S1a). The ids are what engine/fruit.js marks on the battle (s.fruitFeats); a feat counts once per
-  // account. needsRipe feats arrive with the refined techniques (S1b), so none is listed here yet.
+  // Six feats a fruit (S1a: the basics; S1b: the refined arts). The ids are what engine/fruit.js marks on the battle (s.fruitFeats); a feat counts once per
+  // account. The refined feats can only happen once Ripe (their events need the refined arts), so Awakened always comes after using the whole kit.
   const FEATS = {
-    coil: [{ id: "coil.store3", label: "store 3 coils" }, { id: "coil.release3", label: "release 3 coils in one Strike" }, { id: "coil.take3", label: "take 3 impact hits at ×0.6 in one battle" }, { id: "coil.winDamped", label: "win a battle in which you were damped" }],
-    hide: [{ id: "hide.shape", label: "take a shape" }, { id: "hide.second", label: "take a second, different beast's shape" }, { id: "hide.winShaped", label: "win while shaped" }],
-    mist: [{ id: "mist.fog", label: "lay a fog bank" }, { id: "mist.drift3", label: "a foe's Strike drifts aside 3 times in one battle" }, { id: "mist.winClean", label: "win a battle without taking a will-less Strike" }],
+    coil: [{ id: "coil.store3", label: "store 3 coils" }, { id: "coil.release3", label: "release 3 coils in one Strike" }, { id: "coil.take3", label: "take 3 impact hits at ×0.6 in one battle" }, { id: "coil.winDamped", label: "win a battle in which you were damped" }, { id: "coil.knock", label: "knock a foe into a wall or water with a release" }, { id: "coil.recoil", label: "Recoil an attacker" }],
+    hide: [{ id: "hide.shape", label: "take a shape" }, { id: "hide.second", label: "take a second, different beast's shape" }, { id: "hide.winShaped", label: "win while shaped" }, { id: "hide.ko", label: "KO a foe with a borrowed move" }, { id: "hide.absorb15", label: "absorb 15 damage on the borrowed hide" }, { id: "hide.scent", label: "Scent a concealed foe" }],
+    mist: [{ id: "mist.fog", label: "lay a fog bank" }, { id: "mist.drift3", label: "a foe's Strike drifts aside 3 times in one battle" }, { id: "mist.winClean", label: "win a battle without taking a will-less Strike" }, { id: "mist.fogLos", label: "a fog bank breaks a foe's line of sight to your side" }, { id: "mist.allyDrift", label: "a ripe fog lends an ally Drift" }, { id: "mist.vapour", label: "Vapour Step through fog" }],
   };
   const masteryOf = (account) => ({ feats: [...(account?.fruitMastery?.feats || [])], shapes: [...(account?.fruitMastery?.shapes || [])] });
   const stage = (account) => {
@@ -138,7 +138,7 @@
     return { ok: true, account: { ...next, bingo: store },
       line: `You eat ${FRUITS[id].name}. A power wakes in you, and the water will never hold you up again. The Record posts your head: ${RULES.respec ? bountyFor(next) : RULES.wantedPost} Seeds. Hunters will come.` };
   }
-  const battleOpts = (account) => (eaten(account) ? { id: eaten(account).id, ripe: ripe(account), ...(RULES.respec ? { respec: true, shapes: masteryOf(account).shapes } : {}) } : null);
+  const battleOpts = (account) => (eaten(account) ? { id: eaten(account).id, ripe: ripe(account), ...(RULES.respec ? { respec: true, shapes: masteryOf(account).shapes, awakened: stage(account) === "awakened" } : {}) } : null);
   function returnToTide(account) {
     const f = eaten(account); if (!f) return { account, line: "" };
     const next = { ...account, fruit: null, fruitPool: { ...poolOf(account), [f.id]: "pool" } };

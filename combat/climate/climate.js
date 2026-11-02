@@ -243,6 +243,17 @@
       lines: [...r.lines, ...(r.revealed.length ? [`Place familiarity (sky): ${Math.round(familiarity * 100)}%. A Dream Space here will need less charge and drain slower.`] : [])] };
   }
 
+  // Investigate the place (I3): the whole rest of a turn on the sky. Same deck, same grants and familiarity as observePlace; the order, depth bonus and carry are Insight.investigate's.
+  function investigatePlace({ deck, know, cognitive, ap, dreamField = null }) {
+    if (dreamField?.type === "dreamSpace" && CD.observe.ult.inDreamSpace === "blocked")
+      return { know, cognitive, revealed: [], unlocked: [], charge: 0, error: true, lines: ["Inside a Dream Space the sky belongs to the dreamer. There's no place here to read."] };
+    const r = Insight.investigate({ deck, know, cognitive, subjectKey: deck.subject.key, ap, name: "the place" });
+    if (r.error) return { ...r, charge: 0 };
+    const grants = grantsFrom(deck, r.know), familiarity = weatherFamiliarity(deck, r.know);
+    return { ...r, charge: CD.observe.ult.directCharge, grants, familiarity,
+      lines: [...r.lines, ...(r.revealed.length ? [`Place familiarity (sky): ${Math.round(familiarity * 100)}%. A Dream Space here will need less charge and drain slower.`] : [])] };
+  }
+
   // What advance() will actually do over the next rounds. Public view: rounds = 1; Read the Sky: 2.
   function forecast(state, arena, { seed = arena?.seed ?? 0, round = 0, rounds = 1 } = {}) {
     const out = []; let s = state;
@@ -268,6 +279,6 @@
   const sky = (s) => (s?.weatherState && s.rules?.time && s.time?.phase === "night" && !s.dreamSpace?.weather ? { ...s.weatherState, night: true } : s?.weatherState);
   const effective = (state, field) => (field?.type === "dreamSpace" && field.weather ? { ...state, id: field.weather } : state);
 
-  return { rollWeather, advance, microclimate, modifier, endOfTurn, describe, windClass,
+  return { investigatePlace, rollWeather, advance, microclimate, modifier, endOfTurn, describe, windClass,
     placeDeck, observePlace, grantsFrom, weatherFamiliarity, forecast, visibleMicro, dreamWeather, effective, sky, data: CD };
 });

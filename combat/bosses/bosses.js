@@ -3,7 +3,7 @@
 //
 //   makeBoss(id, { at })                → boss actor (wild side, 2×2 footprint unless Gaia, boss abilities)
 //   footprint(actor)                    → tiles it occupies (any of them can be targeted)
-//   afterDamage(actor)                  → { actor, events }  applies ENRAGED at 25% LF (once): mods, unlocks, Gaia grows
+//   afterDamage(actor, {bossRush})      → { actor, events }  applies ENRAGED at 25% LF (once): mods, unlocks, Gaia grows
 //   displacementBlocked(actor)          → true for massive bosses (shoves don't move them)
 //   dropOrb(bossActor)                  → orb item id on defeat
 //   transform(player, orbId, { round }) → { player, events }   one-time humanoid boss form for 3 turns (orb consumed)
@@ -36,13 +36,13 @@
     return out;
   }
 
-  function afterDamage(a) {
+  function afterDamage(a, opts = {}) {
     const C = BD.conditions.enraged, events = [];
     if (!a.boss || a.conditions.enraged || a.lf <= 0 || a.lf > C.trigger.lfBelow * a.maxLF) return { actor: a, events };
     // Gaia: ENRAGED turns the Living Accord into the Wounded Ground (engine/land.js setGaiaForm, Mala 2026-10-14).
     const b = BD.bosses[a.boss];
     const next = { ...a, conditions: { ...a.conditions, enraged: { ...C.mods } }, abilities: [...a.abilities, ...Object.keys(b.enragedUnlocks)] };
-    events.push({ kind: "condition", condition: "enraged", actor: a.id, text: `${a.name} is ENRAGED. ${C.text}`, unlocked: Object.keys(b.enragedUnlocks) });
+    events.push({ kind: "condition", condition: "enraged", actor: a.id, text: `${a.name} is ENRAGED. ${b.flatResist && opts.bossRush ? C.text.replace("it takes 30% less damage, ", "the blows that pierce its hide still take 30% less, ") : C.text}`, unlocked: Object.keys(b.enragedUnlocks) });
     if (b.enragedSize) {
       next.size = { ...b.enragedSize }; next.massive = true;
       events.push({ kind: "grow", actor: a.id, size: next.size, text: `${a.name} rises to full size. Anyone in the way is pushed aside.` });
@@ -51,6 +51,8 @@
   }
   const displacementBlocked = (a) => !!(a.massive && R.massive.immuneToDisplacement);
   const damageTakenMul = (a) => a.conditions?.enraged?.damageTakenMul ?? 1;
+  // A boss's standing resistance (Mala, 2026-10-31: the Oni is ridiculously resistant; only piercing hurts him): a flat damage multiplier from the boss data, skipped by a piercing blow.
+  const flatResist = (a) => (a.boss && BD.bosses[a.boss]?.flatResist) || null;
   const statusImmune = (a, status) => (a.conditions?.enraged?.statusImmune || []).includes(status);
 
   function dropOrb(bossActor) { return bossActor.boss ? BD.bosses[bossActor.boss].orb : null; }
@@ -368,5 +370,5 @@
   function rushBosses() { return RUSH_ORDER.filter((id) => BD.bosses[id]?.omega); }
 
   const publicOrbs = () => Object.keys(BD.orbs).filter((id) => !BD.bosses[BD.orbs[id]?.boss]?.sealed);
-  return { hollowClamp, formsTurnStart, wantsLarva, formFor, canEnterLearned, enterLearned, releaseForm, holdTick, goldHoldTick, formDamage, formBeforeApply, formRider, formCastRider, formImmovable, aiFormChoice, makeBoss, footprint, afterDamage, displacementBlocked, damageTakenMul, statusImmune, dropOrb, transform, endOfTurnForms, damageForm, integration, becomeGolden, rushBosses, RUSH_ORDER, RUSH_TAIL, publicOrbs, data: BD };
+  return { hollowClamp, formsTurnStart, wantsLarva, formFor, canEnterLearned, enterLearned, releaseForm, holdTick, goldHoldTick, formDamage, formBeforeApply, formRider, formCastRider, formImmovable, aiFormChoice, makeBoss, footprint, afterDamage, displacementBlocked, damageTakenMul, flatResist, statusImmune, dropOrb, transform, endOfTurnForms, damageForm, integration, becomeGolden, rushBosses, RUSH_ORDER, RUSH_TAIL, publicOrbs, data: BD };
 });

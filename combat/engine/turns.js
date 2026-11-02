@@ -296,6 +296,7 @@
       if (a.boss && a.conditions?.enraged) { const bonus=bossRules?.data?.conditions?.enraged?.mods?.apPerTurnAdd || 0; a.tempo+=bonus; a.tempoCapacity+=bonus; if(bonus)log(s,{kind:"tempo",actor:a.id,text:`Enraged force adds ${bonus} AP to ${a.name}'s turn.`}); }
       if (ClassRuntime?.turnBudget) ClassRuntime.turnBudget(s, a, classH());   // Hypebeast: aura, hype field, Cultural Moment (rules.hype)
       if (a.status?.woozy) { const w = a.status.woozy; if (w.left > 0) { const lost = Math.min(a.tempo, w.apLoss || 25); a.tempo -= lost; w.left -= 1; log(s, { kind: "tempo", actor: a.id, text: `${a.name} is woozy from surgery: ${lost} fewer AP this turn.` }); } else a.status.woozy = null; }   // the Lab's anaesthetic (account/surgery.js)
+      H.fruitTurnStart?.(s, a);   // Sinkerfruit: a Weather Front grows, and foes standing in one lose action points
       if (debtPaid) log(s, { kind: "tempo", actor: a.id, text: `${a.name} pays ${debtPaid} AP of tempo debt${a.tempoDebt ? ` (${a.tempoDebt} remains)` : ""}.` });
       H.Debt?.turnStart(s, a, H);   // W2.2: prison skips; earned tempo auto-pays the book
       H.restitutionDue?.(s, a);   // property rights: a restitution debtor pays its installment (engine/houses.js)
@@ -493,7 +494,7 @@
       if (typeof a.status.entangled === "number") a.status.entangled = { lostMove: a.status.entangled, expiresAt: n };
       const expiring = s.barriers.filter((b) => !b.permanent && b.owner === a.id && b.expiresAt <= n);
       for (const b of expiring) {
-        const label = b.passiveGround ? "Gardener mulch" : b.concept === "berm" ? "Berm" : b.concept === "swale" ? "Bioswale" : b.concept === "foldCrossing" ? "paper crossing" : b.concept === "foldPanel" ? "folded panel" : "Shield Wall";
+        const label = b.passiveGround ? "Gardener mulch" : b.concept === "berm" ? "Berm" : b.concept === "swale" ? "Bioswale" : b.concept === "foldCrossing" ? "paper crossing" : b.concept === "foldPanel" ? "folded panel" : b.concept === "fog" ? "Fog" : b.concept === "smoke" ? "Smoke" : "Shield Wall";
         log(s, { kind: "expire", actor: a.id, text: (b.concept === "foldCrossing" || b.concept === "foldPanel") ? `${a.name}'s ${label} at (${b.x},${b.y}) unfolds (its ${b.duration} owner turns are up); everyone stays where they stand.` : `${a.name}'s ${label} at (${b.x},${b.y}) expires (its ${b.duration} owner turns are up).` });
       }
       s.barriers = s.barriers.filter((b) => !expiring.includes(b));

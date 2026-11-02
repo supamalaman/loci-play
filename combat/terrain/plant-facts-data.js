@@ -140,9 +140,9 @@
      },
      {
       "id": "monkeypod-06",
-      "text": "I come from tropical America, Mexico down to Peru and Brazil. Hawaiʻi got me in 1847, so call me naturalized, not native, and I will call you ʻohana.",
-      "source": "POWO Samanea saman; Wiki; read: https://cms.ctahr.hawaii.edu/forestry/Forestry-Agroforestry-Trees/Samanea-saman",
-      "confidence": "needs-check"
+      "text": "I come from tropical America, Mexico down to Peru and Brazil. By most accounts Hawaiʻi got me in 1847, so call me naturalized, not native, and I will call you ʻohana.",
+      "source": "UH CTAHR Samanea saman https://cms.ctahr.hawaii.edu/forestry/Forestry-Agroforestry-Trees/Samanea-saman; UH Botany campus plants http://www.botany.hawaii.edu/faculty/carr/page21.htm (early 1800s: the conflicting date); USDA FS Silvics via Virginia Tech http://dendro.cnre.vt.edu/dendrology/USDAFSSilvics/Pithecellobium_saman.pdf",
+      "confidence": "likely"
      }
     ],
     "banyan": [
@@ -172,15 +172,15 @@
      },
      {
       "id": "banyan-05",
-      "text": "My milky latex irritates skin and eyes. Gloves and eye protection when you prune a fig, please. I am dramatic about being cut.",
-      "source": "UF/IFAS Ficus microcarpa; ISA pruning safety guidance on latex",
-      "confidence": "needs-check"
+      "text": "My milky latex can irritate skin. Gloves when you prune a fig, please. I am dramatic about being cut.",
+      "source": "NC State Extension Ficus https://plants.ces.ncsu.edu/plants/ficus/ and Ficus microcarpa 'Golden Gate' https://plants.ces.ncsu.edu/plants/ficus-microcarpa-golden-gate/",
+      "confidence": "likely"
      },
      {
       "id": "banyan-06",
       "text": "The great Lahaina banyan is my cousin Ficus benghalensis, planted in 1873, not me. I am the Chinese banyan: smaller leaves, smaller figs, same attitude.",
-      "source": "Wiki Lahaina Banyan Court; POWO",
-      "confidence": "needs-check"
+      "source": "UH News 2023 https://www.hawaii.edu/news/2023/08/11/remains-of-prominent-alii-part-of-lahaina/ (planted 1873); Punahou School collection https://www.punahou.edu/50-objects-detail?pk=159200 (Ficus benghalensis); NPS Lahaina nomination",
+      "confidence": "likely"
      },
      {
       "id": "banyan-07",
@@ -502,9 +502,9 @@
      },
      {
       "id": "wiliwili-06",
-      "text": "I live in tropical dry forest, and the IUCN lists me as Vulnerable. Plant a wiliwili and you are planting a rescue.",
-      "source": "Hawaiʻi Dryland Forest Initiative; Wagner",
-      "confidence": "needs-check"
+      "text": "My seeds come in red, orange, yellow, even white, one to three to a pod. Early Hawaiians strung them into permanent lei, so I kept the festival going long after my petals fell.",
+      "source": "UH Native Plants Hawaiʻi https://nativeplants.hawaii.edu/plants/erythrina-sandwicensis/",
+      "confidence": "likely"
      }
     ],
     "kiawe": [
@@ -712,9 +712,9 @@
      },
      {
       "id": "ulu-05",
-      "text": "Some pahu, the sacred hula drums, were hollowed from my trunk, though coconut was the more usual choice. My wood is light and strong, and I still keep time.",
-      "source": "TT Artocarpus altilis profile; Hawaiian cultural references",
-      "confidence": "needs-check"
+      "text": "Some pahu, the sacred hula drums, were hollowed from my trunk, though coconut was another choice. My wood is light and strong, and I still keep time.",
+      "source": "Purdue Morton breadfruit https://www.hort.purdue.edu/newcrop/morton/breadfruit.html; UH Kauaʻi CC Ulutopia https://www.kauai.hawaii.edu/ulutopia; TT Artocarpus altilis profile",
+      "confidence": "likely"
      },
      {
       "id": "ulu-06",
@@ -738,9 +738,9 @@
      },
      {
       "id": "akulikuli-03",
-      "text": "I root at every node as I creep, so one plant becomes a mat. Cut a piece and bury it, and you have another me.",
-      "source": "Wiki Sesuvium portulacastrum; Native Plants Hawaiʻi",
-      "confidence": "needs-check"
+      "text": "I root at the nodes as I creep, so one plant becomes a mat.",
+      "source": "USF Plant Atlas Sesuvium https://florida.plantatlas.usf.edu/genus/1323; UH Native Plants Hawaiʻi https://nativeplants.hawaii.edu/plants/sesuvium-portulacastrum/",
+      "confidence": "likely"
      },
      {
       "id": "akulikuli-04",
@@ -756,9 +756,9 @@
      },
      {
       "id": "akulikuli-06",
-      "text": "My roots once helped filter and clear the water of the Ala Wai Canal. A groundcover with a civic job.",
-      "source": "UH Native Plants Hawaiʻi; read: https://nativeplants.hawaii.edu/plants/sesuvium-portulacastrum/",
-      "confidence": "needs-check"
+      "text": "My roots were once set to work on the Ala Wai Canal, on floating platforms meant to help filter and clear its water. A groundcover with a civic job.",
+      "source": "UH Native Plants Hawaiʻi https://nativeplants.hawaii.edu/plants/sesuvium-portulacastrum/",
+      "confidence": "likely"
      },
      {
       "id": "akulikuli-07",
@@ -788,15 +788,15 @@
      },
      {
       "id": "ohelo-04",
-      "text": "Ericaceae partners with ericoid mycorrhizal fungi, which help me pull nutrients from acidic, low-nitrogen soil. Roots and fungi: it is a deal, not a romance.",
-      "source": "Wiki Ericaceae",
-      "confidence": "needs-check"
+      "text": "Ericaceae partners with ericoid mycorrhizal fungi, which help the plants take up nutrients in acidic, nutrient-poor soil. Roots and fungi: it is a deal, not a romance.",
+      "source": "Univ. of Alaska Fairbanks Extension https://www.uaf.edu/ces/publications/database/agriculture-livestock/mycorrhizae-alaska-landscape.php; Leopold et al 2021 FEMS Microbiol Ecol (Hawaiʻi chronosequence, Stanford) https://web.stanford.edu/~fukamit/leopold-et-al-2021.pdf",
+      "confidence": "likely"
      },
      {
       "id": "ohelo-05",
-      "text": "Keep me away from alkaline soil and lime. I will turn yellow with iron chlorosis and tell you about it.",
-      "source": "UH CTAHR blueberry culture pages",
-      "confidence": "needs-check"
+      "text": "Like my blueberry cousins, I do best in acidic soil. Lime me and I will sulk.",
+      "source": "Oregon State Extension, Nutrient Management for Blueberries in Oregon https://ir.library.oregonstate.edu/downloads/6d56zx00s; Michigan State Extension, Soil test before you plant blueberries https://www.canr.msu.edu/news/soil_test_before_you_plant_blueberries",
+      "confidence": "likely"
      },
      {
       "id": "ohelo-06",
@@ -820,9 +820,9 @@
     "hibiscus": [
      {
       "id": "hibiscus-01",
-      "text": "A bloom lasts about one day. I open, I show off and I drop my petals by nightfall, which is why I make a lot of them.",
-      "source": "UH CTAHR hibiscus; UF/IFAS",
-      "confidence": "needs-check"
+      "text": "A bloom lasts about one day. I open, I show off and I fold by nightfall, which is why I make a lot of them.",
+      "source": "UH CTAHR RB-175 https://www3.ctahr.hawaii.edu/oc/freepubs/pdf/RB-175.pdf; UF/IFAS ENH44 https://ufdcimages.uflib.ufl.edu/IR/00/00/61/32/00001/MG02000.pdf; NC State Extension https://plants.ces.ncsu.edu/plants/hibiscus-rosa-sinensis/; Univ. of Minnesota Extension https://extension.umn.edu/houseplants/hibiscus",
+      "confidence": "likely"
      },
      {
       "id": "hibiscus-02",
@@ -865,8 +865,8 @@
      {
       "id": "plumbago-02",
       "text": "Plumbago comes from plumbum, lead, from an old belief that I cured lead poisoning, or perhaps my gray-blue color. Either way, my name is heavy.",
-      "source": "Wiki Plumbago",
-      "confidence": "needs-check"
+      "source": "NC State Extension Plumbago https://plants.ces.ncsu.edu/plants/plumbago/; Jepson eFlora https://ucjeps.berkeley.edu/eflora/eflora_display.php?tid=10759",
+      "confidence": "likely"
      },
      {
       "id": "plumbago-03",
@@ -1060,15 +1060,15 @@
      },
      {
       "id": "nativeFern-05",
-      "text": "Ferns are among the first plants back on bare ground after lava and landslides, partly because spores travel on the wind. We are the volcano's first guests.",
-      "source": "Wagner; Hawaiʻi Volcanoes NP botany pages",
-      "confidence": "needs-check"
+      "text": "Ferns are among the first plants to take hold on bare lava, partly because spores travel on the wind. We are the volcano's first guests.",
+      "source": "NPS Hawaiʻi Volcanoes ferns https://www.nps.gov/havo/learn/nature/ferns.htm; UH Mānoa College of Education Kulia lesson http://manoa.hawaii.edu/coe/kulia/publications/lessons/adaptations_for_dispersal.pdf",
+      "confidence": "likely"
      },
      {
       "id": "nativeFern-06",
       "text": "Hawaiʻi has many native ferns, and most of them are found nowhere else. We radiated into the islands like the birds did, with fewer feathers.",
-      "source": "Wagner; Palmer Hawaiʻi ferns",
-      "confidence": "needs-check"
+      "source": "UH Mānoa thesis (about 79 percent of native fern species endemic) https://scholarspace.manoa.hawaii.edu/items/51b89d2f-8ab7-442b-a3c0-45d9d2619f7c; NPS Hawaiʻi Volcanoes ferns (about 65 percent of about 200 species) https://www.nps.gov/havo/learn/nature/ferns.htm",
+      "confidence": "likely"
      },
      {
       "id": "nativeFern-07",
@@ -1181,8 +1181,8 @@
      {
       "id": "pitcherPlant-06",
       "text": "Digestive fluid in my pitcher is acidic and contains enzymes called nepenthesins. The pitcher is a stomach on a tendril.",
-      "source": "Wiki Nepenthes; Athauda et al. 2004",
-      "confidence": "needs-check"
+      "source": "Harvard Pierce lab Gilbert 2020 https://piercelab.oeb.harvard.edu/sites/g/files/omnuum6481/files/pierce/files/gilbert_nepenthes_2020.pdf; Nepenthesin protease activity PMC4353617 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4353617/",
+      "confidence": "likely"
      }
     ],
     "cobraLily": [
@@ -1680,9 +1680,9 @@
      },
      {
       "id": "form-carnivore-04",
-      "text": "A trap fed with prey that is too big can rot and die. Aim for food smaller than the trap.",
-      "source": "International Carnivorous Plant Society",
-      "confidence": "needs-check"
+      "text": "A flytrap fed prey too big to close on can rot and die. Aim for food smaller than the trap.",
+      "source": "Indiana University Biology greenhouse, Dionaea https://greenhouse.biology.indiana.edu/features/carnivores/Dionea-muscipula.html",
+      "confidence": "likely"
      },
      {
       "id": "form-carnivore-05",

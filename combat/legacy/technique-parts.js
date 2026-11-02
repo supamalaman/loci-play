@@ -2327,12 +2327,22 @@
         "fruit:coil"
       ]
     },
+    "mainspring": {
+      "riders": [
+        "fruit:coil"
+      ]
+    },
     "scent": {
       "riders": [
         "fruit:hide"
       ]
     },
     "vapourStep": {
+      "riders": [
+        "fruit:mist"
+      ]
+    },
+    "weatherFront": {
       "riders": [
         "fruit:mist"
       ]

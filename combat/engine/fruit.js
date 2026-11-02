@@ -14,6 +14,7 @@
 //   fruitBlocked(s, a, abilityId)          → refusal text for a fruit technique while damped, else null
 //   fruitRegen(s, a, regen)                → 0 while damped
 //   fruitTakenMul(s, tgt, inst, type)      → { mul, notes } Drained ×1.25; Coil ×0.6 on impact unless it carries will
+//   fruitTurnStart(s, a)                  → turns.js, a unit's turn start: a Weather Front grows or ends, and foes standing in one lose 10 AP
 //   fruitDrift(s, a, tgt, inst)            → true when Mist's Drift turns a Strike aside (35%, seeded)
 //   fruitRelease(s, a)                     → { potency } from stored coils, consumed by this Strike
 //   fruitReach(a)                          → +1 Strike reach per stored coil
@@ -35,9 +36,16 @@
       drowningMul: 1.5, drainedTakenMul: 1.25,
       coil: { impactTakenMul: 0.6, potencyPerCoil: 4, reachPerCoil: 1, maxCoils: 3 },
       mist: { driftMiss: 0.35, fogRadius: 1, fogRounds: 2 },
-      hide: { tempShare: 0.25, tempCap: 25, turns: 3 },
+      hide: { tempShare: 0.25, tempCap: 25, turns: 3, absorbFeat: 15 },
       // Respec S2a (refined, Ripe). Recoil is a reaction with no card: it spends the round's reaction and 4 ΦF on its own.
       refined: { hide: ["scent"], mist: ["vapourStep"] },
+      // Respec S2b1: the awakened arts (Awakened stage, announced, 15 PhiF). Mainspring: the eater's pushes on a target within 2 travel +1 tile, and the first Strike each turn
+      // lets its coils go without spending them, for 2 of your turns (the cast turn and the next).
+      awakened: { coil: ["mainspring"], mist: ["weatherFront"] },
+      mainspring: { turns: 2, within: 2, push: 1 },
+      // Respec S2b2 Weather Front (Mist, Awakened, 15 PhiF): a fog ring on the cast tile grows radius 1, 2, 3 over three of the eater's turns, then clears together.
+      // Allies standing in it are lent Drift by the ripe-mist rule that already exists; foes standing in it lose apLoss action points as their turn starts.
+      front: { turns: 3, radii: [1, 2, 3], apLoss: 10 },
       recoil: { pf: 4, push: 1 }, scent: { radius: 3 }, vapour: { radius: 4 },
       steelWillAP: 10,
     };
@@ -58,25 +66,54 @@
 
     // Respec S4a: a rival eater is an ordinary enemy-side unit carrying one loose fruit (opts.rival = { fruit, ripe, character }). It gets the curse and the
     // fruit's kit like the hero does, at Fresh (Ripe at tier 2). It earns no feats (tracking is hero-only).
+    // Respec: a unit that eats the fruit takes the trait (the hero with the feat model on, a rival eater, the anime hero once his fruit carries respec).
+    const giveTrait = (u) => { if (!H.hasTrait?.(u, "fruitbound")) u.traits = [...(u.traits || []), "fruitbound"]; };
+    // The AI's side of the trait (engine/ai.js rawScore): each fruit technique scores more when the moment fits. The anime kit floor (ai.js animeKitFloor) lifts
+    // whatever becomes non-negative. Contexts keep it sensible: a coil only with a foe near, Mainspring only with coils held, fog only without fog of its own.
+    function fruitboundBonus(s, a, cand) {
+      const R = s.rules.aiLedger?.fruitbound; if (!R?.on || cand?.type !== "ability" || !R.bonus?.[cand.ability] || !fruitOf(a) || !H.hasTrait?.(a, "fruitbound")) return 0;
+      const foeNear = (r) => Object.values(s.actors).some((u) => !u.defeated && !u.notArrived && !H.Tourist?.is?.(u) && u.side !== a.side && u.side !== "bystander" && dist(s, a.x, a.y, u.x, u.y) <= r);   // the AI's own idea of a foe (ai.js foesLeft)
+      const coils = a.status?.coils?.n || 0, id = cand.ability;
+      if (id === "windTheSpring" && !(coils < 2 && foeNear(3))) return 0;   // one or two coils, then the Strike that lets them go
+      if (id === "mainspring" && !(coils >= 2 && foeNear(2))) return 0;   // the push bonus reaches 2 tiles: only worth it with coils to throw and a foe that close
+      if (id === "fogBank" && ((s.barriers || []).some((b) => b.concept === "fog" && b.owner === a.id) || !foeNear(6))) return 0;
+      if (id === "weatherFront" && (frontOn(a) || !foeNear(4))) return 0;   // a front is worth calling with a foe close enough to walk into it
+      if (id === "vapourStep" && !foeNear(3)) return 0;
+      if (id === "takeTheShape" && a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns) return 0;   // an expired shape is not worn (the status is never cleared)
+      return R.bonus[id];
+    }
     function armRival(s, opts) {
       const r = opts.rival, u = s.actors.rival; if (!r || !u || !RULES.kits[r.fruit]) return;
-      u.fruit = { id: r.fruit, ripe: !!r.ripe, respec: true, shapes: [] };
+      u.fruit = { id: r.fruit, ripe: !!r.ripe, respec: true, shapes: [] }; giveTrait(u);
       u.passives = { ...(u.passives || {}), cantSwim: true, drowningDamageMul: Math.max(u.passives?.drowningDamageMul || 1, RULES.drowningMul) };
       log(s, { kind: "hunter", actor: "rival", text: `${s.actors.rival.name} walks in from the edge of the fight, carrying ${FRUIT_NAME[s.actors.rival.fruit.id] || "a fruit"}: another eater, and the sea refuses them too.`, why: ["Sinkerfruit: a loose fruit can be in someone else's hands. Water and cuffs quiet it; Steel will cuts through."] });
     }
+    // Respec S4c: the feat model is on for this battle (opts.fruitWorld = { held }, set by ui.js only when account/fruit.js RULES.respec is on), so the anime orbit may hand
+    // the Anime Protagonist a maxed fruit and must not hand him the fruit the player holds. Flag off: no key on the battle at all.
+    function armAnimeFruit(s, u, id) {
+      if (!RULES.kits[id]) return false;
+      u.fruit = { id, ripe: true, respec: true, awakened: true, shapes: [] };
+      u.passives = { ...(u.passives || {}), cantSwim: true, drowningDamageMul: Math.max(u.passives?.drowningDamageMul || 1, RULES.drowningMul) };
+      giveTrait(u);
+      return true;
+    }
     function carryFruit(s, opts) {
+      if (opts.fruitWorld) s.fruitWorld = { held: opts.fruitWorld.held || null };
       armRival(s, opts);
       const f = opts.fruit; if (!f || !RULES.kits[f.id]) return;
       const hero = s.actors[s.modeSetup?.hero || "player"]; if (!hero) return;
-      hero.fruit = { id: f.id, ripe: !!f.ripe, ...(f.respec ? { respec: true, shapes: [...(f.shapes || [])] } : {}) };
+      hero.fruit = { id: f.id, ripe: !!f.ripe, ...(f.respec ? { respec: true, shapes: [...(f.shapes || [])], awakened: !!f.awakened } : {}) };
+      if (f.respec) giveTrait(hero);
       // The curse. sinksLikeAStone (insight-data.js) already sinks a Super ×2.5: the larger multiplier wins, never both.
       hero.passives = { ...(hero.passives || {}), cantSwim: true, drowningDamageMul: Math.max(hero.passives?.drowningDamageMul || 1, RULES.drowningMul) };
     }
     const refinedOf = (a) => { const f = fruitOf(a); return f?.respec && f.ripe ? RULES.refined[f.id] || [] : []; };
+    const awakenedOf = (a) => { const f = fruitOf(a); return f?.respec && f.awakened ? RULES.awakened[f.id] || [] : []; };
+    const mainspringOn = (s, a) => !!a.status?.mainspring && a.status.mainspring.expiresAt > a.ownerTurns && !damped(s, a);
     function fruitKitOf(a) {
       const f = fruitOf(a); if (!f) return [];
       const shape = a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns ? a.status.hideShape.move : null;
-      return [...RULES.kits[f.id], ...refinedOf(a), ...(shape && ab(shape) ? [shape] : [])];
+      return [...RULES.kits[f.id], ...refinedOf(a), ...awakenedOf(a), ...(shape && ab(shape) ? [shape] : [])];
     }
     function damped(s, a) {
       if (!fruitOf(a) || a.defeated) return "";
@@ -87,8 +124,15 @@
     }
     // A fruit technique, or Hidefruit's borrowed move, is refused while damped; Take the Shape is greyed with nothing learned.
     function fruitBlocked(s, a, id, act) {
-      const f = fruitOf(a); if (!f) return null;
-      const own = RULES.kits[f.id].includes(id) || refinedOf(a).includes(id) || (a.status?.hideShape?.move === id && a.status.hideShape.expiresAt > a.ownerTurns);
+      const f = fruitOf(a);
+      // A fruit's technique is its eater's own (the fruit is who they are: spec section 1, bound to identity). Watching it taught a Control the Fog Bank in a sim and the
+      // cast then read a fruit it did not have (fruitResolve): a unit without that fruit is refused, however it came by the card.
+      if (!f || !(RULES.kits[f.id].includes(id) || refinedOf(a).includes(id) || awakenedOf(a).includes(id))) {
+        const theirs = [RULES.kits, RULES.refined, RULES.awakened].some((table) => Object.values(table).some((list) => list.includes(id)));
+        if (theirs && !(a.status?.hideShape?.move === id)) return "That power is a fruit's, and only its eater can use it.";
+        if (!f) return null;
+      }
+      const own = RULES.kits[f.id].includes(id) || refinedOf(a).includes(id) || awakenedOf(a).includes(id) || (a.status?.hideShape?.move === id && a.status.hideShape.expiresAt > a.ownerTurns);
       if (!own) return null;
       const why = damped(s, a); if (why) return why;
       if (id === "takeTheShape" && !(a.beastSummons || []).length) return "You know no shape yet: learn a creature by swallowing its beads.";
@@ -96,6 +140,8 @@
         if (!(a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns)) return "Scent is the beast's nose: take a shape first.";
         if (!hidden(s, a).length) return `Nothing hides within ${RULES.scent.radius} tiles.`;
       }
+      if (id === "mainspring" && a.status?.mainspring && a.status.mainspring.expiresAt > a.ownerTurns) return "The spring is already wound.";
+      if (id === "weatherFront" && frontOn(a)) return "The front is already out.";
       if (id === "vapourStep") {
         if (!fogAt(s, a.x, a.y)) return "Vapour Step starts in fog: stand in a fog tile.";
         const at = act?.target; if (!at) return null;   // the card greys on position alone; the chosen tile is checked when it is aimed
@@ -105,10 +151,55 @@
       }
       return null;
     }
+    // Weather Front (S2b2). The ring is ordinary fog barriers (concept "fog", front: true) so sight, Vapour Step and the allies' Drift all work as they do for Fog Bank; the
+    // status holds the centre, the turn it ends and how many rings are out. Water, Steel will and the eater being damped end it.
+    const frontOn = (a) => !!a.status?.weatherFront && a.status.weatherFront.expiresAt > a.ownerTurns;
+    function growFront(s, a) {
+      const f = a.status.weatherFront, r = RULES.front.radii[Math.min(f.rings, RULES.front.radii.length - 1)]; f.rings += 1;
+      for (let y = f.y - r; y <= f.y + r; y++) for (let x = f.x - r; x <= f.x + r; x++) if (H.inside(s, x, y) && !(s.barriers || []).some((b) => b.front && b.owner === a.id && b.x === x && b.y === y))
+        s.barriers.push({ id: "b" + (++s.seq), owner: a.id, x, y, protection: 0, duration: RULES.front.turns, expiresAt: f.expiresAt, concept: "fog", blocksSight: true, passable: true, front: true });
+      return r;
+    }
+    function endFront(s, a, why) {
+      if (!a.status?.weatherFront) return;
+      a.status.weatherFront = null; s.barriers = (s.barriers || []).filter((b) => !(b.front && b.owner === a.id));
+      if (!s.preview) log(s, { kind: "effect", actor: a.id, text: `${a.name}'s weather front ${why}.`, why: ["Mistfruit, Awakened: water, a blow carrying Steel will, or the eater's own fruit going quiet ends the front."] });
+    }
+    // At a unit's turn start (engine/turns.js, one line): the eater's front grows a ring (or ends if the fruit went quiet), and anyone standing in a hostile front loses AP.
+    function fruitTurnStart(s, a) {
+      if (s.preview || a.defeated) return;
+      if (a.status?.weatherFront) {
+        if (a.status.weatherFront.expiresAt <= a.ownerTurns) a.status.weatherFront = null;
+        else if (damped(s, a)) endFront(s, a, "fades: the sea has the power");
+        else if (a.status.weatherFront.rings < RULES.front.radii.length) { const r = growFront(s, a); log(s, { kind: "effect", actor: a.id, text: `${a.name}'s weather front grows to radius ${r}.`, why: ["Mistfruit, Awakened: the ring widens each of your turns, to radius 3."] }); }
+      }
+      if (a.side === "bystander" || a.side === "civilian" || a.civilian) return;   // a civilian (side "civilian") and a bystander are never taxed
+      const front = (s.barriers || []).find((b) => b.front && b.x === a.x && b.y === a.y && s.actors[b.owner] && !s.actors[b.owner].defeated && s.actors[b.owner].side !== a.side && frontOn(s.actors[b.owner]) && !damped(s, s.actors[b.owner]));   // an eater who fled or fell taxes no one (its fog lingers, as Fog Bank's does)
+      if (!front || !(a.tempo > 0)) return;
+      const lost = Math.min(a.tempo, RULES.front.apLoss); a.tempo -= lost;
+      log(s, { kind: "tempo", actor: a.id, text: `${a.name} starts in ${s.actors[front.owner].name}'s weather front and loses ${lost} action points (${a.tempo} remain).`, why: ["Mistfruit, Awakened: foes in the ring lose 10 AP at their turn start. Leave the ring, or soak the eater."] });
+    }
     const fogAt = (s, x, y) => (s.barriers || []).some((b) => b.concept === "fog" && b.x === x && b.y === y);
     const hidden = (s, a) => Object.values(s.actors).filter((u) => !u.defeated && u.side !== a.side && u.status?.concealed && (u.status.concealed.until == null || u.status.concealed.until >= u.ownerTurns) && dist(s, a.x, a.y, u.x, u.y) <= RULES.scent.radius);
     // Ripe Coilfruit: an impact hit that lands while a coil is held stores one more (to 3) and shoves the attacker one tile. Reaction + 4 ΦF, once a round,
     // so it cannot chain: a rival's own Recoil also spends its reaction. Quiet while damped, and for a hit that did nothing.
+    // Respec S1b: one call after every hit that did something (damage.js): the hide's absorbed damage, a kill with the borrowed move, then Recoil.
+    function fruitAfterHit(s, src, tgt, type, inst, { dmg = 0, warded = 0, wardHide = false } = {}) {
+      if (s.preview) return;
+      if (warded > 0 && wardHide && fruitOf(tgt)?.id === "hide" && tracking(s, tgt)) { const c = (s.fruitTally ||= {}); c[`${tgt.id}:hideAbsorb`] = (c[`${tgt.id}:hideAbsorb`] || 0) + warded; if (c[`${tgt.id}:hideAbsorb`] >= RULES.hide.absorbFeat) markFeat(s, tgt, "hide.absorb15"); }
+      if (dmg > 0) fruitRecoil(s, src, tgt, type, inst);
+    }
+    // Called from damage.js after the defeat block: the foe is down and nothing saved it (a revival or a transmigration would have left it standing).
+    function fruitKilled(s, src, tgt, inst) {
+      const move = src?.status?.hideShape?.move;
+      if (move && inst?.ability === move && src.status.hideShape.expiresAt > src.ownerTurns && src.side !== tgt.side) markFeat(s, src, "hide.ko");
+    }
+    // After a ripe release's knockback (actions.js): the foe met a wall, an object or a body (a slam), or ended in water.
+    function fruitKnocked(s, a, t, mark, from) {
+      if (s.preview || !tracking(s, a)) return;
+      const moved = t.x !== from[0] || t.y !== from[1];   // a refused knock (Anchor, roots, a boss) leaves the foe where it stood, in water or not
+      if (s.log.slice(mark).some((e) => e.kind === "slam" && e.target === t.id && !/collides with/.test(e.text || "")) || (moved && !t.defeated && H.waterAt?.(s, t.x, t.y))) markFeat(s, a, "coil.knock");
+    }
     function fruitRecoil(s, src, tgt, type, inst) {
       if (s.preview || !src || src.id === tgt.id || src.side === tgt.side || tgt.defeated || tgt.lf <= 0 || src.defeated || type !== "nigredo" || !inst || inst.carriesWill) return;   // a killing blow, a friend, a hazard and Steel will (it lands through the give) are not answered
       if (fruitOf(tgt)?.id !== "coil" || !tgt.fruit.respec || !tgt.fruit.ripe) return;   // Ripe, with the feat model on
@@ -116,14 +207,26 @@
       if (!n || !(tgt.reaction > 0) || tgt.pf < RULES.recoil.pf || damped(s, tgt)) return;
       tgt.reaction -= 1; tgt.pf -= RULES.recoil.pf; tgt.status.coils = { n: Math.min(RULES.coil.maxCoils, n + 1) }; const at = [src.x, src.y];
       markFeat(s, tgt, "coil.recoil");
-      log(s, { kind: "effect", actor: tgt.id, target: src.id, text: `${tgt.name} recoils: ${n === RULES.coil.maxCoils ? `the coils are already full (${n})` : `${tgt.status.coils.n} coil${tgt.status.coils.n === 1 ? "" : "s"} stored`}.`, why: [`Coilfruit, Ripe: an impact hit that lands on a held coil is answered for ${RULES.recoil.pf} ΦF and the round's reaction: one more coil (to ${RULES.coil.maxCoils}), and the attacker pushed ${RULES.recoil.push} tile unless it holds its ground.`] });
+      log(s, { kind: "effect", actor: tgt.id, target: src.id, text: `${tgt.name} recoils: ${n === RULES.coil.maxCoils ? `the coils are already full (${n})` : `${tgt.status.coils.n} coil${tgt.status.coils.n === 1 ? "" : "s"} stored`}.`, why: [`Coilfruit, Ripe: an impact hit that lands on a held coil is answered for ${RULES.recoil.pf} ΦF and the round's reaction: one more coil (to ${RULES.coil.maxCoils}), and the attacker pushed ${RULES.recoil.push} tile (one more while Mainspring is wound) unless it holds its ground.`] });
       if (!src.defeated) H.knock?.(s, tgt, src, RULES.recoil.push, inst, "push");
       if (src.x !== at[0] || src.y !== at[1]) log(s, { kind: "effect", actor: tgt.id, target: src.id, tiles: [[src.x, src.y]], text: `${src.name} is shoved back to (${src.x},${src.y}).` });
     }
     function fruitRegen(s, a, regen) {
+      if (tracking(s, a) && a.fruit.id === "mist" && !damped(s, a)) fogBreaksSight(s, a);
       if (!damped(s, a)) return regen;
       if (tracking(s, a)) s.fruitDrained = true;   // damped through a turn start counts for 'win a battle in which you were damped', hit or not
       return 0;
+    }
+    // Mist: at the start of your turn, a fog bank of yours sits on a foe's line to someone on your side within 6, and nothing but the fog stops it.
+    function fogBreaksSight(s, a) {
+      if (s.fruitFeats?.includes("mist.fogLos")) return;
+      const mine = (s.barriers || []).filter((b) => b.concept === "fog" && b.owner === a.id), crew = Object.values(s.actors).filter((u) => !u.defeated && u.side === a.side);
+      if (!mine.length) return;
+      for (const f of Object.values(s.actors).filter((u) => !u.defeated && u.side !== a.side)) for (const t of crew) {
+        if (dist(s, f.x, f.y, t.x, t.y) > 6 || H.hasSight(s, f.x, f.y, t.x, t.y)) continue;
+        const pts = H.line(f.x, f.y, t.x, t.y).slice(1, -1);
+        if (pts.some(([x, y]) => mine.some((b) => b.x === x && b.y === y)) && pts.every(([x, y]) => !H.tileAt(s, x, y)?.blocksSight && !(H.barrierAt?.(s, x, y)?.blocksSight && H.barrierAt(s, x, y).concept !== "fog"))) { markFeat(s, a, "mist.fogLos"); return; }
+      }
     }
     function fruitTakenMul(s, tgt, inst, type) {
       const f = fruitOf(tgt); if (!f) return null;
@@ -131,13 +234,16 @@
       const why = damped(s, tgt);
       if (why) { if (tracking(s, tgt)) s.fruitDrained = true; mul *= RULES.drainedTakenMul; notes.push(`Drained: the sea pulls the strength out (damage ×${RULES.drainedTakenMul}).`); }
       else if (f.id === "coil" && type === "nigredo") {
-        if (inst?.carriesWill) notes.push("Steel will: the blow lands through the coil's give.");
+        if (inst?.carriesWill) {
+          notes.push("Steel will: the blow lands through the coil's give.");
+          if (tgt.status?.mainspring && !s.preview) { tgt.status.mainspring = null; notes.push("It snaps the wound mainspring."); log(s, { kind: "effect", actor: tgt.id, text: `${tgt.name}'s mainspring snaps: a blow carrying will lands through the give.`, why: ["Coilfruit, Awakened: Steel will is the counter to Mainspring."] }); }
+        }
         else { if (tally(s, tgt, "impact") === 3) markFeat(s, tgt, "coil.take3"); mul *= RULES.coil.impactTakenMul; notes.push(`Coilfruit gives with the blow (impact ×${RULES.coil.impactTakenMul}).`); }
       }
       return { mul, notes };
     }
     function fruitDrift(s, a, tgt, inst) {
-      if (inst?.carriesWill) return false;   // Steel will lands through Drift, owned or lent
+      if (inst?.carriesWill) { if (tgt.status?.weatherFront && !s.preview) endFront(s, tgt, "is parted: a blow carrying will goes straight through it"); return false; }   // Steel will lands through Drift, owned or lent, and parts a front
       if (fruitOf(tgt)?.id === "mist" && damped(s, tgt) && tracking(s, tgt)) s.fruitStruck = true;   // damped, the Drift is gone: the Strike lands
       if (fruitOf(tgt)?.id === "mist" && !damped(s, tgt)) {
         s.driftN = (s.driftN || 0) + 1;
@@ -150,22 +256,32 @@
         s.actors?.[b.owner]?.side === tgt.side && fruitOf(s.actors[b.owner])?.id === "mist" && s.actors[b.owner].fruit.ripe && !damped(s, s.actors[b.owner]));
       if (!gift) return false;
       s.driftN = (s.driftN || 0) + 1;
-      return H.seededChance(`${s.seed}:${s.round}:${a.id}:${tgt.id}:allydrift:${s.driftN}`) < RULES.mist.driftMiss;
+      const lent = H.seededChance(`${s.seed}:${s.round}:${a.id}:${tgt.id}:allydrift:${s.driftN}`) < RULES.mist.driftMiss;
+      if (lent) markFeat(s, ownerOfGift(s, tgt), "mist.allyDrift");
+      return lent;
+    }
+    const ownerOfGift = (s, tgt) => s.actors[(s.barriers || []).find((b) => b.concept === "fog" && b.x === tgt.x && b.y === tgt.y)?.owner];
+    // resolve.js knock(): Mainspring makes every push the eater causes on a target within 2 of them travel one tile further.
+    function fruitPushBonus(s, a, t, n, direction) {
+      if (direction !== "push" || !a || !t || t.id === a.id || !mainspringOn(s, a) || dist(s, a.x, a.y, t.x, t.y) > RULES.mainspring.within) return n;
+      return n + RULES.mainspring.push;
     }
     function fruitRelease(s, a) {
       const n = a.status?.coils?.n || 0; if (!n || fruitOf(a)?.id !== "coil") return { potency: 0, n: 0 };
-      a.status.coils = null;
-      if (damped(s, a)) { log(s, { kind: "effect", actor: a.id, text: `The sea takes ${a.name}'s ${n} coil${n === 1 ? "" : "s"}: nothing to let go.`, why: ["Sinkerfruit: damped, the coil's give is gone."] }); return { potency: 0, n: 0 }; }
+      const wet = damped(s, a), keep = !wet && mainspringOn(s, a) && a.status.mainspring.usedTurn !== a.ownerTurns;   // Mainspring: the first Strike each turn lets go without spending
+      if (keep) a.status.mainspring.usedTurn = a.ownerTurns; else a.status.coils = null;
+      if (wet) { log(s, { kind: "effect", actor: a.id, text: `The sea takes ${a.name}'s ${n} coil${n === 1 ? "" : "s"}: nothing to let go.`, why: ["Sinkerfruit: damped, the coil's give is gone."] }); return { potency: 0, n: 0 }; }
       if (n === RULES.coil.maxCoils) markFeat(s, a, "coil.release3");
-      return { potency: n * RULES.coil.potencyPerCoil, n };
+      return { potency: n * RULES.coil.potencyPerCoil, n, kept: keep };
     }
     const fruitReach = (a) => (fruitOf(a)?.id === "coil" ? (a.status?.coils?.n || 0) * RULES.coil.reachPerCoil : 0);
     function soak(s, t, by) {
       if (!fruitOf(t) || t.defeated) return;
       // expire() runs before regen at turn start: +2 keeps Soaked over the next turn it is meant to damp.
       t.status.soaked = { label: "Soaked", owner: t.id, expiresAt: t.ownerTurns + 2 };
-      const lost = [t.status.coils?.n ? "the stored coils" : "", t.status.hideShape || t.status.ward?.hide ? "the borrowed shape and its hide" : ""].filter(Boolean);
-      t.status.coils = null; t.status.hideShape = null; if (t.status.ward?.hide) t.status.ward = null;   // merge fix (Pantry): the hide ward goes with the shape   // the counters the techniques name: water takes the coil and ends the shape
+      const lost = [t.status.coils?.n ? "the stored coils" : "", t.status.mainspring ? "the wound mainspring" : "", t.status.hideShape || t.status.ward?.hide ? "the borrowed shape and its hide" : "", frontOn(t) ? "the weather front" : ""].filter(Boolean);
+      if (t.status.weatherFront) { t.status.weatherFront = null; s.barriers = (s.barriers || []).filter((b) => !(b.front && b.owner === t.id)); }
+      t.status.coils = null; t.status.mainspring = null; t.status.hideShape = null; if (t.status.ward?.hide) t.status.ward = null;   // merge fix (Pantry): the hide ward goes with the shape   // the counters the techniques name: water takes the coil and ends the shape
       log(s, { kind: "effect", actor: t.id, target: t.id, text: `${t.name} is soaked by ${by}: the fruit's power goes quiet.`, why: ["Sinkerfruit: water damps the power for a turn (no fruit technique, no ΦF regen, damage ×1.25).", ...(lost.length ? [`The water takes ${lost.join(" and ")}.`] : [])] });
     }
     function fruitSoak(s, inst) {
@@ -198,6 +314,17 @@
         for (let y = ty - r; y <= ty + r; y++) for (let x = tx - r; x <= tx + r; x++) if (H.inside(s, x, y))
           s.barriers.push({ id: "b" + (++s.seq), owner: a.id, x, y, protection: 0, duration: rounds, expiresAt: a.ownerTurns + rounds, concept: "fog", blocksSight: true, passable: true });
         log(s, { kind: "effect", actor: a.id, tiles: [[tx, ty]], text: `${a.name} lays a fog bank on (${tx},${ty}): sight fails in a ${2 * r + 1}×${2 * r + 1} square for ${rounds} rounds.`, why: ["Mistfruit: fog blocks sightlines and doesn't block movement."] });
+        return true;
+      }
+      if (id === "weatherFront") {
+        a.status.weatherFront = { x: a.x, y: a.y, expiresAt: a.ownerTurns + RULES.front.turns, rings: 0 };
+        const r = growFront(s, a);
+        log(s, { kind: "effect", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} calls a weather front on (${a.x},${a.y}): fog to radius ${r} now, wider each turn to radius ${RULES.front.radii[RULES.front.radii.length - 1]}, for ${RULES.front.turns} turns; allies in it Drift and foes in it lose ${RULES.front.apLoss} AP a turn.`, why: ["Mistfruit, Awakened: the fog is the weather; it clears all at once when the three turns are up."] });
+        return true;
+      }
+      if (id === "mainspring") {
+        a.status.mainspring = { expiresAt: a.ownerTurns + RULES.mainspring.turns, usedTurn: null };
+        log(s, { kind: "effect", actor: a.id, text: `${a.name} winds the mainspring: for ${RULES.mainspring.turns} turns every push within ${RULES.mainspring.within} travels +${RULES.mainspring.push}, and the first Strike each turn lets its coils go without spending them.`, why: ["Coilfruit, Awakened: the whole body is the spring."] });
         return true;
       }
       if (id === "scent") {
@@ -235,6 +362,6 @@
     function hunterEntrance(s) {
       if (s.actors.hunter) log(s, { kind: "hunter", actor: "hunter", text: `${s.actors.hunter.name} walks in from the edge of the fight: the Record pays for your head, and they mean to collect.`, why: ["Sinkerfruit: a posted head draws a hunter (how often, and who, follows the bounty)."] });
     }
-    return { withHunter, hunterEntrance, markFeat, refinedOf, fruitRecoil, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitRelease, fruitReach, fruitSoak, fruitResolve };
+    return { withHunter, hunterEntrance, markFeat, refinedOf, awakenedOf, fruitboundBonus, armAnimeFruit, fruitPushBonus, fruitRecoil, fruitAfterHit, fruitKilled, fruitKnocked, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitTurnStart, fruitRelease, fruitReach, fruitSoak, fruitResolve };
   })();
 });

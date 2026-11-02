@@ -338,19 +338,20 @@
         if (act.type === "breakGrapple" && mine.some(e => e.kind === "grapple" && e.broke)) give("escapeHold", "breaking a hold");
         if (act.type === "throw" && mine.some(e => e.emergentIdea === "fulcrumThrow")) give("throw", "throwing a body or field object");
         if (act.type === "disarm" && mine.some(e => e.kind === "disarm" && e.ok)) give("disarm", "removing an armed trap");
-        if (["observe", "observePlace"].includes(act.type)) {
+        const lookType = act.type === "investigate" && act.place ? "observePlace" : act.type === "investigate" && act.object ? ((s.arena.objects || []).find(o => o.id === act.object)?.kind === "plant" ? "observePlant" : "observeStructure") : act.type;   // Investigate the place, a plant or a structure (I3) earns the discovery an Observe does
+        if (["observe", "observePlace"].includes(lookType)) {
           const knowledge = (state, unit) => H.Observation.knowledge(state, unit);
           const old = knowledge(before, b), now = knowledge(s, a);
           const fresh = Object.entries(now).some(([id, k]) => (k.revealed || []).some(f => !(old[id]?.revealed || []).includes(f)));
           const legacy = act.type === "observe" && JSON.stringify(before.knowledge?.[a.id]) !== JSON.stringify(s.knowledge?.[a.id]);
           if (fresh || legacy) give(act.type === "observe" ? "discover" : "discoverPlace", "learning a new finding");
         }
-        if (act.type === "observePlant") {
+        if (lookType === "observePlant") {
           const old = H.Observation.plantBook(before, b).familiarity, now = H.Observation.plantBook(s, a).familiarity, id = act.object;
           const need = H.Communion?.profile(s.arena.objects.find(o => o.id === id)?.type)?.need ?? Infinity;
           if (Math.min(now[id] || 0, need) > Math.min(old[id] || 0, need)) give("discoverPlant", "learning an unfamiliar plant");
         }
-        if (act.type === "observeStructure") {
+        if (lookType === "observeStructure") {
           const old = H.Observation.structureBook(before, b).familiarity, now = H.Observation.structureBook(s, a).familiarity, id = act.object;
           const need = H.Tsukumogami?.profile(s.arena.objects.find(o => o.id === id)?.type)?.need ?? Infinity;
           if (Math.min(now[id] || 0, need) > Math.min(old[id] || 0, need)) give("discoverStructure", "learning an unfamiliar structure");

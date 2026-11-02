@@ -23,7 +23,9 @@
           return `carries an awakened charm (${kind} ${NUMERAL[tier]}: ${JK.GIFTS[kind].name})`;
         } },
       { id: "sinkerfruit", weight: 25, apply(s, u, roll) {
-          const id = pick(Object.keys(H.fruitRules?.kits || FRUIT_NAMES), roll("fruit"));
+          const all = Object.keys(H.fruitRules?.kits || FRUIT_NAMES), w = s.fruitWorld;   // respec (S4c): not the fruit the player holds, nor the one a rival eater carries (one copy of each in the world)
+          const left = w ? all.filter((x) => x !== w.held && x !== s.actors.rival?.fruit?.id) : all, id = pick(left.length ? left : all, roll("fruit"));
+          if (w && H.armAnimeFruit?.(s, u, id)) return `ate the ${FRUIT_NAMES[id] || id} and has made it his own, Awakened (he gives up the sea)`;
           u.fruit = { id, ripe: true };
           u.passives = { ...(u.passives || {}), cantSwim: true, drowningDamageMul: Math.max(u.passives?.drowningDamageMul || 1, H.fruitRules?.drowningMul ?? 1.5) };   // the fruit's curse, as engine/fruit.js carryFruit
           return `ate the ${FRUIT_NAMES[id] || id} (he gives up the sea)`;
@@ -68,7 +70,12 @@
       if (s.animeOrbitDone) return; s.animeOrbitDone = true;
       for (const u of Object.values(s.actors)) {
         if (!ORBIT_CHARACTERS.includes(u.character) || u.id === "player" || u.ai === "summon" || u.dream || u.wild) continue;
-        if (u.orbit === "choir") { wearSouls(s, u, Object.fromEntries(SOUL_KINDS.map((k) => [k, 3]))); show(s, u, "choir", "sings the full Soul Choir: four awakened souls, each at III"); continue; }
+        if (u.orbit === "choir") {
+          wearSouls(s, u, Object.fromEntries(SOUL_KINDS.map((k) => [k, 3])));
+          let more = "";   // respec (S4c): the boss gets one of everything: the Choir, the Bird Mountain style and one maxed fruit (only one fruit)
+          if (s.fruitWorld) { const r = (what) => H.seededChance(`${s.seed}:animeOrbit:${u.id}:${what}`); for (const k of ANIME_KITS.filter((k) => k.id !== "jinki")) { const t = k.apply(s, u, r); if (t) more += `; ${t}`; } }
+          show(s, u, "choir", `sings the full Soul Choir: four awakened souls, each at III${more}`); continue;
+        }
         if (u.orbit === "none") continue;
         const { kit, text } = rollKit(s, u);
         if (text) show(s, u, kit.id, text);

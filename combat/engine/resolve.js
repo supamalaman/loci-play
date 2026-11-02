@@ -1219,6 +1219,7 @@
       for (let i = 0; i < m.count && !t.defeated; i++) hit(s, src, t, null, m.damage, [`Lodged seed sprouts (${m.name}).`], { label: "Sprouting seeds", damageType: m.damageType });
     }
     function knock(s, a, t, n, inst, direction = "push") {
+      n = H.fruitPushBonus?.(s, a, t, n, direction) ?? n;   // Sinkerfruit (respec S2b1): Mainspring
       if (bossRules?.formImmovable?.(t)) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name}'s exoskeleton doesn't budge.` }); return; }   // learned forms: Exoskeleton
       if (t.boss && bossRules?.displacementBlocked(t)) { log(s, { kind:"resist", actor:a.id, target:t.id, tiles:footprint(t), text:`${t.name} holds its ground against the ${direction}.`, why:["The boss rules make this massive body immune to displacement."] }); return; }
       if (t.form?.golden) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x,t.y]], text: `${t.name} hovers beyond the ${direction}.`, why: ["The Integrated Self ignores forced movement."] }); return; }

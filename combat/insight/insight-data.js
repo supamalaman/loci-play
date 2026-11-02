@@ -261,6 +261,8 @@
     // a tamed creature), they answer in kind if they can, and their pets go for the other side's pets first (engine/ai.js).
     petFighting: { name: "Pet Fighting", text: "Loves making pets fight each other: answers a summon or a communed plant with one of their own, and sets theirs on the other side's.", difficulty: 2 },
     ambitious:      { name: "Ambitious", text: "Wants to be seen winning: goes for the biggest name and the finishing blow.", difficulty: 2 },
+    // Given by eating a fruit with the feat model on (Mala, 2026-11-01: a trait that encourages the techniques, for anyone who eats the fruit). Nobody spawns with it, nobody can imitate it.
+    fruitbound: { name: "Fruitbound", text: "The power is who they are. In a fight they reach for the fruit's techniques (Wind the Spring, Mainspring, Fog Bank, Vapour Step, Scent, Take the Shape) when the moment fits: the AI weighs each of them above what it costs, so they are pressed where a plain attack would otherwise always win. Given by eating a fruit; nobody is born with it.", open: true, formOnly: true },
     // The Cyborg form's two (docs/brain-chip.md). They exist only while the Brain Chip's form is up: bosses.js pushes
     // them on and takes them off. Nobody spawns with either.
     distributedIntelligence: { name: "Distributed Intelligence", category: "biology", text: "Thinks through its towers: its attacks reach as far, and see as much, from any of its drone towers as from where it stands. Nothing reaches it back through them.", open: true },
@@ -335,7 +337,8 @@
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
       "attentionToDetail", "culinaryTraining", "directorsVision", "knowsPeople", "methodActing", "focused", "scattered", "sampler", "adrenalineJunkie", "artist", "unendingChant", "shipsEngineer", "arcaneMastery",
       /* tsukumogami self-trait, 2026-10-29 */ "animist",
-      /* the Paladin, 2026-10-31 (PALADIN.md) */ "consecrated", "faithful", "compassionate"],
+      /* the Paladin, 2026-10-31 (PALADIN.md) */ "consecrated", "faithful", "compassionate",
+      /* the respec fruit, 2026-11-01 */ "fruitbound"],
     values: ["believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
       "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective"],
     state: ["complex", "unexplainedEvent"],
