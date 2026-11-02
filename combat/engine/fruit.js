@@ -21,6 +21,8 @@
 //   fruitResolve(s, a, inst)               → resolves Wind the Spring, Take the Shape, Fog Bank
 //   withHunter(opts, enc, arena)           → a posted head draws a hunter (moved here from engine.js for the line cap)
 //   hunterEntrance(s)                      → the log line when the hunter walks in
+//   refinedOf(a)                           → respec S2a: the Ripe techniques in the kit (Scent, Vapour Step), only with opts.fruit.respec and Ripe
+//   fruitRecoil(s, src, tgt, type, inst)   → respec S2a: Ripe Coilfruit's reaction, called once after an impact hit lands (damage.js)
 //   markFeat(s, a, id)                     → respec S1a: records a feat on s.fruitFeats (the account counts it at battle end, once per account)
 (function (root, install) {
   if (typeof module === "object" && module.exports) module.exports = install;
@@ -34,8 +36,12 @@
       coil: { impactTakenMul: 0.6, potencyPerCoil: 4, reachPerCoil: 1, maxCoils: 3 },
       mist: { driftMiss: 0.35, fogRadius: 1, fogRounds: 2 },
       hide: { tempShare: 0.25, tempCap: 25, turns: 3 },
+      // Respec S2a (refined, Ripe). Recoil is a reaction with no card: it spends the round's reaction and 4 ΦF on its own.
+      refined: { hide: ["scent"], mist: ["vapourStep"] },
+      recoil: { pf: 4, push: 1 }, scent: { radius: 3 }, vapour: { radius: 4 },
       steelWillAP: 10,
     };
+    const FRUIT_NAME = { coil: "Coilfruit", hide: "Hidefruit", mist: "Mistfruit" };
     const ab = (id) => C.abilities[id];
     const active = (x, a) => !!x && (x.until == null || x.until >= a.ownerTurns);
     const fruitOf = (a) => a?.fruit && RULES.kits[a.fruit.id] ? a.fruit : null;
@@ -50,17 +56,27 @@
     }
     const tally = (s, a, key) => { if (!tracking(s, a)) return 0; const c = (s.fruitTally ||= {}); const k = `${a.id}:${key}`; return (c[k] = (c[k] || 0) + 1); };
 
+    // Respec S4a: a rival eater is an ordinary enemy-side unit carrying one loose fruit (opts.rival = { fruit, ripe, character }). It gets the curse and the
+    // fruit's kit like the hero does, at Fresh (Ripe at tier 2). It earns no feats (tracking is hero-only).
+    function armRival(s, opts) {
+      const r = opts.rival, u = s.actors.rival; if (!r || !u || !RULES.kits[r.fruit]) return;
+      u.fruit = { id: r.fruit, ripe: !!r.ripe, respec: true, shapes: [] };
+      u.passives = { ...(u.passives || {}), cantSwim: true, drowningDamageMul: Math.max(u.passives?.drowningDamageMul || 1, RULES.drowningMul) };
+      log(s, { kind: "hunter", actor: "rival", text: `${s.actors.rival.name} walks in from the edge of the fight, carrying ${FRUIT_NAME[s.actors.rival.fruit.id] || "a fruit"}: another eater, and the sea refuses them too.`, why: ["Sinkerfruit: a loose fruit can be in someone else's hands. Water and cuffs quiet it; Steel will cuts through."] });
+    }
     function carryFruit(s, opts) {
+      armRival(s, opts);
       const f = opts.fruit; if (!f || !RULES.kits[f.id]) return;
       const hero = s.actors[s.modeSetup?.hero || "player"]; if (!hero) return;
       hero.fruit = { id: f.id, ripe: !!f.ripe, ...(f.respec ? { respec: true, shapes: [...(f.shapes || [])] } : {}) };
       // The curse. sinksLikeAStone (insight-data.js) already sinks a Super ×2.5: the larger multiplier wins, never both.
       hero.passives = { ...(hero.passives || {}), cantSwim: true, drowningDamageMul: Math.max(hero.passives?.drowningDamageMul || 1, RULES.drowningMul) };
     }
+    const refinedOf = (a) => { const f = fruitOf(a); return f?.respec && f.ripe ? RULES.refined[f.id] || [] : []; };
     function fruitKitOf(a) {
       const f = fruitOf(a); if (!f) return [];
       const shape = a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns ? a.status.hideShape.move : null;
-      return [...RULES.kits[f.id], ...(shape && ab(shape) ? [shape] : [])];
+      return [...RULES.kits[f.id], ...refinedOf(a), ...(shape && ab(shape) ? [shape] : [])];
     }
     function damped(s, a) {
       if (!fruitOf(a) || a.defeated) return "";
@@ -70,13 +86,39 @@
       return "";
     }
     // A fruit technique, or Hidefruit's borrowed move, is refused while damped; Take the Shape is greyed with nothing learned.
-    function fruitBlocked(s, a, id) {
+    function fruitBlocked(s, a, id, act) {
       const f = fruitOf(a); if (!f) return null;
-      const own = RULES.kits[f.id].includes(id) || (a.status?.hideShape?.move === id && a.status.hideShape.expiresAt > a.ownerTurns);
+      const own = RULES.kits[f.id].includes(id) || refinedOf(a).includes(id) || (a.status?.hideShape?.move === id && a.status.hideShape.expiresAt > a.ownerTurns);
       if (!own) return null;
       const why = damped(s, a); if (why) return why;
       if (id === "takeTheShape" && !(a.beastSummons || []).length) return "You know no shape yet: learn a creature by swallowing its beads.";
+      if (id === "scent") {
+        if (!(a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns)) return "Scent is the beast's nose: take a shape first.";
+        if (!hidden(s, a).length) return `Nothing hides within ${RULES.scent.radius} tiles.`;
+      }
+      if (id === "vapourStep") {
+        if (!fogAt(s, a.x, a.y)) return "Vapour Step starts in fog: stand in a fog tile.";
+        const at = act?.target; if (!at) return null;   // the card greys on position alone; the chosen tile is checked when it is aimed
+        if (!Array.isArray(at) || !fogAt(s, at[0], at[1])) return "Vapour Step lands in fog: choose a fog tile.";
+        if (dist(s, a.x, a.y, at[0], at[1]) > RULES.vapour.radius) return `Too far: Vapour Step reaches ${RULES.vapour.radius} tiles.`;
+        if (H.unitOccupied?.(s, at[0], at[1]) || H.tileAt(s, at[0], at[1])?.blocksMove) return "That fog tile is taken.";
+      }
       return null;
+    }
+    const fogAt = (s, x, y) => (s.barriers || []).some((b) => b.concept === "fog" && b.x === x && b.y === y);
+    const hidden = (s, a) => Object.values(s.actors).filter((u) => !u.defeated && u.side !== a.side && u.status?.concealed && (u.status.concealed.until == null || u.status.concealed.until >= u.ownerTurns) && dist(s, a.x, a.y, u.x, u.y) <= RULES.scent.radius);
+    // Ripe Coilfruit: an impact hit that lands while a coil is held stores one more (to 3) and shoves the attacker one tile. Reaction + 4 ΦF, once a round,
+    // so it cannot chain: a rival's own Recoil also spends its reaction. Quiet while damped, and for a hit that did nothing.
+    function fruitRecoil(s, src, tgt, type, inst) {
+      if (s.preview || !src || src.id === tgt.id || src.side === tgt.side || tgt.defeated || tgt.lf <= 0 || src.defeated || type !== "nigredo" || !inst || inst.carriesWill) return;   // a killing blow, a friend, a hazard and Steel will (it lands through the give) are not answered
+      if (fruitOf(tgt)?.id !== "coil" || !tgt.fruit.respec || !tgt.fruit.ripe) return;   // Ripe, with the feat model on
+      const n = tgt.status?.coils?.n || 0;
+      if (!n || !(tgt.reaction > 0) || tgt.pf < RULES.recoil.pf || damped(s, tgt)) return;
+      tgt.reaction -= 1; tgt.pf -= RULES.recoil.pf; tgt.status.coils = { n: Math.min(RULES.coil.maxCoils, n + 1) }; const at = [src.x, src.y];
+      markFeat(s, tgt, "coil.recoil");
+      log(s, { kind: "effect", actor: tgt.id, target: src.id, text: `${tgt.name} recoils: ${n === RULES.coil.maxCoils ? `the coils are already full (${n})` : `${tgt.status.coils.n} coil${tgt.status.coils.n === 1 ? "" : "s"} stored`}.`, why: [`Coilfruit, Ripe: an impact hit that lands on a held coil is answered for ${RULES.recoil.pf} ΦF and the round's reaction: one more coil (to ${RULES.coil.maxCoils}), and the attacker pushed ${RULES.recoil.push} tile unless it holds its ground.`] });
+      if (!src.defeated) H.knock?.(s, tgt, src, RULES.recoil.push, inst, "push");
+      if (src.x !== at[0] || src.y !== at[1]) log(s, { kind: "effect", actor: tgt.id, target: src.id, tiles: [[src.x, src.y]], text: `${src.name} is shoved back to (${src.x},${src.y}).` });
     }
     function fruitRegen(s, a, regen) {
       if (!damped(s, a)) return regen;
@@ -158,26 +200,41 @@
         log(s, { kind: "effect", actor: a.id, tiles: [[tx, ty]], text: `${a.name} lays a fog bank on (${tx},${ty}): sight fails in a ${2 * r + 1}×${2 * r + 1} square for ${rounds} rounds.`, why: ["Mistfruit: fog blocks sightlines and doesn't block movement."] });
         return true;
       }
+      if (id === "scent") {
+        const seen = hidden(s, a); markFeat(s, a, "hide.scent");
+        for (const u of seen) { delete u.status.concealed; log(s, { kind: "reveal", actor: a.id, target: u.id, tiles: [[u.x, u.y]], text: `${a.name} scents ${u.name} out at (${u.x},${u.y}): revealed.`, why: ["Hidefruit, Ripe: the borrowed nose finds anyone hiding within 3 tiles."] }); }
+        return true;
+      }
+      if (id === "vapourStep") {
+        const [tx, ty] = inst.tiles?.[0] || [a.x, a.y], from = [a.x, a.y];
+        a.x = tx; a.y = ty; a.moved = true; markFeat(s, a, "mist.vapour");
+        log(s, { kind: "move", actor: a.id, path: [from, [tx, ty]], text: `${a.name} steps through the fog to (${tx},${ty}).`, why: ["Mistfruit, Ripe: from fog to fog within 4 tiles, no line needed. It is a step: it provokes nothing."] });
+        H.applyEntryEffects?.(s, a, a, tx, ty);
+        return true;
+      }
       return false;
     }
     // OP1 §6 (moved out of engine.js, the line cap): a posted head draws a hunter, about one battle in eight. Skips silently with no
     // free edge tile or a feuding crew ("up to"). Returns opts, with the hunter added to the participants when it fits.
     function withHunter(opts, enc, arena) {
-      if (!(opts.hunter && C.characters[opts.hunter])) return opts;
+      return withEdge(withEdge(opts, enc, arena, "hunter", opts.hunter), enc, arena, "rival", opts.rival?.character, !!(opts.rival?.fruit && RULES.kits[opts.rival.fruit]));
+    }
+    function withEdge(opts, enc, arena, id, character, allowed = true) {   // a hunter or a rival eater walks in from the edge (S4a moved the body here so both share it)
+      if (!(character && allowed && C.characters[character])) return opts;
       const base = opts.participants || enc.actors;
-      if (base.some((p) => p.id === "hunter")) return opts;
-      const crew = base.filter((p) => (p.side || C.characters[p.character]?.side) === "enemy").map((p) => p.character);
+      if (base.some((p) => p.id === id)) return opts;
+      const crew = base.filter((p) => (p.side || C.characters[p.character]?.side) === "enemy").map((p) => p.character);   // (hunter) the crew he must not feud with
       const taken = new Set(base.map((p) => ((opts.positions || {})[p.id] || p.at || []).join(",")));
       const free = (x, y) => y >= 0 && y < arena.map.length && x >= 0 && x < arena.map[y].length && !C.tiles[arena.map[y][x]]?.blocksMove && !taken.has(`${x},${y}`);
       let at = (arena.spawns?.enemy || []).find((t) => free(t[0], t[1]));
       if (!at) outer: for (let x = arena.map[0].length - 1; x >= 0; x--) for (let y = 0; y < arena.map.length; y++) if (free(x, y)) { at = [x, y]; break outer; }
-      if (at && (!H.Factions || H.Factions.fits(C.rules, opts.hunter, crew)))
-        return { ...opts, participants: [...base, { id: "hunter", character: opts.hunter, side: "enemy", hunter: true, at: at.slice() }] };
+      if (at && (!H.Factions || H.Factions.fits(C.rules, character, crew)))
+        return { ...opts, participants: [...base, { id, character, side: "enemy", [id]: true, at: at.slice() }] };
       return opts;
     }
     function hunterEntrance(s) {
-      if (s.actors.hunter) log(s, { kind: "hunter", actor: "hunter", text: `${s.actors.hunter.name} walks in from the edge of the fight: the Record pays for your head, and they mean to collect.`, why: ["Sinkerfruit: a posted head draws a hunter, about one battle in eight."] });
+      if (s.actors.hunter) log(s, { kind: "hunter", actor: "hunter", text: `${s.actors.hunter.name} walks in from the edge of the fight: the Record pays for your head, and they mean to collect.`, why: ["Sinkerfruit: a posted head draws a hunter (how often, and who, follows the bounty)."] });
     }
-    return { withHunter, hunterEntrance, markFeat, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitRelease, fruitReach, fruitSoak, fruitResolve };
+    return { withHunter, hunterEntrance, markFeat, refinedOf, fruitRecoil, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitRelease, fruitReach, fruitSoak, fruitResolve };
   })();
 });

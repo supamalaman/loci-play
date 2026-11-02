@@ -355,6 +355,10 @@
 .cc-gleam-heirloom { box-shadow:0 0 8px 2px #ffd98a99; }
 .cc-gleam-saga { box-shadow:0 0 10px 2px #e6b3ffaa, 0 0 4px 1px #fff6; }
 .cc-gleam-gold { box-shadow:0 0 8px 2px #ffd700aa, 0 0 3px 1px #fff8dc66; }
+.cc-emp-amber { box-shadow:0 0 8px 2px #e8a33daa; }   /* EM1: humble */
+.cc-emp-green { box-shadow:0 0 8px 2px #4caf6daa; }   /* EM1: steadfast */
+.cc-emp-white { box-shadow:0 0 8px 2px #f5f5f5aa, 0 0 3px 1px #fff6; }   /* EM1: noble */
+.cc-emp-prismatic { box-shadow:0 0 8px 2px #c792eaaa, 0 0 8px 4px #7fdbff66; }   /* EM1: mythic */
 
 /* Hover card: what you know about a unit (insight/hover.js) */
 .cc-hovercard { margin-top: 6px; padding-top: 6px; border-top: 1px solid #5a546688; }

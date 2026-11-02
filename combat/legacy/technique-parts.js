@@ -2327,6 +2327,16 @@
         "fruit:coil"
       ]
     },
+    "scent": {
+      "riders": [
+        "fruit:hide"
+      ]
+    },
+    "vapourStep": {
+      "riders": [
+        "fruit:mist"
+      ]
+    },
     "snapBack": {
       "riders": []
     },
@@ -2888,7 +2898,8 @@
     mon_galvanicSlam: {riders:["knockback"]},
     mon_infectiousBite: {riders:["infect"]},
     mon_pounce: {riders:["leap"]},
-    mon_chillingWail: {riders:["ap-loss"]}
+    mon_chillingWail: {riders:["ap-loss"]},
+    mon_broodBite: {riders:[]}
   });
   TECHNIQUE_IDS = Object.keys(PARTS).sort();
   const clone = x => x == null ? null : JSON.parse(JSON.stringify(x));

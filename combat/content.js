@@ -114,6 +114,8 @@
       // tile and throw it up to `range` tiles. A thrown opponent takes `damage` (times `heldMul` if it was held, which
       // also ends the hold); whoever it is thrown at takes `impact`, or `objectDamage` from a thrown object. Claude's numbers.
       fulcrumThrow: { ap: 40, range: 3, damage: 10, impact: 8, objectDamage: 12, heldMul: 1.5, liftable: ["boulder", "log", "crate", "barrel"] } },
+    // The Insect Kaiju calls Brood Mites (Mala, 2026-11-01): 2 alive at a time, 4 in all; a mite killed after its mother falls may leave a bead (5%).
+    brood: { boss: "kaiju", kind: "broodMite", maxAlive: 2, maxTotal: 4, ap: 40, perRound: 1, aiScore: 20, beadChance: 0.05, maxHeld: 4 },
     enemySummons: { apCost: 50, phiCost: 6, minRange: 2, maxRange: 4, turns: 3, traits: ["arcaneMastery"] },   // traits: also an NPC summoner, at the plain price (Mala, 2026-10-27: "The wizard ... should be able to do the normal NPC summons, the non-palace ones: the vampire, Frankenstein")
     imagination: { rehearsalHints: 1, shelterWard: 8, possibilityWard: 10, summonTurnAdd: 1 },
     // Longtermism (Mala, 2026-10-21). Provisional. A resolved tagged technique rolls once. Children of the Future
@@ -883,6 +885,13 @@
     fogBank: { name: "Fog Bank", tier: "refined", concepts: ["stealth"], delivery: "placed", target: "tile", area: { shape: "radius", radius: 1 }, cost: 6, range: 3, potency: 0, effect: "fruit", effectCategory: "constructive",
       mechanism: "Mistfruit: fog in a 3×3 square for 2 rounds. It blocks sightlines and doesn't block movement. Mistfruit's Drift: a strike that doesn't carry will misses 35%.",
       reveal: "Weather that answers to someone.", counter: "Steel will lands through Drift; soak the Mistfruit to still the weather.", teaches: "You can't fight what you can't see; you can still fight what you can't hit with resolve." },
+    // Sinkerfruit refined techniques (respec S2a): in the hero's kit only at Ripe, and only when the feat model runs (opts.fruit.respec).
+    scent: { name: "Scent", tier: "refined", fruitOnly: true, concepts: ["discovery"], delivery: "self", target: "self", area: { shape: "single" }, cost: 3, tempoCost: 0, range: 0, potency: 0, effect: "fruit", effectCategory: "conditional",
+      mechanism: "Hidefruit, Ripe: while you wear a borrowed shape, 3 ΦF and no action points reveal every concealed foe within 3 tiles. Greyed with no shape, or with nobody hidden in reach.",
+      reveal: "The beast's nose knows who is hiding.", counter: "Water ends the shape and the power; a foe can hide again after it is revealed.", teaches: "A borrowed body brings its senses with it." },
+    vapourStep: { name: "Vapour Step", tier: "refined", fruitOnly: true, concepts: ["stealth"], delivery: "placed", target: "tile", area: { shape: "single" }, cost: 5, range: 4, tempoCost: 15, potency: 0, effect: "fruit", effectCategory: "conditional",
+      mechanism: "Mistfruit, Ripe: standing in fog, step to any empty fog tile within 4 tiles, no line needed. A step, not a leap: it provokes nothing, but what is on the tile you land on still happens.",
+      reveal: "Weather you can walk through.", counter: "Water takes the power; with no fog to land in the step is refused; Steel will lands through the Drift you keep.", teaches: "You can be where the weather is." },
     audition: { name: "Audition", tier: "basic", concepts: ["deception"], delivery: "signal", target: "self", area: { shape: "single" }, cost: 4, range: 0, potency: 0, effect: "classEffect", classKind: "actor", effectCategory: "conditional",
       mechanism: "Hold auditions: three villain classes answer (60% the last role holds a familiar slot). Play one for N turns, N its consecutive plays to a cap of 3: its pair techniques and mandatory class traits are yours, over your own.",
       reveal: "Audition plays a villain's kit for up to 3 turns; repeats build Typecast.", counter: "Force the revert early: the part ends when the run does.", teaches: "Every part is borrowed craft: wear it, then give it back." },
@@ -2123,6 +2132,7 @@
     mon("infectiousBite", "Infectious Bite", "pathway", { delivery: "contact", target: "enemy", area: { shape: "single" }, range: 1, potency: 8, damageType: "citrinitas" }, "8, and the target is infected: −3 LF at the end of each of its turns for 3 turns. Any heal cures it.");
     mon("pounce", "Pounce", "threshold", { delivery: "contact", target: "enemy", area: { shape: "single" }, range: 3, potency: 14, damageType: "albedo" }, "Leaps up to 3 tiles to land beside a target and strikes for 14.");
     mon("chillingWail", "Chilling Wail", "boundary", { delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, range: 0, potency: 6, damageType: "citrinitas" }, "Everyone within 2 takes 6 and loses 10 AP next turn.");
+    mon("broodBite", "Brood Bite", "diffusion", { delivery: "contact", target: "enemy", area: { shape: "single" }, range: 1, potency: 8, damageType: "citrinitas" }, "8 citrinitas to an adjacent target.");
   }
   const represented = (edges) => (edges || []).filter(e => (e.source === "section" || e.target === "section" || e.source === "collage" || e.target === "collage")
       && (concepts[e.source] || e.source === "*") && (concepts[e.target] || e.target === "*"))

@@ -27,7 +27,7 @@
   else root.ConceptCombatPoses = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const REQUIRED = ["idle", "walk", "cast", "block", "punch", "knocked-out"];
-  const OPTIONAL = ["cast-off", "cast-def", "dodge", "ultimate", "knockback", "dream-open", "knee", "hurt", "infatuated", "aura"];
+  const OPTIONAL = ["cast-off", "cast-def", "dodge", "ultimate", "knockback", "dream-open", "knee", "hurt", "infatuated", "aura", "rest", "form-change", "clash", "stance"];
   const FALLBACK = {
     "cast-off": ["cast"],            // single-art packages: the same cast art serves both
     "cast-def": ["cast"],
@@ -36,10 +36,15 @@
     "dream-open": ["cast-def", "cast"],   // no dream-opening art: the support cast (Muse, 2026-10-11)
     knockback: ["block"],            // no knockback art: the guard pose (Mala, 2026-10-10)
     enraged: [],                     // bosses only; others fall straight to idle
-    knee: [], hurt: [], infatuated: [], aura: [],   // condition idles: no art, plain idle (Mala, 2026-10-27)
+    knee: [], hurt: [], infatuated: [], aura: [],   // condition idles: no art, plain idle (Mala, 2026-10-27; EM1 spec said knee→KO but the ruling is newer)
+    rest: [],                        // EM1: no rest art, plain idle
+    "form-change": ["ultimate", "cast"],   // EM1
+    clash: ["punch"],                // EM1: no beam-clash art, the punch
+    stance: [],                      // EM1: no stance art, plain idle (idle-2 alternates ride variant())
   };
   const LABEL = { idle: "Idle", walk: "Walk", cast: "Cast", "cast-off": "Cast Off", "cast-def": "Cast Def", dodge: "Dodge", ultimate: "Ultimate", knockback: "Knockback", "dream-open": "Dream Open",
-    block: "Block", punch: "Punch", "knocked-out": "Knocked out", enraged: "Enraged", knee: "Knee", hurt: "Hurt", infatuated: "Infatuated", aura: "Aura" };
+    block: "Block", punch: "Punch", "knocked-out": "Knocked out", enraged: "Enraged", knee: "Knee", hurt: "Hurt", infatuated: "Infatuated", aura: "Aura",
+    rest: "Rest", "form-change": "Form Change", clash: "Clash", stance: "Stance" };
 
   function chain(slot) {
     const out = [slot, ...(FALLBACK[slot] || []), "idle"];

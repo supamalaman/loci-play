@@ -70,9 +70,19 @@
       drawback: { id: "boundToHaunt", name: "Bound to its haunt", text: "It can't leave the 3 tiles around where it appeared, and Observing it fully (its unfinished business) releases it: it departs.", haunt: 3 },
       teaches: "Boundary: a line that holds what's inside as much as it keeps things out.",
       counter: "Step outside its haunt. Or understand it: a fully Observed ghost leaves." }),
+
+    // The Insect Kaiju's offspring (Mala, 2026-11-01: the Kaiju keeps calling insects, 2 alive and 4 in all). Not a dream: it is called by the
+    // boss (engine/true-forms.js callBrood) and kept out of every dream pool (broodOnly). Numbers PROVISIONAL.
+    broodMite: M({ key: "broodMite", name: "Brood Mite", concept: "diffusion", beliefTier: 9, broodOnly: true, lf: 40, move: 3, sprite: "combat/sprites/brood-mite", art: "~/Downloads/CUT - Insect Kaiju Brood Mite Sprite Sheet.png",
+      passive: { id: "broodBound", name: "Brood-bound", text: "It is the Insect Kaiju's. While its mother stands, the capture ritual refuses it; once she has fallen it can be taken into a bead at any LF." },
+      ability: { id: "broodBite", name: "Brood Bite", delivery: "contact", range: 1, channel: "citrinitas", potency: 8,
+        text: "8 to an adjacent target." },
+      drawback: { id: "fragile", name: "Fragile", text: "Only 40 LF: two good hits end it." },
+      teaches: "Diffusion: what spreads from one body is many small ones, and each is easy to stop.",
+      counter: "Spreading effects (a cone, a line, fire) hit several at once. Once the mother falls, take one into a bead." }),
   };
 
-  const pools = { classic: Object.keys(monsters) };
+  const pools = { classic: Object.keys(monsters).filter((k) => !monsters[k].broodOnly) };
   // Which pool each enemy character dreams from (defaults to classic).
   const dreamerPools = {};
 

@@ -1,0 +1,12 @@
+{
+  "size_class": "small",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 0.5,
+  "world_height_definition": "Mala, 2026-11-01: half a person's height (a person = 1.0). The PNGs are drawn at person-scale resolution.",
+  "runtime_consumed": false,
+  "source": "Insect Kaiju Brood Mite Sprite Sheet.png (claude-brood-mite-cut-build, Anchor BD)",
+  "note": "Nothing in web/combat reads size_class or world_height yet (the Raven familiar build wires the draw scale); a Brood Mite draws at full size until then."
+}

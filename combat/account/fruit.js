@@ -20,6 +20,8 @@
 // Wanted + sale (OP1 §6-7, codex-sinkerfruit-wanted; Mala OP-Q1: Wanted rides inside OP1):
 //   posted(account)                → the live player bounty or null
 //   hunterFor(account, { seed })   → a hunter roster id (~1 battle in 8 while posted), or null
+//   settleRival(account, { fruit, defeated, won, seed }) → respec S4b: a beaten rival's fruit surfaces in the stash 1 time in 4, else slips back into the tide
+//   encounterFor(account, { seed }) → { hunter, rival }: respec S4a, who comes this battle (a rival eater carries a loose fruit)
 //   sellFruit(account, id)         → { ok, account, line } (stash → sold, 400 owed by the tide)
 //   settleFruit(account, opts)     → { account, lines } (installments, sold returns, hunter purse, loss claim, ripe raise)
 // Respec S1a (Tiller BD, 2026-11-01; spec claude-sinkerfruit-respec-spec "Rev 2026-11-01"; Mala: "start working on the fruit slices").
@@ -28,6 +30,11 @@
 //   masteryOf(account)             → { feats: [], shapes: [] } (a fresh one when the account has none)
 //   stage(account)                 → null (no fruit) | "fresh" | "ripe" | "awakened"
 //   settleFeats(account, { feats, shapes, won, shaped, drained, test }) → { account, lines } counts each feat once per account
+// Respec S3 (Tiller BD, 2026-11-01), same flag: the bounty climbs with Fame and deeds, tiered hunters, a purse that follows the bounty.
+//   bountyFor(account)             → min(300, 20 + 15 x fame + 10 x hunters beaten + 20 x bosses beaten + 10 if Ripe + 25 if Awakened)
+//   tierOf(amount)                 → 0 (under 60) | 1 (60-149) | 2 (150+); hunterFor reads it (chance and who comes)
+//   purseFor(account)              → max(30, min(55, round(0.3 x bounty))), through the bingo faucet
+//   deedsOf(account)               → { hunters, bosses } beaten in real battles since eating (cleared by a saga close)
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatFruit = factory();
@@ -40,7 +47,11 @@
   const RULES = { dropPerWin: 1 / 40, ripeAfter: 30,
     wantedPost: 20, wantedRipe: 30, hunterPerBattle: 1 / 8, purse: 30,
     salePrice: 400, installment: 50, soldReturnAfter: 40,
-    respec: false, ripeFeats: 3, awakenFeats: 6 };   // respec: false = the 30-battle timer exactly as landed; true = feats ripen and awaken the fruit
+    respec: false, ripeFeats: 3, awakenFeats: 6,
+    bounty: { base: 20, perFame: 15, perHunter: 10, perBoss: 20, ripe: 10, awakened: 25, cap: 300 },
+    tiers: [{ min: 0, chance: 1 / 8, pool: null }, { min: 60, chance: 1 / 6, pool: ["detective", "samurai", "knight"] }, { min: 150, chance: 1 / 5, pool: ["detective", "samurai", "knight"] }],
+    rival: { chance: 1 / 25, winChance: 1 / 4, characters: ["detective", "samurai", "knight"] },   // S4a: who carries a loose fruit, and how often a random battle fields one
+    purseRule: { min: 30, max: 55, share: 0.3 } };   // respec: false = the 30-battle timer exactly as landed; true = feats ripen and awaken the fruit
   const HUNTERS = ["fbi_agent", "tactical_operative", "cloaked_drifter"];
   const FRUITS = {
     coil: { name: "Coilfruit", family: "body", line: "A coiled, spiral-skinned fruit. Your body learns to give and to spring back: impact ×0.6, and Wind the Spring." },
@@ -67,6 +78,15 @@
     return n >= RULES.awakenFeats ? "awakened" : n >= RULES.ripeFeats ? "ripe" : "fresh";
   };
   const ripe = (account) => (RULES.respec ? ["ripe", "awakened"].includes(stage(account)) : timerRipe(account));
+  // S3: Fame is read through ONE accessor (the Fame F0b wiring swaps its source for the level, 0-5 or 0-8 with the perk); today it is account.fame.
+  const fameOf = (account) => Math.max(0, Math.floor(account?.fame || 0));
+  const deedsOf = (account) => ({ hunters: account?.fruitDeeds?.hunters || 0, bosses: account?.fruitDeeds?.bosses || 0 });
+  function bountyFor(account) {
+    const B = RULES.bounty, d = deedsOf(account), st = stage(account);
+    return Math.min(B.cap, B.base + B.perFame * fameOf(account) + B.perHunter * d.hunters + B.perBoss * d.bosses + (st === "ripe" ? B.ripe : 0) + (st === "awakened" ? B.ripe + B.awakened : 0));
+  }
+  const tierOf = (amount) => (amount >= RULES.tiers[2].min ? 2 : amount >= RULES.tiers[1].min ? 1 : 0);
+  const purseFor = (account) => Math.max(RULES.purseRule.min, Math.min(RULES.purseRule.max, Math.round(RULES.purseRule.share * (posted(account)?.amount ?? bountyFor(account)))));
   // A fruit already ripe by the timer keeps Ripe when the feat model comes on: it is credited the three feats (spec section 2).
   function migrateMastery(account) {
     if (!RULES.respec || !eaten(account) || account.fruitMastery) return account;
@@ -96,8 +116,8 @@
   // FNV-1a, the same shape loot.js rolls with; account.battles is mixed in because designed encounters all have seed 0.
   function roll(seed, tag) { let h = 2166136261; for (const c of `${seed}:${tag}`) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 100000) / 100000; }
 
-  function rollDrop(account, { seed = 0 } = {}) {
-    const pool = poolOf(account), free = IDS.filter((id) => pool[id] === "pool");
+  function rollDrop(account, { seed = 0, abroad = null } = {}) {   // abroad (S4a): a fruit a rival carries this battle is not in the pool: one copy in the world
+    const pool = poolOf(account), free = IDS.filter((id) => pool[id] === "pool" && id !== abroad);
     if (!free.length) return { account, dropped: null, line: "" };
     const n = account?.battles || 0;
     if (roll(seed, `fruit:${n}`) >= RULES.dropPerWin) return { account, dropped: null, line: "" };
@@ -105,8 +125,8 @@
     return { account: { ...account, fruitPool: { ...pool, [id]: "stash" } }, dropped: id,
       line: `A strange fruit washes up in the spoils: ${FRUITS[id].name}. It tastes like the end of something. (Field Kit: Eat, if you dare.)` };
   }
-  function afterBattle(account, { won = false, test = false, seed = 0 } = {}) {
-    return won && !test ? rollDrop(account, { seed }) : { account, dropped: null, line: "" };
+  function afterBattle(account, { won = false, test = false, seed = 0, abroad = null } = {}) {
+    return won && !test ? rollDrop(account, { seed, abroad }) : { account, dropped: null, line: "" };
   }
   function eat(account, id) {
     if (!FRUITS[id]) return { ok: false, error: "That isn't a fruit you hold." };
@@ -114,15 +134,15 @@
     if (eaten(account)) return { ok: false, error: `Your body has one sea in it already (${FRUITS[eaten(account).id].name}). A second fruit is refused.` };
     const next = { ...account, fruit: { id, eatenAt: account.battles || 0 }, fruitPool: { ...poolOf(account), [id]: "eaten" } };
     const B = bingoLib(), store = next.bingo?.bounties ? next.bingo : B.createStore();   // §6: eating posts your head (Bingo's first live caller)
-    B.post(store, { head: "player", poster: "the Record", amount: RULES.wantedPost, battle: account.battles || 0 });
+    B.post(store, { head: "player", poster: "the Record", amount: RULES.respec ? bountyFor(next) : RULES.wantedPost, battle: account.battles || 0 });
     return { ok: true, account: { ...next, bingo: store },
-      line: `You eat ${FRUITS[id].name}. A power wakes in you, and the water will never hold you up again. The Record posts your head: ${RULES.wantedPost} Seeds. Hunters will come.` };
+      line: `You eat ${FRUITS[id].name}. A power wakes in you, and the water will never hold you up again. The Record posts your head: ${RULES.respec ? bountyFor(next) : RULES.wantedPost} Seeds. Hunters will come.` };
   }
   const battleOpts = (account) => (eaten(account) ? { id: eaten(account).id, ripe: ripe(account), ...(RULES.respec ? { respec: true, shapes: masteryOf(account).shapes } : {}) } : null);
   function returnToTide(account) {
     const f = eaten(account); if (!f) return { account, line: "" };
     const next = { ...account, fruit: null, fruitPool: { ...poolOf(account), [f.id]: "pool" } };
-    if (RULES.respec) delete next.fruitMastery;   // a closed saga is a new story: the feats go with it (spec section 2)
+    if (RULES.respec) { delete next.fruitMastery; delete next.fruitDeeds; }   // a closed saga is a new story: the feats go with it (spec section 2)
     if (next.bingo?.bounties?.player) {   // a closed saga is a new story: the Record strikes your name, hunters stop
       delete next.bingo.bounties.player;
       next.bingo.log.push("your saga closes: the Record strikes your name. The sea forgets you.");
@@ -133,8 +153,33 @@
   function hunterFor(account, { seed = 0 } = {}) {
     if (!posted(account)) return null;
     const n = account?.battles || 0;
-    if (roll(seed, `hunter:${n}`) >= RULES.hunterPerBattle) return null;
-    return HUNTERS[Math.floor(roll(seed, `hunter-pick:${n}`) * HUNTERS.length)];
+    const tier = RULES.respec ? RULES.tiers[tierOf(posted(account).amount)] : { chance: RULES.hunterPerBattle, pool: null };   // respec: the posted head sets who comes and how often
+    if (roll(seed, `hunter:${n}`) >= tier.chance) return null;
+    const pool = tier.pool || HUNTERS;
+    return pool[Math.floor(roll(seed, `hunter-pick:${n}`) * pool.length)];
+  }
+  // S4a: the world holds the loose fruit. Who comes this battle: { hunter, rival }. Flag off: the landed hunter roll and nothing else. Respec: tiers 0 and 1
+  // roll a rival eater 1 in 25 (never in the same battle as a hunter); tier 2's hunter slot draws a rival instead of a hunter, Ripe, while a fruit is loose.
+  // Only a fruit in the pool is loose: stashed, eaten and sold fruit are not, and the Locusfruit never is (it is not in the pool).
+  const looseFruit = (account) => IDS.filter((id) => poolOf(account)[id] === "pool");
+  function encounterFor(account, { seed = 0 } = {}) {
+    const hunter = hunterFor(account, { seed });
+    const free = RULES.respec ? looseFruit(account) : [];
+    if (!free.length) return { hunter, rival: null };
+    const n = account?.battles || 0, tier = posted(account) ? tierOf(posted(account).amount) : 0;
+    const rival = (ripe) => ({ fruit: free[Math.floor(roll(seed, `rival-fruit:${n}`) * free.length)], ripe, character: RULES.rival.characters[Math.floor(roll(seed, `rival-who:${n}`) * RULES.rival.characters.length)] });
+    if (hunter && tier === 2) return { hunter: null, rival: rival(true) };
+    if (!hunter && tier < 2 && roll(seed, `rival:${n}`) < RULES.rival.chance) return { hunter: null, rival: rival(false) };
+    return { hunter, rival: null };
+  }
+  // S4b: beat the rival and the fruit it carried can wash up in your stash (1 in 4; the one-fruit rule and the 40-battle sale still apply to it from there);
+  // otherwise it slips back into the tide. A rival that was not beaten, or a battle you lost, says nothing: the fruit never left the pool.
+  // "Beaten" is a kill by the player's side: not a rival that was bribed or frightened away (escaped, no killer), not the sea or a trap, not a Parley turn.
+  const rivalBeaten = (rival, actors = {}) => !!rival?.defeated && !rival.escaped && !rival.persuaded && actors[rival.defeatedBy]?.side === "player";
+  function settleRival(account, { fruit = null, defeated = false, won = false, test = false, seed = 0 } = {}) {
+    if (!RULES.respec || test || !fruit || !FRUITS[fruit] || !defeated || !won || poolOf(account)[fruit] !== "pool") return { account, lines: [] };
+    if (roll(seed, `rival-spoil:${account?.battles || 0}`) >= RULES.rival.winChance) return { account, lines: [`${FRUITS[fruit].name} slips back into the tide.`] };
+    return { account: { ...account, fruitPool: { ...poolOf(account), [fruit]: "stash" } }, lines: [`${FRUITS[fruit].name} washes up in the spoils.`] };
   }
   function sellFruit(account, id) {
     if (!FRUITS[id]) return { ok: false, error: "That isn't a fruit you hold." };
@@ -143,7 +188,7 @@
     return { ok: true, account: { ...account, fruitPool: { ...poolOf(account), [id]: "sold" }, fruitSales: sales },
       line: `You sell ${FRUITS[id].name} by the tide: ${RULES.salePrice} Seeds, ${RULES.installment} a battle. The tide pays slow but pays.` };
   }
-  function settleFruit(account, { test = false, hunterDown = false, hunterName = "a hunter", lost = false, submitted = false } = {}) {
+  function settleFruit(account, { test = false, hunterDown = false, hunterName = "a hunter", lost = false, submitted = false, bossesDown = 0 } = {}) {
     const lines = [];
     if (test) return { account, lines };
     let a = account;
@@ -166,7 +211,7 @@
       }
     }
     if (hunterDown) {   // §6: beating a hunter pays the purse through the bingo faucet
-      const r = M.capped("bingo", RULES.purse);
+      const r = M.capped("bingo", RULES.respec ? purseFor(a) : RULES.purse);
       a = { ...a, seeds: (a.seeds || 0) + r.seeds };
       lines.push(`You beat ${hunterName}: ${r.seeds} Seeds of hunter's purse.`);
     }
@@ -174,12 +219,24 @@
       const c = B.claim(a.bingo, { head: "player", hunter: hunterName, proof: { result: submitted ? "submitted" : "defeated" }, battle: n });
       if (c.ok) lines.push(`${hunterName} claims your head (${c.tier}). The bounty clears.`);
     }
-    if (ripe(a) && posted(a)?.amount === RULES.wantedPost) {   // §8: ripening raises the posting
+    if (RULES.respec && eaten(a)) {   // S3: count the deeds (real battles only: settleFruit never runs for test battles), then post the head at the formula
+      const d = deedsOf(a), hd = d.hunters + (hunterDown && !lost ? 1 : 0), bd = d.bosses + (bossesDown > 0 ? bossesDown : 0);
+      if (hd !== d.hunters || bd !== d.bosses) a = { ...a, fruitDeeds: { hunters: hd, bosses: bd } };
+      const want = bountyFor(a), store = a.bingo?.bounties ? a.bingo : B.createStore(), cur = store.bounties.player;
+      if (!cur) {   // a claim cleared the head: you are still an eater, so the Record posts it again at the formula
+        B.post(store, { head: "player", poster: "the Record", amount: want, battle: n });
+        a = { ...a, bingo: store }; lines.push(`The Record posts your head again: ${want} Seeds.`);
+      } else if (cur.amount !== want) {
+        const up = want > cur.amount; cur.amount = want; store.log.push(`the Record ${up ? "raises" : "lowers"} your head to ${want}.`);
+        a = { ...a, bingo: store }; lines.push(`The Record ${up ? "raises" : "lowers"} your head to ${want} Seeds.`);
+      }
+    }
+    if (!RULES.respec && ripe(a) && posted(a)?.amount === RULES.wantedPost) {   // §8: ripening raises the posting
       posted(a).amount = RULES.wantedRipe;
       a.bingo.log.push(`the Record raises your head to ${RULES.wantedRipe}.`);
       lines.push(`The Record raises your head to ${RULES.wantedRipe} Seeds.`);
     }
     return { account: a, lines };
   }
-  return { RULES, FEATS, masteryOf, stage, settleFeats, FRUITS, HUNTERS, poolOf, stashOf, eaten, ripe, rollDrop, afterBattle, eat, battleOpts, returnToTide, posted, hunterFor, sellFruit, settleFruit };
+  return { RULES, FEATS, masteryOf, stage, settleFeats, bountyFor, tierOf, purseFor, deedsOf, FRUITS, HUNTERS, poolOf, stashOf, eaten, ripe, rollDrop, afterBattle, eat, battleOpts, returnToTide, posted, hunterFor, encounterFor, settleRival, rivalBeaten, sellFruit, settleFruit };
 });

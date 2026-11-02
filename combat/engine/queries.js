@@ -204,6 +204,7 @@
       return (h >>> 0) / 4294967296;
     }
     function beliefSummonCandidate(s, a) {
+      if (a.boss === "kaiju") return H.broodCandidate(s, a);   // the Insect Kaiju calls its brood, nothing else (true-forms.js)
       if (EnemySummons?.qualifies(a)) return EnemySummons.candidate(s, a, { ...H, seededChance });
       const strength = a.beliefStrength || 1;
       if (a.side !== "enemy" || !a.passives.rareMonsterSummon || a.beliefSummonUsed

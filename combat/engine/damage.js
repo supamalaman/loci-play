@@ -606,11 +606,13 @@
         (s.pactCodes ||= []).push({ type: "pactBreach", line: pl, kind: "friendly-fire" });
         log(s, { kind: "summon", actor: tgt.id, text: `${tgt.name} storms home: struck by its own caller. The pact is BROKEN.` });
       }
+      if (dmg > 0) H.fruitRecoil?.(s, src, tgt, damageType, inst);   // Sinkerfruit (respec S2a): Ripe Coilfruit answers an impact hit
       if (tgt.lf <= 0 && !tgt.defeated && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt)) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
         tgt.defeated = true; delete tgt.status.playingDead; tgt.defeatedBy = src && src.id !== tgt.id ? src.id : null; for (const e of (H.Sealing?.onSealerDown?.(s, tgt) || [])) log(s, { kind: "seal", actor: e.foe, text: e.text });   // the killer, for the corpse (ritual burial; revenge later)   // W2.3: a dead sealer's binds drop
         H.pactLeave(s, tgt);   // a pact summon falls: downed, no standing; kill the caller: the call ends
         { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onDeath?.(s, tgt, src && src.id !== tgt.id ? src.id : null, H); }   // group spirit: a fallen leader shocks now (SPIRIT-ORDER SPEC)
         { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onDeath(s, tgt, H); }   // admiration: first falls, adjacent losses, ordered falls
+        if (tgt.form?.golden) { delete tgt.form.golden; log(s, { kind: "form", target: tgt.id, text: `${tgt.name}'s gold falls away: defeat strips the form.`, why: ["EM1: gold is a form you visit — the knocked-out renders base."] }); }   // EM1 defeat-revert
         if (tgt.possessedByCourt) H.courtVesselFell?.(s, tgt);   // the body dies as itself; the court steps out
         ClassRuntime?.Martial?.onDefeat(s, tgt, classH());   // Martial Artist: an ally's fall in her sight is rage
         if (tgt.boss === "worldGoddess") H.courtGoddessFell?.(s);
@@ -624,6 +626,7 @@
         if (Parley && Parley.isImmortal(tgt)) tgt.knockedOut = true;   // Immortal (Mala, 2026-10-08): knocked out, never killed
         if (H.Dispatch) H.Dispatch.onDefeat(s, H, tgt);
         log(s, { kind: "defeat", target: tgt.id, text: tgt.knockedOut ? `${tgt.name} is knocked out. Immortal: down, not dead.` : `${tgt.name} is defeated.` });
+        H.broodBeadDrop(s, tgt, src);                                               // a Brood Mite felled after its mother: a 5% bead
         H.riseOnDeath(s, tgt);                                                      // rules.risesOnDeath: a Pharaoh's Mummy
         tryDeathDoor(s, tgt);                                                       // summons: an unbidden defender may arrive
         if (tgt.boss && s.vignette && bossRules?.dropOrb) { s.vignette.bossOrb = bossRules.dropOrb(tgt); log(s,{kind:"bossReward",actor:tgt.id,text:`${bossRules.data.orbs[s.vignette.bossOrb]?.name || "A boss orb"} falls from ${tgt.name}.`}); }

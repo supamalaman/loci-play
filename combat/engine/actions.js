@@ -1105,6 +1105,7 @@
         }
       },
       monsterSummon(s, a, act) {
+        if (a.boss === "kaiju") return H.callBrood(s, a, act);   // the Insect Kaiju's brood: the only boss that summons (true-forms.js; content.js rules.brood)
         if (EnemySummons?.qualifies(a)) return EnemySummons.call(s, a, act, H);
         if (a.side !== "enemy" || !a.passives.rareMonsterSummon) return "Only an enemy with the Believer trait can call a wild creature.";
         if (a.beliefSummonUsed) return "This Believer has already called a monster in this battle.";
@@ -1309,7 +1310,10 @@
         const gaia = !mind && dreamt && dreamt.boss === "gaia" && !dreamt.defeated && dreamt.gaiaForm === "disturbed" && dreamt.side !== a.side ? dreamt : null;
         const m = mind || gaia || (s.wild || []).find(w => w.form === "unit" && w.x === tx && w.y === ty);
         if (!m) return dreamt?.boss === "gaia" ? "Gaia answers no chant while she keeps the accord: only the Wounded Ground can be bound." : "There is no monster there to capture.";
-        if (m.lf >= m.maxLF * RITUAL.weakBelow) return `It must be weakened below ${Math.round(RITUAL.weakBelow * 100)}% LF first.`;
+        if (m.dream?.source === "brood") {   // a Brood Mite: refused while its mother stands, then takeable at any LF (Mala, 2026-11-01)
+          if (!s.actors[m.dream.summoner]?.defeated) return "The brood answers its mother: take one only once she has fallen.";
+          if (H.broodHeld(a) >= (s.rules.brood?.maxHeld ?? 4)) return "You already hold as many Brood Mite beads as one hand can keep.";
+        } else if (m.lf >= m.maxLF * RITUAL.weakBelow) return `It must be weakened below ${Math.round(RITUAL.weakBelow * 100)}% LF first.`;
         if (a.ritual) return "You are already holding a ritual.";
         if (chanted(s, m.id)) return "Someone is already chanting over it.";
         if (dist(s, a.x, a.y, tx, ty) > RITUAL.range) return `The ritual reaches ${RITUAL.range} tiles.`;
@@ -2290,7 +2294,7 @@
         if ((a.sealedTechs || []).includes(act.ability)) return `${ab(act.ability)?.name || act.ability} is sealed by the court: cast nothing sealed.`
         if (a.status?.sealed && ab(act.ability)?.tier !== "basic") return `${ab(act.ability)?.name || act.ability} is sealed (${a.status.sealed.by || "debt"}): techniques and ults are closed; basics remain.`;   // W1.3: confiscation binds
         if (!abilitiesOf(a).includes(act.ability)) return "That ability isn't available with this loadout.";
-        { const sea = H.fruitBlocked?.(s, a, act.ability); if (sea) return sea; }   // Sinkerfruit: damped by water, soaking or cuffs
+        { const sea = H.fruitBlocked?.(s, a, act.ability, act); if (sea) return sea; }   // Sinkerfruit: damped by water, soaking or cuffs
         { const held = H.Tally?.heldReason(s, a, act.ability); if (held) return held; }   // collateral (engine/tally.js)
         if (Vows) { const no = Vows.refuses(s, a, "ability", ab(act.ability)); if (no) return no; }   // Vows: Single Mind, Burned Bridge
         if (Vows && act.ability === "audition") { const no = Vows.validate("role", act.vow, a, s.rules.inspiration, s); if (no) return no; }   // role vows ride the audition

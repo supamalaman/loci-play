@@ -219,6 +219,69 @@
       const risen = s.actors[raw.id]; risen.sprite = def.sprite; risen.side = fallen.side; risen.risenFrom = fallen.id;
       return risen;
     }
+    // The Insect Kaiju's brood (content.js rules.brood; Mala, 2026-11-01): at most `maxAlive` Brood Mites alive and `maxTotal` in all.
+    // A mite is a dream-monster actor of the boss's side (the Pharaoh's Mummy is the precedent), so the capture ritual, beads and the AI come with it.
+    const broodRules = (s) => s.rules.brood || null;
+    const broodMites = (s, boss) => Object.values(s.actors).filter((u) => u.dream?.source === "brood" && u.dream.summoner === boss.id);
+    function broodReady(s, a) {
+      const R = broodRules(s);
+      if (!R || a.boss !== R.boss || a.side !== "enemy" || a.defeated || a.lf <= 0 || !dreamSpaceRules?.makeEnemyDreamActor) return { ok: false, reason: "Only the Insect Kaiju calls the brood." };
+      const mites = broodMites(s, a), alive = mites.filter((u) => !u.defeated).length;
+      if (alive >= R.maxAlive) return { ok: false, reason: `${R.maxAlive} Brood Mites are alive already.` };
+      if ((a.broodCalled || 0) >= R.maxTotal) return { ok: false, reason: `The brood is spent: ${R.maxTotal} have been called this battle.` };
+      if (a.broodRound === s.round && (a.broodThisRound || 0) >= R.perRound) return { ok: false, reason: `It calls ${R.perRound} a round at most.` };
+      if (a.tempo < R.ap) return { ok: false, reason: `Calling the brood needs ${R.ap} action points.` };
+      return { ok: true, ap: R.ap };
+    }
+    // An open tile beside the boss's footprint.
+    function broodOpen(s, a, [x, y]) {
+      const own = footprint(a);
+      return Number.isInteger(x) && Number.isInteger(y) && inside(s, x, y) && !own.some(([ox, oy]) => ox === x && oy === y) && own.some(([ox, oy]) => Math.max(Math.abs(ox - x), Math.abs(oy - y)) === 1)
+        && !actorAt(s, x, y) && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !(s.wild || []).some((w) => w.form === "unit" && !w.defeated && w.x === x && w.y === y)
+        && !(s.arena.objects || []).some((o) => o.blocksMove && o.hp !== 0 && o.x === x && o.y === y);
+    }
+    function broodTile(s, a) {
+      const tiles = [];
+      for (const [fx, fy] of footprint(a)) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push([fx + dx, fy + dy]);
+      return tiles.filter((t) => broodOpen(s, a, t)).sort((p, q) => p[1] - q[1] || p[0] - q[0])[0] || null;
+    }
+    function broodCandidate(s, a) {
+      if (!broodReady(s, a).ok) return null;
+      const at = broodTile(s, a);
+      return at ? { type: "monsterSummon", actor: a.id, tiles: [at] } : null;
+    }
+    // Returns an error string (nothing spent) or undefined.
+    function callBrood(s, a, act) {
+      const ready = broodReady(s, a); if (!ready.ok) return ready.reason;
+      const at = Array.isArray(act.tiles) && act.tiles.length === 1 && Array.isArray(act.tiles[0]) ? act.tiles[0] : null;
+      if (!at || !broodOpen(s, a, at)) return "Choose an open tile beside the Kaiju.";
+      const spend = H.spendTempo(s, a, ready.ap, "Call the Brood"); if (spend) return spend;
+      const n = (a.broodCalled = (a.broodCalled || 0) + 1), R = broodRules(s);
+      a.broodThisRound = a.broodRound === s.round ? (a.broodThisRound || 0) + 1 : 1; a.broodRound = s.round;
+      const raw = dreamSpaceRules.makeEnemyDreamActor(R.kind, { at, round: s.round, summoner: a.id, id: `brood-${a.id}-${n}` });
+      raw.side = a.side; raw.dream.source = "brood";
+      registerDreamActor(s, raw, at, "dreamAppear", `${a.name} calls a ${raw.name} (${n} of ${R.maxTotal}).`);
+      const mite = s.actors[raw.id]; mite.sprite = "brood-mite"; mite.side = a.side; mite.broodOf = a.id;
+      return undefined;
+    }
+    // Once the mother has fallen, a mite that dies may leave a bead (content.js rules.brood.beadChance), once per mite, to the
+    // unit that struck the blow if it is on the player's side; the ritual (actions.js) is the sure way to a bead.
+    // Brood Mite beads one unit holds (Mala, 2026-11-01: 4 is fine).
+    const broodHeld = (u) => (u.beads || []).filter((b) => b.mind?.key === "broodMite").length;
+    function broodBeadDrop(s, fallen, by) {
+      const R = broodRules(s);
+      if (!R || fallen.dream?.source !== "brood" || fallen.captured || fallen.escaped) return null;
+      const mother = s.actors[fallen.dream.summoner];
+      if (!mother || !mother.defeated || !by || by.side === fallen.side) return null;
+      const owner = by.summon?.owner || by.companion?.owner || by.tamed?.owner, taker = owner ? s.actors[owner] : by;
+      if (!taker || taker.defeated || taker.side !== "player" || fallen.broodRolled || broodHeld(taker) >= R.maxHeld) return null;
+      fallen.broodRolled = true;
+      if (H.seededChance(`${s.seed}:brood-bead:${fallen.id}`) >= R.beadChance) return null;
+      (taker.beads ||= []).push({ kind: "dream", name: fallen.name, maxLF: fallen.maxLF, mind: { key: fallen.dream.key, character: fallen.character, sprite: fallen.sprite, primary: fallen.primary, secondary: fallen.secondary, monster: fallen.monster || null, dream: { ...fallen.dream } } });
+      (s.captureLog ||= []).push({ actor: taker.id, kind: `dream:${fallen.dream.key}`, ok: true, chance: true });
+      log(s, { kind: "ritual", actor: taker.id, tiles: [[fallen.x, fallen.y]], captured: `dream:${fallen.dream.key}`, text: `${taker.name} finds a bead where the ${fallen.name.toLowerCase()} fell.`, why: [`Once the mother has fallen, a Brood Mite that dies has a ${Math.round(R.beadChance * 100)}% chance to leave a bead.`] });
+      return taker;
+    }
     function registerDreamActor(s, raw, at, kind = "dreamAppear", text = null) {
       const id = raw.id;
       const dreamSprite = ({ many_mouths: "dream_hound", witness_vessel: "dream_witness", amber_host: "dream_amber", salt_heir: "dream_salt", unfinished_customer: "dream_customer", last_span: "last_span" })[raw.dream?.key] || "dream";
@@ -562,7 +625,7 @@
     }
 
     return { tendPlants, leashAction, trueFormFieldAt, syncTrueFormFields, applyTrueFormReveal, runTrueFormTechnique, applyTrueFormEffects, eatMushroom, fullCourtPressOptions,
-      riseOnDeath, closeDreamSummons, closeDreamTreeants, finishDreamUltimate, checkDreamCollapse, resolveDreamRound, registerDreamActor, resolveRandomDreamRift, resolveDreamAppearances, advance, communeAlly, awakenAlly, standFootprint, settleTsukumogami, applyGaiaBoons,
+      riseOnDeath, broodReady, broodCandidate, callBrood, broodBeadDrop, broodHeld, closeDreamSummons, closeDreamTreeants, finishDreamUltimate, checkDreamCollapse, resolveDreamRound, registerDreamActor, resolveRandomDreamRift, resolveDreamAppearances, advance, communeAlly, awakenAlly, standFootprint, settleTsukumogami, applyGaiaBoons,
       rootFallenPlants, checkOutcome, holdsOpen, sideKey };
   })();
 });

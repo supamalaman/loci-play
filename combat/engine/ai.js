@@ -1444,6 +1444,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         const best = ults.reduce((m, c) => Math.max(m, score(s, id, c)), -Infinity);
         return best >= R.ultBelow ? 0 : R.value;
       }
+      if (cand.type === "monsterSummon" && a.boss === "kaiju") return s.rules.brood?.aiScore ?? 20;   // the Kaiju's call: above a single blow, so a fallen mite is replaced while the brood lasts
       if (cand.type === "monsterSummon") return 8 + 2 * (a.beliefStrength || 1);   // a permanent ally beats preparations; stronger belief calls stronger monsters
       if (cand.type === "summon") {   // a palace summon buys whole extra turns: price above any single attack, below a cleanup (Mala, 2026-10-19)
         const foes = Object.values(s.actors).filter((t) => H.Instinct.standing(t) && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander");

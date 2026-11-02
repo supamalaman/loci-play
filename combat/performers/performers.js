@@ -24,7 +24,7 @@ const lastRoundTechnique=(s,H,u)=>{const acts=(s.log||[]).filter(e=>e.kind==='ac
  const status=u=>(u.status||={});
  const muted=a=>!!(a.defeated||(a.status?.silenced&&!(a.status.silenced.until<a.ownerTurns))||a.status?.stun||a.status?.held?.freedoms?.some(f=>['voice','breath'].includes(f))||a.stunTempo>0);
  function pool(a,C,refined=false){
-  return Object.entries(C.abilities).filter(([id,d])=>['basic',...(refined?['refined']:[])].includes(d.tier)&&!d.merge&&!d.pairs&&!d.classKind&&!IDS.has(id)&&d.concepts?.length&&d.concepts.every(c=>C.concepts[c]&&![a.primary,a.secondary,'lyricism'].includes(c))).map(([id])=>id).sort();
+  return Object.entries(C.abilities).filter(([id,d])=>['basic',...(refined?['refined']:[])].includes(d.tier)&&!d.merge&&!d.pairs&&!d.classKind&&!d.fruitOnly&&!IDS.has(id)&&d.concepts?.length&&d.concepts.every(c=>C.concepts[c]&&![a.primary,a.secondary,'lyricism'].includes(c))).map(([id])=>id).sort();
  }
  function draw(s,a,ids,count){
   const n=state(s).draws[a.id]||0;let seed=(s.seed^Math.imul(n+1,2654435761)^Math.imul(a.ownerTurns||0,1664525))>>>0;

@@ -571,7 +571,7 @@
   const ART = "~/Documents/Game Dev/concept-combat-art";
   const BOSS_SHEETS = "~/Downloads";
   const BOSS_POSES = ["idle", "walk", "cast", "block", "punch", "enraged", "knocked-out"];
-  const FORM_POSES = ["idle", "walk", "cast", "block", "punch", "knocked-out"];
+  const FORM_POSES = ["idle", "walk", "cast", "block", "punch", "knocked-out", "knee", "rest", "form-change", "clash"];
   const sprites = {
     poses: { boss: BOSS_POSES, form: FORM_POSES },
     bosses: {

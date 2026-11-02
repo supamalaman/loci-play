@@ -134,6 +134,7 @@
       if (visitor) { if (H.Visitors) H.Visitors.abduct(s, m, { log }); return checkOutcome(s); }   // Intergalactic visitors P1: up into the ship, not into a bead
       if (gaiaHeld || m.kind === "gaia") return bindGaia(s, a, m);   // Gaia: bound as a summon, not a bead
       if (mind) {   // a monster of the mind: it leaves the field as a bead, and will come back tamed
+        if (mind.dream?.source === "brood" && (a.beads || []).filter((b) => b.mind?.key === "broodMite").length >= (s.rules.brood?.maxHeld ?? 4)) { log(s, { kind: "ritual", actor: a.id, tiles: [[mind.x, mind.y]], ended: "full", text: `${a.name}'s hand is already full of Brood Mite beads: the chant ends and the ${mind.name.toLowerCase()} stays.` }); return checkOutcome(s); }   // the held cap also holds at the end of a chant begun below it
         mind.defeated = true; mind.escaped = true; mind.captured = true; mind.leaveReason = "taken into a bead"; mind.tempo = 0; spiritGone(s, mind);
         (a.beads ||= []).push({ kind: "dream", name: mind.name, maxLF: mind.maxLF, mind: { key: mind.dream.key, character: mind.character, sprite: mind.sprite, primary: mind.primary, secondary: mind.secondary, monster: mind.monster || null, dream: { ...mind.dream } } });
         (s.captureLog ||= []).push({ actor: a.id, kind: `dream:${mind.dream.key}`, ok: true });

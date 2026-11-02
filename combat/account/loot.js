@@ -53,12 +53,32 @@
   const catalog = (kind) => (kind === "equipment" ? I.equipment : I.consumables);
   const rarityMul = (level) => { let m = I.dropRules.rarityByLevel[0].mul; for (const r of I.dropRules.rarityByLevel) if (level >= r.level) m = r.mul; return m; };
 
+  // EP-01: what awakening adds on top of the base line, in words that match passives(). Empower numbers are TOTALS (Mala, 2026-11-01):
+  // an awakened piece uses item.empower.passive INSTEAD of the base for every key it names, and keeps the base for the rest, so
+  // "more" is total minus base and can be negative (emp below base reads "less"). One entry per key of item.empower.passive.
+  const EMP_ADD = { maxLFAdd: "max LF", pfRegenAdd: "ΦF regen", lineRangeAdd: "line range", strikeRangeAdd: "strike range", strikePotencyAdd: "strike potency", glamourAdd: "glamour", startingUltimateCharge: "% starting ultimate charge", knockbackResist: "shove resist", questionHint: "question hint" };
+  const EMP_MUL = { seedsMul: "Seeds earned", xpMul: "XP", objectDamageMul: "damage to objects", groundDamageMul: "ground damage", moveCostMul: "movement cost", fallDamageMul: "fall damage", climbCostMul: "climb cost" };
+  const sgn = (n) => `${n >= 0 ? "+" : "−"}${Math.abs(n)}`;
+  const pct = (m) => sgn(Math.round((m - 1) * 1000) / 10) + "%";
+  // soiled: the piece is at or under the warn line, where passives() halves glamour (base and empowered alike).
+  function empowerLines(id, { soiled = false } = {}) {
+    const it = I.equipment[id], emp = it?.empower?.passive;
+    if (!emp) return null;
+    return Object.entries(emp).map(([k, v0]) => {
+      const half = soiled && k === "glamourAdd", v = half && typeof v0 === "number" ? v0 / 2 : v0;
+      const base = half && typeof it.passive?.[k] === "number" ? it.passive[k] / 2 : it.passive?.[k];
+      if (typeof v === "number" && EMP_MUL[k]) return `${EMP_MUL[k]} ${pct(v)} in total (base ${pct(typeof base === "number" ? base : 1)})`;
+      if (typeof v === "number" && EMP_ADD[k]) { const b = typeof base === "number" ? base : 0, more = v - b, unit = EMP_ADD[k].startsWith("%") ? EMP_ADD[k] : ` ${EMP_ADD[k]}`; return `${more < 0 ? Math.abs(more) : sgn(more)}${unit} ${more < 0 ? "less" : "more"} (${sgn(v)}${unit} in total${half ? "; soiled, so glamour is halved" : ""})`; }
+      return v === true ? `gains ${k.replace(/([A-Z])/g, " $1").toLowerCase()}` : `${k}: ${v}`;
+    });
+  }
   function passives(account) {
     const a = withBags(account), out = { channelDamageMul: {} };
     for (const id of Object.values(a.gear.equipped)) {
       if (worn(a, id)) continue;                                        // worn-out gear does nothing until repaired
       const soiled = (a.gear.durability[id] ?? 99) <= I.rules.durability.warnAt;
-      const p = I.equipment[id]?.passive || {};
+      const emp = I.equipment[id]?.empower?.passive;   // EM1: awakened power (care 10+) REPLACES the base for the keys it names (totals); same stacking, no fragment double-dip
+      const p = emp && careScore(a.gear.care?.[id]) >= CARE.awaken ? { ...(I.equipment[id]?.passive || {}), ...emp } : (I.equipment[id]?.passive || {});
       const woke = I.equipment[id]?.fragment && careScore(a.gear.care?.[id]) >= CARE.awaken ? 2 : 1;   // SPEC muse-fragments: awakened fragments (care 10) double their passive
       for (let [k, v] of Object.entries(p)) {
         if (k === "glamourAdd" && soiled) v = v / 2;   // soil rule (W4.3): the shine fades before the cloth fails; repair restores the glow
@@ -207,7 +227,7 @@
     const giftBit = gift ? `${gift}${held ? "" : " (dormant)"}` : "";
     const voiced = card ? `${line} ${card}` : line;
     return { score, title: done ? done[1] : null, next: nextM ? { at: nextM[0], name: nextM[1] } : null, awakened: score >= CARE.awaken,
-      rarity, soul: r.soul || null, line: giftBit ? `${voiced} ${giftBit}` : voiced, record: r };
+      rarity, soul: r.soul || null, kind: (r.soul && r.soul.kind) || (JK ? JK.kindOf(r) : "humble"), line: giftBit ? `${voiced} ${giftBit}` : voiced, record: r };
   }
   // The cheapest sufficient way to tend one item now (JC1): kits by need (a full kit only for deep damage or a break), then the
   // smith's Seeds, then cherish (+1, once an item between battles). Broken items take full paths only.
@@ -482,5 +502,5 @@
     return { ...a, carried: [...a.carried.slice(0, i), ...a.carried.slice(i + 1)] };
   }
 
-  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, equip, unequip, passives, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, data: I };
+  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, equip, unequip, passives, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
 });
