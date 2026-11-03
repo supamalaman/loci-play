@@ -12,9 +12,9 @@
 //   appearancesAllowed(setup, snapshot)     → false once Total victory has no enemies left (no endless spawns)
 // Pure functions over the terrain modules' arena shape; the engine supplies snapshots.
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("../terrain/mapgen.js"), require("../terrain/terrain-data.js"));
-  else root.ConceptCombatModes = factory(root.ConceptCombatMapgen, root.ConceptCombatTerrain);
-})(typeof self !== "undefined" ? self : this, function (G, D) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("../terrain/mapgen.js"), require("../terrain/terrain-data.js"), require("./objectives.js"));
+  else root.ConceptCombatModes = factory(root.ConceptCombatMapgen, root.ConceptCombatTerrain, root.ConceptCombatObjectives);
+})(typeof self !== "undefined" ? self : this, function (G, D, OBJ) {
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const K = (x, y) => x + "," + y;
 
@@ -35,6 +35,9 @@
                     teaches: "Priority: spend actions on what decides the outcome." },
     warfare:      { name: "Warfare", text: "Player, enemy, and wild factions clash across a larger field. Outlast the other side; the animals fight everyone but do not have to be cleared.",
                     teaches: "Three-way conflict: threats can be redirected by letting rival factions meet." },
+    // Random-scenario objectives (SCENARIOS.md section 3.2; modes/objectives.js): the mode a scenario with a survive or hold objective runs in. Never offered
+    // on a setup screen and never rolled as a mode of its own (`hidden`): modes/scenarios.js sets it, and the objective rides in rules.scenario.
+    scenario:     { name: "Scenario", hidden: true, text: "A random scenario's own objective, with a clock.", teaches: "Reading the objective: the clock ends the fight whether or not you understood it." },
     melee:        { name: "Melee", text: "Every sub-faction crew fights every other crew. Last crew standing wins; your crew falling is a loss whatever rivals remain.",
                     teaches: "Multi-sided conflict: rivals damage each other while you pick the moment." },
   };
@@ -90,9 +93,23 @@
     return { tiles: picked.map((k) => k.split(",").map(Number)), cut: choke.length > 0 };
   }
 
+  // The hold zone (SCENARIOS.md 3.2): the 3 tiles of the cut between the player's spawn and the enemy spawns that lie nearest the middle of the map, else the
+  // three walkable tiles of the central column. Laid once at setup so outcome() stays cheap.
+  function holdZone(arena) {
+    const from = arena.spawns?.player?.[0], exits = arena.spawns?.enemy || [], h = arena.map.length, w = arena.map[0].length, mid = [(w - 1) / 2, (h - 1) / 2];
+    const dist = ([x, y]) => Math.abs(x - mid[0]) + Math.abs(y - mid[1]);
+    const cuts = from && exits.length ? chokepoints(arena, from, exits).sort((a, b) => dist(a) - dist(b) || a[1] - b[1] || a[0] - b[0]) : [];
+    if (cuts.length >= 3) return cuts.slice(0, 3);
+    const col = Math.floor(w / 2), tiles = [];
+    for (let y = 0; y < h; y++) if (G.stepCost(arena, col, y, col, y) != null || (arena.map[y][col] !== "#" && arena.map[y][col] !== "~")) tiles.push([col, y]);
+    tiles.sort((a, b) => dist(a) - dist(b) || a[1] - b[1]);
+    return [...cuts, ...tiles.filter((t) => !cuts.some((c) => c[0] === t[0] && c[1] === t[1]))].slice(0, 3);
+  }
+
   function setupMode(mode, { arena, hero = "player", enemies = [], seed = 0, rounds } = {}) {
     if (!modes[mode]) throw new Error(`unknown mode ${mode}`);
     const s = { mode, name: modes[mode].name, hero, seed };
+    if (mode === "scenario") s.zone = holdZone(arena);
     if (mode === "survive") s.rounds = rounds || modes.survive.rounds + Math.max(0, enemies.length - 1) * 2;
     if (mode === "assassinate") {
       const count = enemies.length >= 3 ? 2 : 1;
@@ -173,6 +190,8 @@
     if (heroDown && ["escape"].includes(setup.mode))   // nobody can carry the hero out; what is left is to win the field
       return !enemies.some(alive) ? { winner: "player", reason: "The hero is down, but their allies hold the field." } : null;
     switch (setup.mode) {
+      case "scenario":   // random-scenario objectives with a clock (modes/objectives.js); the player's side gone was decided above
+        return OBJ ? OBJ.outcome(setup, snap, snap.rules) : null;
       case "survive":
         return snap.round > setup.rounds ? { winner: "player", reason: `Survived ${setup.rounds} rounds.` } : null;
       case "totalVictory":
@@ -220,6 +239,7 @@
       for (const u of snap.units) { if (!u.defeated && u.side !== "civilian") crews[u.side] = (crews[u.side] || 0) + 1; }
       return `Melee · ${Object.entries(crews).map(([s, n]) => `${s} ${n}`).join(" / ")}`;
     }
+    if (setup.mode === "scenario") return OBJ ? OBJ.text(setup, snap, snap.rules) : "Scenario";
     if (setup.mode === "survive") return `Survive: ${Math.max(0, setup.rounds - snap.round + 1)} round${setup.rounds - snap.round + 1 === 1 ? "" : "s"} left`;
     if (setup.mode === "escape") return `Escape: reach (${setup.exits[0].join(",")})`;
     if (setup.mode === "assassinate") return `Assassinate: ${setup.targets.join(" and ")}`;
@@ -228,6 +248,6 @@
   }
 
   // Modes in play: what a setup screen offers and a random scenario may roll.
-  const playable = () => Object.keys(modes).filter((id) => !modes[id].archived);
+  const playable = () => Object.keys(modes).filter((id) => !modes[id].archived && !modes[id].hidden);
   return { modes, playable, setupMode, outcome, appearancesAllowed, objectiveText, chokepoints, guardTiles, reachable };
 });

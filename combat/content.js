@@ -303,7 +303,7 @@
     // After `rounds` rounds with no attack between opposing units, an AI unit whose best option harms nobody closes the
     // distance instead. Units at or below `spareBelowLf` of their life are spared; modes where waiting is the job
     // (Survive, Escape) are left alone. Claude's numbers.
-    standoff: { rounds: 3, spareBelowLf: 0.4, modes: ["classic", "totalVictory", "assassinate", "warfare"] },
+    standoff: { rounds: 3, spareBelowLf: 0.4, modes: ["classic", "totalVictory", "assassinate", "warfare", "scenario"] },
     // AI ledgers (least-used build, 2026-10-12): score() prices what previews can't show. Threat: protection is worth
     // the incoming LF it stops on covered allies (cover fractions per effect), capped by the protector's own LF.
     // Info: an observe-on-hit rider or focus mark is worth hidden cards × perCard when it lands. Order: threat → info.

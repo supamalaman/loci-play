@@ -233,6 +233,7 @@
     "commune-passionflower": 1.8, "commune-puya": 1.8,
     "commune-banyan": 3, "commune-bristlecone": 3, "commune-kukui": 3,
     "commune-bamboo": 2.2, "commune-birdOfParadise": 2.2,
+    treant: 2.2,   // the shared treant fallback (a communed plant with no art of its own, e.g. Kiawe, and a risen treeant): bigger, between the shrub 1.8 and the tree 3 forms (Mala, 2026-11-03: "make it bigger")
     "commune-hibiscus": 1.8, "commune-plumbago": 1.8, "commune-mockOrange": 1.8, "commune-indianHawthorn": 1.8, "commune-naupaka": 1.8, "commune-ti": 1.8, "commune-ohelo": 1.8, "commune-ukiuki": 1.8, "commune-pitcherPlant": 1.8,
     "commune-monstera": 1.4, "commune-cobraLily": 1.4, "commune-venusFlytrap": 1.4,
     "commune-akulikuli": 1.1, "commune-sundew": 1.1, "commune-nativeFern": 1.1 };
@@ -1167,11 +1168,40 @@
     // The facts a keeper's hook chip reads, gathered from the same state the window shows (perk points, free pack slots, worn gear, Seeds owed).
     const keeperFacts = () => { const A = U.account, g = A.gear || {}, wornOut = Object.values(g.equipped || {}).filter((id) => id && (g.durability?.[id] ?? 1) <= 0).map((id) => Loot.data?.equipment?.[id]?.name || id);
       const slots = Loot.battleSlots(A); return { perkPoints: A.perkPoints || 0, packSlots: slots, packFree: Math.max(0, slots - (U.packSelection || []).length), worn: wornOut, owed: Math.max(0, A.debt || 0) }; };
-    const mountKeeper = (ov, windowId, more = {}) => root.ConceptCombatKeeperUI?.mount(ov, windowId, { account: U.account, store, dialogueOn: U.dialogueOn, facts: { ...keeperFacts(), ...more },
+    const mountKeeper = (ov, windowId, more = {}) => { const { counter = null, event = null, ...rest } = more;   // S3: a counter swap rides beside the facts, never in them
+      return root.ConceptCombatKeeperUI?.mount(ov, windowId, { account: U.account, store, dialogueOn: U.dialogueOn, facts: { ...keeperFacts(), ...rest }, counter, event,
       onAccount: (a) => { U.account = a; saveAccount(); },
-      onDialogue: (on) => { U.dialogueOn = on; store.set("loci:combat:dialogue", on); if (!on) U.bubbles = []; const b = $("ccDialogue"); if (b) b.textContent = `Dialogue ${on ? "On" : "Off"}`; } });
+      onDialogue: (on) => { U.dialogueOn = on; store.set("loci:combat:dialogue", on); if (!on) U.bubbles = []; const b = $("ccDialogue"); if (b) b.textContent = `Dialogue ${on ? "On" : "Off"}`; } }); };
+    // NPC keepers S4c: the Freemason at the scribing desk. The desk is the Workshop UI module, so the strip is mounted
+    // by the caller (spec section 16): both desk entries pass this as the `keeper` option and the module calls it after
+    // every render. The slot keeps the strip inside the desk header; the chip reads real recovered parts only.
+    const mountDeskKeeper = (host) => { const slot = host.querySelector('[data-keeper-slot="freemason"]');
+      if (!slot || !root.ConceptCombatKeepers?.KEEPERS.freemason?.wired) return;
+      slot.hidden = false;
+      const W = root.ConceptCombatWorkshop;
+      const trad = Math.max(0, ...((U.account?.legacy?.ledger?.traditions) || []).map((t) => t.strength || 0));   // the desk refuses a boss-art part once the legendary tradition lapsed (workshop.js bossBlocked): the chip never names one
+      mountKeeper(slot, "scribingDesk", { parts: W ? W.groups(W.materials(U.account, C)).filter((p) => !p.boss || trad >= (p.minStrength || LB?.BOSS_STRENGTH || 6)) : [] }); };
+    // NPC keepers S3: the Field Kit counter chips read the same calls the boards make (the shop's stock, the kiln's craftable with the same flux input, the stall's market).
+    const ledgerCounterFacts = () => { const out = {};
+      out.shopOffers = Loot.shopStock(U.account, { seed: U.account.battles + 41, biome: null }).length;
+      if (KR) { const rows = ["shard", "bead", "orb"].map((t) => ({ t, ...KR.craftable(U.account, t, { flux: !!U.kilnFlux }) }));
+        const ready = rows.find((r) => r.max >= 1);
+        out.kilnReady = ready ? (SL ? SL.VESSEL_NAME[ready.t] : ready.t) : null;
+        const short = ready || !rows.length ? null : rows[0].short;   // craftable's only shorts are "seeds" and "parts:*"; anything else shows no chip, never a mislabel
+        out.kilnShort = short === "seeds" ? "Seeds" : short && String(short).startsWith("parts:") ? `${String(short).slice(6)} parts` : null; }
+      if (MK && SL) { const m = MK.marketOf(U.account); out.stall = Object.keys(MK.VENDORS).map((id) => ({ name: MK.VENDORS[id].name, standing: m.standing[id] || 0 })); }
+      return out; };
+    // The Starfarer's chip fact (NPC faces S4a): the nearest free concept beside the owned path, priced by the same
+    // claim rule the tree shows. Null when nothing lies free (fresh tree, all owned): then the chip stays silent.
+    const workshopFreeNode = (chit = false) => { if (!WS || !GD || !C) return null; const owned = U.account.ownedNodes || [];
+      const home = SCH ? SCH.doorOf(C.characters[mainClass()]?.primary) : null, useChit = !!chit && (U.account.affinityChits || 0) > 0;   // the tree's own gate and chit option
+      const free = owned.flatMap((o) => WS.neighbors(GD, o)).filter((id, i, a) => C.concepts[id] && !owned.includes(id) && a.indexOf(id) === i && !(SCH && SCH.claimBlock(U.account, home, id)));   // only a node the tree lets you claim: a locked school is visible, not free
+      if (!free.length) return null;
+      const dist = (id) => VV ? VV.claimPrice(GD, owned, id, { table: VV.BLESSED, chit: useChit }).dist : 0;
+      const id = free.sort((a, b) => dist(a) - dist(b))[0];
+      return { name: C.concepts[id].name, cost: VV ? VV.claimPrice(GD, owned, id, { table: VV.BLESSED, chit: useChit }).cost : WS.claimCost(0) }; };
     function showTown() {
-      root.ConceptCombatKeeperUI?.reset();
+      root.ConceptCombatKeeperUI?.reset(); U.keeperCounter = null;   // S3: leaving the keeper windows returns the Field Kit to its frame
       endTestBattle();   // leaving a test battle unfinished keeps nothing too
       U.focusPanel = null;   // back in town: the next door decides what the setup screen shows
       U.mode = "town"; stopAi(); host.classList.add("cc-setting-up");
@@ -1220,7 +1250,7 @@
     const CODEX_KEY = "loci:combat:codex-open:v1";
     function codexOpenMap() { const raw = store.get(CODEX_KEY, {}); return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}; }
     function setCodexOpen(id, on) { const m = codexOpenMap(); if (on) m[id] = true; else delete m[id]; store.set(CODEX_KEY, m); }
-    function showCodex(note = "") {
+    function showCodex(note = "", refused = false) {
       U.mode = "setup"; const ov = $("ccOverlay"); ov.hidden = false;
       if (!LB) { ov.innerHTML = `<div class="cc-card"><p>The Codex is closed.</p><button type="button" id="ccCodexBack">← Back</button></div>`; $("ccCodexBack").onclick = () => showSetup(); return; }
       const lg = LB.fresh(U.account.legacy), led = lg.ledger, nameOf = (id) => C.abilities[id]?.name || LB.partsOf(id, C)?.sourceName || lg.scribed.find((d) => d.id === id)?.name || id;
@@ -1248,16 +1278,17 @@
         <div class="cc-row"><button type="button" class="cc-primary" id="ccCodexBack">← Back to town</button></div></div>`;
       ov.querySelectorAll(".cc-cx").forEach((sec) => { const n = [...sec.querySelectorAll("button[data-revive],button[data-donate],button[data-memorize],button[data-take],button[data-book]")].filter((b) => !b.disabled).length, tag = sec.querySelector(".cc-cx-ready"); if (n) { tag.textContent = `${n} ready`; tag.hidden = false; } });
       ov.querySelectorAll("[data-cx-toggle]").forEach((h) => h.onclick = () => { const now = Date.now(); if (h.dataset.cxAt && now - h.dataset.cxAt < 450) return; h.dataset.cxAt = now;   // a double click toggles once
-        const sec = h.closest(".cc-cx"), on = h.getAttribute("aria-expanded") !== "true"; setCodexOpen(h.dataset.cxToggle, on); h.setAttribute("aria-expanded", on); sec.classList.toggle("open", on); sec.querySelector(".cc-cx-body").hidden = !on; h.firstElementChild.textContent = on ? "▾" : "▸"; });
+        const sec = h.closest(".cc-cx"), on = h.getAttribute("aria-expanded") !== "true"; setCodexOpen(h.dataset.cxToggle, on); h.setAttribute("aria-expanded", on); sec.classList.toggle("open", on); sec.querySelector(".cc-cx-body").hidden = !on; h.firstElementChild.textContent = on ? "▾" : "▸"; if (on) root.ConceptCombatKeeperUI?.say("fold:" + h.dataset.cxToggle); });
       ov.querySelectorAll(".cc-cx-body button").forEach((b) => b.addEventListener("click", () => setCodexOpen(b.closest(".cc-cx").dataset.cx, true)));   // the section you act in stays open after the screen redraws
-      ov.querySelectorAll("[data-revive]").forEach((b) => b.onclick = () => { const r = LB.revive(U.account.legacy, b.dataset.revive); r.ok ? save(r.legacy, `${r.tradition.name} is practised again.`) : showCodex(r.error); });
-      ov.querySelectorAll("[data-donate]").forEach((b) => b.onclick = () => { const r = LB.donate(U.account.legacy, b.dataset.donate); r.ok ? save(r.legacy, `Donated. Favor ${r.favor}: the Magistrate's shelves fill.`) : showCodex(r.error); });
-      ov.querySelectorAll("[data-memorize]").forEach((b) => b.onclick = () => { const r = LB.memorizeStudy(U.account.legacy, b.dataset.memorize, C); r.ok ? save(r.legacy, `Memorized${r.evicted ? `; ${nameOf(r.evicted)} slips from memory` : ""}.`) : showCodex(r.error); });
+      ov.querySelectorAll("[data-revive]").forEach((b) => b.onclick = () => { const r = LB.revive(U.account.legacy, b.dataset.revive); r.ok ? save(r.legacy, `${r.tradition.name} is practised again.`) : showCodex(r.error, true); });
+      ov.querySelectorAll("[data-donate]").forEach((b) => b.onclick = () => { const r = LB.donate(U.account.legacy, b.dataset.donate); r.ok ? save(r.legacy, `Donated. Favor ${r.favor}: the Magistrate's shelves fill.`) : showCodex(r.error, true); });
+      ov.querySelectorAll("[data-memorize]").forEach((b) => b.onclick = () => { const r = LB.memorizeStudy(U.account.legacy, b.dataset.memorize, C); r.ok ? save(r.legacy, `Memorized${r.evicted ? `; ${nameOf(r.evicted)} slips from memory` : ""}.`) : showCodex(r.error, true); });
       ov.querySelectorAll("[data-book]").forEach((b) => b.onclick = () => { const book = books.find((x) => x.id === b.dataset.book); if (!book || U.account.seeds < book.price) return;
         const r = LB.buyBook(U.account.legacy, book); U.account.seeds -= r.price; save(r.legacy, `Bought the book: ${nameOf(book.technique)} (practice +1).`); });
-      ov.querySelectorAll("[data-take]").forEach((b) => b.onclick = () => { const r = LB.disassemble(U.account.legacy, b.dataset.take, C); r.ok ? save(r.legacy, `Taken apart: ${nameOf(b.dataset.take)}. Its parts are on the table.`) : showCodex(r.error); });
-      $("ccOpenWorkshop").onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: account => { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showCodex() });
+      ov.querySelectorAll("[data-take]").forEach((b) => b.onclick = () => { const r = LB.disassemble(U.account.legacy, b.dataset.take, C); r.ok ? save(r.legacy, `Taken apart: ${nameOf(b.dataset.take)}. Its parts are on the table.`) : showCodex(r.error, true); });
+      $("ccOpenWorkshop").onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: account => { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showCodex(), keeper: mountDeskKeeper });
       $("ccCodexBack").onclick = () => showSetup(); $("ccCodexBack").focus();
+      mountKeeper(ov, "codex", refused ? { event: "refuse" } : {});   // the Magistrate (S4a): the reserved slot in .cc-codex-head, above the dropdown sections
     }
     // The trait laboratory (Mala, 2026-10-17/18; account/surgery.js, docs/trait-lab.md): graft biology traits for Seeds into
     // three surgery slots, remove traits at a steep price, and wake up Woozy for the next battle.
@@ -1319,7 +1350,7 @@
           ${SN ? `<option value="secretWarriorNext" ${encounter === "secretWarriorNext" ? "selected" : ""}>${esc(SN.label)}</option>` : ""}
         </select></label>
         ${BR ? `<label id="ccRushAllyRow" ${encounter === "bossRush" || encounter === "secretWarrior" ? "" : "hidden"}>Bring an ally <select id="ccRushAlly"><option value="">No ally · alone</option>${BR.allies().map(a => `<option value="${esc(a.id)}" ${U.rushAlly === a.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select></label>` : ""}
-        <label>Battle objective <select id="ccGameMode" ${encounter === "warfare" || encounter === "bossRush" || encounter === "secretWarrior" || encounter === "secretWarriorNext" ? "disabled" : ""}><option value="classic">Classic · defeat the other side</option>${Object.entries(MD?.modes || {}).filter(([id, m])=>id!=="warfare" && !m.archived).map(([id, m]) => `<option value="${id}">${esc(m.name)}</option>`).join("")}</select></label>
+        <label>Battle objective <select id="ccGameMode" ${encounter === "warfare" || encounter === "bossRush" || encounter === "secretWarrior" || encounter === "secretWarriorNext" ? "disabled" : ""}><option value="classic">Classic · defeat the other side</option>${Object.entries(MD?.modes || {}).filter(([id, m])=>id!=="warfare" && !m.archived && !m.hidden).map(([id, m]) => `<option value="${id}">${esc(m.name)}</option>`).join("")}</select></label>
         ${opts.llmBridge ? `<section class="cc-socket-settings"><label class="cc-inline"><input id="ccSocketOpponent" type="checkbox" ${U.llmEnabled ? "checked" : ""}> Use socket opponent</label>
           <div id="ccSocketSettings" ${U.llmEnabled ? "" : "hidden"}><label>Provider <select id="ccSocketProvider"><option value="agent" ${U.llmSettings.provider === "agent" ? "selected" : ""}>Live agent · this chat</option><option value="fake" ${U.llmSettings.provider === "fake" ? "selected" : ""}>Deterministic test</option><option value="openai" ${U.llmSettings.provider === "openai" ? "selected" : ""}>Local model · OpenAI-compatible</option></select></label>
             <div id="ccLocalModelSettings" ${U.llmSettings.provider === "openai" ? "" : "hidden"}><label>Local endpoint <input id="ccSocketEndpoint" type="url" value="${esc(U.llmSettings.baseURL)}" placeholder="http://127.0.0.1:1234/v1"></label>
@@ -1524,9 +1555,10 @@
         <p class="cc-muted">The Kiln lives in Ledger House; its bench opens it there.</p></div>`;
       $("ccWsClose").onclick = () => { if (returnMode === "setup") showSetup(); else if (returnMode === "town") showTown(); else if (returnMode === "account") showAccount(); else { ov.hidden = true; U.mode = returnMode; render(); pump(); } };
       $("ccWsBench-tree").onclick = () => showWorkshop(returnMode);
-      const deskBtn = $("ccWsBench-desk"); if (deskBtn && deskOpen) deskBtn.onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: (account) => { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showWorkshopHub(returnMode), backLabel: "← Workshop", crumb: "THE WORKSHOP" });
+      const deskBtn = $("ccWsBench-desk"); if (deskBtn && deskOpen) deskBtn.onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: (account) => { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showWorkshopHub(returnMode), backLabel: "← Workshop", crumb: "THE WORKSHOP", keeper: mountDeskKeeper });
       const kilnBtn = $("ccWsBench-kiln"); if (kilnBtn && kilnOpen) kilnBtn.onclick = () => { U.mode = "setup"; showAccount(); ov.querySelector(".cc-kiln")?.scrollIntoView?.({ block: "center" }); };
       $("ccWsBench-tree").focus();
+      mountKeeper(ov, "workshop", { free: workshopFreeNode(), event: "fold:workshop" });   // the Starfarer (S4a): the hub's reserved slot; a revisit plays the fold line (the first entry greets)
     }
     function showWorkshop(returnMode = U.mode) {   // W6.1: the Concept Tree (named the Workshop until 1.3.489) — walk anywhere free, own a path
       if (!WS || !GD || !WH) { flashTip("The Workshop is closed."); return; }
@@ -1646,11 +1678,11 @@
         const cx = $("ccWsChit"); if (cx) cx.onchange = () => draw(sel, cx.checked);
         const cl = $("ccWsClaim"); if (cl) cl.onclick = () => {
           const q = VV ? VV.claimPrice(GD, U.account.ownedNodes || [], sel, { table: VV.BLESSED, chit: chit && (U.account.affinityChits || 0) > 0 }) : { cost: WS.claimCost(0), bridged: false };
-          const block = SCH && SCH.claimBlock(U.account, homeSchool, sel); if (block) { flashTip(block); return; }   // W8.4: a gated school is visible, not claimable
-          const r = WS.claim(U.account, sel, C, GD, q.cost); if (!r.ok) { flashTip(r.error); return; }
+          const block = SCH && SCH.claimBlock(U.account, homeSchool, sel); if (block) { flashTip(block); root.ConceptCombatKeeperUI?.say("refuse"); return; }   // W8.4: a gated school is visible, not claimable
+          const r = WS.claim(U.account, sel, C, GD, q.cost); if (!r.ok) { flashTip(r.error); root.ConceptCombatKeeperUI?.say("refuse"); return; }
           U.account = q.bridged ? { ...r.account, affinityChits: (r.account.affinityChits || 0) - 1 } : r.account;
           saveAccount();
-          flashTip(solemnize("claim", { name: C.concepts[sel].name }) || `Claimed ${C.concepts[sel].name}${q.bridged ? " (chit bridged it)" : ""}.`); draw(sel);
+          flashTip(solemnize("claim", { name: C.concepts[sel].name }) || `Claimed ${C.concepts[sel].name}${q.bridged ? " (chit bridged it)" : ""}.`); draw(sel); root.ConceptCombatKeeperUI?.say("buy");   // the Starfarer (S4a) speaks for the claim
         };
         const sA = $("ccWsA"), sB = $("ccWsB");
         if (sA) sA.onchange = () => { mintA = sA.value || null; if (!mintA || (mintB && /^verb:/.test(mintB) !== /^verb:/.test(mintA))) mintB = null; draw(sel, chit); };   // the second pick matches the first kind
@@ -1674,6 +1706,7 @@
           flashTip(solemnize("naming", { name: $("ccWsName").value.trim().slice(0, 60) }) || "The lore is earned."); draw(sel, chit);
         };
         $("ccWsTreeBack").onclick = () => showWorkshopHub(returnMode);   // one return path: the tree goes back to the landing, the landing goes back to where it was opened
+        mountKeeper(ov, "workshop", { free: workshopFreeNode(chit) });   // the Starfarer (S4a): inside draw, so every re-render remounts idempotently
       };
       draw();
     }
@@ -1813,7 +1846,7 @@
       // Orgonite (codex-orgonite slice 1): cast 5 common + 10 Seeds into a puck; with Flux on, each puck waives one firing's fee.
       const og = U.account.orgonite || 0, gotO = KR.refinable ? KR.refinable(U.account) : { max: 0, short: "seeds" }, flux = !!U.kilnFlux && og > 0;
       const orgRow = KR.ORGONITE ? `<li><b>Orgonite</b> <small>${KR.ORGONITE.parts.common} common + ${KR.ORGONITE.fee} Seeds · stash ${og}</small> <button type="button" class="cc-item" data-kiln-cast="1" ${gotO.max < 1 ? "disabled" : ""}>Cast orgonite ×1</button> <button type="button" class="cc-item" data-kiln-cast="5" ${gotO.max < 2 ? "disabled" : ""}>Cast ×${Math.min(5, gotO.max)}</button>${gotO.max < 1 ? ` <span class="cc-muted">short: ${esc(gotO.short)}</span>` : ""} <button type="button" class="cc-item" data-kiln-flux ${og < 1 ? "disabled" : ""} aria-pressed="${flux}">Flux: ${flux ? "on" : "off"}</button></li>` : "";
-      return `<section class="cc-gaia-regard cc-kiln"><h3>Kiln · parts ${p.common || 0}c/${p.uncommon || 0}u/${p.rare || 0}r</h3><ul>${rows}${orgRow}</ul>${flux ? `<p class="cc-muted">Flux on: each firing spends 1 orgonite instead of its Seeds fee (${og} left).</p>` : ""}<p class="cc-muted">Parts come from battlefield salvage and the field shop. Firing is exact — no luck, just ledger.</p></section>`;
+      return `<section class="cc-gaia-regard cc-kiln" data-counter="kiln"><h3>Kiln · parts ${p.common || 0}c/${p.uncommon || 0}u/${p.rare || 0}r</h3><ul>${rows}${orgRow}</ul>${flux ? `<p class="cc-muted">Flux on: each firing spends 1 orgonite instead of its Seeds fee (${og} left).</p>` : ""}<p class="cc-muted">Parts come from battlefield salvage and the field shop. Firing is exact — no luck, just ledger.</p></section>`;
     }
     function stallBoard() {
       if (!MK || !SL) return "";
@@ -1834,7 +1867,7 @@
       const og = U.account.orgonite || 0, orgRows = MK.sellOrgonite ? `<li><b>Orgonite</b> <small>stash ${og} · the Orcish fence only</small> <button type="button" class="cc-item" data-stall-orgonite="orcish" ${og < 1 ? "disabled" : ""} title="Orgonite sells to the fence only, never above ${MK.RULES.orgoniteMax} Seeds">Sell ▸ ${esc(MK.VENDORS.orcish.name)} · ~${Math.min(MK.RULES.orgoniteMax, px(MK.RULES.orgoniteBase, "orgonite", "orcish"))}</button></li>` : "";
       const FR = root.ConceptCombatFruit, held = FR ? FR.stashOf(U.account) : [];
       const fruitRows = held.length ? held.map((id) => `<li><b>${esc(FR.FRUITS[id].name)}</b> <small>${esc(FR.FRUITS[id].line)}</small> <button type="button" class="cc-item" data-fruit-sell="${id}">Sell by the tide · 400 Seeds (50 a battle)</button></li>`).join("") : `<li class="cc-muted">No fruit in the stash. Won battles sometimes wash one up.</li>`;
-      return `<section class="cc-gaia-regard cc-stall"><h3>Stall · market day ${m.day}</h3><p class="cc-muted">Drift ${esc(driftLine)} · standing ${esc(standLine)} · haggle ${Math.round(MK.haggleChance(0) * 100)}%+ (free with every sale)</p><h4>Vessels</h4><ul>${vesselRows}${orgRows}</ul><h4>Pens · ${pens.length}</h4><ul>${penRows}</ul><h4>Strange fruit</h4><ul>${fruitRows}</ul><h4>Advertise</h4><p>${camp}</p><h4>Buy orders</h4><ul>${orderRows}</ul></section>`;
+      return `<section class="cc-gaia-regard cc-stall" data-counter="stall"><h3>Stall · market day ${m.day}</h3><p class="cc-muted">Drift ${esc(driftLine)} · standing ${esc(standLine)} · haggle ${Math.round(MK.haggleChance(0) * 100)}%+ (free with every sale)</p><h4>Vessels</h4><ul>${vesselRows}${orgRows}</ul><h4>Pens · ${pens.length}</h4><ul>${penRows}</ul><h4>Strange fruit</h4><ul>${fruitRows}</ul><h4>Advertise</h4><p>${camp}</p><h4>Buy orders</h4><ul>${orderRows}</ul></section>`;
     }
     // Sinkerfruit (OP1; account/fruit.js): fruits in the stash, the one you ate, and Eat as a two-click confirm, because it
     // can't be undone. A second fruit is refused (Mala, 2026-10-27: "refuse the second fruit").
@@ -1899,8 +1932,8 @@
         ${sagaCard()}
         ${BOSS && A.orbsOf(U.account).length ? `<section class="cc-gaia-regard"><h3>Orbs · ${A.orbsOf(U.account).length}</h3><p>${[...new Set(A.orbsOf(U.account))].map(id => `${id === "brainChip" ? `<img src="combat/sprites/items/brainChip.png" alt="" style="height:28px;vertical-align:middle;image-rendering:pixelated"> ` : ""}${esc(BOSS.data.orbs[id]?.name || id)}${A.orbsOf(U.account).filter(x => x === id).length > 1 ? ` ×${A.orbsOf(U.account).filter(x => x === id).length}` : ""}`).join(" · ")}</p><p class="cc-muted">Carried into every real battle. Break one from Gear: ${BOSS.data.formBalance.activationAp} AP, a form for ${BOSS.data.formBalance.duration} of your turns and a full ultimate bar. The Brain Chip answers the Warden.</p></section>` : ""}
         ${BR ? `<section class="cc-gaia-regard"><h3>Boss rush${BR.bestBadge(U.account) ? ` · ${esc(BR.bestBadge(U.account))}` : ""}</h3>${BR.recordOf(U.account).runs.length ? BR.recordOf(U.account).runs.slice().reverse().map(r => `<details><summary>${r.cleared ? `<b>${esc(r.badge)}</b>` : `Lost at ${r.fell.length + 1} of ${r.n}: ${esc(r.names[r.ids.indexOf(r.stoppedBy)] || r.stoppedBy || "?")}`}${r.ally ? ` · with ${esc(r.ally.name)}` : " · alone"} · ${esc(new Date(r.at).toLocaleDateString())}</summary><p>${r.names.map((n, i) => `${i < r.fell.length ? "✓" : r.ids[i] === r.stoppedBy ? "✗" : "·"} ${esc(n)}`).join(" · ")}</p></details>`).join("") : `<p class="cc-muted">No runs yet. Pick Boss Rush in Scenarios: every Omega threat in a row. Each boss you beat there leaves its orb here.</p>`}</section>` : ""}
-        <section class="cc-gaia-regard"><h3>Tourist postcards · ${(U.account.postcards||[]).length}</h3>${(U.account.postcards||[]).map(p=>`<details><summary>${esc(p.location)} · ${esc(p.quality)} · ${p.photoCount} photos</summary><p>${esc(p.message)}</p><p>${p.photos.map(q=>esc(q.name)).join(" · ")}</p></details>`).join("")}</section>${kitBoard()}${CardsUI ? CardsUI.group(deckCtx()) : ""}<div class="cc-account-grid"><section><h3>Gear: sell, repair and tend</h3><p class="cc-muted"><button type="button" id="ccTendAll">Tend all</button> Kits first, then the smith (Seeds), then a cherish. Every tend is remembered on the item.</p>${gearBoard()}</section>
-        <section><h3>Field shop</h3>${stock.map(o=>`<article class="cc-account-row"><div class="cc-item-with-icon">${itemIcon(o.id,o.name)}<div><b>${esc(o.kind === "vessel" && SL ? SL.VESSEL_NAME[o.id] : o.name)}</b> <small>${esc(o.rarity)} · ${o.price} Seeds${o.drift && Math.abs(o.drift - 1) > 0.005 ? ` (${Math.round(o.drift * 100)}%)` : ""}</small><p>${esc(o.kind === "vessel" ? "An empty vessel. Packs into battle for sealing." : o.kind === "part" ? "Kiln stock: fires into vessels." : Loot.data[o.kind === "equipment" ? "equipment" : "consumables"][o.id].text)}</p></div></div><button type="button" data-buy="${o.kind}:${o.id}" ${U.account.seeds < o.price ? "disabled" : ""}>Buy</button></article>`).join("")}</section></div>
+        <section class="cc-gaia-regard"><h3>Tourist postcards · ${(U.account.postcards||[]).length}</h3>${(U.account.postcards||[]).map(p=>`<details><summary>${esc(p.location)} · ${esc(p.quality)} · ${p.photoCount} photos</summary><p>${esc(p.message)}</p><p>${p.photos.map(q=>esc(q.name)).join(" · ")}</p></details>`).join("")}</section>${kitBoard()}${CardsUI ? CardsUI.group(deckCtx()) : ""}<div class="cc-account-grid"><section data-counter="gear"><h3>Gear: sell, repair and tend</h3><p class="cc-muted"><button type="button" id="ccTendAll">Tend all</button> Kits first, then the smith (Seeds), then a cherish. Every tend is remembered on the item.</p>${gearBoard()}</section>
+        <section data-counter="shop"><h3>Field shop</h3>${stock.map(o=>`<article class="cc-account-row"><div class="cc-item-with-icon">${itemIcon(o.id,o.name)}<div><b>${esc(o.kind === "vessel" && SL ? SL.VESSEL_NAME[o.id] : o.name)}</b> <small>${esc(o.rarity)} · ${o.price} Seeds${o.drift && Math.abs(o.drift - 1) > 0.005 ? ` (${Math.round(o.drift * 100)}%)` : ""}</small><p>${esc(o.kind === "vessel" ? "An empty vessel. Packs into battle for sealing." : o.kind === "part" ? "Kiln stock: fires into vessels." : Loot.data[o.kind === "equipment" ? "equipment" : "consumables"][o.id].text)}</p></div></div><button type="button" data-buy="${o.kind}:${o.id}" ${U.account.seeds < o.price ? "disabled" : ""}>Buy</button></article>`).join("")}</section></div>
         <p class="cc-muted">Equipped gear loses 1 durability after each battle. Repair kits restore half; field workshops restore it fully. Worn gear is inactive.</p></div>`;
       if ($("ccSoundToggle")) $("ccSoundToggle").onclick = () => { Tracks.setEnabled(!Tracks.enabled()); showAccount(); };
       $("ccAccountClose").onclick = () => {
@@ -1918,11 +1951,11 @@
       ov.querySelectorAll("[data-pact-release]").forEach(b => b.onclick = () => { const r = PC.release(U.account.contracts, { line: b.dataset.pactRelease }); r.ok ? (saveAccount(), showAccount()) : flashTip(r.error); });
       ov.querySelectorAll("[data-equip]").forEach(b => b.onclick = () => { const r = Loot.equip(U.account, b.dataset.equip); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } else flashTip(r.reason); });
       ov.querySelectorAll("[data-unequip]").forEach(b => b.onclick = () => { const r = Loot.unequip(U.account, b.dataset.unequip); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } });
-      ov.querySelectorAll("[data-sell]").forEach(b => b.onclick = () => { const r = Loot.sell(U.account, "equipment", b.dataset.sell); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); flashTip(`Sold for ${r.value} Seeds.`); } else flashTip(r.reason); });
+      ov.querySelectorAll("[data-sell]").forEach(b => b.onclick = () => { const r = Loot.sell(U.account, "equipment", b.dataset.sell); if (r.ok) { U.account = r.account; saveAccount(); U.keeperCounter = null; showAccount(); flashTip(`Sold for ${r.value} Seeds.`); } else flashTip(r.reason); });   // gear: the frame until the Smith (S5)
       // Item care: Tend (cheapest path), Cherish (+1 and +1 care), Tend All, Repair (kits), Mend (the smith). Care can open the Tended Water (schools.js accountProofs).
       const cared = (r) => { if (!r.ok) return flashTip(r.reason || "Nothing needs tending."); U.account = r.account;
         if (SCH) { const k = SCH.earnKeys(U.account, SCH.accountProofs(U.account)); U.account = k.account; r.reached = [...(r.reached || []), ...k.lines]; }
-        saveAccount(); showAccount(); const said = [...(r.lines || [r.line]), ...(r.reached || [])].filter(Boolean).join(" ").trim(); if (said) flashTip(said);
+        saveAccount(); U.keeperCounter = null; showAccount(); const said = [...(r.lines || [r.line]), ...(r.reached || [])].filter(Boolean).join(" ").trim(); if (said) flashTip(said);
         if (Tracks) for (const c of (r.cues || [])) Tracks.cue(c.slot, c.opts || {}); };
       ov.querySelectorAll("[data-repair]").forEach(b => b.onclick = () => cared(Loot.repair(U.account, b.dataset.repair, b.dataset.kit)));   // JK-02: kit mends celebrate like tends
       ov.querySelectorAll("[data-tend]").forEach(b => b.onclick = () => cared(Loot.tend(U.account, b.dataset.tend)));
@@ -1931,18 +1964,26 @@
       ov.querySelectorAll("[data-service]").forEach(b => b.onclick = () => cared(Loot.repairService(U.account, b.dataset.service)));   // JK-03: the smith's mend celebrates like a tend
       ov.querySelectorAll("[data-mixbuy]").forEach(b => b.onclick = () => { const [id, mix] = b.dataset.mixbuy.split(":"); const r = Loot.buyMix(U.account, id, mix); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } else flashTip(r.reason); });
       ov.querySelectorAll("[data-mixplay]").forEach(b => b.onclick = () => { const [, mix] = b.dataset.mixplay.split(":"); Tracks.cue("claim-chime", { mix }); });
-      ov.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => { const [kind,id] = b.dataset.buy.split(":"); const offer = stock.find(x=>x.kind===kind&&x.id===id); const r = Loot.buy(U.account, offer); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } else flashTip(r.reason); });
-      const redo = (r) => { if (r.ok) { U.account = r.account; saveAccount(); flashTip((r.lines || []).join(" ")); showAccount(); } else flashTip(r.reason || r.short); };   // vessel economy: every kiln/stall move re-renders the kit
-      ov.querySelectorAll("[data-kiln]").forEach(b => b.onclick = () => { const [t, n] = b.dataset.kiln.split(":"); const r = KR.craft(U.account, t, +n, { flux: !!U.kilnFlux }); redo(r.ok ? { ...r, lines: [`Fired ${n} × ${SL.VESSEL_NAME[t]}${r.fluxed ? ` (${r.fluxed} fluxed, fee waived)` : ""}.`] } : r); });
-      ov.querySelectorAll("[data-kiln-cast]").forEach(b => b.onclick = () => { const r = KR.refine(U.account, +b.dataset.kilnCast); redo(r.ok ? { ...r, lines: [`Cast ${r.n} × orgonite.`] } : r); });
-      ov.querySelectorAll("[data-kiln-flux]").forEach(b => b.onclick = () => { U.kilnFlux = !U.kilnFlux; showAccount(); });
-      ov.querySelectorAll("[data-stall-orgonite]").forEach(b => b.onclick = () => redo(MK.sellOrgonite(U.account, b.dataset.stallOrgonite, Math.random(), PY ? PY.persuasion(U.account.self) : null)));
-      ov.querySelectorAll("[data-stall-vessel]").forEach(b => b.onclick = () => { const [id, t] = b.dataset.stallVessel.split(":"); redo(MK.sellVessel(U.account, id, t, Math.random(), PY ? PY.persuasion(U.account.self) : null)); });
-      ov.querySelectorAll("[data-stall-pen]").forEach(b => b.onclick = () => { const [id, i] = b.dataset.stallPen.split(":"); redo(MK.sellCatch(U.account, id, +i, Math.random(), PY ? PY.persuasion(U.account.self) : null)); });
-      ov.querySelectorAll("[data-stall-keep]").forEach(b => b.onclick = () => redo(MK.swallowPen(U.account, +b.dataset.stallKeep)));
-      ov.querySelectorAll("[data-stall-campaign]").forEach(b => b.onclick = () => redo(MK.advertise(U.account, b.dataset.stallCampaign)));
-      ov.querySelectorAll("[data-stall-order-p]").forEach(b => b.onclick = () => { const [o, j] = b.dataset.stallOrderP.split(":"); redo(MK.fillOrder(U.account, +o, { pen: +j })); });
-      ov.querySelectorAll("[data-stall-order-v]").forEach(b => b.onclick = () => { const [o, t] = b.dataset.stallOrderV.split(":"); redo(MK.fillOrder(U.account, +o, { vessel: t })); });
+      ov.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => { const [kind,id] = b.dataset.buy.split(":"); const offer = stock.find(x=>x.kind===kind&&x.id===id); const r = Loot.buy(U.account, offer);
+        if (!r.ok) { U.keeperCounter = "shop"; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: "shop" }); root.ConceptCombatKeeperUI?.say("refuse"); return flashTip(r.reason); }   // the Pioneer (S3): the engine refuses a buy only for an owned item or a full stash (the button is disabled below the price), and the refuse line names those two
+        U.account = r.account; saveAccount(); U.keeperCounter = "shop"; showAccount(); root.ConceptCombatKeeperUI?.say("buy"); });
+      const redo = (r, sayEv) => {   // sayEv [counter, okEvent, failEvent]: the counter keeper speaks for the move (S3); fruit and saga moves pass none
+        if (!r.ok) { if (sayEv) { U.keeperCounter = sayEv[0]; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: sayEv[0] }); if (sayEv[2]) root.ConceptCombatKeeperUI?.say(sayEv[2]); } return flashTip(r.reason || r.short); }
+        U.account = r.account; saveAccount(); flashTip((r.lines || []).join(" ")); if (sayEv) U.keeperCounter = sayEv[0]; showAccount(); if (sayEv && sayEv[1]) root.ConceptCombatKeeperUI?.say(sayEv[1]); };   // vessel economy: every kiln/stall move re-renders the kit
+      ov.querySelectorAll("[data-kiln]").forEach(b => b.onclick = () => { const [t, n] = b.dataset.kiln.split(":"); const r = KR.craft(U.account, t, +n, { flux: !!U.kilnFlux });
+        if (!r.ok) { U.keeperCounter = "kiln"; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: "kiln" }); root.ConceptCombatKeeperUI?.say(/^(parts:|seeds$)/.test(String(r.short)) ? "refuse" : "err"); return flashTip(r.reason || r.short); }   // the Talisman (S3): short on parts or on the fee is a refusal, anything else (no such recipe) guttered with nothing spent
+        U.keeperCounter = "kiln"; redo({ ...r, lines: [`Fired ${n} × ${SL.VESSEL_NAME[t]}${r.fluxed ? ` (${r.fluxed} fluxed, fee waived)` : ""}.`] }); root.ConceptCombatKeeperUI?.say("buy"); });
+      ov.querySelectorAll("[data-kiln-cast]").forEach(b => b.onclick = () => { const r = KR.refine(U.account, +b.dataset.kilnCast);
+        if (!r.ok) { U.keeperCounter = "kiln"; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: "kiln" }); root.ConceptCombatKeeperUI?.say(/^(parts:|seeds$)/.test(String(r.short)) ? "refuse" : "err"); return flashTip(r.reason || r.short); }
+        U.keeperCounter = "kiln"; redo({ ...r, lines: [`Cast ${r.n} × orgonite.`] }); root.ConceptCombatKeeperUI?.say("buy"); });
+      ov.querySelectorAll("[data-kiln-flux]").forEach(b => b.onclick = () => { U.kilnFlux = !U.kilnFlux; U.keeperCounter = "kiln"; showAccount(); });
+      ov.querySelectorAll("[data-stall-orgonite]").forEach(b => b.onclick = () => redo(MK.sellOrgonite(U.account, b.dataset.stallOrgonite, Math.random(), PY ? PY.persuasion(U.account.self) : null), ["stall", "buy", "refuse"]));   // Kaikeyi (S3)
+      ov.querySelectorAll("[data-stall-vessel]").forEach(b => b.onclick = () => { const [id, t] = b.dataset.stallVessel.split(":"); redo(MK.sellVessel(U.account, id, t, Math.random(), PY ? PY.persuasion(U.account.self) : null), ["stall", "buy", "refuse"]); });
+      ov.querySelectorAll("[data-stall-pen]").forEach(b => b.onclick = () => { const [id, i] = b.dataset.stallPen.split(":"); redo(MK.sellCatch(U.account, id, +i, Math.random(), PY ? PY.persuasion(U.account.self) : null), ["stall", "buy", "refuse"]); });
+      ov.querySelectorAll("[data-stall-keep]").forEach(b => b.onclick = () => redo(MK.swallowPen(U.account, +b.dataset.stallKeep), ["stall", null, "err"]));
+      ov.querySelectorAll("[data-stall-campaign]").forEach(b => b.onclick = () => redo(MK.advertise(U.account, b.dataset.stallCampaign), ["stall", null, "err"]));
+      ov.querySelectorAll("[data-stall-order-p]").forEach(b => b.onclick = () => { const [o, j] = b.dataset.stallOrderP.split(":"); redo(MK.fillOrder(U.account, +o, { pen: +j }), ["stall", "buy", "refuse"]); });
+      ov.querySelectorAll("[data-stall-order-v]").forEach(b => b.onclick = () => { const [o, t] = b.dataset.stallOrderV.split(":"); redo(MK.fillOrder(U.account, +o, { vessel: t }), ["stall", "buy", "refuse"]); });
       ov.querySelectorAll("[data-fruit-pick]").forEach(b => b.onclick = () => { U.fruitPick = b.dataset.fruitPick; showAccount(); });
       ov.querySelectorAll("[data-fruit-sell]").forEach(b => b.onclick = () => { const r = root.ConceptCombatFruit.sellFruit(U.account, b.dataset.fruitSell); redo(r.ok ? { ...r, lines: [r.line] } : { ok: false, reason: r.error }); });
       ov.querySelector("#ccFruitCancel")?.addEventListener("click", () => { U.fruitPick = null; showAccount(); });
@@ -1963,7 +2004,13 @@
       });
       wireKit(ov);
       if (CardsUI) CardsUI.wire(ov, deckCtx());
-      mountKeeper(ov, "ledgerHouse");   // the Tallyman frames the Field Kit (S1; the counter keepers are S3)
+      if (!ov.dataset.counterWired) { ov.dataset.counterWired = "1";   // S3: one listener for the life of the overlay (re-renders swap innerHTML, never the overlay): a click in a counter section visits that counter, a click elsewhere in the card returns to the frame
+        ov.addEventListener("click", (e) => { if (U.mode !== "account" || !e.target.closest || !e.target.isConnected) return;   // a detached target already re-rendered: its handler swapped first
+          const sec = e.target.closest("[data-counter]");
+          const next = sec ? sec.dataset.counter : (e.target.closest(".cc-account") && !e.target.closest(".cc-keeper") ? null : U.keeperCounter);
+          if (next === U.keeperCounter) return;   // an action already swapped here: its own line stands
+          U.keeperCounter = next; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: next, event: next ? `fold:${next}` : null }); }); }
+      mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: U.keeperCounter || null });   // the Tallyman frames the Field Kit (S1); S3 swaps in the counter keeper last visited
       if (scrolled) { ov.scrollTop = scrolled[0]; const card = ov.querySelector(".cc-account"); if (card) card.scrollTop = scrolled[1]; }
     }
     // The level-200 Warden look (Mala, 2026-10-23; content.js progression.neonWardenLevel). It is offered in the outfit list once
@@ -4376,7 +4423,7 @@
           (s.weatherState && Climate ? `<span class="cc-pip" title="Weather changes can alter propagation, sight and exposure">${esc(Climate.data.weather[s.weatherState.id]?.name || s.weatherState.id)}</span>` : "") +
           (s.randomDreamRift ? `<span class="cc-pip cc-dream-pip">Dream Rift · ${s.randomDreamRift.turnsRemaining} wave${s.randomDreamRift.turnsRemaining === 1 ? "" : "s"}</span>` : "") +
           (s.vignette ? `<span class="cc-pip" title="${esc(s.vignette.objective.kind)}">${esc(s.vignette.objective.label)} · ${s.vignette.objectiveProgress}/${s.vignette.objective.turns} · defeat ${esc(s.actors[`boss-${s.vignette.branch}`]?.name || s.vignette.branch)} or break objective</span>` : "") +
-          (s.modeSetup && MD ? `<span class="cc-pip">${esc(MD.objectiveText(s.modeSetup, { round: s.round, units: Object.values(s.actors), wild: s.wild }))}</span>` : "") +
+          (s.modeSetup && MD ? `<span class="cc-pip">${esc(MD.objectiveText(s.modeSetup, { round: s.round, units: Object.values(s.actors), wild: s.wild, rules: s.rules }))}</span>` : "") +
           (d.actor === controlledId(s) && d.kind === "turn" ? `<span class="cc-ap-status" title="Action points available for your current turn"><b>AP</b><strong>${p.tempo}</strong><small>/${p.tempoCapacity}</small></span>${p.bankedTempo ? `<span class="cc-pip">Banked ${p.bankedTempo} AP</span>` : ""}${E.heldCostMul(s, controlledId(s)) !== 1 ? `<span class="cc-pip" title="Contact Reading: while you are in this hold every action costs you this multiple of its action points, breaking out included.">Held · costs ×${E.heldCostMul(s, controlledId(s))}</span>` : ""}${p.tempoDebt ? `<span class="cc-warn">Debt ${p.tempoDebt} AP</span>` : ""}${(() => { const t = E.tallyStatus?.(s, controlledId(s)); return t && (t.owed || t.call) ? `<span class="cc-warn" title="What you owe him: tempo debt plus loans not yet due. At ${t.threshold} or more, your highest-cost technique is held as collateral.">Owed ${t.owed}/${t.threshold}${t.held ? ` · ${esc(t.heldName)} held` : ""}${t.call ? " · CALL DUE" : ""}</span>` : ""; })()}` : "") +
           (p.character==="cyph" ? `<span class="cc-pip">Service · ${p.status.cyphStock??3}/3</span><span class="cc-pip">Pocket · ${esc(p.status.cyphPocket?.until>=p.ownerTurns ? C.abilities[p.status.cyphPocket.id]?.name||"held bar" : "empty")}</span>` : "") +
           (p.inventory?.length ? `<span class="cc-pip cc-pack-status" title="Carried battle items">Pack · ${p.inventory.map(id => esc(Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id)).join(", ")}</span>` : "") +

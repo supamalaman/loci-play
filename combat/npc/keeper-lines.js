@@ -1,6 +1,6 @@
 "use strict";
 // Keeper line tables: plain rows { id, face, when, text } (decision D10: plain tables, not Tracery, so every line is auditable).
-// Source: ~/loci-orbit/ready-to-review/claude-npc-faces-spec/specs/NPC_LINES.md. Slice S0 carries Rama; S1 adds Sita, Jatayu, the Tallyman and Jambavan; S2 adds Hermes, Ravana, Lakshmana and the Gambler; each later slice adds its keepers.
+// Source: ~/loci-orbit/ready-to-review/claude-npc-faces-spec/specs/NPC_LINES.md. Slice S0 carries Rama; S1 adds Sita, Jatayu, the Tallyman and Jambavan; S2 adds Hermes, Ravana, Lakshmana and the Gambler; S3 adds Pioneer, Talisman and Kaikeyi; each later slice adds its keepers.
 // Rules (spec section 12; tests/npc-lines.test.mjs lints them): no digits and no number words; tokens only from the whitelist
 // `name seeds price item n owed level wins fame slots slotsMax scenario tier cycle`, filled at render time or the line is skipped;
 // at most 110 characters and two sentences; no living person; a line may state only what the window does.
@@ -109,5 +109,82 @@
     ["sad", "refuse", "You have busked this cycle. The crowd needs a rest too."],
     ["neutral", "fold:square", "The room is hard or easy, and you know which before you play."],
   ]);
-  return { LINES: { rama, sita, jatayu, tallyman, jambavan, hermes, ravana, lakshmana, gambler } };
+  // S3: the Field Kit counter keepers (spec NPC_LINES.md sections 6, 8, 9). The Pioneer's `big` line is a price promise, gated
+  // "perk" like Jambavan's (the audit caught it ungated; P1 is off). The three `mile` lines are reworded: a level gain says
+  // nothing about better stock, rare parts or buy orders, so each says what the level means instead.
+  const pioneer = bank("pioneer", [
+    ["neutral", "first", "Fresh stock, {name}. Everything here is built to be carried."],
+    ["neutral", "return", "Back for more gear? Look over what is on the shelves."],
+    ["neutral", "idle", "Pack light. Carry what you will use."],
+    ["happy", "buy", "A good pick. That will see you through a long walk."],
+    ["happy", "big", "You bought well last time. Same deal today.", "perk"],
+    ["sad", "refuse", "I cannot sell you that one. You carry it already, or the stash is full."],
+    ["sad", "loss", "Rough fight? Some of this is built for exactly that."],
+    ["surprised", "mile", "Level {level}. Pack for the longer walk."],
+    ["neutral", "fold:shop", "Stock turns over after each battle. What you see is what I have."],
+  ]);
+  const talisman = bank("talisman", [
+    ["neutral", "first", "Parts in, vessel out. The kiln keeps an honest account."],
+    ["neutral", "return", "The kiln is warm. What shall we make?"],
+    ["neutral", "idle", "Patience. Heat does not rush."],
+    ["happy", "buy", "Fired clean. It sits in your stash now."],
+    ["happy", "big", "A good batch. Nothing cracked."],
+    ["sad", "refuse", "You are short on parts or the fee for that batch. The kiln will not cheat for you."],
+    ["sad", "loss", "Bring back what you salvaged. Some of it will still burn."],
+    ["angry", "err", "The kiln guttered and nothing was spent. Try again."],
+    ["surprised", "mile", "Level {level}. The kiln will be here when you return."],
+    ["neutral", "fold:kiln", "Firing is exact: no luck, only parts and the fee."],
+  ]);
+  const kaikeyi = bank("kaikeyi", [
+    ["neutral", "first", "Buyers want your vessels, {name}. Each has a price and a temper."],
+    ["neutral", "return", "Prices moved while you were away. They always do."],
+    ["neutral", "idle", "A good seller waits for the right buyer."],
+    ["happy", "buy", "Sold, and well. Remember who paid you."],
+    ["happy", "big", "A good sale builds your standing. Buyers remember who sells well."],
+    ["sad", "refuse", "They will not buy that today. Try another buyer."],
+    ["sad", "loss", "Fewer vessels, fewer offers. It happens after a hard fight."],
+    ["angry", "err", "That buyer closed his hand. Do not push."],
+    ["surprised", "mile", "Level {level}. The market remembers a steady seller."],
+    ["neutral", "fold:stall", "The drift and the campaign both move the price. Watch both."],
+  ]);
+  const magistrate = bank("magistrate", [
+    ["neutral", "first", "You stand before the Codex. State your business and your evidence."],
+    ["neutral", "return", "The record is open. Proceed."],
+    ["neutral", "idle", "The court is patient. The law is more so."],
+    ["happy", "win", "The verdict stands in your favor. That is not common here."],
+    ["happy", "mile", "Level {level}. The court takes note."],
+    ["sad", "loss", "The court notes the loss. It is entered without prejudice."],
+    ["angry", "refuse", "Not admissible. Bring better evidence."],
+    ["surprised", "big", "An unusual filing. The court will read it closely."],
+    ["neutral", "fold:traditions", "Each tradition is a pattern you performed. The Codex remembers what you did."],
+    ["neutral", "fold:scribing", "At the desk you shape recovered parts into a technique. Open it from here."],
+  ]);
+  const starfarer = bank("starfarer", [
+    ["neutral", "first", "Out here nothing is mapped until you walk it. Step anywhere free."],
+    ["neutral", "return", "The map has grown a little. Look."],
+    ["neutral", "idle", "Stars do not hurry. Neither do good discoveries."],
+    ["happy", "mile", "Level {level}. The map is large; keep walking."],
+    ["happy", "buy", "Claimed. It is yours to walk."],
+    ["sad", "refuse", "That claim is refused for now. The tip says why."],
+    ["sad", "loss", "Even a navigator loses a heading. Take a fix and try again."],
+    ["surprised", "big", "A whole constellation at once? Show me how."],
+    ["neutral", "fold:workshop", "Walk anywhere free, own a path, and see what grows beside it."],
+  ]);
+  // S4c carries the Freemason (spec NPC_LINES.md section 14). Three rows are reworded from the draft so each
+  // line says what the desk does: `big` (the desk inscribes, it never takes apart), `refuse` (the only clickable
+  // refusal is an already-inscribed blueprint; the button is gone for a bad draft and disabled when poor) and
+  // `err` (draft, equip and trial failures all land in the status notice).
+  const freemason = bank("freemason", [
+    ["neutral", "first", "A craftsman measures with care. Sit at the bench."],
+    ["neutral", "return", "The bench is as you left it."],
+    ["neutral", "idle", "Joinery is patience, in wood and in thought."],
+    ["happy", "buy", "A clean cut. Keep the offcuts."],
+    ["happy", "mile", "That joint will hold. Good work."],
+    ["sad", "loss", "A cracked piece is still a lesson in the grain."],
+    ["sad", "refuse", "That blueprint is already inscribed. Equip it from the library below."],
+    ["angry", "err", "That did not work. Read the notice and try again."],
+    ["surprised", "big", "A great deal of work crossed this bench. Where do you want to start?"],
+    ["neutral", "fold:scribing", "Held techniques come apart into parts. Parts go back together as something new."],
+  ]);
+  return { LINES: { rama, sita, jatayu, tallyman, jambavan, hermes, ravana, lakshmana, gambler, pioneer, talisman, kaikeyi, magistrate, starfarer, freemason } };
 });

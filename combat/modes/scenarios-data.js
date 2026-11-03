@@ -76,6 +76,55 @@
         mid: { when: { round: 5 }, text: "Something small and gray takes an interest in one of you." },
         result: { player: "The ship leaves with nothing, which is how you know it took something.", enemy: "The ship keeps what it came for.",
           none: "The ship hangs there until the light changes, and then it is not there." } } },
+
+    // ── Slice 3: the objective scenarios (SCENARIOS.md section 4; modes/objectives.js, the `scenario` mode and its clock) ──
+    squallLine: { id: "squallLine", name: "Squall Line", minTier: 2, weight: 1,   // SC02
+      arenas: ["terraceGarden", "gardenCourt"],
+      weather: "squall",
+      foes: "roll", count: [1, 3],
+      checkpoints: [{ id: "squallTurn", round: 4, label: "The squall turns" }, { id: "squallWrack", round: 7, label: "The wrack comes down" }],   // authored rounds 1 / 4 / 7
+      force: { opening: { type: "terrain", effect: "shallow-flood" }, squallTurn: { type: "weather" }, squallWrack: { type: "terrain", effect: "fallen-cover" } },
+      objective: { kind: "survive", deadline: 9, onDeadline: "win" },
+      text: {
+        open: "The front arrives early. The terraces start giving the rain back downhill.",
+        mid: { when: { round: 5 }, text: "Water finds the low beds first. After that it finds you." },
+        result: { player: "The squall moves on without having decided anything about you.", enemy: "The front keeps what it came for.",
+          none: "The sky clears on nobody in particular." } } },
+
+    dreamRiftPicnic: { id: "dreamRiftPicnic", name: "Dream Rift Picnic", minTier: 2, weight: 1,   // SC04
+      arenas: ["gardenCourt"],
+      phase: "night",
+      foes: "roll", count: [1, 2],
+      force: { opening: { type: "dream", duration: 3, monsters: 2 } },   // a rift of three waves of two; the clock removes the case of an unreachable rift monster holding the battle open
+      objective: { kind: "survive", deadline: 12, onDeadline: "win", clear: true },
+      text: {
+        open: "Someone laid out a blanket on the one patch of lawn the night keeps opening onto something else.",
+        mid: { when: { round: 5 }, text: "The sandwiches are untouched. The things coming through the seam are not interested in sandwiches." },
+        result: { player: "The seam closes, and the picnic is, strictly, still on.", enemy: "The blanket is the last thing anyone sees on the lawn.",
+          none: "The seam closes on an empty blanket." } } },
+
+    untilDawn: { id: "untilDawn", name: "Until Dawn", minTier: 2, weight: 1,   // SC08
+      arenas: "any",
+      phase: "night",
+      foes: "roll", count: [1, 2],
+      objective: { kind: "survive", deadline: 10, onDeadline: "win" },   // rules.time.nightLength (a test pins it): it ends when the sky changes
+      text: {
+        open: "Dawn is a long way off. Nobody on this field has agreed to wait for it.",
+        mid: { when: { round: 5 }, text: "Halfway through the dark, the field gets quiet in the way that means it is listening." },
+        result: { player: "The sky changes color and everyone remembers they have somewhere to be.", enemy: "You do not see the morning.",
+          none: "The light comes up on a field with no one left to ask." } } },
+
+    holdTheFord: { id: "holdTheFord", name: "Hold the Ford", minTier: 1, weight: 1,   // SC15
+      arenas: ["canalGarden", "bioswaleCourt"],
+      weather: "rain",
+      foes: "roll", count: [2, 3],
+      force: { midpoint: { type: "terrain", effect: "shallow-flood" } },   // at round 5 the water rises
+      objective: { kind: "hold", deadline: 8, onDeadline: "lose" },
+      text: {
+        open: "The bridge is gone. The ford is three stones wide and everyone needs it.",
+        mid: { when: { round: 5 }, text: "The water rises one hand's width, and the ford gets harder to hold." },
+        result: { player: "The crossing is yours, and the water gives no opinion.", enemy: "The ford belongs to whoever crosses it last.",
+          none: "The water takes the ford, and with it the argument." } } },
   };
 
   return { SCENARIOS, LAW };

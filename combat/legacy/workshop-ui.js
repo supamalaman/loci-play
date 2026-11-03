@@ -1,12 +1,13 @@
 "use strict";
 (function(root){
   const esc=s=>String(s??"").replace(/[&<>\x22\x27]/g,   /* \x22\x27, not literal quotes: the dead-export mask cannot see regex literals */c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  function mount(host,{getAccount,save,C,E,back,backLabel="← Codex",crumb="THE MAGISTRATE’S CODEX"}){
+  function mount(host,{getAccount,save,C,E,back,backLabel="← Codex",crumb="THE MAGISTRATE’S CODEX",keeper=null}){
+    const KU=root.ConceptCombatKeeperUI;   // S4c: the caller mounts the Freemason through `keeper` (spec section 16); events below only say() into the mounted strip
     host.classList.add("cc-work-host");
     const W=root.ConceptCombatWorkshop,H=root.ConceptCombatWorkshopHints;let rehearse=true,vowsOpen=false,inscribedSig=null;let sample=!W.materials(getAccount(),C).length,recipe={name:"My first technique",scale:"balanced",shape:"focused",power:1,effects:[]},draftId=null,result=null,pinned=null,note="",fixture="open";
     const chooseDefaults=()=>{const p=W.materials(getAccount(),C,sample),first=(p.find(p=>["line","contact","field","placed"].includes(p.delivery))||p[0])?.id||"";if(!p.some(x=>x.id===recipe.delivery))recipe.delivery=first;if(recipe.power==null)recipe.power=1;if(!recipe.effects.length){const source=p.find(x=>x.effects?.length);if(source)recipe.effects.push({part:source.id,key:source.effects[0].key});}};
     chooseDefaults();
-    const persist=(r,msg)=>{if(!r.ok){note=r.error;render();return;}try{save(r.account);if(r.draft)draftId=r.draft.id;note=msg;render();host.querySelector("#ccWorkStatus").focus();}catch(e){note=`Could not save: ${e.message}`;render();}};
+    const persist=(r,msg,failSay="err")=>{if(!r.ok){note=r.error;if(KU&&failSay)KU.say(failSay);render();return;}try{save(r.account);if(r.draft)draftId=r.draft.id;note=msg;render();host.querySelector("#ccWorkStatus").focus();}catch(e){note=`Could not save: ${e.message}`;if(KU)KU.say("err");render();}};
     const options=parts=>`<option value="">Choose a part…</option>`+W.groups(parts).map(p=>`<option value="${esc(p.id)}" ${recipe.delivery===p.id?"selected":""}>${esc(p.sourceName)}${p.quantity>1?` ×${p.quantity}`:""} · ${esc(p.delivery)}</option>`).join("");
     const ABBR={AP:"action points: usually 100 a turn (Stall and debt change it); a technique costs some of them",ΦF:"the energy techniques spend; the Warden starts with 30",LF:"life; the Warden starts with 100"},ab=k=>`<abbr title="${esc(ABBR[k])}">${k}</abbr>`;
     const layerCount=c=>{c=c||{};const k=c.cast||{},v=c.active||{};return (c.unlock||[]).length+[k.lf>0,k.extraPhi>0,k.reaction,k.prepare,k.contact,k.ultimate,k.onlyType&&k.onlyType!=="none",v.anchored,v.concentration,v.upkeep>0,c.specialization&&c.specialization!=="none"].filter(Boolean).length;};
@@ -61,7 +62,7 @@
       host.querySelectorAll('[data-effect-up],[data-effect-down],[data-effect-remove]').forEach(b=>b.onclick=()=>{const a=recipe.effects;if(b.dataset.effectRemove!=null)a.splice(Number(b.dataset.effectRemove),1);else{const i=Number(b.dataset.effectUp??b.dataset.effectDown),j=i+(b.dataset.effectUp!=null?-1:1);[a[i],a[j]]=[a[j],a[i]];}result=null;render();});
       host.querySelectorAll('[data-clause-verb]').forEach(el=>el.onchange=()=>{const raw=el.value;if(!raw)return;const pick=JSON.parse(raw),choice=recipe.effects[Number(el.dataset.clauseVerb)];choice.part=pick.part;choice.key=pick.key;const p=parts.find(x=>x.id===choice.part),e=p?.effects.find(e=>e.key===choice.key);if(choice.recipient&&!(e?.recipients||["self","ally","target"]).includes(choice.recipient))delete choice.recipient;result=null;render();});
       host.querySelectorAll('[data-clause-target]').forEach(el=>el.onchange=()=>{const choice=recipe.effects[Number(el.dataset.clauseTarget)],p=parts.find(x=>x.id===choice.part),e=p?.effects.find(e=>e.key===choice.key);if(el.value===(e?.target||"target"))delete choice.recipient;else choice.recipient=el.value;result=null;render();});
-      const wireInscribe=()=>{const ins=$("ccWorkInscribe");if(ins)ins.onclick=()=>{const r=W.inscribe(getAccount(),recipe,C);if(r.ok)inscribedSig=JSON.stringify(recipe);persist(r,r.ok?`${r.technique.name} inscribed. Choose Equip below when ready.`:"");};};
+      const wireInscribe=()=>{const ins=$("ccWorkInscribe");if(ins)ins.onclick=()=>{const r=W.inscribe(getAccount(),recipe,C);if(r.ok){inscribedSig=JSON.stringify(recipe);if(KU)KU.say("buy");persist(r,`${r.technique.name} inscribed. Choose Equip below when ready.`);}else persist(r,"","refuse");};};
       wireInscribe();
       $("ccWorkPower").oninput=e=>{recipe.power=Number(e.target.value);result=null;const a2=getAccount(),l2=W.state(a2),parts2=W.materials(a2,C,sample),q2=W.compile(a2,recipe,C,{sample});host.querySelector("#ccWorkPowerReadout").textContent=powerWord(recipe.power);host.querySelector(".cc-work-preview").outerHTML=previewMarkup(q2,l2,a2);wireInscribe();};
       $("ccWorkForm").onsubmit=e=>{e.preventDefault();const r=W.saveDraft(getAccount(),{...recipe,training:sample},draftId);persist(r,"Draft saved. No materials spent.");};
@@ -69,7 +70,7 @@
       $("ccWorkDraft").onchange=e=>{const d=l.workshop.drafts.find(d=>d.id===e.target.value);if(!d){$("ccWorkNew").click();return;}recipe=W.migrateRecipe({...d.recipe});sample=!!recipe.training;draftId=d.id;result=null;note=recipe.migratedFrom?"Translated from the old desk. Check the verbs, then save.":"Draft reopened. Unavailable source parts must be replaced before inscription.";delete recipe.migratedFrom;render();};
       $("ccWorkRehearse").onchange=e=>{rehearse=e.target.checked;result=null;render("ccWorkRehearse");};
       $("ccWorkFixture").onchange=e=>{fixture=e.target.value;result=null;render("ccWorkFixture");};
-      $("ccWorkTest").onclick=()=>{result=W.prove(getAccount(),recipe,C,E,{sample,fixture,rehearse});note=result.ok?"Trial finished. Nothing was spent or awarded.":"This trial could not run.";render("ccWorkTest");};
+      $("ccWorkTest").onclick=()=>{result=W.prove(getAccount(),recipe,C,E,{sample,fixture,rehearse});if(!result.ok&&KU)KU.say("err");note=result.ok?"Trial finished. Nothing was spent or awarded.":"This trial could not run.";render("ccWorkTest");};
       $("ccWorkPin").onclick=()=>{pinned={name:result.name,result:JSON.parse(JSON.stringify(result))};note="Trial kept for comparison. Choose the same situation for a fair comparison.";render("ccWorkPin");};
       host.querySelectorAll("[data-work-equip]").forEach(b=>b.onclick=()=>persist(W.equip(getAccount(),b.dataset.workEquip,host.querySelector(`[data-work-replace="${b.dataset.workEquip}"]`)?.value),"Technique equipped."));
       host.querySelectorAll("[data-work-unhold]").forEach(b=>b.onclick=()=>persist(W.unequip(getAccount(),b.dataset.workUnhold),"Memory released; blueprint preserved."));
@@ -79,6 +80,8 @@
       host.querySelectorAll('[data-step-remove],[data-step-up],[data-step-down]').forEach(b=>b.onclick=()=>{const a=recipe.contract.unlock;if(b.dataset.stepRemove!=null)a.splice(Number(b.dataset.stepRemove),1);else{const i=Number(b.dataset.stepUp??b.dataset.stepDown),j=i+(b.dataset.stepUp!=null?-1:1);[a[i],a[j]]=[a[j],a[i]];}changed();});
       host.querySelectorAll('[data-words]').forEach(el=>el.onchange=()=>{recipe.contract.unlock[Number(el.dataset.words)].words=el.value;changed();});
       host.querySelectorAll('[data-contract-clear]').forEach(b=>b.onclick=()=>{recipe.contract||={};recipe.contract[b.dataset.contractClear]=b.dataset.contractClear==='unlock'?[]:{};changed();});
+      const inv=host.querySelector(".cc-work-inventory");if(inv&&KU)inv.addEventListener("toggle",()=>{if(inv.open)KU.say("fold:scribing");});
+      if(typeof keeper==="function")keeper(host);
       if(focus)$(focus)?.focus();
     }
     render();host.querySelector("h2").tabIndex=-1;host.querySelector("h2").focus();

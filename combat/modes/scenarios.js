@@ -159,7 +159,8 @@
       for (const [cid, spec] of Object.entries(S.force)) {
         if (!AUTHORABLE.includes(spec.type)) continue;   // ally and reinforcements need the roster and the hero (engine.js randomEncounterOptions); an authored one would arrive empty
         // A checkpoint can be missing: a forced sky (S.weather) already dropped every rolled weather event. Then the authored one is added at its place in round order.
-        const i = schedule.findIndex((e) => e.id === cid), old = i >= 0 ? schedule[i] : RE.checkpoints.find((c) => c.id === cid);
+        const custom = (S.checkpoints || []).find((c) => c.id === cid);   // an authored round of its own (SC02: rounds 1, 4 and 7)
+        const i = schedule.findIndex((e) => e.id === cid), old = i >= 0 ? schedule[i] : custom || RE.checkpoints.find((c) => c.id === cid);
         if (!old) continue;
         const gone = new Set((i >= 0 && old.actorIds) || []);
         parts = parts.filter((p) => !gone.has(p.id));
@@ -212,12 +213,15 @@
     if (S.weather) out.randomEventSchedule = (out.randomEventSchedule || []).filter((e) => e.type !== "weather");   // a rolled weather event would re-roll the forced sky at round 1
     if (S.weather && ctx.Climate) out.weatherState = { ...ctx.Climate.rollWeather(out.arenaData, { seed: out.seed ?? seed, archetype: out.arenaData?.archetype }), id: S.weather };
     if (S.force || S.wild) out = authorEvents(out, S, seed, ctx);
-    const spec = { id: S.id, name: S.name, tier, objective: { ...S.objective } };
+    const objective = { ...S.objective };
+    // Spec 3.3: tier 1 gets two more rounds, tier 3 one fewer (floor 5); never past the 14-round ceiling objectives.js enforces.
+    if (objective.deadline != null) objective.deadline = Math.min(14, tier <= 1 ? objective.deadline + 2 : tier >= 3 ? Math.max(5, objective.deadline - 1) : objective.deadline);
+    const spec = { id: S.id, name: S.name, tier, objective };
     const rules = { ...(out.rules || {}), scenario: spec };
     if (S.houses === "always" && ctx.rules?.houses) rules.houses = { ...ctx.rules.houses, chance: { default: 1 } };
     const sc = out.scenario, terrain = sc?.terrain || arenaName(out.arenaData, out.arenaData?.id, ctx);
     const title = `Random scenario: ${S.name} · ${terrain} · ${n} opponent${n === 1 ? "" : "s"}${sc?.ally ? ` · with ${ctx.characters?.[sc.ally]?.name || sc.ally}` : ""} · ${sc?.theyOpen ? "they move first" : "you move first"}`;
-    const done = { ...out, title, mode: "classic", scenarioBattle: S.id, rules,
+    const done = { ...out, title, mode: objective.kind === "classic" ? "classic" : "scenario", scenarioBattle: S.id, rules,
       theme: { id: `scenario-${S.id}`, title: S.name, text: S.text.open, mid: S.text.mid.text, result: { ...S.text.result } } };
     return done;
   }
