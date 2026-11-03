@@ -174,6 +174,7 @@
   }
   function say(event, extra) {   // extra tokens (S3: { price } for a refused buy) fill the line's {tokens}; without them the line is skipped, never holed
     const cur = S.cur; if (!cur || !cur.strip || !cur.strip.isConnected) return null;
+    if (K.BIG_BY_COUNT.has(cur.k.id) && cur.o.onSpend && !/^(err|refuse|idle|leave)$/.test(event)) cur.o.onSpend(cur.k.id, 1);   // a per-window keeper's `big` counts things done in its window (R-20261103-04)
     const line = choose(cur.k, event, cur.o.account, cur.ctx, extra); if (line) show(cur.strip, cur.k.id, line, cur.o.dialogueOn);
     return line;
   }

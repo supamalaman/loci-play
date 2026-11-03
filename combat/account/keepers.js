@@ -35,7 +35,7 @@
     const rec = recordOf(account, id), battles = nat(account.battles), history = Array.isArray(account.history) ? account.history : [];
     if (!rec.visits) return "first";
     if (nat(opts.owed) > 0) return "owing";
-    if (rec.spent >= K.BIG_SPEND) return "big";
+    if (rec.spent >= (K.BIG_BY_COUNT.has(id) ? K.BIG_COUNT : K.BIG_SPEND)) return "big";
     if (nat(account.level) > rec.level) return "mile";
     if (K.KEEPERS[id]?.rematch) {   // the same rule as the rematch record: only eligible battles count (see noteBattle)
       if (rec.fought > rec.lastAt && rec.result === "loss") return "loss";
@@ -55,6 +55,14 @@
     const ctx = contextFor(account, id, opts), rec = recordOf(account, id);
     return { ctx, account: withRecord(account, id, { ...rec, visits: rec.visits + 1, lastAt: nat(account.battles), spent: 0, level: nat(account.level) }) };
   }
+  // The writer for `spent` (R-20261103-04): Seeds moved through a money keeper this visit, or things done at a per-window keeper's window. It only adds; `enter` zeroes it at the next visit, after the context is read.
+  function noteSpend(account, id, amount) {
+    const n = nat(amount); if (!K.KEEPERS[id] || n <= 0) return account;
+    const rec = recordOf(account, id);
+    return withRecord(account, id, { ...rec, spent: rec.spent + n });
+  }
+  // How many Seeds a Field Kit action counts for `big` (R-20261103-04: Seeds spent). Kaikeyi is the stall: her `big` line is about a good sale, so she counts Seeds gained; every other money keeper counts Seeds spent. Never negative.
+  function moneyMoved(id, before, now) { const b = nat(before), n = nat(now); return id === "kaikeyi" ? Math.max(0, n - b) : Math.max(0, b - n); }
   // A finished battle: Rama remembers the Town Hall encounter you lost, and forgets it when you win that one.
   function noteBattle(account, { encounter, winner } = {}) {
     const rec = recordOf(account, "rama");
@@ -91,5 +99,5 @@
     return null;
   }
 
-  return { normalize, recordOf, tierOf, contextFor, enter, noteBattle, pick };
+  return { normalize, recordOf, tierOf, contextFor, enter, noteSpend, moneyMoved, noteBattle, pick };
 });

@@ -24,7 +24,9 @@
   // KEEPER_PERKS: Seeds perks P1 to P4 (spec section 7.2). OFF (decision D4); nothing reads it in S0 and no perk code exists yet.
   const KEEPER_PERKS = false;
   const STREAK_WINS = 3;     // a run of wins that earns the `streak` line (a code constant: the count is never in a line)
-  const BIG_SPEND = 150;     // Seeds spent on the previous visit that earn the `big` line (builder's pick; nothing spends at the Town Hall). INERT: nothing writes the keeper record's `spent` yet (account/keepers.js `enter` only resets it), so no `big` line plays (the writer, when built, is a function named `noteSpend`, which tests/npc-keepers-big-inert.test.mjs looks for); the decision on what counts as big is loop 1a1a1f551c2-22208ddd
+  const BIG_SPEND = 150;     // Seeds moved through a money keeper (Pioneer, Jambavan, Talisman, Kaikeyi, Tallyman) on the previous visit that earn the `big` line (R-20261103-04; the 150 is the builder's pick)
+  const BIG_COUNT = 3;       // things done at a per-window keeper's window on the previous visit (Jatayu, Magistrate, Starfarer, Freemason; R-20261103-04 ruled "a per-window count" with no number: 3 is the builder's pick, a Decision for Mala if it should change)
+  const BIG_BY_COUNT = new Set(["jatayu", "magistrate", "starfarer", "freemason"]);
   const IDLE_MS = 25000;     // one idle line, once per entry, after this long without input
 
   const KEEPERS = {
@@ -89,5 +91,5 @@
   const idlePath = (id) => { const a = art(id); return a && a.folder && a.fallback === "idle" ? `combat/sprites/${a.folder}/idle.png` : null; };
   const keeperFor = (windowId) => { const row = WINDOWS[windowId], k = row && KEEPERS[row.keeper]; return k ? { id: row.keeper, ...k } : null; };
 
-  return { FACES, KEEPERS, WINDOWS, KEEPER_PERKS, STREAK_WINS, BIG_SPEND, IDLE_MS, artPath, idlePath, keeperFor };
+  return { FACES, KEEPERS, WINDOWS, KEEPER_PERKS, STREAK_WINS, BIG_SPEND, BIG_COUNT, BIG_BY_COUNT, IDLE_MS, artPath, idlePath, keeperFor };
 });

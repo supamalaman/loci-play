@@ -1171,6 +1171,7 @@
     const mountKeeper = (ov, windowId, more = {}) => { const { counter = null, event = null, ...rest } = more;   // S3: a counter swap rides beside the facts, never in them
       return root.ConceptCombatKeeperUI?.mount(ov, windowId, { account: U.account, store, dialogueOn: U.dialogueOn, facts: { ...keeperFacts(), ...rest }, counter, event,
       onAccount: (a) => { U.account = a; saveAccount(); },
+      onSpend: (id, n) => { if (root.ConceptCombatKeeperMemory?.noteSpend) { U.account = root.ConceptCombatKeeperMemory.noteSpend(U.account, id, n); saveAccount(); } },   // per-window keepers: one count per thing done (keeper-ui say)
       onDialogue: (on) => { U.dialogueOn = on; store.set("loci:combat:dialogue", on); if (!on) U.bubbles = []; const b = $("ccDialogue"); if (b) b.textContent = `Dialogue ${on ? "On" : "Off"}`; } }); };
     // NPC keepers S4c: the Freemason at the scribing desk. The desk is the Workshop UI module, so the strip is mounted
     // by the caller (spec section 16): both desk entries pass this as the `keeper` option and the module calls it after
@@ -1201,7 +1202,7 @@
       const id = free.sort((a, b) => dist(a) - dist(b))[0];
       return { name: C.concepts[id].name, cost: VV ? VV.claimPrice(GD, owned, id, { table: VV.BLESSED, chit: useChit }).cost : WS.claimCost(0) }; };
     function showTown() {
-      root.ConceptCombatKeeperUI?.reset(); U.keeperCounter = null;   // S3: leaving the keeper windows returns the Field Kit to its frame
+      root.ConceptCombatKeeperUI?.reset(); U.keeperCounter = null; U.keeperSeedsAt = null;   // S3: leaving the keeper windows returns the Field Kit to its frame
       endTestBattle();   // leaving a test battle unfinished keeps nothing too
       U.focusPanel = null;   // back in town: the next door decides what the setup screen shows
       U.mode = "town"; stopAi(); host.classList.add("cc-setting-up");
@@ -1239,7 +1240,7 @@
         ${note ? `<p class="cc-hall-note" role="status">${esc(note)}</p>` : ""}
         <div class="cc-row"><button type="button" id="ccHallPack">Pack for battle (Ledger House)</button><button type="button" class="cc-primary" id="ccHallBack">← Back to town</button></div></div>`;
       ov.querySelectorAll("[data-hall-buy]").forEach(b => b.onclick = () => { const offer = stock.find(o => o.id === b.dataset.hallBuy); const r = Loot.buy(U.account, offer);
-        if (r.ok) { U.account = r.account; saveAccount(); } showHall(r.ok ? `Bought: ${offer.name}.` : r.reason); });
+        if (r.ok) { U.account = r.account; if (root.ConceptCombatKeeperMemory?.noteSpend) U.account = root.ConceptCombatKeeperMemory.noteSpend(U.account, "jambavan", offer.price); saveAccount(); } showHall(r.ok ? `Bought: ${offer.name}.` : r.reason); });   // the hiring hall spend counts toward Jambavan's `big` line (R-20261103-04)
       $("ccHallPack").onclick = () => showAccount();
       mountKeeper(ov, "hiringHall");   // Jambavan (S1)
       $("ccHallBack").onclick = () => showSetup(); $("ccHallBack").focus();
@@ -1273,7 +1274,7 @@
         ${CardsUI?.almanac ? (() => { const al = CardsUI.almanac(); return cx("cardalmanac", "Card almanac", `${al.playable}/${al.total}`, al.html); })() : ""}
         ${cx("books", "The Magistrate's books", books.length, `${books.length ? books.map((b) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(b.technique))}</b> <small>${esc(b.tier)} · ${b.price} Seeds</small><p>Practice +1 toward memorizing it.</p></div><button type="button" data-book="${esc(b.id)}" ${U.account.seeds < b.price ? "disabled" : ""}>Buy · ${b.price}</button></div>`).join("") : `<p class="cc-muted">The shelves stock what the codex holds: found a tradition or donate a study.</p>`}`)}
         ${cx("memory", "Memory", `${lg.memory.held.length}/${lg.memory.slots}`, `<p class="cc-muted">Held techniques come into every battle with you. A fourth pushes out the oldest; relearning it takes half the practice.</p>${lg.memory.held.map((id) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(id))}</b><small>${esc(takeInfo(id))}</small></div>${LB.partsOf(id, C) ? `<button type="button" data-take="${esc(id)}" ${lg.parts.some(p=>p.source===id)?"disabled":""}>Take apart</button>` : `<small class="cc-muted">resists analysis</small>`}</div>`).join("") || `<p class="cc-muted">Nothing held.</p>`}`)}
-        ${cx("scribing", "Scribing desk", `${lg.parts.length} parts`, `<button type="button" class="cc-primary" id="ccOpenWorkshop">Open scribing desk ↗</button>${lg.parts.length >= 1 ? `<p class="cc-muted">Shape recovered parts into a technique at the desk: draft, test, inscribe, equip.</p>` : `<p class="cc-muted">Take apart a held technique to get its parts (the notebook copy is used up).</p>`}
+        ${cx("scribing", "Scribing desk", `${lg.parts.length} parts`, `<button type="button" class="cc-primary" id="ccOpenWorkshop">Open scribing desk ↗</button>${lg.parts.length >= 1 ? `<p class="cc-muted">Shape recovered parts into a technique at the desk: draft, test, inscribe, equip. Parts come from taking a held technique apart (above).</p>` : `<p class="cc-muted">Take apart a held technique to get its parts (the notebook copy is used up). With no parts the desk lends you training parts.</p>`}
           ${lg.scribed.length ? `<p class="cc-muted">Scribed: ${lg.scribed.map((d) => `${esc(d.name)} (${d.ap} AP, ${d.cost} ΦF${lg.memory.held.includes(d.id) ? ", held" : ""})`).join(" · ")}</p>` : ""}`)}
         <div class="cc-row"><button type="button" class="cc-primary" id="ccCodexBack">← Back to town</button></div></div>`;
       ov.querySelectorAll(".cc-cx").forEach((sec) => { const n = [...sec.querySelectorAll("button[data-revive],button[data-donate],button[data-memorize],button[data-take],button[data-book]")].filter((b) => !b.disabled).length, tag = sec.querySelector(".cc-cx-ready"); if (n) { tag.textContent = `${n} ready`; tag.hidden = false; } });
@@ -1912,7 +1913,21 @@
     }
     const deckCtx = () => { const classId = U.character.classId || "warden"; return { account: () => U.account, classId, className: C.characters[classId]?.name || classId,
       setAccount: (next) => { U.account = next; saveAccount(); }, rerender: showAccount, flash: flashTip, open: !!U.setupPanels.deck, onToggle: (open) => { U.setupPanels.deck = open; } }; };
+    // The `big` writer for the money keepers (R-20261103-04): Seeds that moved since the last Field Kit render count for the counter keeper
+    // whose counter was just used (Pioneer shop, Talisman kiln, Kaikeyi stall), else for the Tallyman's frame (care, mixes, fruit and saga moves).
+    // The baseline is cleared when the player leaves town (showTown), so earnings and spending elsewhere never count.
+    function noteFieldKitMoney() {
+      const M = root.ConceptCombatKeeperMemory, KU = root.ConceptCombatKeeperUI, now = U.account.seeds || 0;
+      // Only consecutive Field Kit renders count: coming from any other window (hall, Codex, setup, a battle) U.mode is not "account", so the baseline restarts and Seeds that moved elsewhere never count.
+      if (M && M.noteSpend && U.mode === "account" && U.keeperSeedsAt != null && now !== U.keeperSeedsAt) {
+        const owner = (U.keeperCounter && KU?.counterKeeper("ledgerHouse", U.keeperCounter)?.id) || "tallyman";
+        const moved = M.moneyMoved(owner, U.keeperSeedsAt, now);
+        if (moved > 0) { U.account = M.noteSpend(U.account, owner, moved); saveAccount(); }
+      }
+      U.keeperSeedsAt = U.account.seeds || 0;
+    }
     function showAccount() {
+      noteFieldKitMoney();
       const returnMode = U.mode === "account" ? (U.accountReturnMode || "setup") : U.mode;
       U.accountReturnMode = returnMode;
       stopAi();
@@ -1947,7 +1962,7 @@
       ov.querySelectorAll("[data-swallow]").forEach(b => b.onclick = () => { const BS = root.ConceptCombatBeadSwallow; const r = BS ? BS.swallow(U.account, +b.dataset.swallow, W?.data?.monsters) : { ok: false, error: "Swallowing is unavailable." }; if (r.ok) { U.account = r.account; saveAccount(); flashTip(r.line); showAccount(); } else flashTip(r.error); });   // swallow a bead (account/beads.js)
       ov.querySelectorAll("[data-perk]").forEach(b => b.onclick = () => { const pick = b.closest("article")?.querySelector("[data-seat-pick]"); const r = pick ? A.spendPerk(U.account, b.dataset.perk, null, pick.value) : A.spendPerk(U.account, b.dataset.perk); if (r.account) { U.account = r.account; saveAccount(); showAccount(); } else flashTip(r.error); });
       ov.querySelectorAll("[data-pact-sign]").forEach(b => b.onclick = () => { const id = b.dataset.pactSign, r = PC.sign(U.account.contracts, { line: id, terms: SM.data.summons[id].pact }); r.ok ? (saveAccount(), showAccount()) : flashTip(r.error); });
-      ov.querySelectorAll("[data-pact-apologize]").forEach(b => b.onclick = () => { const id = b.dataset.pactApologize, terms = SM.data.summons[id].pact, due = PC.scale(terms.call, PC.PACT.apologyMul); if ((U.account.seeds || 0) < due.seeds) return flashTip(`The apology needs ${due.seeds} Seeds.`); const r = PC.sign(U.account.contracts, { line: id, terms, apology: true }); if (!r.ok) return flashTip(r.error); U.account.seeds -= due.seeds; saveAccount(); showAccount(); flashTip(`${SM.data.summons[id].name} accepts the apology.`); });
+      ov.querySelectorAll("[data-pact-apologize]").forEach(b => b.onclick = () => { const id = b.dataset.pactApologize, terms = SM.data.summons[id].pact, due = PC.scale(terms.call, PC.PACT.apologyMul); if ((U.account.seeds || 0) < due.seeds) return flashTip(`The apology needs ${due.seeds} Seeds.`); const r = PC.sign(U.account.contracts, { line: id, terms, apology: true }); if (!r.ok) return flashTip(r.error); U.account.seeds -= due.seeds; saveAccount(); U.keeperCounter = null; showAccount(); flashTip(`${SM.data.summons[id].name} accepts the apology.`); });
       ov.querySelectorAll("[data-pact-release]").forEach(b => b.onclick = () => { const r = PC.release(U.account.contracts, { line: b.dataset.pactRelease }); r.ok ? (saveAccount(), showAccount()) : flashTip(r.error); });
       ov.querySelectorAll("[data-equip]").forEach(b => b.onclick = () => { const r = Loot.equip(U.account, b.dataset.equip); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } else flashTip(r.reason); });
       ov.querySelectorAll("[data-unequip]").forEach(b => b.onclick = () => { const r = Loot.unequip(U.account, b.dataset.unequip); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } });
@@ -1962,7 +1977,7 @@
       ov.querySelectorAll("[data-cherish]").forEach(b => b.onclick = () => cared(Loot.cherish(U.account, b.dataset.cherish)));
       ov.querySelector("#ccTendAll")?.addEventListener("click", () => cared(Loot.tendAll(U.account)));
       ov.querySelectorAll("[data-service]").forEach(b => b.onclick = () => cared(Loot.repairService(U.account, b.dataset.service)));   // JK-03: the smith's mend celebrates like a tend
-      ov.querySelectorAll("[data-mixbuy]").forEach(b => b.onclick = () => { const [id, mix] = b.dataset.mixbuy.split(":"); const r = Loot.buyMix(U.account, id, mix); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } else flashTip(r.reason); });
+      ov.querySelectorAll("[data-mixbuy]").forEach(b => b.onclick = () => { const [id, mix] = b.dataset.mixbuy.split(":"); const r = Loot.buyMix(U.account, id, mix); if (r.ok) { U.account = r.account; saveAccount(); U.keeperCounter = null; showAccount(); } else flashTip(r.reason); });   // the Tallyman's frame owns a mix buy: a stale counter must not take its Seeds (`big`, R-20261103-04)
       ov.querySelectorAll("[data-mixplay]").forEach(b => b.onclick = () => { const [, mix] = b.dataset.mixplay.split(":"); Tracks.cue("claim-chime", { mix }); });
       ov.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => { const [kind,id] = b.dataset.buy.split(":"); const offer = stock.find(x=>x.kind===kind&&x.id===id); const r = Loot.buy(U.account, offer);
         if (!r.ok) { U.keeperCounter = "shop"; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: "shop" }); root.ConceptCombatKeeperUI?.say("refuse"); return flashTip(r.reason); }   // the Pioneer (S3): the engine refuses a buy only for an owned item or a full stash (the button is disabled below the price), and the refuse line names those two
@@ -1985,7 +2000,7 @@
       ov.querySelectorAll("[data-stall-order-p]").forEach(b => b.onclick = () => { const [o, j] = b.dataset.stallOrderP.split(":"); redo(MK.fillOrder(U.account, +o, { pen: +j }), ["stall", "buy", "refuse"]); });
       ov.querySelectorAll("[data-stall-order-v]").forEach(b => b.onclick = () => { const [o, t] = b.dataset.stallOrderV.split(":"); redo(MK.fillOrder(U.account, +o, { vessel: t }), ["stall", "buy", "refuse"]); });
       ov.querySelectorAll("[data-fruit-pick]").forEach(b => b.onclick = () => { U.fruitPick = b.dataset.fruitPick; showAccount(); });
-      ov.querySelectorAll("[data-fruit-sell]").forEach(b => b.onclick = () => { const r = root.ConceptCombatFruit.sellFruit(U.account, b.dataset.fruitSell); redo(r.ok ? { ...r, lines: [r.line] } : { ok: false, reason: r.error }); });
+      ov.querySelectorAll("[data-fruit-sell]").forEach(b => b.onclick = () => { const r = root.ConceptCombatFruit.sellFruit(U.account, b.dataset.fruitSell); U.keeperCounter = null; redo(r.ok ? { ...r, lines: [r.line] } : { ok: false, reason: r.error }); });
       ov.querySelector("#ccFruitCancel")?.addEventListener("click", () => { U.fruitPick = null; showAccount(); });
       ov.querySelector("#ccFruitConfirm")?.addEventListener("click", () => {
         const r = root.ConceptCombatFruit.eat(U.account, U.fruitPick); U.fruitPick = null;

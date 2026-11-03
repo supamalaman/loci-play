@@ -1144,3 +1144,6 @@
 .cc-fn-species ol { margin: 4px 0 8px 22px; padding: 0; display: grid; gap: 6px; }
 .cc-fn-species li small { display: block; margin-top: 2px; overflow-wrap: anywhere; }
 .cc-fn-blank { color: #8f9bb8; font-style: italic; }
+/* Workshop clarity S5 (T10): the tree card sizes to its overlay (the overlay already pads 20px), not to 94vw, which pushed the
+   card's right edge past a 520px window. The landing and the desk keep their own host (.cc-work-host). */
+.cc-card.cc-workshop.cc-tree { width:min(1120px,100%); }
