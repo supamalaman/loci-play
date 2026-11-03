@@ -74,21 +74,18 @@
     // fruit's kit like the hero does, at Fresh (Ripe at tier 2). It earns no feats (tracking is hero-only).
     // Respec: a unit that eats the fruit takes the trait (the hero with the feat model on, a rival eater, the anime hero once his fruit carries respec).
     const giveTrait = (u) => { if (!H.hasTrait?.(u, "fruitbound")) u.traits = [...(u.traits || []), "fruitbound"]; };
-    // The AI's side of the trait (engine/ai.js rawScore): each fruit technique scores more when the moment fits. The anime kit floor (ai.js animeKitFloor) lifts
-    // whatever becomes non-negative. Contexts keep it sensible: a coil only with a foe near, Mainspring only with coils held, fog only without fog of its own.
-    function fruitboundBonus(s, a, cand) {
-      const R = s.rules.aiLedger?.fruitbound; if (!R?.on || cand?.type !== "ability" || !R.bonus?.[cand.ability] || !fruitOf(a) || !H.hasTrait?.(a, "fruitbound")) return 0;
-      const foeNear = (r) => Object.values(s.actors).some((u) => !u.defeated && !u.notArrived && !H.Tourist?.is?.(u) && u.side !== a.side && u.side !== "bystander" && dist(s, a.x, a.y, u.x, u.y) <= r);   // the AI's own idea of a foe (ai.js foesLeft)
-      const coils = a.status?.coils?.n || 0, id = cand.ability;
-      if (id === "windTheSpring" && !(coils < 2 && foeNear(3))) return 0;   // one or two coils, then the Strike that lets them go
-      if (id === "mainspring" && !(coils >= 2 && foeNear(2))) return 0;   // the push bonus reaches 2 tiles: only worth it with coils to throw and a foe that close
-      if (id === "fogBank" && ((s.barriers || []).some((b) => b.concept === "fog" && b.owner === a.id) || !foeNear(6))) return 0;
-      if (id === "weatherFront" && (frontOn(a) || !foeNear(4))) return 0;   // a front is worth calling with a foe close enough to walk into it
-      if (id === "vapourStep" && !foeNear(3)) return 0;
-      if ((id === "takeTheShape" || id === "fullShape") && shapeOn(a)) return 0;   // an expired shape is not worn (the status is never cleared)
-      if (id === "fullShape" && !(a.beastSummons || []).length) return 0;   // Full Shape needs a learned creature; the plain shape's card is greyed without one by fruitBlocked   // an expired shape is not worn (the status is never cleared)
-      return R.bonus[id];
-    }
+    // The fruit's context checks for the trait-drive ledger (W0d; the dispatcher is ai.js traitDriveBonus, the table is
+    // rules.aiLedger.traitDrive.fruitbound). Each names a moment that fits: a coil only with a foe near, Mainspring only
+    // with coils held, fog only without fog of its own. foeNear itself is generic and lives with the dispatcher.
+    const fruitTraitChecks = {
+      hasFruit: (s, a) => !!fruitOf(a),
+      coilsLt: (s, a, n) => (a.status?.coils?.n || 0) < n,   // one or two coils, then the Strike that lets them go
+      coilsGte: (s, a, n) => (a.status?.coils?.n || 0) >= n,   // the push bonus reaches 2 tiles: only worth it with coils to throw and a foe that close
+      noOwnFog: (s, a) => !(s.barriers || []).some((b) => b.concept === "fog" && b.owner === a.id),
+      noFront: (s, a) => !frontOn(a),   // a front is worth calling with a foe close enough to walk into it
+      noShape: (s, a) => !shapeOn(a),   // an expired shape is not worn (the status is never cleared)
+      hasBeast: (s, a) => (a.beastSummons || []).length > 0,   // Full Shape needs a learned creature; the plain shape's card is greyed without one by fruitBlocked
+    };
     function armRival(s, opts) {
       const r = opts.rival, u = s.actors.rival; if (!r || !u || !RULES.kits[r.fruit]) return;
       u.fruit = { id: r.fruit, ripe: !!r.ripe, respec: true, shapes: [] }; giveTrait(u);
@@ -416,6 +413,6 @@
     function hunterEntrance(s) {
       if (s.actors.hunter) log(s, { kind: "hunter", actor: "hunter", text: `${s.actors.hunter.name} walks in from the edge of the fight: the Record pays for your head, and they mean to collect.`, why: ["Sinkerfruit: a posted head draws a hunter (how often, and who, follows the bounty)."] });
     }
-    return { withHunter, hunterEntrance, markFeat, refinedOf, awakenedOf, fruitboundBonus, armAnimeFruit, fruitPushBonus, fruitRecoil, fruitAfterHit, fruitKilled, fruitKnocked, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitTurnStart, fruitRelease, fruitReach, fruitSoak, fruitResolve };
+    return { withHunter, hunterEntrance, markFeat, refinedOf, awakenedOf, fruitTraitChecks, armAnimeFruit, fruitPushBonus, fruitRecoil, fruitAfterHit, fruitKilled, fruitKnocked, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitTurnStart, fruitRelease, fruitReach, fruitSoak, fruitResolve };
   })();
 });

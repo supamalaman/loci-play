@@ -890,7 +890,7 @@
         damageType: d.damageType || C.conceptDamageTypes[concept] || "nigredo",
         area: clone(d.area || { shape: "single" }), cost: d.cost, lfPrice: d.lfPrice || 0, potency: d.potency, range: d.range,
         tempoCost: d.tempoCost ?? s.rules.actionCosts.ability[d.tier] ?? s.rules.actionCosts.ability.basic,
-        stunTempo: d.stunTempo || 0, piercing: !!d.piercing, destructive: !!d.destructive || d.concepts.includes("anti_urbanism"),   // piercing ignores ward; destructive ×2 vs structures, every Anti-Urbanism technique (Mala, 2026-10-18)
+        stunTempo: d.stunTempo || 0, piercing: !!d.piercing, holy: !!d.holy, destructive: !!d.destructive || d.concepts.includes("anti_urbanism"),   // piercing ignores ward; destructive ×2 vs structures, every Anti-Urbanism technique (Mala, 2026-10-18)
         guardMultiplier: lens.guardMultiplier,
         duration: typeof d.duration === "number" ? d.duration : null,
         protection: typeof d.protection === "number" ? d.protection : null,

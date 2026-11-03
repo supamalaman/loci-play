@@ -7,7 +7,8 @@
   else root.ConceptCombatBeliefConversion = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const SUPERNATURAL = new Set(["dreamSpace", "fieldOpen", "dreamAppear", "summon", "summonOrder", "summonUltimate",
-    "monsterSummon", "gaiaSummon", "mythicReveal", "bossAppear", "dragonAppear", "cardPlay", "handShown"]);   // Battle Cards (CARDS.md 18.3): a card play, and showing a hand, are events a skeptic can witness
+    "monsterSummon", "gaiaSummon", "mythicReveal", "bossAppear", "dragonAppear", "cardPlay", "handShown",
+    "holySmite", "holyHymn", "holyHands"]);   // holy power (docs/holy.md): a Smite seen, a Hymn sung, a hand laid on someone   // Battle Cards (CARDS.md 18.3): a card play, and showing a hand, are events a skeptic can witness
   const MYTHIC_NAMES = /dragon|kaiju|oni|gaia|vampire|mummy|skeleton|frankenstein|werewolf|ghost|zombie|hydra|griffin|phoenix|unicorn|titan|demon|angel|chimera|basilisk|fae/i;
   const WITNESSES_REQUIRED = 2;
   const OUTCOME_WEIGHTS = { rationalize: 0.4, devout: 0.4, full: 0.2 };

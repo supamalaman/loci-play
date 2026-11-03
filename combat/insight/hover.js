@@ -90,7 +90,7 @@
 
     // Insight: only revealed observations.
     const deck = s.insight?.decks?.[t.id], know = s.insight?.knowledge?.[viewer]?.[t.id];
-    let hidden = 0;
+    let hidden = 0, onlyDeep = false;   // onlyDeep: what is left unnoticed is all deep (Observe cannot reach it; Investigate can)
     // Yourself (Muse, Mala's screenshot 2026-10-15): not a stranger. What you know about yourself, and how much you do not
     // (Observe Self finds it); your own observation deck is what others can learn about you, not a list of locks for you.
     const self = t.id === viewer && s.self?.traits ? s.self.traits : null;
@@ -125,6 +125,7 @@
       const visible = deck.cards.filter((c) => !c.spiritual || seer);
       const revealed = visible.filter((c) => know?.revealed?.includes(c.id) || (!know && c.open));
       hidden = visible.length - revealed.length;
+      onlyDeep = hidden > 0 && visible.every((c) => c.deep || revealed.includes(c));
       for (const kind of Object.keys(KIND)) {
         if (kind === "trait") continue;
         add(KIND[kind], revealed.filter((c) => c.kind === kind).map((c) => {
@@ -147,7 +148,7 @@
 
     const side = me ? sideLabel(t, me.side, stance) : t.side;
     if (side === "neutral") add("Hostile toward", [(hostileSides || []).map(sideName).join(", ") || "no one"]);
-    const hint = self ? (hidden > 0 ? `${hidden} thing${hidden === 1 ? "" : "s"} about yourself you don't know yet. Observe Self to learn more.` : "You know yourself.") : deck && hidden > 0 ? `${hidden} thing${hidden === 1 ? "" : "s"} you haven't noticed yet${know?.progress ? ` · ${know.progress} insight carried over` : ""}. Observe to learn more.`
+    const hint = self ? (hidden > 0 ? `${hidden} thing${hidden === 1 ? "" : "s"} about yourself you don't know yet. Observe Self to learn more.` : "You know yourself.") : deck && hidden > 0 ? `${hidden} thing${hidden === 1 ? "" : "s"} you haven't noticed yet${know?.progress ? ` · ${know.progress} insight carried over` : ""}. ${onlyDeep ? "There is more here than looking will show." : "Observe to learn more."}`
       : deck ? "You've noticed everything there is to notice." : "";
     // Structured public vitals for the unit window's bars. Everything here is already public above.
     const vitalsData = { lf: t.lf, maxLF: t.maxLF, pf: t.pf ?? null, maxPF: t.maxPF ?? null,

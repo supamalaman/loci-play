@@ -1,0 +1,20 @@
+{
+  "size_class": "person",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 1.0,
+  "world_height_definition": "a person = 1.0 (Arantxa is human height); the idle is 272 px of figure, the other poses vary with the pose",
+  "runtime_consumed": false,
+  "source": "Arantxa Leisure Pixel Sprite Sheet.png (claude-arantxa-leisure-cut, Anchor BD as CU)",
+  "note": "Nothing in web/combat reads size_class or world_height yet; the evidence copy with per-file bounds and hashes is qa-evidence/size-record.json in the cut's shelf. The five face-*.png files are class portrait (NPC_FACES.md:297, 2026-11-02 gremlin audit); the ten poses are class person.",
+  "face_size_class": "portrait",
+  "face_files": [
+    "face-neutral.png",
+    "face-happy.png",
+    "face-angry.png",
+    "face-sad.png",
+    "face-surprised.png"
+  ]
+}

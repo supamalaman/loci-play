@@ -94,8 +94,11 @@
       perfect: { dreamLine: 0.15, drainLess: 5, ritualSteps: 1, tauntShrug: 0.5, fearMul: 0.5, stunMul: 0.5, meditateGain: 35, withContemplative: 40, observePoints: 1, holdRounds: 1 },
       // ADHD: an action unlike the last costs varietyOff less; the same one again costs repeatAdd[0] more, then repeatAdd[1].
       adhd: { varietyOff: 0.1, repeatAdd: [0.25, 0.5] } },
+    // Holy (docs/holy.md): a damage tag, not a channel. A holy hit keeps its channel (a holy Smite stays rubedo, so every resist and weakness still works);
+    // fellMul is the extra it does to a dream creature, a summon or an undead kind. holyStep adds to the seesSmite chance per full turn of a kept oath (up to 3).
+    holy: { fellMul: 1.5, holyStep: 0.05, maxStep: 3 },
     inspiration: { cap: 3, vowPoint: 1, nearDeathBelow: 0.25,
-      chance: { seesUltimate: 0.10, nearDeath: 0.25, opensDream: 0.20, insideDream: 0.10, worthyOpponent: 0.20, seesNewTrait: 0.15, seesSacrifice: 0.20, jamSession: 0.15 }, jamPerJoiner: 0.40, jamCap: 0.95,
+      chance: { seesSmite: 0.10, seesUltimate: 0.10, nearDeath: 0.25, opensDream: 0.20, insideDream: 0.10, worthyOpponent: 0.20, seesNewTrait: 0.15, seesSacrifice: 0.20, jamSession: 0.15 }, jamPerJoiner: 0.40, jamCap: 0.95,
       // Inspired ultimates (docs/inspired-ultimates.md, Mala 2026-10-27: "Whole cost"): with a full bar, 1 Inspiration pays an ultimate's whole ΦF.
       ultimatePoint: 1,
       // Never Give Up (a value trait): each turn start rolls for +1 Inspiration, likelier the worse it gets. Provisional numbers for the first sim.
@@ -312,8 +315,20 @@
     // answer with a shooter in range; traitActs lets beliefs and focus act (robot harm multipliers, believers preach,
     // ritual start odds by focus trait, ADHD's taste for variety (variety)). Each takes `sides` for a one-sided sim arm.
     aiLedger: { wallLine: false, curiosity: false, lookahead: false, answerModel: { on: true, prior: 0.15, announcedPrior: 0.5, costWeight: 1 }, walkCost: { on: true, weight: 0.5 }, reserve: { on: false, value: 3, range: 6 },
-      // Fruitbound (respec fruit, 2026-11-01): a unit with the trait scores each fruit technique this much more when the moment fits (engine/fruit.js fruitboundBonus); `on: false` switches it off everywhere.
-      fruitbound: { on: true, bonus: { windTheSpring: 5, mainspring: 16, fogBank: 14, weatherFront: 14, fullShape: 16, vapourStep: 12, scent: 12, takeTheShape: 12 } },
+      // Trait drive (hotbuilds W0d; generalises the respec-fruit Fruitbound term, 2026-11-01): a carrier of a listed
+      // trait scores each listed technique this much more when the moment fits (one rawScore term, ai.js traitDriveBonus).
+      // `when` is a named context check ("name" or ["name", arg]) or a list of them, all ANDed; omitted means always.
+      // A trait-level `when` gates every entry (`when` is reserved: no technique is named that). `on: false` switches
+      // it off everywhere. Generic checks live with the dispatcher; per-trait checks ride their part (fruitTraitChecks).
+      traitDrive: { on: true, fruitbound: { when: ["hasFruit"],
+        windTheSpring: { bonus: 5, when: [["coilsLt", 2], ["foeNear", 3]] },
+        mainspring: { bonus: 16, when: [["coilsGte", 2], ["foeNear", 2]] },
+        fogBank: { bonus: 14, when: ["noOwnFog", ["foeNear", 6]] },
+        weatherFront: { bonus: 14, when: ["noFront", ["foeNear", 4]] },
+        fullShape: { bonus: 16, when: ["noShape", "hasBeast"] },
+        vapourStep: { bonus: 12, when: [["foeNear", 3]] },
+        scent: { bonus: 12 },
+        takeTheShape: { bonus: 12, when: ["noShape"] } } },
       traitActs: { on: false, robotHarm: { robotSympathizer: 0.6, robotHater: 1.4 }, preach: ["fullBeliever", "devoutBeliever", "convertedBeliever", "convertedDevout"],
         ritualStart: { perfectConcentration: 1.5, focused: 1.25, scattered: 0.6, adhd: 0.5 }, variety: { adhd: 1 } }, foeMemory: false, regretProbe: false, setupBonus: 0, readyUltimate: 8, animeKitFloor: 6,   // anime kit options (soul verbs/arts, fruit, Bird Mountain) score at least Observe here, or this when Observe is not offered (docs/anime-orbit.md §5a)
           // a full bar means it is time to use it (Mala, 2026-10-27): a ready damage ultimate scores this much more (simmed on/off)

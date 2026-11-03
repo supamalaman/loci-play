@@ -1373,6 +1373,37 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const opts = obsMemo && obsMemo.s === s && obsMemo.id === a.id ? obsMemo.opts : H.Observation?.options(s, a, H.observationH()) || [];
       return opts.reduce((n, o) => Math.max(n, o.value || 0), R);
     }
+    // The trait-drive ledger (hotbuilds W0d; generalises Fruitbound): a carrier of a listed trait scores each listed
+    // technique above cost when the named context checks hold. Checks resolve at call time (parts install in any
+    // order): generic ones here, per-trait ones on H from their part (fruitTraitChecks). An unknown check fails safe
+    // (no bonus); the trait-drive tests pin every table name to a check.
+    const foeNearHere = (s, a, r) => Object.values(s.actors).some((u) => !u.defeated && !u.notArrived && !H.Tourist?.is?.(u) && u.side !== a.side && u.side !== "bystander" && dist(s, a.x, a.y, u.x, u.y) <= r);   // the AI's own idea of a foe (ai.js foesLeft)
+    function driveWhenHolds(checks, s, a, cand, when) {
+      if (when === undefined || when === null) return true;
+      // A bare ["name", x] with non-string x is one tuple; any other array is a list of atoms (tuple args are never bare strings).
+      if (typeof when !== "string" && !Array.isArray(when)) return false;   // malformed: fail safe, never throw in the scorer
+      const list = typeof when === "string" ? [when] : (when.length === 2 && typeof when[0] === "string" && (typeof when[1] !== "string" && !Array.isArray(when[1])) ? [when] : when);
+      return list.every((atom) => {
+        if (typeof atom === "string") return !!checks[atom]?.(s, a, undefined, cand);
+        if (!Array.isArray(atom) || typeof atom[0] !== "string") return false;
+        return !!checks[atom[0]]?.(s, a, atom[1], cand);
+      });
+    }
+    function traitDriveBonus(s, a, cand) {
+      const R = s.rules.aiLedger?.traitDrive; if (!R?.on || cand?.type !== "ability" || !cand.ability) return 0;
+      const checks = { foeNear: foeNearHere, ...(H.fruitTraitChecks || {}) };
+      let total = 0;
+      for (const [trait, table] of Object.entries(R)) {
+        if (trait === "on" || !table || typeof table !== "object") continue;
+        if (!H.hasTrait?.(a, trait)) continue;
+        if (!driveWhenHolds(checks, s, a, cand, table.when)) continue;
+        const entry = table[cand.ability];
+        if (!entry || typeof entry.bonus !== "number") continue;
+        if (!driveWhenHolds(checks, s, a, cand, entry.when)) continue;
+        total += entry.bonus;
+      }
+      return total;
+    }
     function rawScore(s, id, cand) {
       if(cand.type==="recoverWater")return H.waterRecovery(s,s.actors[id])?.allowed ? 18 : -1;
 
@@ -1713,7 +1744,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const taste = TA && cand.type === "ability" && a.adhdChain?.ability ? Object.entries(TA.variety || {}).reduce((n, [k, v]) => hasTrait(a, k) ? n + v : n, 0) : 0;
       const variety = taste ? (a.adhdChain.ability === cand.ability ? -taste : taste) : 0;   // ADHD: something new appeals, the same again bores
       return dmg - self * 1.5 - cost * 0.3 - reserveCost(s, a, cand, cost) + variety + (pv.answerCost || 0) * (AM?.costWeight ?? 1) + (cand.announce ? 2 : 0) + spite - heed + playful + bait + curiousBonus(s, id, cand) + setupBo + rgBo + readyUlt + foundBonus
-        + scribedComponentValue(s,a,cand,pv) + threatValue(s, a, cand, def) + infoValue(s, a, cand, pv, def) + develop + (H.fruitboundBonus?.(s, a, cand) || 0) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus;   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill
+        + scribedComponentValue(s,a,cand,pv) + threatValue(s, a, cand, def) + infoValue(s, a, cand, pv, def) + develop + (H.traitDriveBonus?.(s, a, cand) || 0) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus;   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill
     }
     // ── In-match lessons (Mala, 2026-10-14: "AI should learn during the match if an attack is effective or not AND
     // understand why"). What a preview already shows (a Shield Wall across a line, a resistance in the damage sum) is
@@ -1854,6 +1885,6 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       return best && best.d > dist(s, a.x, a.y, foe.x, foe.y) ? { type: "move", actor: a.id, to: best.to } : { type: "end", actor: a.id };
     }
 
-    return { withAiTrace, traceAiEvent, aiLastWorkflow, shownTrait, aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, concentrationValue, approach, retreat, lessonsOf, lessonMul, cannotDodge };
+    return { withAiTrace, traceAiEvent, aiLastWorkflow, shownTrait, aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, concentrationValue, approach, retreat, lessonsOf, lessonMul, cannotDodge, traitDriveBonus };
   })();
 });

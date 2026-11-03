@@ -62,6 +62,13 @@
     const q = list[Math.floor(hash(`${seed}:commune:${type}`) * list.length)];
     return { id: q.id, prompt: q.prompt, choices: q.choices.slice(), answer: q.answer, explain: q.explain };
   }
+  // Observe teaches O2a: one question per structure per battle, the same for every asker (mirror of Communion.questionFor).
+  // Derived from battle seed and object id, never stored; no round, no observer, so observing round 1 and waking round 9 agree.
+  function questionFor(obj, battleSeed = 0) {
+    if (!obj) return null;
+    const q = pickQuestion(obj.type, `${battleSeed}:pin:${obj.id}`);
+    return q && { ...q, clue: D.questions.find((x) => x.id === q.id)?.clue || null };
+  }
   function scoreAnswer(questionId, choice) {
     const q = D.questions.find((x) => x.id === questionId);
     if (!q) return { correct: false, explain: "No question." };
@@ -85,5 +92,5 @@
     return best;
   }
 
-  return { rules: R, data: D, profile, observe, canCommune, pickQuestion, scoreAnswer, makeAlly, settleTile, materialTrait: (mat) => MATERIAL_TRAIT[mat] || null };
+  return { rules: R, data: D, profile, observe, canCommune, pickQuestion, questionFor, scoreAnswer, makeAlly, settleTile, materialTrait: (mat) => MATERIAL_TRAIT[mat] || null };
 });

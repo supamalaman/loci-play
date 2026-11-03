@@ -65,7 +65,7 @@
     // One ledger for every character: actor.inspiration, 0 to cap. It never decays. The player's is carried in from the
     // account (opts.inspiration) and read back by the UI when the battle ends. The Bard's `inspiration` passive is a
     // different, older thing and is untouched.
-    const WHY_INSPIRED = { seesUltimate: "saw an ultimate", nearDeath: "came to the edge of death", opensDream: "opened a dream", insideDream: "stood inside a dream", worthyOpponent: "faced a worthy opponent", seesNewTrait: "saw someone change", seesSacrifice: "witnessed a self-sacrifice" };
+    const WHY_INSPIRED = { seesUltimate: "saw an ultimate", nearDeath: "came to the edge of death", opensDream: "opened a dream", insideDream: "stood inside a dream", worthyOpponent: "faced a worthy opponent", seesNewTrait: "saw someone change", seesSacrifice: "witnessed a self-sacrifice", seesSmite: "saw holy power strike" };
     const Inspiration = {
       cap: (s) => s.rules.inspiration?.cap ?? 3,
       of: (a) => a?.inspiration || 0,
@@ -76,14 +76,19 @@
         return now - had;
       },
       // One seeded roll per situation per character per battle.
-      roll(s, a, key) {
+      // Optional `chance` overrides the table; optional `tier` lets a situation roll again only when it is a higher tier than the last one rolled
+      // (holy power seen at a deeper oath step), so a witness gets at most one roll per tier and never the same one twice.
+      roll(s, a, key, chance, tier) {
         const R = s.rules.inspiration; if (!R || !a || a.defeated || s.preview || a.wild || a.dream || a.ai === "dream") return false;
-        const seen = (a.inspiredBy ||= {}); if (seen[key]) return false; seen[key] = s.round || 1;
-        if (H.seededChance(`${s.seed}:inspiration:${key}:${a.id}`) >= (R.chance[key] || 0)) return false;
-        this.gain(s, a, 1, `${a.name} ${WHY_INSPIRED[key] || key}. A ${Math.round(R.chance[key] * 100)}% chance, once per battle.`); return true;
+        const seen = (a.inspiredBy ||= {});
+        if (tier === undefined) { if (seen[key]) return false; seen[key] = s.round || 1; }
+        else { if (seen[key] !== undefined && tier <= seen[key]) return false; seen[key] = tier; }
+        const p = chance ?? (R.chance[key] || 0);
+        if (H.seededChance(`${s.seed}:inspiration:${key}${tier === undefined ? "" : ":" + tier}:${a.id}`) >= p) return false;
+        this.gain(s, a, 1, `${a.name} ${WHY_INSPIRED[key] || key}. A ${Math.round(p * 100)}% chance, ${tier === undefined ? "once per battle" : "once per step"}.`); return true;
       },
       // Everyone who can see `at` (but not `except`) rolls for the same situation.
-      witness(s, at, key, except = null) { for (const u of Object.values(s.actors)) if (!u.defeated && !u.notArrived && u.id !== except && hasSight(s, u.x, u.y, at.x, at.y)) this.roll(s, u, key); },
+      witness(s, at, key, except = null, opts = {}) { for (const u of Object.values(s.actors)) if (!u.defeated && !u.notArrived && u.id !== except && (!opts.side || u.side === opts.side) && hasSight(s, u.x, u.y, at.x, at.y)) this.roll(s, u, key, opts.chance, opts.tier); },
       // A jam session rolls every time one fires (unlike roll's once-per-battle situations):
       // the table base plus per-joiner, capped. A per-actor session counter seeds each roll.
       rollSession(s, a, joiners) {

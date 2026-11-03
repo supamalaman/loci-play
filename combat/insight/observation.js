@@ -75,9 +75,11 @@
         if(fam>(book[f.subject]||0))book[f.subject]=fam;
         if(f.clue)(pb.clues ||= {})[f.subject]=true;
       } else if(f.kind==="structure") {
-        const book=structureBook(s,to,true).familiarity;
-        if((book[f.subject]||0)>=f.familiarity)continue;
-        book[f.subject]=f.familiarity;
+        // Observe teaches O2a: a scout who studied a structure passes its study note on with the familiarity.
+        const sb=structureBook(s,to,true),book=sb.familiarity,fam=f.familiarity||0;
+        if((book[f.subject]||0)>=fam&&!f.clue)continue;
+        if(fam>(book[f.subject]||0))book[f.subject]=fam;
+        if(f.clue)(sb.clues ||= {})[f.subject]=true;
       } else if(f.kind==="trap") {
         const t=s.traps[f.index],key=`${t.x},${t.y}:${t.ownerSide||"?"}`;
         (to.trapSeen ||= {})[key]=true;
@@ -89,6 +91,18 @@
     }
     return count;
   }
+  // Observe teaches O2a: one next-step vocabulary for every Observe kind (mirror of the Workshop clarity spec's
+  // next-step line: a pure first-match-wins table returning {text, path}). The caller carries the live numbers in the
+  // subject; path is the menu road (null when there is nowhere to go yet). Null when the result names no next step.
+  const NEXT_RULES = [
+    [(x) => x.kind === "unit" && x.imitable, () => ({ text: "Next: you can Imitate it from this menu.", path: "Observe ▸ Imitate" })],
+    [(x) => x.kind === "place", (x) => ({ text: `Next: Gaia warns at ${x.warnAt} wounds. Commune with plants here, or keep wounds under ${x.warnAt}.`, path: null })],
+    [(x) => x.kind === "dream", () => ({ text: "Next: it fades when the dream closes, or when someone names it.", path: null })],
+    [(x) => (x.kind === "plant" || x.kind === "structure") && x.closed, () => ({ text: "It will not answer you again this battle.", path: null })],
+    [(x) => (x.kind === "plant" || x.kind === "structure") && x.ready, (x) => ({ text: `Next: approach and ${x.deed}. ${x.dist <= x.range ? "You are beside it" : `Stand beside the ${x.common} (${x.dist} tiles away)`}, then Rituals ▸ ${x.ritual} · ${x.ap} AP + ${x.phi} ΦF. It will ask what you just learned.`, path: `Rituals ▸ ${x.ritual}` })],
+    [(x) => x.kind === "plant" || x.kind === "structure", (x) => ({ text: `Next: observe again. ${x.need - x.fam} more familiarity (about ${Math.max(x.step, (x.need - x.fam - (x.bonus || 0)) * x.step)} AP).`, path: "Observe" })],
+  ];
+  function nextStep(subject) { for (const [fits, line] of NEXT_RULES) if (subject && fits(subject)) return line(subject); return null; }
   function findingNoteOptions(s,a) {
     if(!enabled(s)||!a||a.id!=="player"||a.defeated)return [];
     const noted=new Set((s.findingNotes||[]).map(n=>n.id));
@@ -163,7 +177,7 @@
       if(!adjacent.length)continue;
       const goal=adjacent[0],d=h.dist(s,a.x,a.y,o.x,o.y),f=book.familiarity[o.id]||0;
       if(f>=p.need&&d<=h.Tsukumogami.rules.range&&a.tempo>=h.Tsukumogami.rules.communeAp){
-        const q=h.Tsukumogami.pickQuestion(o.type,`${s.seed}:${s.round}:${o.id}`);
+        const q=h.Tsukumogami.questionFor(o,s.seed);   // Observe teaches: the same pinned question the engine asks
         if(q)out.push({action:{type:"communeStructure",actor:a.id,object:o.id,questionId:q.id,answer:q.answer},value:30+h.Tsukumogami.rules.strikeBySize[p.size]*h.Tsukumogami.rules.rounds-p.phi*2});
       }else if(f<p.need&&d<=h.Tsukumogami.rules.observeRange&&(d<=1||h.hasSight(s,a.x,a.y,o.x,o.y))&&a.tempo>=h.Tsukumogami.rules.observeStep){
         const invest=Math.min(h.Tsukumogami.rules.observeMax,Math.max(h.Tsukumogami.rules.observeStep,(p.need-f)*h.Tsukumogami.rules.observeStep));
@@ -208,5 +222,5 @@
   // `shows` is the trait tag the AI adds to its chosen action; it is not part of what the action is.
   const plain=action=>{const {shows,...rest}=action||{};return JSON.stringify(rest);};
   function value(s,a,action,h){return options(s,a,h).find(o=>plain(o.action)===plain(action))?.value??0;}
-  return {recordFact,recordCards,validFact,factsOf,share,findingNoteOptions,has,nature,botanist,knowledge,cognitive,setCognitive,plantBook,structureBook,discoveries,credit,damageBonus,eligible,hidden,plantPlan,options,value};
+  return {recordFact,recordCards,validFact,factsOf,share,findingNoteOptions,has,nature,botanist,knowledge,cognitive,setCognitive,plantBook,structureBook,discoveries,credit,damageBonus,eligible,hidden,plantPlan,options,value,nextStep};
 });

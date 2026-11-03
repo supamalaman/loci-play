@@ -204,9 +204,10 @@
     if (invest < O.minAP || invest > O.maxAP) return { know, cognitive, revealed: [], unlocked: [], lines: [`Observe takes ${O.minAP}–${O.maxAP} AP.`], error: true };
     const dreamBonus = inDreamSpace && deck.subject.kind === "dream" ? R.dreamSpacePointBonus + dreamerPointBonus : 0;   // TP-02: the dreamer's own attunement (modsFor dreamObservePointBonus) lands on top of the +1 every occupant gets
     let points = Math.floor(invest / O.apPerPoint) + know.progress + dreamBonus + focusPointBonus;   // Perfect Concentration: +1
-    const hidden = deck.cards.filter((o) => !know.revealed.includes(o.id) && (!o.spiritual || seer))
+    const hidden = deck.cards.filter((o) => !know.revealed.includes(o.id) && (!o.spiritual || seer) && !o.deep)
       .map((o) => ({ o, d: Math.max(0, (shared ? Math.max(0, o.difficulty - Math.min(R.familiarity.subjectCap + R.familiarity.kindCap, familiarity(cognitive, subjectKey, o) + shared)) : effectiveDifficulty(cognitive, subjectKey, o)) - (o.kind === "trait" && demonstrated.includes(o.trait) ? demonstratedBonus : 0)) }))
       .sort((a, b) => a.d - b.d || a.o.tie - b.o.tie);
+    const deepLeft = deck.cards.some((o) => o.deep && !know.revealed.includes(o.id) && (!o.spiritual || seer));   // I4: what looking can never reach, Investigate still can
     const revealed = [];
     let cog = cognitive || emptyCognitive();
     for (const { o, d } of hidden) {
@@ -229,6 +230,7 @@
     if (extra) lines.push("20/20 Vision: a fine visual detail brings one more observation into focus.");
     for (const a of unlocked) lines.push(`New action: ${ID.actions[a].name}`);
     if (hidden.length > revealed.length && revealed.length) lines.push("There's more to see.");
+    if (deepLeft && hidden.length === revealed.length) lines.push("There is more here than looking will show.");
     return { know: k2, cognitive: cog, revealed, unlocked, lines };
   }
 

@@ -756,12 +756,12 @@
       { kind: "tell", text: "He snores. Whatever wakes him will regret it.", difficulty: 1 },
       { kind: "tell", text: "He swings from two tiles away and never steps back.", difficulty: 1 },
       { kind: "weakness", channel: "albedo", text: "Rama's arrows took the giant apart from a distance: he is slow, and a shot from outside his reach finds him.", difficulty: 2 },
-      { kind: "realization", text: "He told Ravana he was wrong, and fought for him anyway. Do not wake him: let him sleep, and fight the rest.", difficulty: 2 } ] },
+      { kind: "realization", text: "He told Ravana he was wrong, and fought for him anyway. Do not wake him: let him sleep, and fight the rest.", difficulty: 2, deep: true } ] },
     ravana: { traits: ["proud", "rivalrous"], obs: [
       { kind: "tell", text: "He takes a blow and laughs: something about him grows back.", difficulty: 1 },
       { kind: "tell", text: "He never looks behind him, and never listens when warned.", difficulty: 1 },
       { kind: "weakness", channel: "albedo", text: "He asked Brahma for protection from gods and spirits, and scorned to ask it of men: a mortal's arrow hits him fully.", difficulty: 2 },
-      { kind: "realization", text: "Vibhishana's secret: the nectar is in his navel. The Brahmastra stops the heads and breaks the boon at once.", difficulty: 2 } ] },
+      { kind: "realization", text: "Vibhishana's secret: the nectar is in his navel. The Brahmastra stops the heads and breaks the boon at once.", difficulty: 2, deep: true } ] },
     sita: { traits: ["devoutBeliever", "loyal"], obs: [
       { kind: "tell", text: "She looks toward the edge of the field, as if someone is about to arrive.", difficulty: 1 },
       { kind: "tell", text: "Her eyes go far away before the world around her turns to dream.", difficulty: 1 },

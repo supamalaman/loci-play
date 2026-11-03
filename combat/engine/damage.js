@@ -13,6 +13,9 @@
       dreamSpaceRules, eatMushroom, edgeUsed, endRitual, endRite, fearCheck, footprint, heightAt, heroFell, inside, isMonster, key, log, monsterCtx,
       presidentContext, presidentRules, presidentUnits, recordMirrorEvent, refreshDrowning, saveWildWorld, springTraps, structures, summonRules,
       syncPickup, tileAt, tryDeathDoor, vegetation, wildRules, wildSnapshot } = H;
+    // Holy (docs/holy.md): the fell are dream creatures, summons, the undead and demons by name (Mala 2026-11-02: Ravana and his Lanka court count, Mandodari too; his summoned horde already does) (a short anchored list, not the belief module's loose mythic regex).
+    const FELL = /\b(vampire|mummy|skeleton|ghost|zombie|demon|wraith|lich|revenant|wight|ghoul|rakshasa|ravana|kumbhakarna|indrajit|surpanakha|mandodari)s?\b/i;
+    const isFell = (t) => !!(t.dream || t.summoned || t.summon || t.ai === "dream" || t.ai === "summon" || FELL.test(`${t.character || ""} ${t.name || ""} ${t.monster || ""}`));
     // defined by parts installed after this one: reached through H when called
     const moduleArena = (...args) => H.moduleArena(...args);
     const preview = (...args) => H.preview(...args);
@@ -459,6 +462,7 @@
       if (tgt.status.lawsProtection?.expiresAt > tgt.ownerTurns) { mult *= tgt.status.lawsProtection.multiplier; notes.push(`The King's Law reduces damage ×${tgt.status.lawsProtection.multiplier}.`); }
       if (tgt.status.rememberedThreats?.expiresAt > tgt.ownerTurns && s.mirror?.channelsUsed?.includes(damageType)) { mult *= tgt.status.rememberedThreats.multiplier; notes.push(`Remembered Threats resists a previously seen channel ×${tgt.status.rememberedThreats.multiplier}.`); }
       if (opts.damageMul && opts.damageMul !== 1) { mult *= opts.damageMul; notes.push(`Equipment changes this hit ×${opts.damageMul}.`); }
+      if (inst?.holy && s.rules.holy && isFell(tgt)) { mult *= s.rules.holy.fellMul; notes.push(`Holy power: ${tgt.name} is a dream creature, a summon or one of the fell ×${s.rules.holy.fellMul}.`); }   // docs/holy.md
       const dreamMods = dreamSpaceRules?.modsFor(tgt, s.dreamSpace) || {};
       if (dreamMods.damageTakenMul && dreamMods.damageTakenMul !== 1) { mult *= dreamMods.damageTakenMul; notes.push(`Dream Space shields its summon: damage ×${dreamMods.damageTakenMul}.`); }
       if (tgt.form?.golden) { const gm = bossRules?.data?.integratedSelf?.damageTakenMul ?? 0.75; mult *= gm; notes.push(`The Integrated Self takes ×${gm} damage.`); }
@@ -602,6 +606,13 @@
         damageType, text: `${opts.label || (inst ? inst.name : "Hit")} → ${tgt.name}: ${applied} LF (${remaining}) · ${C.damageTypes[damageType]?.name || damageType}.`, why: notes, edge: opts.edge });
       ClassRuntime?.Martial?.onDamage(s, src, tgt, Math.max(0, before - tgt.lf), classH());   // Martial Artist: fight counters, charge/feast spill
       if (src && dmg > 0 && !s.preview) { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onHit(s, src, tgt, dmg, H); }   // admiration: a big shot writes the ledger
+      if (inst?.holy && src && tgt !== src && dmg > 0 && !s.preview && s.rules.holy) {   // docs/holy.md: holy power struck in plain sight, so skeptics may start to believe and the strikers' side may be inspired
+        const hp = ClassRuntime?.holyOf?.(src, s.rules.holy.maxStep) || { step: 0, live: true };
+        // Everyone with sight of the target but the striker and the target: a skeptic who is himself struck, or who strikes, must not witness this blow (the witness step swaps that actor's object in s.actors mid-resolution, and hit() keeps writing to the old one).
+        const seers = Object.values(s.actors).filter((u) => u.id !== src.id && u.id !== tgt.id && !u.defeated && H.hasSight(s, u.x, u.y, tgt.x, tgt.y)).map((u) => u.id);
+        log(s, { kind: "holySmite", actor: src.id, target: tgt.id, tiles: [[tgt.x, tgt.y]], visibleTo: seers, text: `${src.name}'s ${inst.name || "blow"} strikes with holy power, and it is seen.` });
+        if (hp.live) H.Inspiration?.witness(s, src, "seesSmite", src.id, { side: src.side, chance: (s.rules.inspiration?.chance?.seesSmite ?? 0.1) + s.rules.holy.holyStep * hp.step, tier: hp.step });
+      }
       if (tookFor && dmg > 0 && !s.preview) { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onProtect(s, tookFor, H); }   // admiration: the intercept ate it for a friend
       if (physicallyBlocked) H.Support.grant(s, tgt, "block", "physically blocking an incoming attack");
       if (before > tgt.lf) { concentrationCheck(s, tgt, before - tgt.lf); H.Instinct.painCheck(s, tgt, before - tgt.lf); }   // after the damage line: a hit that gets through tests focus (a fully warded one does not)

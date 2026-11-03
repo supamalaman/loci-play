@@ -24,6 +24,7 @@
       spendTempo, standFootprint, strikeTarget, summonQuestions, summonRules, summonProfile, summonReadiness, summonQuestionHints, summonSnapshot, syncPickup, syncPresidentUnit, target, tileAt, unitAt, vegetation, wildRules,
       wildSnapshot } = H;
     const sealedNext = () => (typeof module === "object" && module.exports ? require("../sealed-next.js") : globalThis.ConceptCombatSealedNext);
+    const DreamData = () => (typeof module === "object" && module.exports ? require("../dream/dream-data.js") : globalThis.ConceptCombatDreamData) || null;   // O2a: a dream monster's teaches for the observe result
     // defined by parts installed after this one: reached through H when called
     const aiAction = (...args) => H.aiAction(...args);
     const candidates = (...args) => H.candidates(...args);
@@ -299,6 +300,13 @@
       a.observes=(a.observes||0)+1;   // spike cap: the AI stops studying a battle after three
       if(a.id==="player")for (const line of result.lines) log(s, { kind: "observe", actor: a.id, target: t.id, text: line });
       else log(s,{kind:"observe",actor:a.id,target:t.id,discoveries:result.revealed.length,text:aiText||`${a.name} studies ${t.name} and learns ${result.revealed.length} new detail${result.revealed.length===1?"":"s"}.`});
+      if (a.id === "player") {   // Observe teaches O2a: an imitable trait names its use; a dream monster teaches its lesson and the interim step
+        // The refusals the Imitate action makes about the observer (imitate(): "already has that trait", "already practised that this battle"; the revealed cards come from the target's own traits): the Next line promises Imitate only for a trait the player could actually take now.
+        const canImitate = (id) => insightRules?.imitable?.(id) && !(hasTrait(a, id) && !a.tempTraits?.[id] && !(s.imitation?.carried || []).includes(id)) && !(s.imitated || []).some((e) => e.actor === a.id && e.trait === id);
+        if ((result.revealed || []).some((c) => c.kind === "trait" && canImitate(c.trait))) log(s, { kind: "observe", actor: a.id, target: t.id, text: H.Observation.nextStep({ kind: "unit", imitable: true }).text });
+        const teaches = t?.dream?.key && DreamData()?.monsters?.[t.dream.key]?.teaches;
+        if (teaches) { log(s, { kind: "observe", actor: a.id, target: t.id, text: `It teaches: ${teaches}` }); log(s, { kind: "observe", actor: a.id, target: t.id, text: H.Observation.nextStep({ kind: "dream" }).text }); }
+      }
       if (a.id === "player" && !s.preview) for (const note of H.Injury?.observeNotes(s, a, t) || []) log(s, { kind: "observe", actor: a.id, target: t.id, text: `You notice: ${note}` });
       if (a.id === "player" && Affinity && !s.preview) { const al = Affinity.line(C, t); if (al) log(s, { kind: "observe", actor: a.id, target: t.id, text: al }); }   // W4.5: the soul's vow-drive is visible
       if (a.id === "player" && !s.preview) for (const line of Orders()?.observeNotes(s, a, t) || []) log(s, { kind: "observe", actor: a.id, target: t.id, text: line });   // orders: respect + the foe's focus read free
@@ -1671,7 +1679,7 @@
           const know = bySubject[t.id] || insightRules.spawnKnowledge(s.insight.decks[t.id]);
           // Perfect Memory (the Cyborg form): what he has already Observed stays known. Looking again at a subject with
           // nothing left to learn costs nothing and adds nothing. It reveals no fact he has not observed.
-          if (hasTrait(a, "perfectMemory") && bySubject[t.id] && (s.insight.decks[t.id]?.cards || []).length && s.insight.decks[t.id].cards.every((o) => know.revealed.includes(o.id))) {
+          if (hasTrait(a, "perfectMemory") && bySubject[t.id] && (s.insight.decks[t.id]?.cards || []).length && s.insight.decks[t.id].cards.every((o) => o.deep || know.revealed.includes(o.id))) {
             log(s, { kind: "observe", actor: a.id, target: t.id, free: true, text: `${a.name} already holds everything there is to see in ${t.name}. Perfect Memory: no action points spent.`, why: ["A fact already Observed in this battle stays known; observing it again costs 0 AP and adds nothing."] });
             return;
           }
@@ -1734,6 +1742,7 @@
           const notice = tp.warnAt <= 11 ? "quick to notice" : tp.warnAt >= 20 ? "slow to anger" : "even-tempered";
           const forgive = tp.forgive >= 2 ? `quick to forgive (−${tp.forgive} wounds each round)` : tp.forgive === 1 ? "slow to forgive (−1 wound each round)" : "slow to forget (wounds never fade)";
           log(s, { kind: "observePlace", actor: a.id, text: `Site temper: ${ground} — ${notice} (Gaia warns at ${tp.warnAt} wounds), ${forgive}.` });
+          if (a.id === "player") log(s, { kind: "observePlace", actor: a.id, text: H.Observation.nextStep({ kind: "place", warnAt: tp.warnAt }).text });   // O2a: the place names its next step
           }
         }
       },
@@ -1766,9 +1775,8 @@
         if (q?.clue) { (book.clues ||= {})[obj.id] = true; H.Observation.recordFact(s,a,{id:`plant:${obj.id}:clue`,kind:"plant",subject:obj.id,type:obj.type,familiarity:fam,clue:true,text:`${prof.common}: study note: ${q.clue}`},"observePlant"); }
         const d = dist(s, a.x, a.y, obj.x, obj.y), phi = Math.max(0, prof.phi - communeDiscount(a)), bonus = (hiker ? Communion.rules.hikerBonus : 0) + (botanist ? BT.observeBonus : 0);
         const forYou = a.id === "player";   // the next-step line addresses the player: a foe's or an ally's study must not tell you to approach and perform the ritual
-        const next = !forYou ? "" : book.closed?.[obj.id] ? " It will not answer you again this battle."
-          : ready ? ` Next: approach and perform the ritual. ${d <= Communion.rules.range ? "You are beside it" : `Stand beside the ${prof.common} (${d} tiles away)`}, then Rituals ▸ Commune · ${Communion.rules.communeAp} AP + ${phi} ΦF. It will ask what you just learned.`
-          : ` Next: observe again. ${prof.need - fam} more familiarity (about ${Math.max(Communion.rules.observeStep, (prof.need - fam - bonus) * Communion.rules.observeStep)} AP).`;
+        const step = forYou ? H.Observation.nextStep({ kind: "plant", ready, closed: !!book.closed?.[obj.id], need: prof.need, fam, step: Communion.rules.observeStep, bonus, dist: d, range: Communion.rules.range, deed: "perform the ritual", ritual: "Commune", ap: Communion.rules.communeAp, phi, common: prof.common }) : null;   // O2a: the one next-step vocabulary (same strings O1 printed)
+        const next = step ? ` ${step.text}` : "";
         log(s, { kind: "observePlant", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${fam}/${prof.need}.${q?.clue ? ` Study note: ${q.clue}` : ""}${next}`,
           why: [`As an ally: ${prof.name}, ${prof.hp} LF, ${conceptName(prof.primary)} with ${conceptName(prof.secondary)}.`, `Communing costs ${Communion.rules.communeAp} action points and ${prof.phi} ΦF from an adjacent tile.`, ...(hiker ? ["Hiker: +1 familiarity for reading the ground."] : []), ...(botanist ? [`Field Botany: +${BT.observeBonus} familiarity for knowing what they are looking at.`] : [])] });
       },
@@ -1819,11 +1827,18 @@
         const spend = spendTempo(s, a, result.spend, deep ? "Investigate a structure" : "Study a structure"); if (spend) return spend;
         if (deep) deep.spent = true;
         book.familiarity[obj.id] = result.familiarity; scoutNoted(s, a, null); H.Exposure.looked(s, a);
-        const ready = result.familiarity >= prof.need;
+        const ready = result.familiarity >= prof.need, fam = Math.min(result.familiarity, prof.need);
         const matDef = insightRules?.data?.traits?.[Tsukumogami.materialTrait(prof.material)] || null;
-        H.Observation.recordFact(s, a, { id: `structure:${obj.id}:${Math.min(result.familiarity, prof.need)}`, kind: "structure", subject: obj.id, type: obj.type, familiarity: Math.min(result.familiarity, prof.need), text: `${prof.common}: familiarity ${Math.min(result.familiarity, prof.need)}/${prof.need}.` }, "observeStructure");
-        log(s, { kind: "observeStructure", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${Math.min(result.familiarity, prof.need)}/${prof.need}${ready ? ". It will answer if you wake it." : "."}`,
-          why: [`As an ally: ${prof.name}, ${Math.max(1, obj.hp * 2)} LF.`, `Waking costs ${Tsukumogami.rules.communeAp} action points and ${prof.phi} ΦF from an adjacent tile.`, ...(matDef ? [`Material: ${matDef.text}`] : [])] });
+        H.Observation.recordFact(s, a, { id: `structure:${obj.id}:${fam}`, kind: "structure", subject: obj.id, type: obj.type, familiarity: fam, text: `${prof.common}: familiarity ${fam}/${prof.need}.` }, "observeStructure");
+        // Observe teaches O2a: the study that makes a structure ready shows the study note for the question it will ask, and every result names the next step.
+        const q = ready ? Tsukumogami.questionFor(obj, s.seed) : null;
+        if (q?.clue) { (book.clues ||= {})[obj.id] = true; H.Observation.recordFact(s, a, { id: `structure:${obj.id}:clue`, kind: "structure", subject: obj.id, type: obj.type, familiarity: fam, clue: true, text: `${prof.common}: study note: ${q.clue}` }, "observeStructure"); }
+        const d = dist(s, a.x, a.y, obj.x, obj.y), phi = Math.max(0, prof.phi - communeDiscount(a, "structure"));
+        const forYou = a.id === "player";   // the next-step line addresses the player: a foe's or an ally's study must not tell you to approach and wake it
+        const step = forYou ? H.Observation.nextStep({ kind: "structure", ready, need: prof.need, fam, step: Tsukumogami.rules.observeStep, dist: d, range: Tsukumogami.rules.range, deed: "wake it", ritual: "Wake", ap: Tsukumogami.rules.communeAp, phi, common: prof.common }) : null;
+        const next = step ? ` ${step.text}` : "";
+        log(s, { kind: "observeStructure", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${fam}/${prof.need}${ready ? ". It will answer if you wake it." : "."}${q?.clue ? ` Study note: ${q.clue}` : ""}${next}`,
+          why: [`As an ally: ${prof.name}, ${Math.max(1, obj.hp * 2)} LF.`, `Waking costs ${Tsukumogami.rules.communeAp} action points and ${phi} ΦF from an adjacent tile.`, ...(matDef ? [`Material: ${matDef.text}`] : [])] });
       },
       communeStructure(s, a, act) {   // Tsukumogami step 2: answer its question; a right answer wakes it as an ally
         if (!Tsukumogami) return "Tsukumogami is unavailable.";
@@ -1837,7 +1852,7 @@
         if (!can.ok) return can.reason;
         if (actorAt(s, obj.x, obj.y)) return `Someone is standing in that ${can.profile.common}.`;
         if (!standFootprint(s, obj, can.profile.size)) return "It has no room to stand.";
-        const prof = can.profile, q = Tsukumogami.pickQuestion(obj.type, `${s.seed}:${s.round}:${obj.id}`);
+        const prof = can.profile, q = Tsukumogami.questionFor(obj, s.seed);   // Observe teaches: one question per structure per battle
         if (!q || q.id !== act.questionId) return "The structure's question is no longer current.";
         const score = Tsukumogami.scoreAnswer(q.id, act.answer);
         const spend = spendTempo(s, a, Tsukumogami.rules.communeAp, `Wake the ${prof.common}`); if (spend) return spend;

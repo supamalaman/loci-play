@@ -1,0 +1,9 @@
+{
+  "size_class": "person (same class as the Warden)",
+  "footprint_tiles": [1, 1],
+  "world_height": 1.0,
+  "world_height_definition": "The same Paladin as sprites/paladin-crusader (a person = 1.0); these four are art poses with their light effects baked in, so the figure is only part of each canvas.",
+  "runtime_consumed": false,
+  "source": "Paladin's Holy Arts Sprite Sheet.png (claude-paladin-art-cut, Anchor BD as CU)",
+  "note": "Nothing in web/combat reads size_class or world_height yet. The canvases include the glow, so a draw scale taken from the canvas height would shrink the figure."
+}
