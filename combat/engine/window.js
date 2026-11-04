@@ -51,7 +51,7 @@
     function castAnswer(s, d, opt, attack) {
       const m = H.manifest(s, d, opt.ability), now = d.id === currentId(s), atk = s.actors[attack.owner];
       const tax = starReactionTax(s, d, attack?.owner), apCost = answerAp(s, m) * tax, inspired = H.inspiredPay(s, d, m);
-      if (inspired) H.Inspiration.spend(s, d, s.rules.inspiration?.ultimatePoint ?? 1); else d.pf -= m.cost;
+      if (inspired) H.Inspiration.spend(s, d, s.rules.inspiration?.ultimatePoint ?? 1, "perform"); else d.pf -= m.cost;
       if (now) { d.tempo -= apCost; d.tempoSpent = (d.tempoSpent || 0) + apCost; } else if (!hasAgility(d, s)) d.tempoDebt = (d.tempoDebt || 0) + apCost;
       d.reaction -= 1;
       d.ultimateCharge = Math.max(0, (d.ultimateCharge || 0) - s.rules.ultimateChargeMax); if (d.status.ward?.flow) d.status.ward = null; d.flowOn = false;

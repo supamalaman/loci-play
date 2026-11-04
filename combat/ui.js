@@ -4462,7 +4462,7 @@
       const HC = root.ConceptCombatHover, t = U.unitInfo && (U.s?.actors?.[U.unitInfo] || (U.s?.wild || []).find((m) => m.id === U.unitInfo && m.lf > 0));
       const visible = t && !t.notArrived && HC?.windowHtml && !unseen(t.x, t.y);
       if (!visible) { panel.hidden = true; panel.innerHTML = ""; if (U.unitInfo && (!t || t.notArrived)) U.unitInfo = null; return; }
-      root.ConceptCombatStatus.replace(panel, HC.windowHtml(HC.knownCard(U.s, t.id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, stance: E.stance(U.s, "player", t.id), hostileSides: E.hostileSides(U.s, t.id) }), esc));
+      root.ConceptCombatStatus.replace(panel, HC.windowHtml(HC.knownCard(U.s, t.id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, parley: PY, stance: E.stance(U.s, "player", t.id), hostileSides: E.hostileSides(U.s, t.id) }), esc));
       if ((t.sprite || "").startsWith("tsukumogami")) { const face = faceFile(SPRITE_DIR[t.sprite] || t.sprite, "neutral"); if (face) panel.insertAdjacentHTML("afterbegin", `<img class="cc-unit-face" src="${face}" alt="">`); }   // the house looks back
       if (t.id === "player" && !t.soulOf) panel.insertAdjacentHTML("beforeend", gearLine());
       if (PR) panel.insertAdjacentHTML("beforeend", `<div class="cc-muted cc-gear-line"><b>Beauty</b> ${PR.beautyOf(t)} · <b>Will</b> ${t.willpower ?? 10}/${t.maxWillpower ?? 10}</div>`);
@@ -6206,7 +6206,7 @@
       // Hover card (insight/hover.js): public condition + everything you've seen or Observed about this unit.
       const HC = root.ConceptCombatHover;
       const wildHere = !a && (s.wild || []).find((m) => m.form === "unit" && m.lf > 0 && m.x === t[0] && m.y === t[1]);   // wild animals card too (Muse, 2026-10-15)
-      const card = (a || wildHere) && HC ? HC.html(HC.knownCard(s, (a || wildHere).id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, stance: a ? E.stance(s, "player", a.id) : null, hostileSides: a ? E.hostileSides(s, a.id) : null }), esc) : "";
+      const card = (a || wildHere) && HC ? HC.html(HC.knownCard(s, (a || wildHere).id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, parley: PY, stance: a ? E.stance(s, "player", a.id) : null, hostileSides: a ? E.hostileSides(s, a.id) : null }), esc) : "";
       if (a && !card) parts.push(`${a.name} · LF ${a.lf}/${a.maxLF} · ΦF ${a.pf}`);
       if (AU) for (const o of Object.values(s.actors)) if (o.aura && !o.defeated && (o.aura.imbued || E.geometry.dist(s, o.x, o.y, ...t) <= AU.rules.radius + (o.aura.radiusAdd || 0))) {   // Auras: rings are visible, so public
         const pr = AU.profileFor(o.aura.concept); parts.push(`◌ Inside ${o.name}'s ${pr.name} (stage ${o.aura.stage}/4) · ${pr.text}`);

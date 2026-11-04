@@ -98,7 +98,9 @@
         if (H.seededChance(`${s.seed}:inspiration:jamSession:${a.id}:${n}`) >= chance) return false;
         this.gain(s, a, 1, `${a.name} takes ${Math.round(chance * 100)}% off a ${joiners}-join session.`); return true;
       },
-      spend(s, a, n) { if (n <= 0) return true; if (this.of(a) < n) return false; a.inspiration = this.of(a) - n; return true; },
+      // `kind === "perform"` (an inspired ultimate, a sequel on prestige, an answer paid in Inspiration) is tallied per actor for Fame (FAME.md section 15,
+      // Mala 2026-11-02): the AI's previews never count, and a vow or a Warden's embodiment is not a performance.
+      spend(s, a, n, kind) { if (n <= 0) return true; if (this.of(a) < n) return false; a.inspiration = this.of(a) - n; if (kind === "perform" && !s.preview) { const t = (s.inspirationPerformed ||= {}); t[a.id] = (t[a.id] || 0) + n; } return true; },
       // Never Give Up (docs/inspired-ultimates.md §3): one seeded roll each turn start, likelier with hardship (LF lost, allies
       // fallen, a long battle), capped. A gain comes with one line of his; "avenge" once an ally has fallen, no line twice in a row.
       fallenAllies: (s, a) => Object.values(s.actors).filter((u) => u.id !== a.id && u.side === a.side && u.defeated && !u.wild && !u.dream && u.ai !== "summon").length,

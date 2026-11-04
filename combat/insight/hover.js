@@ -35,7 +35,7 @@
     return { title: m.name || d.name || m.kind, subtitle: "Wild · hostile to everyone", sections, hidden: 0, hint: "", id: m.id, statuses: [], otherConditions: [],
       vitals: { lf: m.lf ?? null, maxLF: m.maxLF ?? null, pf: null, maxPF: null, ultimate: null }, defeated: !(m.lf > 0), intent: tele?.text || null, noticed: 0, hasDeck: false, wild: true };
   }
-  function knownCard(s, targetId, { viewer = "player", content = null, insight = null, monsters = null, wild = null, stance = null, hostileSides = null } = {}) {
+  function knownCard(s, targetId, { viewer = "player", content = null, insight = null, monsters = null, wild = null, stance = null, hostileSides = null, parley = null } = {}) {
     const t = s.actors?.[targetId];
     if (!t) { const m = (s.wild || []).find((w) => w.id === targetId && w.form === "unit"); return m ? wildCard(s, m, wild, content) : null; }
     const me = s.actors?.[viewer], sections = [], add = (label, items) => { items = items.filter(Boolean); if (items.length) sections.push({ label, items }); };
@@ -76,6 +76,30 @@
     add("Techniques seen", seen.map((id) => `${ab(id).name} (${cname(ab(id).concepts?.[0])}, ${ab(id).delivery})${disclosed[id] ? " · revealed" : ""}`));
     const usedConcepts = [...new Set(seen.flatMap((id) => ab(id).concepts || []))];
     if (usedConcepts.length) add("Concepts", [usedConcepts.map(cname).join(", ")]);
+
+    // Persuasion: what moves this unit's talk chance, part by part (FAME.md E1; loop 1a19d25e688). Each part
+    // shows only when its source is known to the viewer; the total shows only when every nonzero part is
+    // known, so a foe card never leaks a hidden trait through the sum.
+    if (parley?.persuasionBreakdown) {
+      const bd = parley.persuasionBreakdown(t);
+      if (bd.parts.length) {
+        const isSelf = t.id === viewer;
+        const rknow = s.insight?.knowledge?.[viewer]?.[t.id];
+        const rdeck = (s.insight?.decks?.[t.id]?.cards || []).filter((c) => rknow?.revealed?.includes(c.id) || (!rknow && c.open));
+        const knownTraits = new Set([...rdeck.filter((c) => c.kind === "trait").map((c) => c.trait), ...(s.imitated || []).filter((e) => e.actor === t.id).map((e) => e.trait)]);
+        const knownConcept = new Set(usedConcepts);
+        const show = (p) => isSelf || (p.key === "persuasive" || p.key === "humanExperience" ? knownTraits.has(p.key)
+          : p.key === "concept" ? knownConcept.has(p.ref)
+          : p.key === "fame" ? t.side === me?.side : false);   // role and gear read the build, which only you know fully; fame is your own account's
+        const shown = bd.parts.filter(show);
+        const label = (p) => p.key === "role" ? (content?.characters?.[p.ref]?.name || p.ref) : p.key === "concept" ? cname(p.ref)
+          : p.key === "persuasive" ? "Persuasive" : p.key === "humanExperience" ? "Human Experience"
+          : p.key === "legitimacy" ? "Legitimacy" : p.key === "glamour" ? "Glamour" : "Fame";
+        const items = shown.map((p) => `${label(p)} +${p.value.toFixed(2)}`);
+        if (shown.length === bd.parts.length) items.unshift(`Total +${bd.total.toFixed(2)}${bd.capped ? ` (capped at ${bd.cap.toFixed(2)})` : ""}`);
+        add("Persuasion", items);
+      }
+    }
 
     // AGI Takeoff ledger: public — the adaptation is visible on the field (tiers in damage.js).
     if (t.takeoff) {

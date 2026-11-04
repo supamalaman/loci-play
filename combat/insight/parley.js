@@ -49,6 +49,24 @@
     if (has(u, "humanExperience")) return Math.min(0.5, p + c + 0.2);   // the Human Experience argues 20% better, past the usual cap
     return Math.min(0.3, p + c);
   }
+  // The same sum as persuasion(), part by part, for the hover card's Persuasion breakdown (FAME.md E1;
+  // loop 1a19d25e688). Keys name the source so the card can gate each part on what the viewer knows.
+  // The arithmetic mirrors persuasion() exactly: total === persuasion(u), always.
+  function persuasionBreakdown(u) {
+    const parts = [];
+    const pv = has(u, "persuasive") ? PERSUASIVE : 0; if (pv) parts.push({ key: "persuasive", value: pv });
+    const rv = PERSUADERS[u?.character] || 0; if (rv) parts.push({ key: "role", ref: u.character, value: rv });
+    const lv = (u?.passives?.legitimacyAdd || 0) * 0.03; if (lv) parts.push({ key: "legitimacy", value: lv });
+    const gv = (u?.passives?.glamourAdd || 0) * 0.02; if (gv) parts.push({ key: "glamour", value: gv });
+    const fv = (u?.passives?.fameAdd || 0) * 0.01; if (fv) parts.push({ key: "fame", value: fv });
+    const p = pv + rv + lv + gv + fv;
+    let c = 0, ck = null; for (const k of [u?.primary, u?.secondary]) if ((SILVER_CONCEPTS[k] || 0) > c) { c = SILVER_CONCEPTS[k]; ck = k; }
+    if (c) parts.push({ key: "concept", ref: ck, value: c });
+    const he = has(u, "humanExperience");
+    if (he) parts.push({ key: "humanExperience", value: 0.2 });
+    const cap = he ? 0.5 : 0.3, total = Math.min(cap, p + c + (he ? 0.2 : 0));
+    return { parts, total, capped: p + c + (he ? 0.2 : 0) > cap, cap };
+  }
   // Mala: "having low life points might make a conversation more convincing because most people would rather not die,
   // less likely for someone like the Soldier. However this might not be true if you killed someones allies … if you kill
   // two out of three people, the third person might never forgive you and would rather fight to the death."
@@ -247,6 +265,6 @@
 
   // Immortal: still knocked out like anyone, but never dies (no kill for Assassinate; the win is non-lethal).
   const isImmortal = (u) => has(u, "immortal") || IMMORTALS.has(u?.character);
-  return { rules, COMPANY, stillFighting, companyMul, PERSUADERS, DUTY, IMMORTALS, isImmortal, speech, language, cannotTalk, willingness, fallenAllies, persuasion, traitsOf, talkChance, resolveTalk, termsChance, canTerms, comeToTerms, npcTalkTarget, npcTalkOdds, npcTalk,
+  return { rules, COMPANY, stillFighting, companyMul, PERSUADERS, DUTY, IMMORTALS, isImmortal, speech, language, cannotTalk, willingness, fallenAllies, persuasion, persuasionBreakdown, traitsOf, talkChance, resolveTalk, termsChance, canTerms, comeToTerms, npcTalkTarget, npcTalkOdds, npcTalk,
     answerOffer, blocks, options, locked, lock, allPersuaded, standingDown };
 });

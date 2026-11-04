@@ -114,7 +114,7 @@ const lastRoundTechnique=(s,H,u)=>{const acts=(s.log||[]).filter(e=>e.kind==='ac
   }
   if(id==='riff'){const t=units(s).find(u=>u.id===inst.targets[0]);if(!t)return true;status(t).inTune={source:a.id,potencyMul:1.15,sourceTurn:a.ownerTurns,words:null};say(s,H,a,`${a.name} riffs ${t.name} into the key: their next technique is ×1.15.`);return true;}
   if(id==='jazzSolo'){const p=a.status?.soloPhrase,last=p&&H.ability(p.id);
-   if(p&&last&&H.borrowPerform(s,a,p.id,p.aim[0],p.aim[1],1.0)){H.spendInspiration(s,a,2);a.status.soloTurn=a.ownerTurns;say(s,H,a,`${a.name} solos ${last.name} again, free.`);}
+   if(p&&last&&H.borrowPerform(s,a,p.id,p.aim[0],p.aim[1],1.0)){H.spendInspiration(s,a,2,'perform');a.status.soloTurn=a.ownerTurns;say(s,H,a,`${a.name} solos ${last.name} again, free.`);}
    else{a.pf=Math.min(a.maxPF??99,(a.pf||0)+(inst.cost||0));H.log(s,{kind:'miss',actor:a.id,text:`${a.name}'s Solo has nowhere to go${last?`: ${last.name} has no legal aim`:''}. The ΦF is refunded.`});}return true;}
   if(id==='blueNote'){const mul=inst.announced?s.rules.announceMultiplier:1,cap=s.rules.maxTempoDebt,bits=[];
    for(const u of hearers(s,H,a,10,'foe')){const d=H.dist(s,a.x,a.y,u.x,u.y);let debt=Math.max(0,70-6*d);debt=Math.round(debt*mul);if(u.status?.guard)debt=Math.floor(debt/2);if(debt<=0)continue;u.tempoDebt=Math.min(cap,(u.tempoDebt||0)+debt);bits.push(`${u.name} owes ${debt}`);}

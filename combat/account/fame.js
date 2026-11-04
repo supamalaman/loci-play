@@ -21,17 +21,17 @@
   const RULES = {
     baseCap: 5, maxCap: 8,
     cost: [3, 5, 8, 12, 16, 20, 24, 28],                       // points to reach level 1..8 from the level before (cumulative 3, 8, 16, 28, 44, 64, 88, 116)
-    points: { persuade: 2, spared: 1, knockout: 1, sealed: 1, tamed: 1, presence: 4, bonus: 1, busk: 2, trial: 1, clean: 1 },
+    points: { persuade: 2, spared: 1, knockout: 1, sealed: 1, tamed: 1, presence: 4, bonus: 1, busk: 2, trial: 1, clean: 1, perform: 1 },
     perBattleCap: 4,                                           // rows of one battle together; a busk is its own town action
     window: 10,                                                // finished battles a foe key is remembered for: full, half (rounded down), then nothing
     maxSeen: 24,                                               // keys kept in fameSeen (oldest by `last` dropped)
     persuasionPer: 0.01, hallPer: 0.04, hallMaxLevel: 5,       // E1 and E3 (section 3); the 0.3 persuasion cap stays in parley.js
     perk: "nameRecognition",                                   // the perk line whose ranks lift the cap (the perks shelf; absent until it lands)
     tiers: ["Unknown", "Noticed", "Known", "Respected", "Renowned", "Legend", "Storied", "Fabled", "Mythic"],
-    deeds: { persuade: "came to terms with", spared: "spared", knockout: "knocked out", sealed: "sealed", tamed: "tamed", presence: "won by presence", bonus: "won without a death", trial: "won the trial of", clean: "kept clean hands", busk: "busked" },
-    unnamed: ["presence", "bonus", "clean", "busk"],            // rows whose line has no foe to name
+    deeds: { persuade: "came to terms with", spared: "spared", knockout: "knocked out", sealed: "sealed", tamed: "tamed", presence: "won by presence", bonus: "won without a death", trial: "won the trial of", clean: "kept clean hands", busk: "busked", perform: "gave a performance the crowd remembers" },
+    unnamed: ["presence", "bonus", "clean", "busk", "perform"],            // rows whose line has no foe to name
   };
-  const rowsOnce = ["presence", "bonus", "trial", "clean"];     // rows with no foe key: they are not diminished by key
+  const rowsOnce = ["presence", "bonus", "trial", "clean", "perform"];     // rows with no foe key: they are not diminished by key
 
   const cap = (account) => Math.min(RULES.maxCap, RULES.baseCap + Math.max(0, Math.floor(account?.perks?.[RULES.perk] || 0)));
   const levelFor = (account) => Math.max(0, Math.min(cap(account), Math.floor(Number(account?.fame) || 0)));
@@ -64,10 +64,12 @@
     // Tamed THIS battle: tameComplete sets beast.tamed and tamed.round; the called pack (beast.called) and a remembered friend (beast.friend) are not a deed of this fight.
     for (const a of actors) if (a.beast?.tamed && !a.beast.called && !a.beast.friend && a.tamed?.round != null && !a.defeated && sideOf(a.tamed?.owner) === "player") events.push({ row: "tamed", key: a.beast.kind || a.kind || a.character || a.id, name: name(a) });
     if (out.reason === "presence") events.push({ row: "presence", key: "presence", name: "the field" });
+    // Perform (row 10, F0c; FAME.md section 15): the player's side spent Inspiration on a performance this battle. Crowd regard, so a kill does not stop it. Once a battle (R-20261103-02).
+    if (Object.entries(s.inspirationPerformed || {}).some(([id, n]) => sideOf(id) === "player" && n > 0)) events.push({ row: "perform", key: "perform", name: "the crowd" });
     // Bonus: nobody died. A foe that fell and is neither knocked out nor spared died; rides on a paid award (checked in award).
     // A foe died if it fell and was neither knocked out, spared nor won over: a boss, a beast or a monster counts, a summon or a foe that never arrived does not.
     const died = actors.some((a) => foeSide(a) && !a.summon && !a.summonBinding && !a.notArrived && !a.escaped && a.defeated && !a.knockedOut && !a.spared && !(a.persuaded && sideOf(a.persuaded.with) === "player"));
-    if (out.nonLethal && !died && events.length) events.push({ row: "bonus", key: "bonus", name: "the field" });
+    if (out.nonLethal && !died && events.some((e) => e.row !== "perform")) events.push({ row: "bonus", key: "bonus", name: "the field" });
     return events;
   }
 
@@ -104,9 +106,9 @@
       }
       const room = Math.max(0, RULES.perBattleCap - total), paid = Math.min(pts, room);
       if (seenNow && (paid > 0 || pts === 0) && !keysThisBattle.has(seenNow.k)) { keysThisBattle.add(seenNow.k); pending[seenNow.k] = { n: seenNow.n, last: clock }; }   // a foe the cap cut off entirely does not use up its window slot
-      total += paid; if (e.row !== "bonus") paidOnFoes += paid;
+      total += paid; if (e.row !== "bonus" && e.row !== "perform") paidOnFoes += paid;   // a performance does not unlock the no-death bonus
       rows.push({ row: e.row, key: e.key, name: e.name, base, pts: paid, wanted: pts, note });
-      if (note && pts === 0) stale = true;   // a repeat that pays nothing says so, even a one-point row halved to 0
+      if (note && pts === 0 && e.row !== "perform") stale = true;   // a repeat that pays nothing says so, even a one-point row halved to 0
     }
     Object.assign(seen, pending);
     const keys = Object.entries(seen).sort((a, b) => b[1].last - a[1].last).slice(0, RULES.maxSeen);
@@ -128,7 +130,7 @@
       lines.push(`Fame ${applied.level}: ${tierName(applied.level)}. Persuasion +${fx.persuasion.toFixed(2)}, ${hall}.`);
     }
     if (total > 0 && !result.fameIntro) {
-      lines.unshift(`Fame is what people remember. Winning without a kill earns it: ${RULES.points.persuade} for coming to terms, ${RULES.points.presence} for a victory by presence, up to ${RULES.perBattleCap} a battle. Each level adds ${RULES.persuasionPer.toFixed(2)} to your talk and takes ${Math.round(RULES.hallPer * 100)}% off the Hiring Hall. Killing never costs Fame. Bosses and secret warriors pay none.`);
+      lines.unshift(`Fame is what people remember. Winning without a kill earns it: ${RULES.points.persuade} for coming to terms, ${RULES.points.presence} for a victory by presence, ${RULES.points.perform} for a performance the crowd remembers (Inspiration spent on one), up to ${RULES.perBattleCap} a battle. Each level adds ${RULES.persuasionPer.toFixed(2)} to your talk and takes ${Math.round(RULES.hallPer * 100)}% off the Hiring Hall. Killing never costs Fame. Beating a boss or a secret warrior pays nothing.`);
       result = { ...result, fameIntro: true };
     }
     return { account: result, pts: total, level: applied.level, lines, rows };

@@ -168,7 +168,7 @@
    return true;
   }
   if(inst.ability==='genreDefiningPerformance'){
-   if(!H.spendInspiration(s,a,rules.gdpCost)){say(s,H,a,`${a.name}'s Genre-Defining Performance fizzles: the purse is empty.`);return true;}
+   if(!H.spendInspiration(s,a,rules.gdpCost,'perform')){say(s,H,a,`${a.name}'s Genre-Defining Performance fizzles: the purse is empty.`);return true;}
    const stacks=s.gdp?.owner===a.id?Math.min(2,(s.gdp.stacks||1)+1):1;
    s.gdp={owner:a.id,until:a.ownerTurns+rules.gdpTurns,stacks};
    say(s,H,a,`${a.name} gives the Genre-Defining Performance: the whole field becomes fans for ${rules.gdpTurns} turns. Stardom goes global; enemies pay ×${Math.min(rules.taxCap,Math.pow(rules.taxBase,stacks))} AP to target ${a.name}.`,['Re-cast while it runs to raise the tax to the 4× soft cap.']);

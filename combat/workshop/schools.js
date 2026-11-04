@@ -55,7 +55,7 @@
     Veiled: { proof: "hold something face-down or sealed" },   // mystery layer landed (Muse W2.5): pending lifted, proof read below
     Devoured: { proof: "inherit or pay a bequest", pending: "death pipeline (bequests)" },
     Owing: { proof: "owe something: a restitution debt or a staked wager" },
-    Witnessed: { proof: "win before a crowd, or busk in the town square" },
+    Witnessed: { proof: "win before a crowd, perform with Inspiration, or busk in the town square" },
   };
   const RULES = { breadth: 6, lineage: 3, depth: 1, centerDistance: 2, depthPending: "lock-in artifacts", careSessions: 4 };
 
@@ -92,7 +92,7 @@
     if (decided.some((c) => c.side === "player" || ours(c.defendant)) || (s.trialLedger || []).some((t) => ours(t.accused) || ours(t.by))) out.add("Tried");
     if (units.some((a) => a.side === "player" && a.restitutionDebt > 0) || decided.some((c) => c.status === "won" && ours(c.defendant))
       || s.stakes?.state === "agreed" || (s.stakeEvents || []).length) out.add("Owing");
-    if ((account?.fameBy?.busk || 0) > 0 || (s.crowdBattle && s.outcome?.winner === "player")) out.add("Witnessed");
+    if (((account?.fameBy?.busk || 0) + (account?.fameBy?.perform || 0)) > 0 || (s.crowdBattle && s.outcome?.winner === "player")) out.add("Witnessed");
     if (log.some((e) => e.kind === "mystery" && ours(e.actor)) || log.some((e) => e.kind === "seal" && ours(e.actor))) out.add("Veiled");   // set a face-down card or sealed a foe
     for (const x of accountProofs(account)) out.add(x);
     return [...out];
