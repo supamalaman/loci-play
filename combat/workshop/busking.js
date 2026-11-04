@@ -22,7 +22,7 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatWorkshopBusking = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  const RULES = { perCycle: 1, fameMax: 5, famePay: 5, capTotal: 55, showCap: 40,
+  const RULES = { perCycle: 1, famePts: 2, fameMax: 5, famePay: 5, capTotal: 55, showCap: 40,
     show: { nodmg: 10, vow: 10, knee: 15, sub: 10, ann: 5 }, kneeFrac: 0.25, annCap: 2,
     input: { glamPrimary: 3, glamSecondary: 2, perGear: 1 }, diffBase: 2, diffSpan: 5 };
 
@@ -42,13 +42,14 @@
     const fame = Math.min(RULES.fameMax, a.fame || 0);
     const diff = crowdDiff(cycle, fame), eff = glamour + fame - diff;
     const base = { ...a, buskCycle: { cycle, busked: 1 } };
-    if (eff < 0) return { ok: true, paid: 0, fameUp: false, mark: "tomatoed",
+    if (eff < 0) return { ok: true, paid: 0, fameUp: false, famePts: 0, mark: "tomatoed",
       lines: [`Busked to a hard room (difficulty ${diff} vs ${glamour + fame}): tomatoes. The ledger remembers.`],
       account: { ...base, marks: [...(base.marks || []), "tomatoed"].slice(-50) } };
     const paid = Math.min(RULES.capTotal, tiers(glamour) + fame * RULES.famePay);
-    return { ok: true, paid, fameUp: fame < RULES.fameMax, mark: null,
-      lines: [`Busked the square: +${paid} Seeds${fame < RULES.fameMax ? ` · fame ${fame + 1}` : " · legend"}.`],
-      account: { ...base, seeds: base.seeds + paid, fame: Math.min(RULES.fameMax, fame + 1) } };
+    // Fame F0b (FAME.md section 1): the hat no longer raises the level; it returns famePts and ui.js feeds them to Fame.add.
+    return { ok: true, paid, fameUp: false, famePts: RULES.famePts, mark: null,
+      lines: [`Busked the square: +${paid} Seeds${fame >= RULES.fameMax ? " · legend" : ` · fame +${RULES.famePts} points`}.`],   // at the top level the hat still says legend (FAME.md section 6 item 11, a GUARD)
+      account: { ...base, seeds: base.seeds + paid } };
   }
   const showboat = ({ nodmg = 0, vow = 0, knee = 0, sub = 0, ann = 0 } = {}) =>
     Math.min(RULES.showCap, nodmg * RULES.show.nodmg + vow * RULES.show.vow + knee * RULES.show.knee + sub * RULES.show.sub + ann * RULES.show.ann);

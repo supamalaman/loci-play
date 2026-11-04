@@ -12,11 +12,11 @@
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./items-data.js"), require("./account.js"),
     require("./ante.js"), require("../workshop/traversal.js"), require("./mint.js"), require("./market.js"), require("../workshop/jinki.js"),
-    require("../workshop/jinki-states.js"), require("../workshop/jinki-voice.js"));
+    require("../workshop/jinki-states.js"), require("../workshop/jinki-voice.js"), require("./fame.js"));
   else root.ConceptCombatLoot = factory(root.ConceptCombatItems, root.ConceptCombatAccount, root.ConceptCombatAnte,
     root.ConceptCombatWorkshopTraversal, root.ConceptCombatMint, root.ConceptCombatMarket, root.ConceptCombatJinki,
-    root.ConceptCombatJinkiStates, root.ConceptCombatJinkiVoice);
-})(typeof self !== "undefined" ? self : this, function (I, A, AN, TR, MINT, MK, JK, JS, JV) {
+    root.ConceptCombatJinkiStates, root.ConceptCombatJinkiVoice, root.ConceptCombatFame);
+})(typeof self !== "undefined" ? self : this, function (I, A, AN, TR, MINT, MK, JK, JS, JV, FAME) {
   function roll(seed, tag) {
     let h = 2166136261;
     for (const c of `${seed}:${tag}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
@@ -89,6 +89,7 @@
         else out[k] = v;
       }
     }
+    { const fl = FAME ? FAME.levelFor(a) : 0; if (fl > 0) out.fameAdd = fl; }   // Fame F1 (FAME.md E1): the level reaches the engine as a passive; parley.js turns it into talk chance
     const held = JK?.activeGifts?.(a, Object.values(a.gear.equipped));   // J5 rework: one soul speaks (D55), unless the Choir sings
     if (held) {
       for (const [k, v] of Object.entries(held.inject)) {
@@ -399,7 +400,8 @@
   // The Hiring Hall (town): merc contracts and letters of safe conduct, always in stock at their fixed price.
   function hallStock(account) {
     const a = withBags(account);
-    return Object.entries(I.consumables).filter(([, it]) => it.hallOnly).map(([id, it]) => ({ kind: "consumable", id, rarity: it.rarity, price: it.price, name: it.name, text: it.text, owned: a.stash[id] || 0 }));
+    const off = FAME ? FAME.effects(FAME.levelFor(a)).hallDiscount : 0;   // Fame F1 (FAME.md E3): -4% a level to -20%; the offer carries the price and buy() charges it
+    return Object.entries(I.consumables).filter(([, it]) => it.hallOnly).map(([id, it]) => ({ kind: "consumable", id, rarity: it.rarity, price: off > 0 ? Math.max(1, Math.round(it.price * (1 - off))) : it.price, listPrice: it.price, name: it.name, text: it.text, owned: a.stash[id] || 0 }));
   }
   function buy(account, offer) {
     let a = withBags(account);

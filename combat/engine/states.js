@@ -12,13 +12,16 @@
 //                 | { present: characterId, side?: "ally" | "foe" } | { moved: true } | { apart: n } | { healed: n }) & { do?: [effect] }],
 //                 // present: that character stands on the field; moved: the holder leaves the tile it held when granted;
 //                 // apart: whoever granted it is defeated or more than n away; healed: the holder is healed n or more at once
-//     offers?:   { ability: id, to: "allies" },   // while held, the holder's living allies may use that ability (Remind)
+//     offers?:   { ability: id, to: "allies" | "self" },   // while held, the holder's living allies (or, with to: "self", the holder) may use that ability (Remind)
 //     advice?:   true | { heed: false },   // advice from whoever granted it: hold back. The AI weighs it by valence (holdBack); heed false: never weighed
-//     body?:     { sprite?, traits?: [id], maxLFAdd?, moveAdd?, massive? } }   // a form's body; undone exactly when the state ends
+//     body?:     { sprite?, traits?: [id], maxLFAdd?, moveAdd?, massive? },   // a form's body; undone exactly when the state ends
+//     anySide?:  true,   // Cure (S1): while held, the unit chooses targets with allegiance off (a sibling of the Genjutsu entranced side-swap)
+//     unmasks?:  true,   // Cure (S1): while held, the unit's restraint traits (RESTRAINT below) are ignored by hasTrait
+//     A trigger's if may carry { cue: true }: it fires only when the instance's stored cue (grant option cue: "flame" | "water" | "question") is met at the holder (cueMet).
 //
 // A character may list startStates: [id] (content.js characters): granted as the battle opens, before the first turn.
 //
-// An ability may carry def.states = { grant: [{ id, to: "self" | "target" | "allies", turns?, thematic?: { characterId: stateId } }], once?: key, unlessHeld?: true, ai?: n | { value, clear?, below? } }: ai = what
+// An ability may carry def.states = { grant: [{ id, to: "self" | "target" | "allies", turns?, cue?, thematic?: { characterId: stateId } }], once?: key, unlessHeld?: true, ai?: n | { value, clear?, below? } }: ai = what
 // the AI scores it (damage scale) when it would change something ({ value, clear, below }: only while no foe is within clear
 // tiles, for an act a blow would break, and only at or under that fraction of max LF, for a rest); thematic: a stronger state for a story partner (Mala's rule 6:
 // the ability works on anyone, stronger in its story); "allies": every living unit on the user's side within the ability's
@@ -28,7 +31,8 @@
 // unit already holds. Bodies stay 1x1: a giant is `massive` (no grapple, lift or shove), not a bigger footprint.
 //
 // An effect is one of a closed menu, so a state never runs code: { healLF: n | { frac } }, { grant: id, to: "self" | "source",
-// turns? }, { remove: id, from: "self" | "source" }, { count: n } (a manual clock moves by n), { log: text },
+// turns?, byOrigin? }, { remove: id, from: "self" | "source" }, { count: n } (a manual clock moves by n), { log: text },
+// { step: "away", tiles: 1 } (Cure: one safe tile away from the state's `by`, no damage), { rally: true } (clears routed), { leave: true, noXp?, reason? } (the holder leaves the battle),
 // { scene: { title, line } } (an event card in the battle UI; the log gets the line). A grant may carry thematic: { characterId:
 // stateId } (rule 6), as ability grants do.
 // A unit holds at most one instance of a state (unit.states[id]); a state with a group replaces the others in its group
@@ -52,7 +56,7 @@
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
     const { log } = H;
-    const KIND = { move: "move", jump: "move", climb: "move", guard: "guard", ability: "ability" };
+    const KIND = { move: "move", jump: "move", climb: "move", guard: "guard", overwatch: "overwatch", ability: "ability" };   // overwatch: Cure (S1), so a gate can block the Overwatch action type
     const defOf = (id) => { const d = H.C.states?.[id]; return d ? { ...d, id } : null; };
     const live = (u) => !!u && !u.defeated && !u.notArrived;
     const quiet = (def, inst) => !!def.hidden && !inst.revealed.length;
@@ -61,6 +65,36 @@
     const each = (u, fn) => { for (const id of Object.keys(u?.states || {})) { const inst = u.states?.[id], def = defOf(id); if (inst && def) fn(inst, def); } };
     const say = (s, u, def, inst, text, by = null) => { if (!quiet(def, inst)) log(s, { kind: "state", actor: u.id, target: by, text, why: def.why ? [def.why] : [] }); };
     const beside = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= 1;
+    // ── Cure (claude-cure-spec rev 3, S1). The restraint traits a unit can be peeled of or unmasked from, in the order a probe takes them.
+    const RESTRAINT = ["honest", "guarded", "stubborn", "proud", "fearful", "impatient", "loyal", "lonely"];
+    const holdsFlag = (u, flag) => { let on = false; if (u?.states) each(u, (st, def) => { if (def[flag]) on = true; }); return on; };
+    const anySide = (u) => holdsFlag(u, "anySide");       // a held state says: choose targets with allegiance off
+    const unmasks = (u) => holdsFlag(u, "unmasks");       // a held state says: restraint traits are ignored
+    const traitIgnored = (a, id) => !!a?.traitsOff?.includes(id) || (RESTRAINT.includes(id) && unmasks(a));   // a peeled layer, or an unmasked unit's restraint trait: the one read hasTrait and the AI motives share
+    const ANY_SIDE = (u) => `~any:${u.id}`;               // a side no one shares, so every other unit reads as a foe while this unit decides
+    const burningAt = (s, x, y) => (s.wild || []).some((m) => m.kind === "brushfire" && !m.done && m.tiles && `${x},${y}` in m.tiles);
+    const waterTile = (s, x, y) => H.inside(s, x, y) && !!H.tileAt(s, x, y).tags?.includes("water");
+    // A cue is met at the holder: flame = a burning tile within 2, water = a water tile within 1, question = it was probed this round.
+    function cueMet(s, u, kind) {
+      const near = (r, f) => { for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) if (f(s, u.x + dx, u.y + dy)) return true; return false; };
+      if (kind === "flame") return near(2, burningAt);
+      if (kind === "water") return near(1, waterTile);
+      if (kind === "question") return u.probedRound === s.round;
+      return false;
+    }
+    // One tile directly away from `from`, only onto a tile that is open, not burning, not a trap, not a drop and not water that blocks moves.
+    // Its own small resolver: forced movement (resolve.js knock) charges slam and fall damage, which a harmless compel must not do.
+    function safeStep(s, u, from) {
+      const sx = Math.sign(u.x - from.x), sy = Math.sign(u.y - from.y); if (!sx && !sy) return null;
+      const x = u.x + sx, y = u.y + sy;
+      if (!H.inside(s, x, y) || H.actorAt(s, x, y) || H.barrierAt?.(s, x, y)) return null;
+      const tile = H.tileAt(s, x, y);
+      if (tile.blocksMove || (tile.hazard || 0) > 0 || burningAt(s, x, y)) return null;
+      if ((s.traps || []).some((tp) => !tp.spent && tp.x === x && tp.y === y)) return null;
+      if ((s.arena.objects || []).some((o) => o.x === x && o.y === y && o.blocksMove)) return null;
+      if (H.heightAt(s, x, y) < H.heightAt(s, u.x, u.y)) return null;
+      return [x, y];
+    }
 
     // ── Body: what a form changes about the unit itself. Saved on the instance and undone exactly on removal (a trait the unit
     // already had stays; lf scales as a learned form's does). Deltas are added and taken back, so two sources never clobber.
@@ -94,7 +128,7 @@
       const states = (unit.states ||= {});   // after the group sweep: removing the last state drops unit.states
       // clock.max caps a technique's own turn count (an incapacitating technique asking for 5 turns gets the row's 2)
       const inst = { id, by: opt.by || null, link: opt.link || null, since: unit.ownerTurns || 0, at: [unit.x, unit.y],
-        count: def.clock ? Math.min(opt.count ?? def.clock.n, def.clock.max ?? Infinity) : null, hurt: 0, fires: {}, revealed: [] };
+        count: def.clock ? Math.min(opt.count ?? def.clock.n, def.clock.max ?? Infinity) : null, hurt: 0, fires: {}, revealed: [], cue: opt.cue || null };
       states[id] = inst;
       applyBody(unit, def, inst);
       say(s, unit, def, inst, `${unit.name} is ${def.name}.`, opt.by);
@@ -121,8 +155,8 @@
       for (const u of units) {
         const ids = [];
         for (const h of units) {
-          if (h.id === u.id || h.side !== u.side || !live(h) || !h.states) continue;
-          each(h, (st, def) => { if (def.offers?.ability && (def.offers.to || "allies") === "allies" && !ids.includes(def.offers.ability)) ids.push(def.offers.ability); });
+          if (h.side !== u.side || !live(h) || !h.states) continue;
+          each(h, (st, def) => { if (def.offers?.ability && !ids.includes(def.offers.ability) && (def.offers.to || "allies") === (h.id === u.id ? "self" : "allies")) ids.push(def.offers.ability); });
         }
         if (ids.length) u.stateOffers = ids; else delete u.stateOffers;
       }
@@ -140,12 +174,23 @@
           if (got > 0) { holder.lf += got; if (!quiet(def, inst)) log(s, { kind: "heal", actor: holder.id, text: `${holder.name} recovers ${got} LF (${def.name}).`, why: def.why ? [def.why] : [] }); healed(s, holder, got); }
         } else if (e.grant) {
           const to = e.to === "source" ? ctx.src : holder;
-          if (to && to.id !== undefined) grant(s, to, e.thematic?.[to.character] || e.grant, { by: holder.id, link: holder.id, count: e.turns });   // rule 6: a stronger state for the story partner
+          const origin = e.byOrigin ? (inst.by || holder.id) : holder.id;   // Cure (S1): an order carries the installer through a cue; a plain trigger grant names the holder
+          if (to && to.id !== undefined) grant(s, to, e.thematic?.[to.character] || e.grant, { by: origin, link: origin, count: e.turns });   // rule 6: a stronger state for the story partner
         } else if (e.remove) {
           const from = e.from === "source" ? ctx.src : holder;
           if (from) remove(s, from, e.remove, def.name);
         } else if (e.count != null) {
           if (inst.count != null) { inst.count += e.count; if (inst.count <= 0 && holder.states?.[def.id] === inst) finish(s, holder, inst, def); }
+        } else if (e.step) {   // Cure: one safe tile away from whoever set it; a gone caster cancels it and the state ends
+          const from = s.actors[inst.by];
+          if (!from || !live(from)) { remove(s, holder, def.id, "the one who spoke is gone"); continue; }
+          const to = safeStep(s, holder, from);
+          if (to) { holder.x = to[0]; holder.y = to[1]; H.breakHoldsApart?.(s, holder); log(s, { kind: "state", actor: holder.id, tiles: [to], text: `${holder.name} steps back, as told.` }); }
+          else log(s, { kind: "state", actor: holder.id, text: `${holder.name} has nowhere safe to step.` });
+        } else if (e.rally) {   // Cure: a unit that fled the fear check and is still on the map stands again
+          if (holder.routed && live(holder)) { delete holder.routed; log(s, { kind: "state", actor: holder.id, text: `${holder.name} breathes, and the fear lets go.` }); }
+        } else if (e.leave) {   // Cure: the holder leaves the battle (the same fields as the leaveBattle effect, actions.js)
+          if (live(holder)) { holder.defeated = true; holder.escaped = !e.noXp; holder.noXp = !!e.noXp; holder.leaveReason = e.reason; Spirit()?.onExit?.(s, holder, H); log(s, { kind: "state", actor: holder.id, text: e.reason || `${holder.name} leaves.` }); }
         } else if (e.log) say(s, holder, def, inst, e.log);
         else if (e.scene && !quiet(def, inst)) log(s, { kind: "stateScene", actor: holder.id, state: def.id, title: e.scene.title, line: e.scene.line, text: e.scene.line });
       }
@@ -155,6 +200,7 @@
         if (t.on !== on || holder.states?.[def.id] !== inst) return;
         if (t.if?.family && ![].concat(t.if.family).includes(ctx.family)) return;
         if (t.if?.minDamage && !(ctx.dealt >= t.if.minDamage)) return;
+        if (t.if?.cue && !cueMet(s, holder, inst.cue)) return;   // Cure: the stored cue must be met at the holder
         if (t.limit != null && (inst.fires[i] || 0) >= t.limit) return;
         inst.fires[i] = (inst.fires[i] || 0) + 1;
         run(s, holder, inst, def, t.do, ctx);
@@ -286,7 +332,7 @@
       for (const g of def?.states?.grant || []) {
         const R = def.area?.radius ?? 2;
         const to = g.to === "self" ? [a] : g.to === "allies" ? Object.values(s.actors).filter((u) => u.id !== a.id && live(u) && u.side === a.side && Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)) <= R) : at ? [at] : [];
-        for (const u of to) grant(s, u, g.thematic?.[u.character] || g.id, { by: a.id, count: g.turns });   // thematic: the story partner gets the stronger state
+        for (const u of to) grant(s, u, g.thematic?.[u.character] || g.id, { by: a.id, count: g.turns, cue: g.cue });   // cue: Cure (S1), the order's stored cue (flame, water or question)   // thematic: the story partner gets the stronger state
       }
       if (def?.states?.once) (a.stateOnce ||= {})[def.states.once] = a.ownerTurns;
       placeSweep(s);   // and again after the ability's own grants and moves
@@ -318,6 +364,7 @@
     }
     // Survive the killing blow (survive.js, one base rule): damage.js asks here once. The registered rules (the Mummy's Retinue
     // Rises, the Martial Artist's Zenkai) go first, then any held state's lethal trigger (Lakshmana). Each is once a battle.
+    const Spirit = () => (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null;
     const Survive = () => (typeof module === "object" && module.exports ? require("../survive.js") : self.ConceptCombatSurvive);
     function beforeDefeat(s, u, CH) {
       if (Survive().first(s, u, [H.Bonds?.survivor, H.ClassRuntime?.Martial?.survivor], CH)) return true;
@@ -374,6 +421,6 @@
       return out;
     }
 
-    return { States: { grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack } };
+    return { States: { grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
   })();
 });

@@ -304,6 +304,9 @@
     // distance instead. Units at or below `spareBelowLf` of their life are spared; modes where waiting is the job
     // (Survive, Escape) are left alone. Claude's numbers.
     standoff: { rounds: 3, spareBelowLf: 0.4, modes: ["classic", "totalVictory", "assassinate", "warfare", "scenario"] },
+    // Hotbuild wheelhouse swap (W0a): a hot-build NPC swaps its secondary for its wheelhouse concept at `chance`
+    // on one seeded roll. Dark until a character uses it (`on: false` on the shelf; the flipper is this switch).
+    wheelhouseSwap: { on: false, chance: 0.10 },
     // AI ledgers (least-used build, 2026-10-12): score() prices what previews can't show. Threat: protection is worth
     // the incoming LF it stops on covered allies (cover fractions per effect), capped by the protector's own LF.
     // Info: an observe-on-hit rider or focus mark is worth hidden cards × perCard when it lands. Order: threat → info.
@@ -1625,9 +1628,9 @@
     // into a lock (Mala's rule 3: no indefinite immunity, and so no indefinite incapacity). The clock cap (max) is the builder constant: 2 own turns.
     incapacitated: { name: "Incapacitated", text: "Cannot act for up to 2 of their turns. No LF is lost, and a later blow still lands.",
       why: "A fighter who cannot act is not a fighter who is dead: survival, agency and victory are separate dimensions.",
-      gate: { blocks: ["all"], reason: "they are incapacitated" }, clock: { counts: "ownerTurns", n: 2, max: 2, then: [{ grant: "steadied", to: "self", turns: 0 }] }, refusesGrant: ["incapacitated"] },
+      gate: { blocks: ["all"], reason: "they are incapacitated" }, clock: { counts: "ownerTurns", n: 2, max: 2, then: [{ grant: "steadied", to: "self", turns: 0 }] }, refusesGrant: ["incapacitated", "suggestedHold"] },
     steadied: { name: "Steadied", text: "Just recovered: cannot be incapacitated again for a turn.", why: "Waking is not the start of the next stun: incapacitation does not chain.",
-      hidden: true, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["incapacitated"] },
+      hidden: true, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["incapacitated", "suggestedHold"] },
     // Hanuman (Mala, 2026-10-24; docs/hanuman-build.md). Three forms, one at a time (group "hanumanForm"), switched free once a
     // turn; base and giant cannot Vanish, the monkey can (the scout and infiltrator). Numbers are provisional until simmed.
     hanumanBase: { name: "Base form", text: "Hanuman as he serves Rama: a warrior with a mace.", why: "Valmiki: the devoted messenger who fights beside Rama.",
@@ -1744,6 +1747,29 @@
       breakers: [{ ability: "remind", from: "ally", do: [{ scene: { title: "Hanuman Remembers", line: "You are Hanuman, son of the Wind. Remember what you are." } }] },
         { ability: "rememberWhatYouAre", from: "ally", do: [{ scene: { title: "Jambavan Speaks", line: "Son of the Wind, why do you sit silent? You leapt for the sun as a child. Leap now." } }] },
         { present: "jambavan", side: "ally", do: [{ scene: { title: "Jambavan Speaks", line: "Son of the Wind, why do you sit silent? You leapt for the sun as a child. Leap now." } }] }] },
+    // Cure (claude-cure-spec rev 3, slice S1; staged: no ability, class or scenario grants these yet). Numbers provisional, see specs/CURE.md.
+    // Mesmerism sets the hold and the order; Disinhibition peels the restraint a unit holds (traitsOff, unmasked).
+    fixated: { name: "Fixated", text: "Their eyes will not leave the flame.", why: "Attention can be borrowed: held on one thing, a person does not move, and a friend can call them back.",
+      gate: { blocks: ["move"], reason: "their eyes will not leave the flame" }, clock: { counts: "ownerTurns", n: 1 },
+      offers: { ability: "remind", to: "allies" }, breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }] },
+    latent: { name: "Latent order", hidden: true, text: "A cue sleeps in them.", why: "An order given to a held mind waits for its cue; the one holding it does not remember.",
+      clock: { counts: "rounds", n: 3 }, breakers: [{ ability: "remind", from: "ally" }],
+      triggers: [{ on: "turnStart", if: { cue: true }, do: [{ grant: "unmasked", to: "self", turns: 1, byOrigin: true }, { grant: "marked", to: "self", byOrigin: true }, { remove: "latent", from: "self" }] }] },
+    unmasked: { name: "Unmasked", text: "They are not themselves, and only themselves.", why: "The restraints are off, so their other traits and their needs decide, with no thought for sides. They are not stronger.",
+      anySide: true, unmasks: true, gate: { blocks: ["ultimate"], reason: "they are not themselves, and cannot gather that much" }, clock: { counts: "ownerTurns", n: 1 } },
+    marked: { name: "Marked", text: "The cut is the signature.", why: "An act done under an order leads back, one link, to whoever left it." },
+    emptied: { name: "Emptied", text: "Nothing is left of them but the question.", why: "The capability has gone to someone else; the one who carried it keeps only the asking.",
+      gate: { blocks: ["all"], reason: "nothing is left of them but the question" }, clock: { counts: "ownerTurns", n: 3 } },
+    suggestedHold: { name: "Told to wait", text: "They stand and wait.", why: "A held mind takes one plain suggestion for its next turn: here, to do nothing.",
+      gate: { blocks: ["all"], reason: "they were told to wait" }, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedBack", "suggestedGuard", "incapacitated"], breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }] },
+    suggestedBack: { name: "Told to step back", text: "They step away.", why: "A held mind takes one plain suggestion for its next turn: here, one step back.",
+      clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedHold", "suggestedGuard"], breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }],
+      triggers: [{ on: "turnStart", limit: 1, do: [{ step: "away", tiles: 1 }] }] },
+    suggestedGuard: { name: "Told to lower their guard", text: "They drop their guard.", why: "A held mind takes one plain suggestion for its next turn: here, to leave off guarding.",
+      gate: { blocks: ["guard", "overwatch"], reason: "they were told to lower their guard" }, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedHold", "suggestedBack"], breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }] },
+    spoken: { name: "Already spoken to", hidden: true, text: "One suggestion or one order a battle: this one has had theirs.", why: "Marks a subject that has taken its one suggestion or latent order this battle." },
+    heard: { name: "Already steadied", hidden: true, text: "One calming word each, a battle.", why: "Marks a unit that has had its one steadying word this battle." },
+    calm: { name: "Calm", text: "A calm voice: they will not break.", why: "A steady word: for a little while, fear does not take them.", clock: { counts: "ownerTurns", n: 2 } },
   };
   // Hanuman's free acts: the three switches (one a turn between them), and Remind, which his allies are offered while he is Forgotten.
   Object.assign(abilities, {
@@ -1894,6 +1920,7 @@
       { id: "field-botanist-tend", label: "Preservation + Succession", primary: "preservation", secondary: "succession", reserve: ["pruning"], lens: {} },
       { id: "field-botanist-collect", label: "Pruning + Indexing", primary: "pruning", secondary: "indexing", reserve: ["succession"], lens: {} },
     ] };
+  characters.fieldBotanist.stagedWheelhouse = ["homology"];   // Mala, 2026-11-02: "put it in the field botanist's wheelhouse". Homology is staged, not playable, so it stays OUT of conceptPool (the story picker lists the pool and every entry must be a playable concept); it moves there when the Homology kit is registered (docs/homology.md "Left for a holder"). Same shape as the Forest Spirit's Fae.
 
   // Succession joins the Gardener's seeded configuration pool; it remains a distinct roster draw.
   characters.gardener.conceptPool.push("succession");

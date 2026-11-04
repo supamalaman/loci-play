@@ -157,6 +157,7 @@
           const card=deck.cards.find(c=>!know.revealed.includes(c.id));
           if(card){know.revealed.push(card.id);s.insight.cognitive=insightRules.recordNotice(s.insight.cognitive,target.id,card);}
           log(s,{kind:"insight",actor:a.id,target:target.id,text:card ? `${a.name} indexes ${target.name}: ${card.text}` : `${target.name}'s archive is already complete.`});
+          ClassRuntime?.homology?.indexed(s,a,target);   // Homology: the team's observations of this enemy are now held in an Indexing record (a three-round window)
         };
         const present=Object.values(s.actors).filter(u=>!u.defeated && inst.tiles.some(([x,y])=>H.coversTile(u,x,y)));   // a big unit is present on any of its tiles
         const ally=inst.targets?.map(id=>s.actors[id]).find(u=>u && !u.defeated && u.side===a.side);

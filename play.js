@@ -34,8 +34,11 @@
 
   // ── account (the game's own save; only read here, written only when you equip) ──
   function loadAccount() {
-    const raw = read(ACCOUNT_KEY, null);
-    if (!raw) return null;
+    const bytes = localStorage.getItem(ACCOUNT_KEY);
+    if (bytes === null) return null;   // no save at all: a new player, not a broken one
+    let raw;   // read() cannot tell unparseable bytes from a parsed null, so this key parses here
+    try { raw = JSON.parse(bytes); } catch { console.warn("Could not read the save: not valid JSON"); saveBroken = true; return null; }
+    if (!raw) return null;   // valid JSON with no save in it (null, 0, false): a new player, not a broken one
     try { saveBroken = false; return Loot.withBags(Account.deserialize(raw)); } catch (e) { console.warn("Could not read the save", e); saveBroken = true; return null; }
   }
   const saveAccount = (a) => write(ACCOUNT_KEY, Account.serialize(a));

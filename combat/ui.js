@@ -12,6 +12,7 @@
   const SG = root.ConceptCombatSage;   // Hatsu Sage casting (castings/sage.js; AP-01 wired: demo bout + declarations)
   const CM = root.ConceptCombatCommunion, PF = root.ConceptCombatPlantFacts, TRP = root.ConceptCombatTraps, IM = root.ConceptCombatImitation, TK = root.ConceptCombatTsukumogami;
   const GB = root.ConceptCombatGaiaBond;
+  const FM = root.ConceptCombatFame;   // account/fame.js (FAME.md): non-lethal victories pay Fame
   const D = root.ConceptCombatTerrain, G = root.ConceptCombatMapgen, V = root.ConceptCombatVegetationRules, S = root.ConceptCombatStructures;
   const W = root.ConceptCombatWild, PK = root.ConceptCombatPickups, MD = root.ConceptCombatModes;
   const RO = root.ConceptCombatRoles;   // classes/roles.js: attack, support / defense or specialist, read off a loadout's abilities
@@ -680,11 +681,16 @@
       timer: null, raf: 0, fxPlayer: FX?.createPlayer?.() || null, fxFrame: null, menu: "root", menuIndex: 0, graph: { kind: "opposition", unknown: true, edge: null }, reveal: false, announce: true,
       llmEnabled: !!opts.llmBridge && !!params.socket, llmConnection: null, llmFailed: false, llmReady: true, llmSeq: 0, llmAbort: null, llmPaused: false, llmError: "", llmEpoch: 0, llmActorId: null, agentSessionUsed: false, llmBattleId: `loci-${Date.now().toString(36)}`, destroyed: false,
       report: null, reward: null, answered: null, deception: false, overclock: 0, quickened: "", prunePart: "foliage", gap: "north", sectionAxis:"row", projectionProperty:"height", projectionAxis:"east", fragmentKind:"cover", fragmentId:null, montageParts:["","",""], prototypeSource:"", recombineParts:["","",""], whatIfAs:"", observeInvest: 20, insightTarget: null, bubbles: [], packSelection: [], potSelection: [], pendingSummon: null, dialogueOn: store.get("loci:combat:dialogue", true), profile: store.get(PROFILE_KEY, { xp: 0, level: 1 }) };
+    // The stall's persuasion (FAME.md E2). account.self is { version, seed, traits } with no passives, so the Fame level never reached the haggle through it; this hands
+    // Parley.persuasion the same fameAdd passive a battle unit carries (Fame F1). Level 0 passes the self untouched.
+    const stallTalk = () => { if (!PY) return null; const self = U.account.self, fl = FM ? FM.levelFor(U.account) : 0; return PY.persuasion(fl > 0 ? { ...self, passives: { ...(self?.passives || {}), fameAdd: fl } } : self); };
     const testBattle = () => !!(params.autoplay || params.steps || U.setupOpts?.testMenu || U.setupOpts?.devPlayground || /\btest\b|playground/i.test(U.setupOpts?.title || ""));   // test menu, playground and autoplay battles save nothing
     U.llmSettings = store.get("loci:llm:settings", { provider: "fake", baseURL: "http://127.0.0.1:1234/v1", model: "" });
     try {
-      const raw = store.get(ACCOUNT_KEY, null);
-      U.account = Loot.withBags(raw ? A.deserialize(raw) : A.fromLegacyProfile(U.profile, { name: "Warden" }));
+      const saved = A.readSave(localStorage.getItem(ACCOUNT_KEY));
+      U.saveBroken = saved.broken; U.saveBrokenAcked = false;   // a broken save boots a fresh profile but is never overwritten (loop 1a19dca6b72)
+      if (saved.broken) console.warn("Loci account save could not be read; the game will not overwrite it. Clear it to save again.");
+      U.account = Loot.withBags(saved.raw ? A.deserialize(saved.raw) : A.fromLegacyProfile(U.profile, { name: "Warden", choose: true }));   // S2: a genuinely fresh profile is asked to choose (fromLegacyProfile keeps veterans out);
     } catch (error) {
       console.warn("Loci account save could not be read; starting from the compatible XP profile.", error); recordDiagnostic("Account load failed; using compatible XP profile",error);
       U.account = Loot.withBags(A.fromLegacyProfile(U.profile, { name: "Warden" }));
@@ -702,12 +708,13 @@
     }
     // A test battle saves nothing (Mala, 2026-10-27): its start snapshots the account, saves wait, and the result restores it.
     const factCtx = () => (PF ? { heard: U.account?.plantFacts || {} } : null);
-    const saveAccount = () => { if (U.testSnapshot) return; store.set(ACCOUNT_KEY, A.serialize(U.account)); };
+    const saveRefused = () => { if (!U.saveRefusedWarned) { U.saveRefusedWarned = true; console.warn("Save refused: the stored save could not be read; clear it to save again."); } };
+    const saveAccount = () => { if (U.testSnapshot) return; if (U.saveBroken) return saveRefused(); store.set(ACCOUNT_KEY, A.serialize(U.account)); };
     // Restores the account a test battle began with (its end, or leaving it for town, setup or the account screen).
     const endTestBattle = () => {
       if (!U.testSnapshot) return;
       U.account = A.deserialize(U.testSnapshot); U.testSnapshot = null; U.profile = { xp: U.account.xp, level: U.account.level };
-      store.set(ACCOUNT_KEY, A.serialize(U.account)); store.set(PROFILE_KEY, U.profile);   // and the stored copy, undoing any write that slipped in (the pack step saves before the battle is known to be a test)
+      if (U.saveBroken) saveRefused(); else store.set(ACCOUNT_KEY, A.serialize(U.account)); store.set(PROFILE_KEY, U.profile);   // and the stored copy, undoing any write that slipped in (the pack step saves before the battle is known to be a test)
     };
     { const savedChar = store.get(CHAR_KEY, null), fixed = savedChar && A.migratePaladinPair(savedChar); U.character = fixed || { primary: C.characters.warden.primary, secondary: C.characters.warden.secondary, lens: {} }; if (savedChar && fixed !== savedChar) store.set(CHAR_KEY, fixed); }   // a saved Paladin keeps the class: the old pair is re-slotted (account.js migratePaladinPair)
     const NEON_WARDEN="neo-warden-purple-neon", neonUnlocked=()=>(U.account?.level||0)>=(C.progression?.neonWardenLevel||200);
@@ -1167,12 +1174,22 @@
     // (a re-render only redraws), so walking back into town starts the next entry.
     // The facts a keeper's hook chip reads, gathered from the same state the window shows (perk points, free pack slots, worn gear, Seeds owed).
     const keeperFacts = () => { const A = U.account, g = A.gear || {}, wornOut = Object.values(g.equipped || {}).filter((id) => id && (g.durability?.[id] ?? 1) <= 0).map((id) => Loot.data?.equipment?.[id]?.name || id);
-      const slots = Loot.battleSlots(A); return { perkPoints: A.perkPoints || 0, packSlots: slots, packFree: Math.max(0, slots - (U.packSelection || []).length), worn: wornOut, owed: Math.max(0, A.debt || 0) }; };
-    const mountKeeper = (ov, windowId, more = {}) => { const { counter = null, event = null, ...rest } = more;   // S3: a counter swap rides beside the facts, never in them
-      return root.ConceptCombatKeeperUI?.mount(ov, windowId, { account: U.account, store, dialogueOn: U.dialogueOn, facts: { ...keeperFacts(), ...rest }, counter, event,
+      const slots = Loot.battleSlots(A), b = A.board || {}, job = (b.postings || []).find((m) => m.id === b.accepted && m.expiresAt > (A.battles || 0));
+      return { perkPoints: A.perkPoints || 0, packSlots: slots, packFree: Math.max(0, slots - (U.packSelection || []).length), worn: wornOut, owed: Math.max(0, A.debt || 0),
+        accepted: job ? { text: Board ? Board.describe(job) : job.condition, left: job.expiresAt - (A.battles || 0) } : null }; };
+    const mountKeeper = (ov, windowId, more = {}) => { const { counter = null, event = null, entryKey = null, ...rest } = more;   // S3: a counter swap rides beside the facts, never in them
+      return root.ConceptCombatKeeperUI?.mount(ov, windowId, { account: U.account, store, dialogueOn: U.dialogueOn, facts: { ...keeperFacts(), ...rest }, counter, event, entryKey,
       onAccount: (a) => { U.account = a; saveAccount(); },
       onSpend: (id, n) => { if (root.ConceptCombatKeeperMemory?.noteSpend) { U.account = root.ConceptCombatKeeperMemory.noteSpend(U.account, id, n); saveAccount(); } },   // per-window keepers: one count per thing done (keeper-ui say)
       onDialogue: (on) => { U.dialogueOn = on; store.set("loci:combat:dialogue", on); if (!on) U.bubbles = []; const b = $("ccDialogue"); if (b) b.textContent = `Dialogue ${on ? "On" : "Off"}`; } }); };
+    // Contextual speakers (NPC faces S6): battle overlays show the thing they are about. Keeper windows use mountKeeper;
+    // served cards mount nothing. The speaker keeps no memory and offers no Talk: overlays are transient decisions.
+    const mountSpeaker = (ov, windowId, ctx = {}) => { const KU = root.ConceptCombatKeeperUI; if (!KU) return null;
+      const speaker = KU.speakerFor(windowId, { ...ctx, account: U.account });
+      if (!speaker || speaker.keeper || speaker.served) return speaker || null;
+      return KU.mountSpeaker(ov, windowId, { speaker, account: U.account, store, dialogueOn: U.dialogueOn,
+        onDialogue: (on) => { U.dialogueOn = on; store.set("loci:combat:dialogue", on); if (!on) U.bubbles = []; } }) || null; };
+    const ctxFighter = () => { const f = (U.s && controlledFighter(U.s)) || {}; return { character: f.character, sprite: f.sprite, name: f.name }; };
     // NPC keepers S4c: the Freemason at the scribing desk. The desk is the Workshop UI module, so the strip is mounted
     // by the caller (spec section 16): both desk entries pass this as the `keeper` option and the module calls it after
     // every render. The slot keeps the strip inside the desk header; the chip reads real recovered parts only.
@@ -1202,8 +1219,10 @@
       const id = free.sort((a, b) => dist(a) - dist(b))[0];
       return { name: C.concepts[id].name, cost: VV ? VV.claimPrice(GD, owned, id, { table: VV.BLESSED, chit: useChit }).cost : WS.claimCost(0) }; };
     function showTown() {
+      if (U.saveBroken && !U.saveBrokenAcked) return showSaveBroken();
       root.ConceptCombatKeeperUI?.reset(); U.keeperCounter = null; U.keeperSeedsAt = null;   // S3: leaving the keeper windows returns the Field Kit to its frame
       endTestBattle();   // leaving a test battle unfinished keeps nothing too
+      if (needsFirstPick() && !testBattle()) return showFirstPick();   // S2: town is a first launch too (the Loci.app landing)
       U.focusPanel = null;   // back in town: the next door decides what the setup screen shows
       U.mode = "town"; stopAi(); host.classList.add("cc-setting-up");
       const ov = $("ccOverlay"); ov.hidden = false; ov.classList.add("cc-town-host");
@@ -1234,8 +1253,9 @@
     function showHall(note = "") {
       U.mode = "setup"; const ov = $("ccOverlay"); ov.hidden = false;
       const stock = Loot.hallStock ? Loot.hallStock(U.account) : [];
-      ov.innerHTML = `<div class="cc-card cc-town-hall"><h2>The Hiring Hall</h2><p class="cc-muted">${U.account.seeds} Seeds · help you have to prepare for: buy here, pack it before the fight, use it in battle. It arrives the next round.</p>
-        ${stock.map(o => `<section class="cc-hall-offer"><div><b>${esc(o.name)}</b> <small>${o.price} Seeds · ${o.owned} in your stash</small><p>${esc(o.text)}</p></div>
+      const fameFx = FM ? FM.effects(FM.levelFor(U.account)) : null;
+      ov.innerHTML = `<div class="cc-card cc-town-hall"><h2>The Hiring Hall</h2><p class="cc-muted">${U.account.seeds} Seeds · help you have to prepare for: buy here, pack it before the fight, use it in battle. It arrives the next round.${fameFx && fameFx.hallPct > 0 ? ` Fame ${FM.levelFor(U.account)}: prices -${fameFx.hallPct}%.` : ""}</p>
+        ${stock.map(o => `<section class="cc-hall-offer"><div><b>${esc(o.name)}</b> <small>${o.price} Seeds${o.listPrice > o.price ? ` (list ${o.listPrice})` : ""} · ${o.owned} in your stash</small><p>${esc(o.text)}</p></div>
           <button type="button" data-hall-buy="${esc(o.id)}" ${U.account.seeds < o.price ? "disabled" : ""}>Buy · ${o.price}</button></section>`).join("")}
         ${note ? `<p class="cc-hall-note" role="status">${esc(note)}</p>` : ""}
         <div class="cc-row"><button type="button" id="ccHallPack">Pack for battle (Ledger House)</button><button type="button" class="cc-primary" id="ccHallBack">← Back to town</button></div></div>`;
@@ -1287,7 +1307,7 @@
       ov.querySelectorAll("[data-book]").forEach((b) => b.onclick = () => { const book = books.find((x) => x.id === b.dataset.book); if (!book || U.account.seeds < book.price) return;
         const r = LB.buyBook(U.account.legacy, book); U.account.seeds -= r.price; save(r.legacy, `Bought the book: ${nameOf(book.technique)} (practice +1).`); });
       ov.querySelectorAll("[data-take]").forEach((b) => b.onclick = () => { const r = LB.disassemble(U.account.legacy, b.dataset.take, C); r.ok ? save(r.legacy, `Taken apart: ${nameOf(b.dataset.take)}. Its parts are on the table.`) : showCodex(r.error, true); });
-      $("ccOpenWorkshop").onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: account => { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showCodex(), keeper: mountDeskKeeper });
+      $("ccOpenWorkshop").onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: account => { if (U.saveBroken) saveRefused(); else localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showCodex(), keeper: mountDeskKeeper });
       $("ccCodexBack").onclick = () => showSetup(); $("ccCodexBack").focus();
       mountKeeper(ov, "codex", refused ? { event: "refuse" } : {});   // the Magistrate (S4a): the reserved slot in .cc-codex-head, above the dropdown sections
     }
@@ -1317,9 +1337,59 @@
       ov.querySelectorAll("[data-lab-remove]").forEach((b) => b.onclick = () => done(SG.remove(U.account, b.dataset.labRemove), "Removed. You'll be woozy next battle."));
       $("ccLabBack").onclick = () => showSetup(); $("ccLabBack").focus();
     }
+    // A stored save that is not valid JSON boots a fresh profile but is never overwritten (loop 1a19dca6b72): this
+    // overlay says so up front, with the two honest ways out. Clearing drops the key and boots fresh with working saves.
+    function showSaveBroken() {
+      U.mode = "setup"; stopAi(); host.classList.add("cc-setting-up");
+      const ov = $("ccOverlay"); ov.hidden = false;
+      ov.innerHTML = `<div class="cc-card" role="alertdialog" aria-label="Save could not be read"><h2>Save could not be read</h2><p>Your saved game is not valid JSON, so the game cannot load it. Nothing has been overwritten.</p><p>Clear it to start fresh (saving will work again), or play on without saving (your saved game will not be changed).</p><div class="cc-row"><button type="button" id="ccSaveClear" class="cc-primary">Clear the broken save</button><button type="button" id="ccSavePlayOn">Play without saving</button></div></div>`;
+      $("ccSaveClear").onclick = () => { try { localStorage.removeItem(ACCOUNT_KEY); } catch {} U.saveBroken = false; U.account = Loot.withBags(A.fromLegacyProfile(U.profile, { name: "Warden", choose: true })); showSetup(); };
+      $("ccSavePlayOn").onclick = () => { U.saveBrokenAcked = true; showSetup(); };
+      $("ccSaveClear").focus();
+    }
+    // Familiar choice S2: the first-launch scene (FAMILIARS.md section 2, mock A). A new account carries
+    // `familiars` with done false; the Warden — the only palace caller (summons.js callsPalace) — meets
+    // Mitsuko pre-selected beside the greyed Raven, and one button spends the first token via buyFamiliar.
+    // A damaged block (no token, or the default already picked) skips the scene: there is nothing to buy with, and the scene has no close.
+    const needsFirstPick = () => { const f = U.account?.familiars; return !!(f && !f.done && f.tokens > 0 && !f.picks.includes("mitsuko")); };
+    const firstPickDefault = (test = false) => {   // scripted entries and Quick Battle skip the scene: the pre-selected default, silently; a test, playground or autoplay start seats it in memory and saves nothing (the test-battle rule)
+      const r = A.buyFamiliar(U.account, "mitsuko");
+      if (!r.error) { U.account = r.account; if (!test) saveAccount(); }
+    };
+    function showFirstPick() {
+      U.mode = "setup"; stopAi(); host.classList.add("cc-setting-up");
+      const ov = $("ccOverlay"); ov.hidden = false;
+      const def = SM.data.summons.mitsuko, att = SM.data.attitudes[def.attitude] || {};
+      const why = (A.benefitOrder.find((b) => b.id === "mitsuko") || {}).why || "";
+      const small = new Set(["of", "the", "and", "a", "an", "in", "on"]);
+      const cap = (s) => String(s || "").split("-").map((w, i) => (w && (i === 0 || !small.has(w)) ? w[0].toUpperCase() + w.slice(1) : w)).join(" ");
+      const concepts = def.standIn ? `${cap(def.standIn.primary)} + ${cap(def.standIn.secondary)}` : "";
+      ov.innerHTML = `<div class="cc-card cc-first-pick" role="dialog" aria-label="Choose your first familiar">
+        <h2>Choose your first familiar</h2>
+        <p class="cc-muted">A familiar keeps you company in the palace and answers when you call it in a fight. You will meet more as you level up.</p>
+        <div class="cc-pick-cards">
+          <div class="cc-pick sel"><div class="cc-pick-stage"><img src="combat/sprites/mitsuko/idle.png" alt="Mitsuko"></div>
+            <h3>${esc(def.name)}</h3><div class="cc-pick-role">${esc(att.label || "")}</div>
+            <p>${esc([att.text, why].filter(Boolean).join(" "))}</p>
+            <p>${concepts ? `<span class="cc-tag">${esc(concepts)}</span>` : ""}<span class="cc-tag">${esc(cap(def.room))}</span></p></div>
+          <div class="cc-pick locked" aria-disabled="true"><div class="cc-pick-stage"><img class="cc-pick-small" src="combat/sprites/raven/idle.png" alt="The Raven"></div>
+            <h3>The Raven</h3><div class="cc-pick-role">Messenger</div>
+            <p class="cc-pick-reason">Arrives with the Raven kit.</p></div>
+        </div>
+        <div class="cc-row"><span class="cc-muted" id="ccFirstPickNote">Not sure? Mitsuko is the gentlest. More familiars join your palace as you level up.</span><span><button type="button" class="cc-gold" id="ccFirstPickGo">Choose Mitsuko</button></span></div>
+      </div>`;
+      $("ccFirstPickGo").onclick = () => {
+        const r = A.buyFamiliar(U.account, "mitsuko");
+        if (r.error) { $("ccFirstPickNote").textContent = r.error; return; }
+        U.account = r.account; saveAccount(); showSetup();
+      };
+      $("ccFirstPickGo").focus();
+    }
     function showSetup() {
+      if (U.saveBroken && !U.saveBrokenAcked) return showSaveBroken();
       endTestBattle();   // leaving a test battle unfinished keeps nothing too
       if (U.s && U.llmEnabled) { ++U.llmEpoch; Promise.resolve(opts.llmBridge?.stop?.()).catch(() => {}); U.llmConnection = null; U.llmPaused = false; U.llmReady = true; }
+      if (needsFirstPick() && !params.autostart && !testBattle()) return showFirstPick();
       if (U.townOn && U.menuView === "town") return showTown();
       leaveTown();
       if(U.mode==="setup") { U.setupScenario ||= {};for(const id of ["ccGameMode","ccTerrain"]) { const control=$(id);if(control)U.setupScenario[id]=control.value; } }
@@ -1428,6 +1498,7 @@
         const KEEPER_DOOR = { scenarios: "townHall", character: "home", index: "archive", threat: "threatBoard" }[U.focusPanel];   // Rama (S0), Sita and Jatayu (S1), Ravana (S2)
         if (KEEPER_DOOR) mountKeeper(ov, KEEPER_DOOR, KEEPER_DOOR === "threatBoard" ? { threatRank: TB ? ((TB.top(15).find((r) => r.kind === "main") || {}).rank || 0) : 0 } : {});
       }
+      if (!U.focusPanel) mountKeeper(ov, "classicMenu");   // Arantxa (S4b): the unfocused menu is hers; a door's keeper keeps its own panel
       ov.querySelectorAll("[data-challenge-encounter]").forEach((b) => { b.onclick = () => { const sel = $("ccEncounter"); if (sel) { sel.value = b.dataset.challengeEncounter; sel.onchange?.({ target: sel }); } startSafely({ encounter: b.dataset.challengeEncounter, opener: "player" }); }; });   // a boss row opens its own fight
       ov.querySelectorAll("[data-challenge]").forEach((b) => { b.onclick = () => { U.setupFoe = b.dataset.challenge; U.setupAlly = npcRoster.find(n => n.id !== U.setupFoe)?.id; U.bringAlly = false; const ally = ov.querySelector("#ccWithAlly"); if (ally) ally.checked = false; const sel = $("ccEncounter"); if (sel) { sel.value = "rosterScrimmage"; sel.onchange?.({ target: sel }); } startSafely({ encounter: "rosterScrimmage", opener: "player" }); }; });
       ov.querySelector(".cc-item-pack").ontoggle=ev=>{U.setupPanels.pack=ev.currentTarget.open;};
@@ -1556,7 +1627,7 @@
         <p class="cc-muted">The Kiln lives in Ledger House; its bench opens it there.</p></div>`;
       $("ccWsClose").onclick = () => { if (returnMode === "setup") showSetup(); else if (returnMode === "town") showTown(); else if (returnMode === "account") showAccount(); else { ov.hidden = true; U.mode = returnMode; render(); pump(); } };
       $("ccWsBench-tree").onclick = () => showWorkshop(returnMode);
-      const deskBtn = $("ccWsBench-desk"); if (deskBtn && deskOpen) deskBtn.onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: (account) => { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showWorkshopHub(returnMode), backLabel: "← Workshop", crumb: "THE WORKSHOP", keeper: mountDeskKeeper });
+      const deskBtn = $("ccWsBench-desk"); if (deskBtn && deskOpen) deskBtn.onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: (account) => { if (U.saveBroken) saveRefused(); else localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showWorkshopHub(returnMode), backLabel: "← Workshop", crumb: "THE WORKSHOP", keeper: mountDeskKeeper });
       const kilnBtn = $("ccWsBench-kiln"); if (kilnBtn && kilnOpen) kilnBtn.onclick = () => { U.mode = "setup"; showAccount(); ov.querySelector(".cc-kiln")?.scrollIntoView?.({ block: "center" }); };
       $("ccWsBench-tree").focus();
       mountKeeper(ov, "workshop", { free: workshopFreeNode(), event: "fold:workshop" });   // the Starfarer (S4a): the hub's reserved slot; a revisit plays the fold line (the first entry greets)
@@ -1759,7 +1830,7 @@
       const fame = Math.min(BK.RULES.fameMax, U.account.fame || 0);
       const bc = U.account.buskCycle, spent = bc && bc.cycle === (U.account.battles || 0) && bc.busked >= BK.RULES.perCycle;
       const diff = BK.crowdDiff(U.account.battles || 0, fame);
-      ov.innerHTML = `<div class="cc-card cc-school"><header><div><h2>Town square</h2><p class="cc-muted">Glamour ${glamour} · fame ${fame} · room difficulty ${diff} · once a cycle · pays to ${BK.RULES.capTotal}</p></div><button type="button" id="ccBuskClose">Back</button></header>
+      ov.innerHTML = `<div class="cc-card cc-school"><header><div><h2>Town square</h2><p class="cc-muted">Glamour ${glamour} · fame ${fame}${FM ? ` (${FM.tierName(fame)})` : ""} · room difficulty ${diff} · once a cycle · pays to ${BK.RULES.capTotal}</p></div><button type="button" id="ccBuskClose">Back</button></header>
         ${spent ? `<p class="cc-muted">The hat is full this cycle. Battle on.</p>` : `<button type="button" class="cc-primary" id="ccBuskGo">Busk</button> <span class="cc-muted">Tiers ${[2, 4, 6, 8].map((t) => `${t}→${BK.tiers(t)}`).join(" · ")}</span>`}<div id="ccBuskOut"></div></div>`;
       $("ccBuskClose").onclick = back;
       const go = $("ccBuskGo"), power = glamour + fame, losing = power < diff;   // the comparison busking.js makes: below the room is a tomatoed busk
@@ -1770,8 +1841,11 @@
         if (losing && !asked) { asked = true; go.textContent = "Busk anyway (tomatoes)"; flashTip("A hard room: busking now is tomatoes and the ledger remembers. Press again to busk anyway."); return; }   // one confirm step before a losing busk (H18)
         const r = BK.busk(U.account, glamour);
         if (!r.ok) { flashTip(r.error); return; }
-        U.account = r.account; saveAccount();
-        $("ccBuskOut").innerHTML = `<p>${esc(r.lines[0])}</p>`;
+        U.account = r.account;
+        const fameLines = [];
+        if (FM && r.famePts > 0) { const f = FM.add(U.account, r.famePts, "busk"); U.account = f.account; if (f.levelUp) fameLines.push(`Fame ${f.level}: ${FM.tierName(f.level)}.`); }
+        saveAccount();
+        $("ccBuskOut").innerHTML = `<p>${esc(r.lines[0])}</p>${fameLines.map((l) => `<p>${esc(l)}</p>`).join("")}`;
         go.disabled = true;
         root.ConceptCombatKeeperUI?.say(r.mark === "tomatoed" ? "loss" : "win");
       };
@@ -1868,7 +1942,7 @@
       const og = U.account.orgonite || 0, orgRows = MK.sellOrgonite ? `<li><b>Orgonite</b> <small>stash ${og} · the Orcish fence only</small> <button type="button" class="cc-item" data-stall-orgonite="orcish" ${og < 1 ? "disabled" : ""} title="Orgonite sells to the fence only, never above ${MK.RULES.orgoniteMax} Seeds">Sell ▸ ${esc(MK.VENDORS.orcish.name)} · ~${Math.min(MK.RULES.orgoniteMax, px(MK.RULES.orgoniteBase, "orgonite", "orcish"))}</button></li>` : "";
       const FR = root.ConceptCombatFruit, held = FR ? FR.stashOf(U.account) : [];
       const fruitRows = held.length ? held.map((id) => `<li><b>${esc(FR.FRUITS[id].name)}</b> <small>${esc(FR.FRUITS[id].line)}</small> <button type="button" class="cc-item" data-fruit-sell="${id}">Sell by the tide · 400 Seeds (50 a battle)</button></li>`).join("") : `<li class="cc-muted">No fruit in the stash. Won battles sometimes wash one up.</li>`;
-      return `<section class="cc-gaia-regard cc-stall" data-counter="stall"><h3>Stall · market day ${m.day}</h3><p class="cc-muted">Drift ${esc(driftLine)} · standing ${esc(standLine)} · haggle ${Math.round(MK.haggleChance(0) * 100)}%+ (free with every sale)</p><h4>Vessels</h4><ul>${vesselRows}${orgRows}</ul><h4>Pens · ${pens.length}</h4><ul>${penRows}</ul><h4>Strange fruit</h4><ul>${fruitRows}</ul><h4>Advertise</h4><p>${camp}</p><h4>Buy orders</h4><ul>${orderRows}</ul></section>`;
+      return `<section class="cc-gaia-regard cc-stall" data-counter="stall"><h3>Stall · market day ${m.day}</h3><p class="cc-muted">Drift ${esc(driftLine)} · standing ${esc(standLine)} · haggle ${Math.round(MK.haggleChance(0, stallTalk()) * 100)}%+ (free with every sale)</p><h4>Vessels</h4><ul>${vesselRows}${orgRows}</ul><h4>Pens · ${pens.length}</h4><ul>${penRows}</ul><h4>Strange fruit</h4><ul>${fruitRows}</ul><h4>Advertise</h4><p>${camp}</p><h4>Buy orders</h4><ul>${orderRows}</ul></section>`;
     }
     // Sinkerfruit (OP1; account/fruit.js): fruits in the stash, the one you ate, and Eat as a two-click confirm, because it
     // can't be undone. A second fruit is refused (Mala, 2026-10-27: "refuse the second fruit").
@@ -1992,9 +2066,9 @@
         if (!r.ok) { U.keeperCounter = "kiln"; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: "kiln" }); root.ConceptCombatKeeperUI?.say(/^(parts:|seeds$)/.test(String(r.short)) ? "refuse" : "err"); return flashTip(r.reason || r.short); }
         U.keeperCounter = "kiln"; redo({ ...r, lines: [`Cast ${r.n} × orgonite.`] }); root.ConceptCombatKeeperUI?.say("buy"); });
       ov.querySelectorAll("[data-kiln-flux]").forEach(b => b.onclick = () => { U.kilnFlux = !U.kilnFlux; U.keeperCounter = "kiln"; showAccount(); });
-      ov.querySelectorAll("[data-stall-orgonite]").forEach(b => b.onclick = () => redo(MK.sellOrgonite(U.account, b.dataset.stallOrgonite, Math.random(), PY ? PY.persuasion(U.account.self) : null), ["stall", "buy", "refuse"]));   // Kaikeyi (S3)
-      ov.querySelectorAll("[data-stall-vessel]").forEach(b => b.onclick = () => { const [id, t] = b.dataset.stallVessel.split(":"); redo(MK.sellVessel(U.account, id, t, Math.random(), PY ? PY.persuasion(U.account.self) : null), ["stall", "buy", "refuse"]); });
-      ov.querySelectorAll("[data-stall-pen]").forEach(b => b.onclick = () => { const [id, i] = b.dataset.stallPen.split(":"); redo(MK.sellCatch(U.account, id, +i, Math.random(), PY ? PY.persuasion(U.account.self) : null), ["stall", "buy", "refuse"]); });
+      ov.querySelectorAll("[data-stall-orgonite]").forEach(b => b.onclick = () => redo(MK.sellOrgonite(U.account, b.dataset.stallOrgonite, Math.random(), stallTalk()), ["stall", "buy", "refuse"]));   // Kaikeyi (S3)
+      ov.querySelectorAll("[data-stall-vessel]").forEach(b => b.onclick = () => { const [id, t] = b.dataset.stallVessel.split(":"); redo(MK.sellVessel(U.account, id, t, Math.random(), stallTalk()), ["stall", "buy", "refuse"]); });
+      ov.querySelectorAll("[data-stall-pen]").forEach(b => b.onclick = () => { const [id, i] = b.dataset.stallPen.split(":"); redo(MK.sellCatch(U.account, id, +i, Math.random(), stallTalk()), ["stall", "buy", "refuse"]); });
       ov.querySelectorAll("[data-stall-keep]").forEach(b => b.onclick = () => redo(MK.swallowPen(U.account, +b.dataset.stallKeep), ["stall", null, "err"]));
       ov.querySelectorAll("[data-stall-campaign]").forEach(b => b.onclick = () => redo(MK.advertise(U.account, b.dataset.stallCampaign), ["stall", null, "err"]));
       ov.querySelectorAll("[data-stall-order-p]").forEach(b => b.onclick = () => { const [o, j] = b.dataset.stallOrderP.split(":"); redo(MK.fillOrder(U.account, +o, { pen: +j }), ["stall", "buy", "refuse"]); });
@@ -2544,6 +2618,7 @@
       openNarration("open", () => pump());
     }
     function startSafely(o) {
+      if (needsFirstPick()) firstPickDefault(!!(params.autoplay || params.steps || o?.setupOpts?.testMenu || o?.setupOpts?.devPlayground));   // S2: scripted entries and Quick Battle never reach a fight with an empty menu; a test start saves nothing
       const before = U.account;
       try { start(o); }
       catch (error) {
@@ -5194,6 +5269,7 @@
         <button type="button" id="ccMultCancel">Cancel</button></div>`;
       ov.querySelectorAll("[data-embody]").forEach((b) => b.onclick = () => { ov.hidden = true; act({ type: "embody", actor: "player", classId: b.dataset.embody }); });
       ov.querySelector("#ccMultCancel").onclick = () => { ov.hidden = true; U.mode = "menu"; U.menu = from || "root"; U.menuFrom = fromUp; U.afterActMenu = null; render(); };   // back to the Rituals drawer it opened from
+      mountSpeaker(ov, "multitudes", { fighter: ctxFighter() });   // S6: the actor
     }
     // Vows (vows/vows.js): a boon bought with up to two restrictions, picked from dropdowns before Extend Aura,
     // Imbue the Dream, or Open Dream Space. "Without a vow" keeps the plain AP/ULT version.
@@ -5206,6 +5282,7 @@
       ov.querySelectorAll("[data-role]").forEach((b) => b.onclick = () => { ov.hidden = true; U.audRole = b.dataset.role; U.menu = "tech"; choose({ id: "audition", x: null, label: "Audition", off: false }); });
       ov.querySelector("#ccAudCancel").onclick = () => { ov.hidden = true; U.audRole = null; U.mode = "menu"; U.menu = "root"; render(); };
       if (vow) U.audVow = vow;
+      if (opts.length) mountSpeaker(ov, "audition", { roleId: opts[0], C });   // S6: the first answering villain (none answers: no strip)
     }
     function oathRow(s, p) {   // technique stances: the oath row at the foot of Techniques shows what binds you
       const V = root.ConceptCombatVows, live = V.live(s, p).filter((v) => v.on === "technique");
@@ -5311,6 +5388,7 @@
         saveAccount();
       };
       ov.querySelector("#ccStakesCancel").onclick = close;
+      mountKeeper(ov, "proposeStakes");   // S6: the Gambler
     }
     function showStakeCard() {
       const ov = $("ccOverlay"); ov.hidden = false;
@@ -5330,6 +5408,7 @@
         act({ type: "stakeSeeds", actor: "player", seeds });   // the engine escrows from U.s.seeds
       };
       ov.querySelector("#ccStakeCancel").onclick = close;
+      mountKeeper(ov, "sweatIt");   // S6: the Gambler
     }
     function showVowCard(kind) {
       if (kind === "imbue") return act({type:"aura",actor:"player"});
@@ -5371,6 +5450,7 @@
         } act({ type, actor: "player", vow: v }); };
       ov.querySelector("#ccVowPlain") && (ov.querySelector("#ccVowPlain").onclick = () => { ov.hidden = true; if (kind === "role") return showAuditionCard(null); act({ type, actor: "player" }); });
       ov.querySelector("#ccVowCancel").onclick = close;
+      mountSpeaker(ov, "vowCard", { fighter: ctxFighter() });   // S6: the one swearing
     }
     // Plant communion: the nearest plant still worth studying, and any adjacent plant ready to answer.
     // Plants under Observe (Mala, 2026-10-10: "observe → plants is the mechanism for communing"). Observing a plant
@@ -5427,6 +5507,7 @@
       ov.innerHTML = `<div class="cc-card"><h2>Commune with the ${esc(pr.common)}</h2>${studied ? `<p class="cc-study-note"><b>Your study note:</b> ${esc(q.clue)}</p>` : ""}<p>${esc(q.prompt)}</p>${q.choices.map((c, i) => `<button type="button" class="cc-item" data-answer="${i}">${esc(c)}</button>`).join("")}<p class="cc-muted">Right: it tells you something true about itself, then steps out as ${esc(pr.name)} (${pr.hp} LF) and fights until its life runs out. Wrong: the cost is spent and it closes to you for this battle.</p><button type="button" class="cc-item" id="ccCommuneCancel">Cancel</button></div>`;
       const close = () => { ov.hidden = true; U.mode = "menu"; U.menu = "root"; render(); };
       ov.querySelectorAll("[data-answer]").forEach((b) => b.onclick = () => { ov.hidden = true; if (act({ type: "commune", actor: "player", object: objectId, questionId: q.id, answer: +b.dataset.answer })) { U.mode = "menu"; U.menu = "root"; render(); pump(); } });
+      mountSpeaker(ov, "communeQuestion", { type: obj.type, common: pr.common });   // S6: the commune object
       ov.querySelector("#ccCommuneCancel").onclick = close;
     }
     // Tsukumogami: structures under Observe (study) and the Rituals tab (wake). The entries appear only
@@ -5472,6 +5553,7 @@
       ov.innerHTML = `<div class="cc-card"><h2>Wake the ${esc(pr.common)}</h2>${studied ? `<p class="cc-study-note"><b>Your study note:</b> ${esc(q.clue)}</p>` : ""}<p>${esc(q.prompt)}</p>${q.choices.map((c, i) => `<button type="button" class="cc-item" data-answer="${i}">${esc(c)}</button>`).join("")}<p class="cc-muted">Right: it stands as ${esc(pr.name)} (${Math.max(1, obj.hp * 2)} LF) and fights for 4 rounds. Wrong: the cost is spent and it stays asleep.</p><button type="button" class="cc-item" id="ccCommuneCancel">Cancel</button></div>`;
       const close = () => { ov.hidden = true; U.mode = "menu"; U.menu = "root"; render(); };
       ov.querySelectorAll("[data-answer]").forEach((b) => b.onclick = () => { ov.hidden = true; if (act({ type: "communeStructure", actor: "player", object: objectId, questionId: q.id, answer: +b.dataset.answer })) { U.mode = "menu"; U.menu = "root"; render(); pump(); } });
+      mountSpeaker(ov, "communeQuestion", { tsuku: true, common: pr.common });   // S6: the waking structure
       ov.querySelector("#ccCommuneCancel").onclick = close;
     }
     function showSummonQuestion(id) {
@@ -5484,6 +5566,7 @@
       ov.querySelectorAll("[data-answer]").forEach(b => b.onclick = () => beginSummonPlacement(id, q, +b.dataset.answer));
       ov.querySelector("#ccSummonSkip").onclick = () => beginSummonPlacement(id, q, null);
       ov.querySelector("#ccSummonCancel").onclick = () => { U.pendingSummon = null; ov.hidden = true; U.mode = "menu"; U.menu = "root"; render(); };
+      mountSpeaker(ov, "summonQuestion", { summon: { id, name: SM.data.summons[id].name } });   // S6: the called summon
     }
     function beginSummonPlacement(id, q, answer) {
       const p = controlledFighter(U.s), occupied = new Set(Object.values(U.s.actors).filter(a => !a.defeated).map(a => `${a.x},${a.y}`));
@@ -5599,7 +5682,7 @@
     function abilityAction(){return {type:"ability",actor:"player",ability:U.sel.ability,part:U.prunePart,gap:U.gap,sectionAxis:U.sectionAxis,projectionProperty:U.projectionProperty,projectionAxis:U.projectionAxis,fragment:U.fragmentKind,fragmentId:U.fragmentId,montageParts:U.montageParts.filter(Boolean),prototypeSource:U.prototypeSource,recombineParts:U.recombineParts.filter(Boolean),whatIfAs:U.whatIfAs,overclock:U.overclock,reveal:U.reveal,announce:!U.quickened&&(U.sel.m.tier==="ultimate"||U.sel.m.effect==="damage")&&U.announce,revelation:U.revelation||1,deception:!U.quickened&&U.sel.m.tier==="ultimate"&&U.announce&&U.deception,quickened:U.quickened||null,role:U.sel.ability==="audition"?U.audRole||null:null,vow:U.sel.ability==="audition"?U.audVow||null:null,gear:U.sel.ability==="ulaula"?U.gearPick||2:null,surrender:U.sel.ability==="publicPromise"?U.promiseSurrender||"retreat":null};}
     function renderDetail() {
       const s = U.s, el = $("ccDetail"), p = controlledFighter(s);
-      if (s.outcome) { el.innerHTML = reportHtml(); bindReport(el); return; }
+      if (s.outcome) { el.innerHTML = reportHtml(); bindReport(el); mountKeeper(el, "battleOver", { entryKey: U.s.receiptId || U.s.seed }); return; }   // Arantxa (S4b): the report keeps its keeper
       if (s.film && !p) { const f = s.film, mark = s.actors[f.markId], star2 = s.actors[f.costarId];
         el.innerHTML = `<div class="cc-title">🎬 On set · Take ${f.turn}</div><p>${esc(mark?.name || "The star")} vs ${esc(star2?.name || "the co-star")}${f.cameoId && s.actors[f.cameoId] ? ` + ${esc(s.actors[f.cameoId].name)}` : ""}. The star falls: CUT and a premiere. The cast falls: ruin, a dud with no premiere.</p>${f.owner === "player" ? `<p class="cc-muted">Your film. Wrap it early from the banner above (counts as a dud).</p>` : `<p class="cc-muted">Someone else's film. The battle resumes when the scene ends.</p>`}`; return; }
       if (U.mode === "response" && s.pending) {
@@ -5919,6 +6002,7 @@
         }
         { const BS = root.ConceptCombatBeadSwallow; if (BS) U.reward.lines.push(...BS.captureLines(U.setupOpts?.beads || [], U.account.beads || [], U.account)); }   // a captured bead says where its creature's tracker stands
         if (GB) { const regard = GB.settle(U.account, GB.eventsFrom(U.s)); U.account = regard.account; U.reward.lines.push(...regard.lines); }
+        if (FM && !testBattle() && !U.practiceBattle) { const fame = FM.award(U.account, FM.eventsFrom(U.s, C.characters), { battles: U.account.battles || 0 }); U.account = fame.account; U.reward.lines.push(...fame.lines); }   // Fame F0b: persuaded, spared, knocked out, sealed, tamed or knelt foes pay; a kill pays 0
         if (SCH) { const k = SCH.earnKeys(U.account, SCH.proofsFrom({ ...U.s, crowdBattle: !!(BK && BK.crowdBattle(U.s.themedBattle, THB?.THEMES)) }, U.account, C)); U.account = k.account; U.reward.lines.push(...k.lines); }   // W8.4: what this battle proved opens a school's gate, once
         if (IM && INS) { const im = IM.settle(U.account, (U.s.imitated || []).filter((e) => e.actor === "player"), (t) => INS.data.imitateDifficulty(t) || 1, (t) => INS.data.traits[t]?.name || t); U.account = im.account; U.reward.lines.push(...im.lines); }   // Imitate: copies age, practice accrues   // Gaia's regard (account/gaia-bond.js)
         saveAccount();

@@ -44,7 +44,7 @@
   const PERSUASIVE = 0.15;   // same number as insight-data.js traits.persuasive.speech.chanceAdd (it was 0.1 before 2026-10-12)
   // How well this unit talks: persuasive trait, a role built for it, concepts that live in persuasion.
   function persuasion(u) {
-    let p = (has(u, "persuasive") ? PERSUASIVE : 0) + (PERSUADERS[u?.character] || 0) + (u?.passives?.legitimacyAdd || 0) * 0.03 + (u?.passives?.glamourAdd || 0) * 0.02;   // fine clothes speak (W4.3); awe aids persuasion until W2.1 Presence gives it its own checks
+    let p = (has(u, "persuasive") ? PERSUASIVE : 0) + (PERSUADERS[u?.character] || 0) + (u?.passives?.legitimacyAdd || 0) * 0.03 + (u?.passives?.glamourAdd || 0) * 0.02 + (u?.passives?.fameAdd || 0) * 0.01;   // Fame F1 (FAME.md E1): +0.01 a level; tests pin 0.01 to Fame.RULES.persuasionPer; the min(0.3) below stays last   // fine clothes speak (W4.3); awe aids persuasion until W2.1 Presence gives it its own checks
     let c = 0; for (const k of [u?.primary, u?.secondary]) c = Math.max(c, SILVER_CONCEPTS[k] || 0);
     if (has(u, "humanExperience")) return Math.min(0.5, p + c + 0.2);   // the Human Experience argues 20% better, past the usual cap
     return Math.min(0.3, p + c);

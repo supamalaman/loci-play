@@ -135,6 +135,7 @@
         titles: [], walkedThisTurn: 0, waterContact: null, waterDepth: "dry", waterSafeAt: null,
         status: { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null, immovable: null, exposed: null, attention: null, rangeBuff: null, tippingPoint: null, ambush: null, catharsis: null, drowning: null } };
       s.actors[id] = a;
+      H.wheelhouseSettle?.(s, a, ch);   // a hotbuild badge rolls on arrival, like any NPC spawn (W0a)
       if (!s.order.includes(id)) s.order.push(id);
       s.disclosures[id] = {}; s.knowledge[id] = {}; s.observedAbilities[id] = [];
       for (const other of Object.keys(s.actors)) {

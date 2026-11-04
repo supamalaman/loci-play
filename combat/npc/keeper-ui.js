@@ -13,20 +13,23 @@
 // Hooks (HOOKS) are CHIPS: plain text in the window, drawn whether or not Dialogue is on, so no information lives only in speech.
 // A keeper with no live face art, or the "text" setting, shows the name plate alone; a missing face file never shows another unit's face.
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./keepers.js"), require("../account/keepers.js"), require("./keeper-lines.js"));
-  else root.ConceptCombatKeeperUI = factory(root.ConceptCombatKeepers, root.ConceptCombatKeeperMemory, root.ConceptCombatKeeperLines);
-})(typeof self !== "undefined" ? self : this, function (K, M, L) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./keepers.js"), require("../account/keepers.js"), require("./keeper-lines.js"), require("../dialogue/speakers.js"), require("../dialogue/summon-voices.js"));
+  else root.ConceptCombatKeeperUI = factory(root.ConceptCombatKeepers, root.ConceptCombatKeeperMemory, root.ConceptCombatKeeperLines, root.ConceptCombatSpeakers, root.ConceptCombatSummonVoices);
+})(typeof self !== "undefined" ? self : this, function (K, M, L, SP, SV) {
   const MODE_KEY = "loci:npc:keepers", MODES = { full: "Face and name", text: "Name only", off: "Off" };
   const S = { entered: new Set(), idled: new Set(), last: {}, ring: [], timer: null, cur: null };
   const seen = new Map();   // the preloaded neutral faces (one cache; the other four load on first use)
 
   const modeOf = (store) => { const m = store && store.get(MODE_KEY, "full"); return MODES[m] ? m : "full"; };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
-  const tokensOf = (a) => ({ name: a.name || undefined, level: a.level > 0 ? a.level : undefined, wins: Number.isFinite(a.wins) ? a.wins : undefined, seeds: Number.isFinite(a.seeds) ? a.seeds : undefined,
-    owed: a.debt > 0 ? `${a.debt} Seeds` : undefined });   // {owed}: the account's Seeds debt (S1); {price} and {fame} come from a window's say() or are skipped
+  const tokensOf = (a) => ({ name: a.name || undefined, level: a.level > 0 ? a.level : undefined, wins: Number.isFinite(a.wins) ? a.wins : undefined, seeds: Number.isFinite(a.seeds) ? a.seeds : undefined, fame: a.fame > 0 ? a.fame : undefined,
+    owed: a.debt > 0 ? `${a.debt} Seeds` : undefined });   // {owed}: the account's Seeds debt (S1); {fame} reads the account (fame mile) and {price} comes from a window's say() or is skipped
 
   // A line that names an effect shows only while the effect is on (spec section 12): the gate "perk" follows the Seeds-perk flag in keepers.js.
   const openLines = (rows) => rows.filter((r) => !r.gate || (r.gate === "perk" && K.KEEPER_PERKS === true));
+  // The Fame mile event (npc-faces hooks): "mile:fame" when this bank has a fame-milestone row and fame rose past
+  // the last greeted mark, else null. Only mile:fame banks qualify, so level/discovery miles never misfire.
+  const fameMileEvent = (account, rows) => (rows || []).some((l) => l.when === "mile:fame") && ((account || {}).fame || 0) > Math.max(0, (account || {}).fameMileSeen ?? 0) ? "mile:fame" : null;
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   // Hook chips: each returns the chip's text, from the same data and the same DOM change it describes, or null (no chip).
   const HOOKS = {
@@ -84,6 +87,17 @@
       if (!low) return null;
       return `Shortest part: ${low.sourceName || low.source || "parts"} ×${low.quantity}. Inscription consumes the parts it uses.`;
     },
+    // H01 Arantxa (S4b): the one most urgent thing: a Seeds debt, then the accepted contract's battles left,
+    // then unspent perk points, then empty pack slots. Each names the door that handles it.
+    H01({ facts }) {
+      if (!facts) return null;
+      if (facts.owed > 0) return `You owe ${facts.owed} Seeds. Seeds you earn in battle pay it down first.`;
+      const j = facts.accepted;
+      if (j) return `Accepted: ${j.text}. It rots off the board in ${plural(j.left, "battle", "battles")} if you do not finish it. The Contract Board holds it.`;
+      if (facts.perkPoints > 0) return `${plural(facts.perkPoints, "perk point", "perk points")} unspent. The Ledger House account spends them.`;
+      if (facts.packFree > 0) return `${plural(facts.packFree, "pack slot", "pack slots")} empty. The Field Kit fills them.`;
+      return null;
+    },
   };
 
   // A counter keeper for a window's named counter (S3: the Field Kit's shop, gear, kiln, stall sections), or null: an unknown
@@ -130,7 +144,7 @@
 
   function mount(ov, windowId, o = {}) {
     const swap = o.counter ? counterKeeper(windowId, o.counter) : null;
-    const k = swap || K.keeperFor(windowId), ctx = swap ? `${windowId}:${o.counter}` : windowId;   // a counter keeps its own greeting, idle and last line
+    const k = swap || K.keeperFor(windowId), ctx = (swap ? `${windowId}:${o.counter}` : windowId) + (o.entryKey ? `#${o.entryKey}` : "");   // entryKey: a window that is entered again within one town visit (the battle report) greets again, once per key   // a counter keeps its own greeting, idle and last line
     for (const old of ov.querySelectorAll(".cc-keeper, .cc-keeper-off")) old.remove();
     if (!k || !k.wired || !o.account) return null;
     const mode = modeOf(o.store), anchor = ov.querySelector("h2");
@@ -143,8 +157,14 @@
     let account = o.account, line = null;
     if (!S.entered.has(ctx)) {   // the greeting: once per entry; the record updates, the context comes from the old one
       S.entered.add(ctx);
-      const r = M.enter(account, k.id, k.owes ? { owed: account.debt } : {}); account = r.account; if (o.onAccount) o.onAccount(account);
-      line = choose(k, r.ctx, account, ctx);
+      const r = M.enter(account, k.id, k.owes ? { owed: account.debt } : {}); account = r.account;
+      // A fame rise since the last greeting speaks this keeper's fame milestone instead (the Fame mile event). The mark is kept
+      // on the account root, not the keeper record, and persists with the save below.
+      let ev = r.ctx;
+      if (fameMileEvent(account, openLines(L.LINES[k.lines] || []))) ev = "mile:fame";
+      line = choose(k, ev, account, ctx);
+      if (ev === "mile:fame" && line) account = { ...account, fameMileSeen: account.fame || 0 };
+      if (o.onAccount) o.onAccount(account);
     } else if (o.event && (swap || !o.counter)) line = choose(k, o.event, account, ctx);   // an unwired counter (Gear, until the Smith lands) has no fold line on the frame: it redraws the frame's last line instead of going silent; a plain re-mount redraws
     else line = S.last[ctx] || null;
     const prevKeeper = S.cur && S.cur.k.id, fade = prevKeeper && prevKeeper !== k.id && !reducedMotion(o);
@@ -172,6 +192,45 @@
     place(strip); cur.strip = strip; show(strip, k.id, line, !!o.dialogueOn); scheduleIdle(cur);
     return strip;
   }
+  // The contextual speaker strip (NPC faces S6): one portrait + one line for a battle overlay. Unlike mount it keeps
+  // no memory, no greeting-once state (overlays render once per open), no chips, no idle timer and no Talk button;
+  // it honors the Dialogue toggle and the Keepers mode like the keeper strip, and reuses its classes and CSS.
+  //   speaker: { name, role, faces[], text } from speakerFor() in this file (the voice table lives in dialogue/speakers.js).
+  function mountSpeaker(ov, windowId, o = {}) {
+    const speaker = o.speaker;
+    for (const old of ov.querySelectorAll(".cc-keeper, .cc-keeper-off")) old.remove();
+    if (!speaker || speaker.keeper || speaker.served || !speaker.text) return null;
+    const mode = modeOf(o.store), anchor = ov.querySelector("h2");
+    const place = (node) => { if (anchor) anchor.insertAdjacentElement("afterend", node); else (ov.firstElementChild || ov).prepend(node); };
+    if (mode === "off") {
+      const row = el("p", "cc-keeper-off cc-muted"), b = el("button", "", "Show the speaker"); b.type = "button";
+      b.onclick = () => { o.store.set(MODE_KEY, "full"); mountSpeaker(ov, windowId, o); };
+      row.append(b); place(row); return null;
+    }
+    const strip = el("section", "cc-keeper"); strip.dataset.speaker = speaker.name; strip.dataset.mode = mode; strip.setAttribute("aria-label", `${speaker.name}, ${speaker.role}`);
+    if (mode === "full") {
+      const box = el("div", "cc-keeper-portrait"), img = el("img"); img.alt = ""; img.decoding = "async"; box.append(img); strip.append(box);
+      const chain = (speaker.faces || []).slice();
+      const tryNext = () => {
+        const next = chain.shift();
+        if (!next) { box.hidden = true; strip.dataset.art = "none"; return; }   // no face anywhere: the plate and the line alone
+        strip.dataset.art = "face"; img.onerror = tryNext; img.src = next;
+      };
+      tryNext();
+    }
+    const plate = el("div", "cc-keeper-plate"); plate.append(el("b", "", speaker.name), el("small", "", speaker.role)); strip.append(plate);
+    const speech = el("p", "cc-keeper-speech"); speech.setAttribute("aria-live", "polite"); speech.textContent = speaker.text;
+    speech.hidden = !o.dialogueOn; strip.append(speech);
+    const bar = el("div", "cc-keeper-actions");
+    const dl = el("label", "cc-keeper-toggle"), dc = el("input"); dc.type = "checkbox"; dc.checked = !!o.dialogueOn; dl.append(dc, " Dialogue");
+    dc.onchange = () => { const on = dc.checked; if (o.onDialogue) o.onDialogue(on); speech.hidden = !on; };
+    const ml = el("label", "cc-keeper-toggle", "Keepers "), ms = el("select");
+    for (const [v, text] of Object.entries(MODES)) { const op = el("option", "", text); op.value = v; op.selected = v === mode; ms.append(op); }
+    ms.onchange = () => { o.store.set(MODE_KEY, ms.value); mountSpeaker(ov, windowId, o); };
+    ml.append(ms); bar.append(dl, ml); strip.append(bar);
+    place(strip);
+    return strip;
+  }
   function say(event, extra) {   // extra tokens (S3: { price } for a refused buy) fill the line's {tokens}; without them the line is skipped, never holed
     const cur = S.cur; if (!cur || !cur.strip || !cur.strip.isConnected) return null;
     if (K.BIG_BY_COUNT.has(cur.k.id) && cur.o.onSpend && !/^(err|refuse|idle|leave)$/.test(event)) cur.o.onSpend(cur.k.id, 1);   // a per-window keeper's `big` counts things done in its window (R-20261103-04)
@@ -180,5 +239,73 @@
   }
   function reset() { clearTimeout(S.timer); S.timer = null; S.entered.clear(); S.idled.clear(); S.last = {}; S.ring = []; S.cur = null; }
 
-  return { mount, say, reset, HOOKS, openLines, counterKeeper };   // HOOKS and counterKeeper are exported for the unit tests
+  // Contextual speakers for battle overlays (NPC faces S6; spec section 10): the overlay's speaker is the thing it is
+  // about. speakerFor() resolves a window to a face chain plus one line, reading the speaker's existing speakers.js /
+  // summon-voices.js event tables and never rewriting them. Only plain lines are read; #grammar# origins need the
+  // Tracery pipeline the battle bubbles use, so a bank of grammar alone falls back.
+  //   speakerFor(windowId, ctx) → { name, role, faces[], text } | { keeper } | { served } | null
+  //   ctx: fighter {character, sprite, name} | roleId + C | type + common | tsuku + common | summon {id, name} |
+  //        speakerName (teach) + account {created, battles} for the seeded pick.
+  //   { keeper: "gambler" } (stakes, sweat) mounts the standard keeper strip; { served: true } (teach) means the card
+  //   already shows its own portrait and nothing mounts. faces[] is tried in order; the strip falls back to the plate.
+  //   The line is the speaker's own when its bank has a plain line for the event, else Arantxa's fallback for the window.
+  const FALLBACK = {
+    teach: "A question, and you can answer it or let it go.",
+    vow: "An oath is a promise with a witness. Choose carefully.",
+    commune: "The thing in front of you has something to say. Listen.",
+    summon: "A call, and it will be answered. Say it well.",
+    stakes: "A wager. The ledger will remember it.",
+    multitudes: "Borrow the shape of someone you beat. Spend it well.",
+    audition: "Villains answer. Play one, and play it well.",
+  };
+  const faceP = (folder, file) => `combat/sprites/${folder}/${file}`;
+  const fighterFaces = (sprite) => sprite ? [faceP(sprite, "heads/neutral.png"), faceP(sprite, "face-neutral.png"), faceP(sprite, "idle.png")] : [];
+  const strHash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+  const plainLines = (rows) => (rows || []).filter((t) => typeof t === "string" && !t.includes("#"));
+  // One deterministic line from a voice table, or null (no entry, no event, or grammar alone).
+  function voiceLine(table, key, event, seed) {
+    const entry = table && table[key];
+    const rows = plainLines(entry && (entry.events ? entry.events[event] : entry.lines ? entry.lines[event] : null));
+    return rows.length ? rows[strHash(seed) % rows.length] : null;
+  }
+  const SPK = (SP && SP.speakers) || {}, SUMV = (SV && (SV.voices || SV.summons)) || {};
+  // Ruling 2026-11-03 (Mala, option B; NPC_FACES.md:255, NPC_LINES.md:259): when the thing an overlay is about has no plain line of its own,
+  // ARANTXA speaks the fallback in her own name with her Arantxa-Leisure face, so no fighter, structure or summon is given words that are not theirs.
+  const arantxaFallback = (kind) => ({ name: "Arantxa", role: "Narrator", faces: [K.artPath("arantxa", "neutral"), K.idlePath("arantxa")].filter(Boolean), text: FALLBACK[kind] });
+  function ctxFighter(ctx, fallbackWhen, event, role) {
+    const f = ctx.fighter || {}, key = (f.character && SPK[f.character]) ? f.character : (f.sprite && SPK[f.sprite]) ? f.sprite : null;
+    const seed = `${fallbackWhen}|${key}|${event}|${ctx.account?.created}|${ctx.account?.battles}`;
+    const text = key && voiceLine(SPK, key, event, seed);
+    return text ? { name: f.name || "Fighter", role, faces: fighterFaces(f.sprite), text } : arantxaFallback(fallbackWhen);
+  }
+  function speakerFor(windowId, ctx = {}) {
+    switch (windowId) {
+      case "teachCard": return { served: true, name: ctx.speakerName || "Speaker" };
+      case "proposeStakes":
+      case "sweatIt": return { keeper: "gambler" };
+      case "vowCard": return ctxFighter(ctx, "vow", "swear", "Swearing the oath");
+      case "multitudes": return ctxFighter(ctx, "multitudes", "encounter", "Containing multitudes");
+      case "audition": {
+        const ch = ctx.C && ctx.C.characters && ctx.C.characters[ctx.roleId];
+        if (!ch) return arantxaFallback("audition");
+        const seed = `audition|${ctx.roleId}|encounter|${ctx.account?.created}|${ctx.account?.battles}`;
+        const text = voiceLine(SPK, ctx.roleId, "encounter", seed);
+        return text ? { name: ch.name || ctx.roleId, role: "Answering the call", faces: fighterFaces(ch.sprite), text } : arantxaFallback("audition");
+      }
+      case "communeQuestion":
+        if (ctx.tsuku) return arantxaFallback("commune");   // structures have no voice table: Arantxa speaks
+        {
+          const key = `commune_${ctx.type}`, seed = `commune|${key}|encounter|${ctx.account?.created}|${ctx.account?.battles}`;
+          const text = voiceLine(SPK, key, "encounter", seed);
+          return text ? { name: ctx.common || "Commune", role: "Commune", faces: ctx.type ? [faceP(`commune-${ctx.type}`, "heads/neutral.png")] : [], text } : arantxaFallback("commune");
+        }
+      case "summonQuestion": {
+        const s = ctx.summon || {}, seed = `summon|${s.id}|summoned|${ctx.account?.created}|${ctx.account?.battles}`;
+        const text = s.id && voiceLine(SUMV, s.id, "summoned", seed);
+        return text ? { name: s.name || "Summon", role: "Called", faces: s.id ? [faceP(s.id, "idle.png")] : [], text } : arantxaFallback("summon");
+      }
+      default: return null;
+    }
+  }
+  return { mount, mountSpeaker, say, reset, HOOKS, openLines, counterKeeper, speakerFor, voiceLine, FALLBACK, fameMileEvent };   // HOOKS and counterKeeper are exported for the unit tests
 });

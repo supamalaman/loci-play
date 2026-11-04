@@ -9,6 +9,55 @@
   return {
    "back": "art/back.png",
    "art": {
+    "dawn-tonic": {
+     "src": "art/starters/12-dawn-tonic.png",
+     "w": 208,
+     "h": 328,
+     "sha": "53f599284d65",
+     "baked": true
+    },
+    "slipknot": {
+     "src": "art/starters/13-slipknot.png",
+     "w": 208,
+     "h": 328,
+     "sha": "d1e9b9282894",
+     "baked": true
+    },
+    "mirror-pool": {
+     "src": "art/starters/14-mirror-pool.png",
+     "w": 208,
+     "h": 328,
+     "sha": "32efba6d465e",
+     "baked": true
+    },
+    "ambush-bed": {
+     "src": "art/starters/15-ambush-bed.png",
+     "w": 208,
+     "h": 328,
+     "sha": "346b21f5869d",
+     "baked": true
+    },
+    "stubborn-ledger": {
+     "src": "art/starters/16-stubborn-ledger.png",
+     "w": 208,
+     "h": 328,
+     "sha": "4ed83e7eaffe",
+     "baked": true
+    },
+    "ember-moth": {
+     "src": "art/starters/17-ember-moth.png",
+     "w": 208,
+     "h": 328,
+     "sha": "1b8216b823c0",
+     "baked": true
+    },
+    "hedge-sprite": {
+     "src": "art/starters/18-hedge-sprite.png",
+     "w": 208,
+     "h": 328,
+     "sha": "faed2b13c68b",
+     "baked": true
+    },
     "black-vase-eye": {
      "src": "art/retro/01-black-vase-eye.png",
      "w": 181,

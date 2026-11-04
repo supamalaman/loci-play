@@ -314,42 +314,52 @@
     // Re-check after moving: contact still lands iff the attacker still reaches; line still lands iff a
     // covered tile remains in the committed area. Proven-miss rule: unverifiable geometry still hits.
     // Does not touch reactions (prepaid automation fires regardless); Overwatch-style exclusions are wire-in.
-    const prepaidLive = (s, t) => { const p = t.status?.prepaidEscape; return p && (p.untilRound == null || s.round <= p.untilRound) && Array.isArray(p.dests) && p.dests.length ? p : null; };
-    function prepaidDestOpen(s, t, dest) {
-      const [x, y] = dest;
+    // Homology H4 (additive; every field below is optional, so the primitive reads as before without them): `ability` and `from` (an exact technique
+    // and the fighter or fighters it must come from: any other attack leaves the charge unspent), `owner` + `untilTurn` (it also ends at that fighter's
+    // turn count), `leave` (prefer a destination that takes the target out of the attack's reach), and a destination written [x, y, viaX, viaY] is a
+    // two-step route: the via tile must be open too.
+    const prepaidLive = (s, t) => { const p = t.status?.prepaidEscape; return p && (p.untilRound == null || s.round <= p.untilRound) && (p.owner == null || p.untilTurn == null || (s.actors[p.owner]?.ownerTurns ?? 0) <= p.untilTurn) && Array.isArray(p.dests) && p.dests.length ? p : null; };
+    function prepaidTileOpen(s, t, x, y) {
       if (x < 0 || y < 0 || x >= s.arena.w || y >= s.arena.h) return false;
       if (H.tileAt(s, x, y)?.blocksMove) return false;
       const u = H.actorAt(s, x, y);
       return (!u || u.id === t.id) && (!t.awakened || H.footOpen(s, t, x, y, "move"));   // TS-01: a woken body escapes only onto a footprint-clear anchor
     }
+    function prepaidDestOpen(s, t, dest) {
+      const [x, y, vx, vy] = dest;
+      return prepaidTileOpen(s, t, x, y) && (vx == null || prepaidTileOpen(s, t, vx, vy));
+    }
+    // Does the attack still reach the target where it now stands? (contact: within strike range; line: a covered tile remains in the committed area)
+    function prepaidStillHit(s, src, tgt, inst) {
+      if (inst.delivery === "contact") return dist(s, src.x, src.y, tgt.x, tgt.y) <= H.strikeRange(s, src);
+      const aim = inst.aim;   // line mirrors resolve.js: single-shape bolts strike only their aim tile; line-shape strikes cover the beam
+      if (inst.area?.shape === "line" && aim && H.line) {
+        let reach = H.line(src.x, src.y, aim[0], aim[1]).slice(1);
+        const bi = H.barrierAt ? reach.findIndex(([x, y]) => { const b = H.barrierAt(s, x, y); return b && !b.linePassable && !(b.coverFraction > 0) && !(b.rushed) && s.actors[b.owner]?.side !== src.side; }) : -1;
+        if (bi >= 0) reach = reach.slice(0, bi);   // read-only mirror of damage.js lineStop (spends no charges)
+        return reach.some(([x, y]) => H.actorAt(s, x, y)?.id === tgt.id);
+      }
+      if (aim) return H.coversTile(tgt, aim[0], aim[1]);   // a big unit is still in the aim on any of its tiles
+      if (inst.tiles) return inst.tiles.some(([x, y]) => H.actorAt(s, x, y)?.id === tgt.id);
+      return true;
+    }
     function prepaidEscape(s, src, tgt, inst) {
       const p = prepaidLive(s, tgt);
       if (!p || !src || src.side === tgt.side) return null;
       if (!inst || (inst.delivery !== "contact" && inst.delivery !== "line")) return null;
+      if (p.ability != null && ![].concat(p.ability).includes(inst.ability)) return null;   // Homology: a different technique does not trigger it, and does not spend it
+      if (p.from != null && ![].concat(p.from).includes(src.id)) return null;
       tgt.status.prepaidEscape = null;   // the first qualifying hit spends the charge, whatever follows
-      const dest = p.dests.find((d) => prepaidDestOpen(s, tgt, d));
+      let dest = p.dests.find((d) => prepaidDestOpen(s, tgt, d));
+      if (dest && p.leave) {   // Homology: the first open destination that leaves the attack's reach, else the first open one
+        const at = [tgt.x, tgt.y]; let out = null;
+        for (const d of p.dests) if (prepaidDestOpen(s, tgt, d)) { tgt.x = d[0]; tgt.y = d[1]; const hit = prepaidStillHit(s, src, tgt, inst); tgt.x = at[0]; tgt.y = at[1]; if (!hit) { out = d; break; } }
+        dest = out || dest;
+      }
       if (!dest) { log(s, { kind: "effect", actor: tgt.id, text: `${tgt.name}'s escape (${p.label || "prepared"}) is blocked: the charge is spent.` }); return null; }
       tgt.x = dest[0]; tgt.y = dest[1];
       log(s, { kind: "effect", actor: tgt.id, tiles: [[tgt.x, tgt.y]], text: `${tgt.name} escapes to (${tgt.x},${tgt.y}) (${p.label || "prepared"}).` });
-      if (inst.delivery === "contact") {
-        if (dist(s, src.x, src.y, tgt.x, tgt.y) <= H.strikeRange(s, src)) return null;
-      } else {   // line mirrors resolve.js: single-shape bolts strike only their aim tile; line-shape strikes cover the beam
-        const aim = inst.aim;
-        let stillIn;
-        if (inst.area?.shape === "line" && aim && H.line) {
-          let reach = H.line(src.x, src.y, aim[0], aim[1]).slice(1);
-          const bi = H.barrierAt ? reach.findIndex(([x, y]) => { const b = H.barrierAt(s, x, y); return b && !b.linePassable && !(b.coverFraction > 0) && !(b.rushed) && s.actors[b.owner]?.side !== src.side; }) : -1;
-          if (bi >= 0) reach = reach.slice(0, bi);   // read-only mirror of damage.js lineStop (spends no charges)
-          stillIn = reach.some(([x, y]) => H.actorAt(s, x, y)?.id === tgt.id);
-        } else if (aim) {
-          stillIn = H.coversTile(tgt, aim[0], aim[1]);   // a big unit is still in the aim on any of its tiles
-        } else if (inst.tiles) {
-          stillIn = inst.tiles.some(([x, y]) => H.actorAt(s, x, y)?.id === tgt.id);
-        } else {
-          stillIn = true;
-        }
-        if (stillIn) return null;
-      }
+      if (prepaidStillHit(s, src, tgt, inst)) return null;
       log(s, { kind: "effect", actor: src.id, target: tgt.id, text: `${inst.name || "The attack"} misses ${tgt.name}: out of reach.` });
       return "miss";
     }
@@ -690,7 +700,7 @@
     // a.vessel: the Animal Tamer marked believes he cannot die, and a man who cannot die does not run (Muse's TAMER_KIT.md,
     // proposed and taken 2026-10-15 for Mala to confirm). The mark is cleared when the vessel falls (damage.js).
     const neverFlees = (a) => (a?.traits || []).some((t) => insightRules?.data?.traits?.[typeof t === "string" ? t : t?.id]?.neverFlees);
-    const fearless = (a) => !a || a.boss || a.summon || a.communed || a.beast || a.companion || a.controller === "player" || a.id === "player" || a.permanentAlly || a.routed || !!a.vessel
+    const fearless = (a) => !a || a.boss || a.summon || a.communed || a.beast || a.companion || a.controller === "player" || a.id === "player" || a.permanentAlly || a.routed || !!a.states?.calm || !!a.vessel
       || (isMonster(a) && EM.resists(a, "fear")) || (a.dream && !isMonster(a)) || a.character === "kaiba"   // the cat is unbothered
       || neverFlees(a)   // Main Character Energy (the Warden): he faces it head on
       || a.filmCostar   // under contract: the cast never walks off the set (Mala, 2026-10-19; asn-1a155091664)
@@ -1046,7 +1056,7 @@
       for (const o of s.arena.objects || []) if (o.blocksMove && o.hp !== 0) out.add(`${o.x},${o.y}`);
       return out;
     }
-    const hasTrait = (a, id) => !!id && (a?.traits || []).some(t => (typeof t === "string" ? t : t?.id) === id);
+    const hasTrait = (a, id) => !!id && (a?.traits || []).some(t => (typeof t === "string" ? t : t?.id) === id) && !((a.traitsOff || a.states) && H.States?.traitIgnored(a, id));   // Cure: a peeled layer (traitsOff) or an unmasked unit's restraint trait is ignored
     // What the door would offer this unit if it fell holding `ap` points: 0 when it cannot open at all.
     function deathDoorOdds(s, id, ap) {
       const a = s.actors[id]; if (!a || !summonRules?.deathDoorChance || a.side !== "player" || a.id !== (s.modeSetup?.hero || "player") || s.deathDoorUsed) return 0;

@@ -278,6 +278,7 @@
       if (entrancedNow && !Object.values(s.actors).some((u) => u.side === a.side && !u.defeated && u.id !== a.id))
         return traceAiReturn("aiDecide:L239", ({ type: "end", actor: a.id }));   // entranced with no one to turn on: stands and stalls
       if (entrancedNow) { a._entrFlip = a.side; a.side = a.side === "player" ? "enemy" : "player"; }   // restored in aiAction; targeting sees the marker and skips its own flip
+      else if (H.States?.anySide(a)) { a._entrFlip = a.side; a.side = H.States.anySideOf(a); }   // Cure: a loosed unit decides with allegiance off, restored the same way
       // A paid immediate draw must resolve before ordinary planning, even if its tactical score is zero.
       if(a.status?.verse?.id&&a.status.verse.freeAp){
         const legal=candidates(s,a.id).filter(c=>apply(s,c,{preview:true}).ok);
@@ -421,6 +422,7 @@
           && a.tempo >= Math.min(60, a.tempoCapacity || 100) && a.actionsThisTurn === 0) return traceAiReturn("aiDecide:L369", ({ type: "stall", actor: a.id })); }
       if (Bonds) { const bl = Bonds.blessingAction(s, a, classH()); if (bl) return traceAiReturn("aiDecide:L370", (bl)); }   // Bonds: Arantxa renews the Blessing of Malnote first
       if (dc.kind === "turn" && ClassRuntime?.mise) { const mr = ClassRuntime.mise.aiRenew(s, a, classH()) || ClassRuntime.mise.aiPrepare(s, a, classH()); if (mr && apply(s, mr, { preview: true }).ok) return traceAiReturn("aiDecide:mise", (mr)); }   // Mise en Place: a holder keeps a fading station fresh, bounded (mise/mise.js aiRenew)
+      if (dc.kind === "turn" && ClassRuntime?.homology) { const ha = ClassRuntime.homology.aiAct(s, a, classH()); if (ha && apply(s, ha, { preview: true }).ok) return traceAiReturn("aiDecide:homology", (ha)); }   // Homology: a fighter with the comparative trait compares what it has witnessed, then prepares an ally (graph/homology-rules.js aiAct)
       { const t = H.Tally?.aiAction(s, a) || H.Tally?.aiAnswer(s, a) || (a.actionsThisTurn > 0 && H.Tally?.aiSettle(s, a)); if (t) return traceAiReturn("aiDecide:L371", (t)); }   // the ledger boss chooses its offers and calls itself (engine/tally.js)
       if (Parley && !a.persuaded) {   // Parley: talkative NPCs still obey sealed membranes and action costs.
         const preach = (ledgerOn(s, a, "traitActs")?.preach || []).some((t) => hasTrait(a, t));   // trait acts: a believer speaks up for the faith even if not talkative
@@ -1132,7 +1134,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     // kills, its own health, allies' health, beasts hurt, knowledge, charge). Only the deviation from a neutral unit is
     // added, so a unit with no mapped trait scores exactly as before. rules.traitMotives = false turns it off (a sim arm).
     const MOTIVE = { kill: 12, scale: 1 };
-    const motivesOf = (s, a) => (s.rules.traitMotives === false || !H.UtilityAI ? {} : H.UtilityAI.personalityFor([...(a.traits || []), ...(H.stateTraits?.(s, a) || [])]).weightMul);   // + state traits (the Tamer's fear and delusion)
+    const motivesOf = (s, a) => (s.rules.traitMotives === false || !H.UtilityAI ? {} : H.UtilityAI.personalityFor([...((a.traitsOff || a.states) ? (a.traits || []).filter((t) => !H.States?.traitIgnored(a, typeof t === "string" ? t : t?.id)) : (a.traits || [])), ...(H.stateTraits?.(s, a) || [])]).weightMul);   // Cure: a peeled or unmasked restraint trait motivates nothing   // + state traits (the Tamer's fear and delusion)
     function motiveTerm(s, a, pv) {
       const m = motivesOf(s, a); if (!Object.keys(m).length) return 0;
       const dev = (k) => (m[k] ?? 1) - 1;

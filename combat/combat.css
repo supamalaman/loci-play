@@ -1147,3 +1147,21 @@
 /* Workshop clarity S5 (T10): the tree card sizes to its overlay (the overlay already pads 20px), not to 94vw, which pushed the
    card's right edge past a 520px window. The landing and the desk keep their own host (.cc-work-host). */
 .cc-card.cc-workshop.cc-tree { width:min(1120px,100%); }
+/* Familiar choice S2: the first-launch scene (mock A). */
+.cc-first-pick { max-width: 880px; }
+.cc-first-pick .cc-pick-cards { display: flex; gap: 12px; margin: 12px 0; }
+.cc-first-pick .cc-pick { flex: 1; border: 1px solid #8fd3a4; border-radius: 10px; padding: 12px; background: #101a26; }
+.cc-first-pick .cc-pick.sel { border-color: #e9c46a; box-shadow: 0 0 0 1px #e9c46a; }
+.cc-first-pick .cc-pick.locked { opacity: 0.62; border-color: #555; }
+.cc-first-pick .cc-pick-stage { min-height: 120px; display: flex; align-items: flex-end; justify-content: center; background: #0a0f1a; border-radius: 8px; }
+.cc-first-pick .cc-pick-stage img { max-height: 112px; }
+.cc-first-pick .cc-pick-stage img.cc-pick-small { max-height: 40px; }   /* the Raven is tiny (world height 0.25): a small bird, not a person-scale sprite */
+.cc-first-pick .cc-pick.locked img { filter: brightness(0.55); }
+.cc-first-pick h3 { margin: 8px 0 2px; }
+.cc-first-pick .cc-pick-role { color: #e9c46a; font-weight: 700; }
+.cc-first-pick .cc-pick-reason { color: #aeb3d6; font-style: italic; }
+.cc-first-pick .cc-tag { display: inline-block; border: 1px solid #4a5aa0; border-radius: 6px; padding: 1px 8px; margin-right: 6px; font-size: 12px; }
+.cc-first-pick .cc-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+button.cc-gold { background: #e9c46a; color: #241d08; font-weight: 700; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 15px; }
+button.cc-gold:hover { background: #f4d47c; }
+button.cc-gold:focus-visible { outline: 2px solid #fff6d8; outline-offset: 2px; }

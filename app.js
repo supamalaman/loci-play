@@ -90,6 +90,20 @@ const Loci = (() => {
   function homeAccount() {
     try { const raw = localStorage.getItem("loci:combat:account:v1"), A = window.ConceptCombatAccount; return raw && A ? A.deserialize(JSON.parse(raw)) : null; } catch { return null; }
   }
+  // Arantxa on the home surfaces (NPC faces S4b): the home hero, the practice card, the Quiet House board.
+  // Fresh visitors (no account yet) get no strip: no account is conjured from the home page, and their first
+  // keeper meeting is Rama in town. Hosts without a heading get a slot div so the strip never lands inside a card.
+  function mountHomeKeeper(hostId, windowId) {
+    const KU = window.ConceptCombatKeeperUI, A = window.ConceptCombatAccount, Board = window.ConceptCombatBoard;
+    const acc = homeAccount(), host = $(hostId);
+    if (!KU || !A || !acc || !host) return null;
+    const ov = host.querySelector("h2") ? host : host.appendChild(document.createElement("div"));
+    const b = acc.board || {}, job = (b.postings || []).find((m) => m.id === b.accepted && m.expiresAt > (acc.battles || 0));
+    return KU.mount(ov, windowId, { account: acc, store, dialogueOn: store.get("loci:combat:dialogue", true),
+      facts: { owed: Math.max(0, acc.debt || 0), accepted: job ? { text: Board ? Board.describe(job) : job.condition, left: job.expiresAt - (acc.battles || 0) } : null, perkPoints: acc.perkPoints || 0 },
+      onAccount: (a) => { try { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(a))); } catch {} },
+      onDialogue: (on) => store.set("loci:combat:dialogue", on) });
+  }
   function renderDuels() {
     const C = window.ConceptCombatContent; if (!C) return;
     const acc = homeAccount(), saved = store.get("loci:combat:character", null), classId = saved?.classId && C.characters[saved.classId] ? saved.classId : "warden";
@@ -133,6 +147,8 @@ const Loci = (() => {
       </button>`;
     $("duelCard").onclick = () => duel();
     $("emergentCard").onclick = openEmergent;
+    mountHomeKeeper("ccHome", "homeHero");   // Arantxa (S4b)
+    mountHomeKeeper("duels", "practiceYard");   // Arantxa (S4b)
     drawCombatThumb($("duelThumb"), C);
     const fv=$("fieldThumb"),fg=fv.getContext("2d");fg.fillStyle="#1d1b22";fg.fillRect(0,0,fv.width,fv.height);
     const FC=EmergentCombatContent.arena.cells, scale=50,fx=65,fy=25;
@@ -393,6 +409,7 @@ const Loci = (() => {
     if (finalScene) { $("storyPreviewVerdict")?.addEventListener("click", () => drawVerdictPreview(true)); drawVerdictPreview(false); }
     $("storyStartVerdict")?.addEventListener("click", () => launchLastVerdict(state));
     $("storyRestart")?.addEventListener("click", () => { const fresh = VignetteCampaign.create(); saveStory(fresh); campaignBoard(fresh); });
+    mountHomeKeeper("storyPanel", "quietHouse");   // Arantxa (S4b)
   }
   function launchQuietHouse(previous) {
     let state = previous || VignetteCampaign.create();

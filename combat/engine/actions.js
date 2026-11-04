@@ -809,7 +809,7 @@
           if (SN && !SN.canStrike(s.sealedFight, `${a.x},${a.y}`)) return "A strike starts from the shared line.";
         }
         const entr = !a._entrFlip && a.status?.entranced && (a.status.entranced.until == null || a.status.entranced.until >= a.ownerTurns);
-        const seenSide = entr ? (a.side === "player" ? "enemy" : "player") : a.side;
+        const seenSide = entr ? (a.side === "player" ? "enemy" : "player") : !a._entrFlip && H.States?.anySide(a) ? null : a.side;   // Cure: a loosed unit sees no side at all
         if (!t || t.side === seenSide || H.Instinct.hidden(a, t)) return "Strike needs an adjacent opponent.";
         if (Parley && !t.wild) { const no = Parley.blocks(s, a, t); if (no) return no; }   // Parley
         if (reachDist(tx, ty) > strikeRange(s, a)) return strikeRange(s, a) > 1 ? `Strike reaches ${strikeRange(s, a)} tiles.` : "Strike reaches only adjacent tiles.";
@@ -1656,6 +1656,7 @@
         observedFx(s, a, t);   // only once the look is paid for: a refused Investigate shows nothing
         if (detail) { a.focus.detail = false; log(s, { kind: "observe", actor: a.id, target: t.id, text: `${a.name}'s retained detail on ${t.name} adds +1 point to the study.` }); }
         observeTail(s, a, t, result, { bySubject, invest: ap, free: false, aiText: `${a.name} studies ${t.name} closely, and ends the turn.` });
+        { const wheelNote = H.wheelhouseName?.(s, t); if (wheelNote) log(s, { kind: "observe", actor: a.id, target: t.id, text: wheelNote }); }
         a.tempo = 0; a.reaction = 0; a.absorbedRound = s.round;   // Absorbed: no reaction until the next round starts (turns.js resets it)
         log(s, { kind: "tempo", actor: a.id, text: `${a.name} is absorbed: no reaction until next round.` });
         if (!s.outcome && currentId(s) === a.id) endTurn(s);
@@ -1693,6 +1694,7 @@
           if (free) spendFree(); else { const spend=spendTempo(s,a,invest+woundTax,"Observe");if(spend)return spend; }
           if (detail) { a.focus.detail = false; log(s, { kind: "observe", actor: a.id, target: t.id, text: `${a.name}'s retained detail on ${t.name} adds +1 point to the study.` }); }
           observeTail(s, a, t, result, { bySubject, invest: invest + (detail ? 10 : 0), free });
+          { const wheelNote = H.wheelhouseName?.(s, t); if (wheelNote) log(s, { kind: "observe", actor: a.id, target: t.id, text: wheelNote }); }
           if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe");   // Mystery: an Eye-read rips a foe's oldest set plan; allies' cards are left alone (Harbor round-2 item 7 ruling)
           return;
         }
@@ -1703,6 +1705,7 @@
         ClassRuntime?.law?.debrief?.(s, a, t);   // truth engine: the study debriefs a trial exhibit
         log(s, { kind: "observe", actor: a.id, text: `${a.name} observes ${t.name}: ${conceptName(t.primary)} primary, ${conceptName(t.secondary)} secondary.`,
           why: learned.length ? learned.map((id) => `Learned ${ab(id).name}: ${ab(id).reveal}`) : ["Nothing new to learn."] });
+        { const wheelNote = H.wheelhouseName?.(s, t); if (wheelNote) log(s, { kind: "observe", actor: a.id, target: t.id, text: wheelNote }); }
         if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe");   // Mystery: Observe rips a foe's oldest set plan; allies' cards are left alone (Harbor round-2 item 7 ruling)
       },
       observePlace(s, a, act, deep = null) {
@@ -2403,6 +2406,7 @@
         const t = target(s, src, m, aim?.[0], aim?.[1], act);
         if (!t.ok) return t.error;
         { const me = ClassRuntime?.mise?.validate(s, a, act, m, classH()); if (me) return me; }   // Mise en Place: the whole station plan, before anything is paid
+        { const he = ClassRuntime?.homology?.validate(s, a, act, m, classH()); if (he) return he; }   // Homology: the two techniques compared, before anything is paid
         if (m.timing === "delayed" && !(t.targets || []).some(id=>s.actors[id] && !s.actors[id].defeated && !s.actors[id].notArrived))
           return "A delayed technique needs a living character whose next turn can trigger it; wild creatures have no character turn.";
         const inspired = H.inspiredPay?.(s, a, m);   // a full bar and 1 Inspiration pay an ultimate's whole ΦF
@@ -2486,10 +2490,12 @@
             why: ["Full ULT is paid once. The dream bonus and sealed movement remain through announcement and responses. No extra aura pulse is granted."] });
         }
         a.lastTechniqueConcept = inst.concept;
+        ClassRuntime?.homology?.cast(s, a, act, classH());   // Homology: the first reuse of a technique in a live Lineage Ledger is announced
         // Genius wilds (the Sasquatch) watch techniques too: it learns what it sees, and a tamed one keeps what it learned.
         const witnesses = [...Object.values(s.actors), ...(s.wild || []).filter((u) => u.form === "unit" && u.lf > 0 && ((u.traits || []).includes("genius") || (u.traits || []).includes("copyEye")))];
         for (const observer of witnesses) if (!observer.defeated && (observer.id === a.id || hasSight(s, observer.x, observer.y, a.x, a.y))) {
           const seen = s.observedAbilities[observer.id] ||= [];
+          (((((s.observedAt ||= {})[observer.id] ||= {})[a.id] ||= {})[act.ability]) ||= {}).round = s.round;   // Homology H2: when this witness last saw THIS user cast it (a parallel record; the array above stays once-per-id); the Indexing flag, when set, stays until the record is rebuilt (nothing clears it today; loop 1a1a2f77a7a-ae73)
           if (!seen.includes(act.ability)) {
             seen.push(act.ability);
             // A genius may learn a technique after seeing it once (insight.js geniusLearns). A Copy Eye always does — once per battle (anime batch).

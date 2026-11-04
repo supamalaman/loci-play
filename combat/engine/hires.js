@@ -112,6 +112,7 @@
       if (insightRules) { const deck = insightRules.buildDeck({ key: p.character, kind: "character" }, { seed: s.seed }); s.insight.decks[u.id] = deck; s.insight.knowledge[u.id] = insightRules.spawnKnowledge(deck); }
       for (const other of Object.values(s.actors)) if (other.id !== u.id && other.side !== u.side) { (s.knowledge[other.id] ||= {})[u.id] ||= { secondary: false, lens: false, abilities: {} }; s.knowledge[u.id][other.id] = { secondary: false, lens: false, abilities: {} }; }
       s.order.push(u.id);
+      H.wheelhouseSettle?.(s, u, ch);   // hotbuild hires roll on arrival, like any NPC spawn (W0a)
       if (p.kind === "kin") for (const id of ch.startStates || []) H.States?.grant(s, u, id);   // kin arrive as themselves (Hanuman: Forgotten)
       log(s, { kind: "hire", actor: u.id, target: owner.id, arrived: true, hire: p.kind, tiles: [at],
         text: p.kind === "kin" ? `${u.name} answers ${owner.name}'s call and takes the field.` : p.kind === "merc" ? `${u.name} arrives on contract to fight beside ${owner.name}.` : `${u.name} arrives under a letter of safe conduct to talk for ${owner.name}.` });

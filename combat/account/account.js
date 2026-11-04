@@ -410,6 +410,14 @@ const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder,
   // victory entry that still names the old pair is re-slotted by this one function (the account's victory ledger, ui.js's saved characters, the campaign loadout use it or its twin).
   const migratePaladinPair = (c) => (c && c.primary === "interposition" && c.secondary === "strategic_commitment" ? { ...c, primary: "solfeggio" } : c);
   function serialize(account) { return JSON.stringify(account); }
+  // Tri-state save read (loop 1a19dca6b72): a missing key and valid JSON with no save in it (null, 0, false) both
+  // read as a new player; only present-but-unparseable bytes are broken. The store's get() cannot tell the last
+  // two apart, so the game's load reads through here instead.
+  function readSave(bytes) {
+    if (bytes == null) return { broken: false, raw: null };
+    try { const raw = JSON.parse(bytes); return raw ? { broken: false, raw } : { broken: false, raw: null }; }
+    catch { return { broken: true, raw: null }; }
+  }
   // Goethe RETURN R-1 (Muse Berry BD, 2026-10-29): saves created before a summon
   // shipped keep their order but gain the new ids at the end, so nothing unlocked
   // is ever lost and new summons still arrive (at the last unlock level).
@@ -446,11 +454,18 @@ stakesLedger: Array.isArray(a.stakesLedger) ? a.stakesLedger : [], stakeCooldown
     return d;
   }
   // Fold the UI's earlier localStorage profile ({ xp, level, ... }) into a new account.
+  // S2: `choose` asks for the first-pick block, but only a profile with no XP is a first launch; a profile
+  // with XP is a played account, which migrates (done, never the scene) once the token model is on.
   function fromLegacyProfile(profile, opts = {}) {
-    const a = createAccount(opts);
-    const xp = Math.max(0, profile?.xp || 0);
-    return { ...a, xp, level: levelFor(xp), unlocked: unlocksUpTo(a, levelFor(xp)) };
+    const xp = Math.max(0, profile?.xp || 0), level = levelFor(xp);
+    const a = createAccount({ ...opts, choose: !!(opts.choose && !(xp > 0)) });
+    const out = { ...a, xp, level, unlocked: unlocksUpTo(a, level) };
+    if (xp > 0 && a.familiars && !a.familiars.done) {
+      const familiars = migrateFamiliars({ order: a.order, perks: a.perks, seatPick: a.seatPick }, level);
+      return { ...out, familiars, unlocked: unlocksUpTo({ ...a, familiars }, level) };
+    }
+    return out;
   }
 
-  return { migratePaladinPair, friendsOf, friendsMadeIn, addFriends, learnedFormsOf, learnForms, formsTaughtIn, orbsOf, addOrbs, spendOrb, orbsWonIn, secretsOf, addSecret, formsOf, addForms, beatenIn, recordVictories, emissaryMet, recordEmissary, victoriesOf, VERSION, rules, benefitOrder, createAccount, awardBattle, awardLearning, battleXp, unlockedSummons, nextUnlock, unlocksUpTo, familiarGates, tokensEarnedAt, migrateFamiliars, buyFamiliar, returnLastPick, serialize, deserialize, fromLegacyProfile, levelFor, spendPerk, stripLevels, perkMods, titlesOf, deedsFrom, noteDeeds, deedGate };
+  return { migratePaladinPair, friendsOf, friendsMadeIn, addFriends, learnedFormsOf, learnForms, formsTaughtIn, orbsOf, addOrbs, spendOrb, orbsWonIn, secretsOf, addSecret, formsOf, addForms, beatenIn, recordVictories, emissaryMet, recordEmissary, victoriesOf, VERSION, rules, benefitOrder, createAccount, awardBattle, awardLearning, battleXp, unlockedSummons, nextUnlock, unlocksUpTo, familiarGates, tokensEarnedAt, migrateFamiliars, buyFamiliar, returnLastPick, serialize, deserialize, readSave, fromLegacyProfile, levelFor, spendPerk, stripLevels, perkMods, titlesOf, deedsFrom, noteDeeds, deedGate };
 });

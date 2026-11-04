@@ -18,9 +18,9 @@
 //   resistKnock(s, a, t, H)                → true if the displacement is cancelled
 //   turnStart(s, a, H)                     → upkeep, expiry, strain, visited tiles
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./class-builds.js"),require("./esker.js"),require("../performers/performers.js"),require("../stealth/stealth.js"),require("../police/police.js"),require("../monkey/monkey.js"),require("../director/director.js"),require("../actor/actor.js"),require("../law/law.js"),require("../martial/martial.js"),require("./hot-pot.js"),require("../teleology/teleology.js"),require("../mise/mise.js"));
-  else root.ConceptCombatClassRuntime = factory(root.ConceptCombatClassBuilds,root.ConceptCombatEsker,root.ConceptCombatPerformers,root.ConceptCombatStealth,root.ConceptCombatPolice,root.ConceptCombatMonkey,root.ConceptCombatDirector,root.ConceptCombatActor,root.ConceptCombatLaw,root.ConceptCombatMartial,root.ConceptCombatHotPot,root.ConceptCombatTeleology,root.ConceptCombatMise);
-})(typeof self !== "undefined" ? self : this, function (CBmod, Esker, Performers, Stealth, Police, Monkey, Director, Actor, Law, Martial, HotPot, Teleology, Mise) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./class-builds.js"),require("./esker.js"),require("../performers/performers.js"),require("../stealth/stealth.js"),require("../police/police.js"),require("../monkey/monkey.js"),require("../director/director.js"),require("../actor/actor.js"),require("../law/law.js"),require("../martial/martial.js"),require("./hot-pot.js"),require("../teleology/teleology.js"),require("../mise/mise.js"),require("../graph/homology-rules.js"));
+  else root.ConceptCombatClassRuntime = factory(root.ConceptCombatClassBuilds,root.ConceptCombatEsker,root.ConceptCombatPerformers,root.ConceptCombatStealth,root.ConceptCombatPolice,root.ConceptCombatMonkey,root.ConceptCombatDirector,root.ConceptCombatActor,root.ConceptCombatLaw,root.ConceptCombatMartial,root.ConceptCombatHotPot,root.ConceptCombatTeleology,root.ConceptCombatMise,root.ConceptCombatHomologyRules);
+})(typeof self !== "undefined" ? self : this, function (CBmod, Esker, Performers, Stealth, Police, Monkey, Director, Actor, Law, Martial, HotPot, Teleology, Mise, Homology) {
   const CB = CBmod.builds;
   const CLASS_PAIRS = { agent_swarm: ["hardware", "cybernetic_ecology"], rapper:["lyricism","collage"], musician:["harmony","resonance"], bard:["harmony","complementarity"], jazz_musician:["lyricism","harmony"], knight: ["barrier", "interposition"], pharaoh: ["legitimacy", "boundary"], daedalus: ["berm", "section"], samurai: ["timing", "sightline"],
     gemini: ["complementarity", "resonance"], wizard: ["pipeline", "selectivity"], jujutsu_sorcerer: ["reciprocal_obligation", "boundary"], super_hero: ["load_distribution", "interposition"], esker: ["interposition", "berm"],
@@ -608,6 +608,8 @@
     let hp = HotPot.beforeStrike(s, src, tgt, inst, potency);
     const line = inst?.ability === "strike" ? Mise.strikeBonus(s, src, true) : 0;   // the Chef's stocked_line: +2 per fresh station, max +6
     if (line) hp = { potency: (hp ? hp.potency : potency) + line, why: [...(hp?.why || []), `Stocked line: +${line} potency (fresh stations).`] };
+    const corr = Homology ? Homology.strikeBonus(s, src, tgt, inst) : 0;   // Homology: the Correspondence mark, once
+    if (corr) hp = { potency: (hp ? hp.potency : potency) + corr, why: [...(hp?.why || []), `Correspondence: +${corr} potency on the marked fighter.`] };
     if (!hp) return beforeStrikeCore(s, src, tgt, inst, potency, H);
     const r = beforeStrikeCore(s, src, tgt, inst, hp.potency, H);
     return r ? { ...r, why: [...hp.why, ...(r.why || [])] } : { potency: hp.potency, inst, why: hp.why };
@@ -1413,6 +1415,7 @@
     if (w.kind === "callKin" && st(a).kinCalled) return fail("Her call has gone out once this battle.");   // Sita: before the self-target return below
     if (w.kind === "callKin" && !H.Hires?.kinFor(s, a)) return fail("There is no one left to call: her house is already here.");
     { const e = Esker.target(s, a, w, tx, ty, H); if (e) return e; }   // Esker (classes/esker.js)
+    { const e = Homology?.target(s, a, w, tx, ty, H); if (e) return e; }   // Homology: the aimed enemy, in range (graph/homology-rules.js; absent in a page that does not load it)
     { const e = HotPot.target(s, a, w, tx, ty, H); if (e) return e; }   // the Hot Pot Berserker (classes/hot-pot.js)
     if (w.kind === "shimmer") {   // Glamour's Shimmer: a unit on your side (yourself included) within range
       const occ = H.actorAt(s, tx, ty) || (tx === a.x && ty === a.y ? a : null);
@@ -1694,6 +1697,7 @@
     if(Martial.resolve(s,a,inst,H))return true;
     if(Teleology.resolve(s,a,inst,H))return true;
     if(Mise.resolve(s,a,inst,H))return true;
+    if(Homology?.resolve(s,a,inst,H))return true;
     if(Director.resolve(s,a,inst,H))return true;
     if(Actor.resolve(s,a,inst,H))return true;
     let w = wire[inst.ability]; if (!w || w.effect !== "classEffect") return false;
@@ -2735,6 +2739,7 @@
     Law.turnStart(s,a,H);
     Director.turnStart(s,a,H);
     Mise.turnStart(s,a,H);   // station lifetimes
+    Homology?.turnStart(s,a,H);   // Homology: a pending reconstruction resolves; spent guards drop
     Actor.turnStart(s,a,H);
     if (s.rules.hype && isHype(a) && !a.defeated) {   // viral growth: wider every turn nobody has checked
       const hy = hypeOf(s, a), R = s.rules.hype;
@@ -3307,5 +3312,5 @@
   }
 
   const aiVeto = (s, a, cand) => Esker.aiVeto(s, a, cand);
-  return { holyOf, price: Law.price, law: Law, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan };
+  return { holyOf, price: Law.price, law: Law, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan };
 });

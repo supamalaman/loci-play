@@ -30,7 +30,7 @@
   const IDLE_MS = 25000;     // one idle line, once per entry, after this long without input
 
   const KEEPERS = {
-    arantxa: { name: "Arantxa", role: "Narrator", windows: ["homeHero", "practiceYard", "quietHouse", "classicMenu", "battleOver", "narratorWindow"], art: { status: "missing", folder: "arantxa", pattern: null, map: {}, fallback: "idle" }, voice: "dry, warm, watchful", lines: null, hook: "H01", perk: null, wired: false, slice: "S4" },
+    arantxa: { name: "Arantxa", role: "Narrator", windows: ["homeHero", "practiceYard", "quietHouse", "classicMenu", "battleOver", "narratorWindow"], art: { status: "live", folder: "arantxa-leisure", pattern: "face-{x}.png", map: { neutral: "neutral", happy: "happy", angry: "angry", sad: "sad", surprised: "surprised" }, fallback: "idle" }, voice: "dry, warm, watchful", lines: "arantxa", hook: "H01", perk: null, wired: true, slice: "S4" },
     rama: { name: "Rama", role: "Town Hall", windows: ["townHall"], art: std("rama"), voice: "calm, formal, fair", lines: "rama", hook: "H02", perk: null, wired: true, slice: "S0",
       rematch: ["firstWall", "gapCourt", "rosterScrimmage", "warfare", "bossRush"] },   // the public Town Hall encounters a loss is remembered for (the secret ones never are)
     sita: { name: "Sita", role: "Home", windows: ["home"], art: std("sita"), voice: "gentle, practical", lines: "sita", hook: "H03", perk: null, wired: true, slice: "S1" },
@@ -77,6 +77,7 @@
     communeQuestion: w("contextual", "ui.js:4895", ["showCommuneQuestion", "showAwakenQuestion"], "S6"), summonQuestion: w("contextual", "ui.js:4948", ["showSummonQuestion"], "S6"),
     battleOver: w("arantxa", "ui.js:5339", [], "S4"), cutscenePopups: w("served", "ui.js:327", [], null, "already served: faceFile"),
     narratorWindow: w("arantxa", "ui.js:2056", [], "S4"), dispatch: w("chief", "law/dispatch.js:45", [], null, "radio voice only (decision D9)"),
+    saveBroken: w(null, "ui.js:1329", ["showSaveBroken"], null, "system overlay (broken save guard, 2026-11-03): plain words about the player's data, no keeper"), firstPick: w(null, "ui.js:1340", ["showFirstPick"], null, "its own scene (Familiar S2, 2026-11-03): the first-launch familiar choice"),
     enemyBubbles: w("served", "ui.js:3883", ["showDialogueFrom"], null, "already served: speakers.js heads"),
   };
 

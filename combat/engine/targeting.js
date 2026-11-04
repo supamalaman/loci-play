@@ -51,8 +51,10 @@
     // Returns { ok, error, tiles, route, targets } for using ability m from actor a at (tx,ty).
     function target(s, a, m, tx, ty, action = {}) {
       const entr = a && !a._entrFlip && a.status?.entranced && (a.status.entranced.until == null || a.status.entranced.until >= a.ownerTurns);
-      const real = entr ? a.side : null;
+      const loosed = !entr && a && !a._entrFlip && H.States?.anySide(a);   // Cure: a loosed unit chooses with allegiance off (a side no one shares)
+      const real = entr || loosed ? a.side : null;
       if (entr) a.side = real === "player" ? "enemy" : "player";   // the entranced perceive sides swapped
+      else if (loosed) a.side = H.States.anySideOf(a);
       try {
         if (tx != null && (m.delivery === "line" || m.delivery === "routed")) {
           const occ = actorAt(s, tx, ty);
@@ -70,7 +72,7 @@
           return r.ok ? { ...r, aim: best } : r;
         }
         return targetInner(s, a, m, tx, ty, action);
-      } finally { if (entr) a.side = real; }
+      } finally { if (entr || loosed) a.side = real; }
     }
     function targetInner(s, a, m, tx, ty, action = {}) {
       if (tx != null && !dreamCanReach(s,a,m,tx,ty)) return {ok:false,error:"The sealed Dream Space blocks this technique. Only an applicable boundary-penetrating delivery can cross."};

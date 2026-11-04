@@ -70,7 +70,7 @@
     ["sad", "refuse", "You are short {price} Seeds. Wait for the next battle."],
     ["sad", "loss", "Hirelings leave when it goes bad. That is the trade."],
     ["angry", "err", "The paper is not valid. I do not sell what does not stand."],
-    ["surprised", "mile", "Fame {fame}? People will want to work for you."],
+    ["surprised", "mile:fame", "Fame {fame}? People will want to work for you."],
     ["neutral", "fold:hall", "Pack the contract before the fight. It takes a slot like anything else."],
   ]);
   const hermes = bank("hermes", [
@@ -186,5 +186,18 @@
     ["surprised", "big", "A great deal of work crossed this bench. Where do you want to start?"],
     ["neutral", "fold:scribing", "Held techniques come apart into parts. Parts go back together as something new."],
   ]);
-  return { LINES: { rama, sita, jatayu, tallyman, jambavan, hermes, ravana, lakshmana, gambler, pioneer, talisman, kaikeyi, magistrate, starfarer, freemason } };
+  const arantxa = bank("arantxa", [
+    ["neutral", "first", "The town is quiet. It will not stay that way, {name}."],
+    ["neutral", "return", "Back again. The town kept your place."],
+    ["neutral", "idle", "Take your time. The fight will wait; the town will not mind."],
+    ["happy", "win", "You walked out of that one. Good."],
+    ["happy", "streak", "A run of wins. People are starting to say your name."],
+    ["sad", "loss", "It cost you; let it. Then come back and look at what it taught."],
+    ["sad", "refuse", "Not that. Not yet."],
+    ["surprised", "big", "That was a lot to carry out of one shop."],
+    ["surprised", "mile", "Level {level}. I did not expect it this soon."],
+    ["angry", "err", "Something broke, and it was not you. Try that again."],
+    ["neutral", "leave", "Go on. I will keep the lamps lit."],
+  ]);
+  return { LINES: { rama, sita, jatayu, tallyman, jambavan, hermes, ravana, lakshmana, gambler, pioneer, talisman, kaikeyi, magistrate, starfarer, freemason, arantxa } };
 });

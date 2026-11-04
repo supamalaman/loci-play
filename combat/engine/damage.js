@@ -467,7 +467,8 @@
       if (dreamMods.damageTakenMul && dreamMods.damageTakenMul !== 1) { mult *= dreamMods.damageTakenMul; notes.push(`Dream Space shields its summon: damage ×${dreamMods.damageTakenMul}.`); }
       if (tgt.form?.golden) { const gm = bossRules?.data?.integratedSelf?.damageTakenMul ?? 0.75; mult *= gm; notes.push(`The Integrated Self takes ×${gm} damage.`); }
       let formFlat = 0;
-      if (bossRules?.formDamage && (tgt.form?.learned || src?.form?.learned)) { const fd = bossRules.formDamage(src, tgt, inst, damageType, potency); mult *= fd.mul; formFlat = fd.flat; notes.push(...fd.notes); }   // learned forms
+      { const gd = potency > 0 ? ClassRuntime?.homology?.guard(s, src, tgt, inst) : 0; if (gd) { formFlat -= gd; notes.push(`Ancestral Guard: ${gd} off the damage to ${tgt.name} (a guarded technique).`); } }   // Homology H5: the first cast of a guarded technique, once
+      if (bossRules?.formDamage && (tgt.form?.learned || src?.form?.learned)) { const fd = bossRules.formDamage(src, tgt, inst, damageType, potency); mult *= fd.mul; formFlat += fd.flat; notes.push(...fd.notes); }   // learned forms
       // Ceaseless Adaptation (the Cyborg form, docs/brain-chip.md): the count lives on the form, one number per damage
       // type, for as long as the form lasts. Never an immunity. Adaptation's own auto-attune takes its place if he has it.
       if (tgt.form?.adaptation && potency > 0) {

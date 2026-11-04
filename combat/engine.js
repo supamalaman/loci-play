@@ -42,7 +42,7 @@
   else root.ConceptCombat = factory(Observation, Tourist, root.ConceptCombatPostures, root.ConceptCombatPresident, Sight, Belief, GraphLive, ClassRuntime, root.ConceptCombatDirector, RandomEvents, Climate, Auras, Parley, Bonds, Vows, MaidSystems, Workflow, UtilityAI, Communion, Traps, Tsukumogami, Imitation, EmergentIdeas, EnemySummons, MindDuel, root.ConceptCombatConversion, root.ConceptCombatCourtroom, root.ConceptCombatDispatch, root.ConceptCombatPresence, root.ConceptCombatDebt, root.ConceptCombatSealing, root.ConceptCombatVisitors, (root.ConceptCombatBuild && root.ConceptCombatBuild.version) || "dev");
 })(typeof self !== "undefined" ? self : this, function (Observation = null, Tourist = null, Postures = null, President = null, Sight = null, Belief = null, GraphLive = null, ClassRuntime = null, Director = null, RandomEvents = null, Climate = null, Auras = null, Parley = null, Bonds = null, Vows = null, MaidSystems = null, Workflow = null, UtilityAI = null, Communion = null, Traps = null, Tsukumogami = null, Imitation = null, EmergentIdeas = null, EnemySummons = null, MindDuel = null, Conversion = null, Courtroom = null, Dispatch = null, Presence = null, Debt = null, Sealing = null, Visitors = null, BUILD = "dev") {
   // The engine's parts, in install order (web/combat/engine/). Node requires them; the pages load them as scripts first.
-  const ENGINE_PARTS = ["ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","anime-orbit","instinct","injury","cards"].map((name) => typeof module === "object" && module.exports
+  const ENGINE_PARTS = ["ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
     ? require("./engine/" + name + ".js") : globalThis.ConceptCombatEngineParts[name.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase())]), Affinity = typeof module === "object" && module.exports ? require("./vows/affinity.js") : globalThis.ConceptCombatAffinity, VK = typeof module === "object" && module.exports ? require("./vows/vowkit.js") : globalThis.CombatVowKit;   // W4.5-6: vow-drive audit + declaration kit
 
 
@@ -479,6 +479,7 @@
           arrivesRound: a.arrivesRound || null, notArrived: Number.isInteger(a.arrivesRound) && a.arrivesRound > 1, arrivesFor: a.arrivesFor || null,
           eventActor: !!a.eventActor, eventRole: a.eventRole || null, aggressive: !!a.aggressive, hunter: !!a.hunter, ...(Array.isArray(ch.learned) ? { learned: [...ch.learned] } : {}), ...(a.character === "actor" ? { learned: ["audition", "genreDefiningPerformance"], willpower: 14, maxWillpower: 14 } : {}),   // Actor: kit rides learned (a role never locks it out); 14 will
         };
+        H.wheelhouseSettle?.(s, a, ch);
         if (s.actors[a.id].notArrived) s.actors[a.id].defeated = true;
         s.observedAbilities[a.id] = [];
         s.disclosures[a.id] = {};
@@ -1341,6 +1342,7 @@
         });
         a.status = { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null, immovable: null, exposed: null, attention: null, rangeBuff: null, tippingPoint: null, ambush: null, catharsis: null, drowning: null };
         s.actors[id] = a;
+        H.wheelhouseSettle?.(s, a, ch);
         if (!s.order.includes(id)) s.order.push(id);
         s.disclosures[id] = {}; s.knowledge[id] = {}; s.observedAbilities[id] = [];
         for (const other of Object.keys(s.actors)) {
