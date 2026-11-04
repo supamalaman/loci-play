@@ -1950,7 +1950,8 @@
       const FR = root.ConceptCombatFruit; if (!FR) return "";
       const held = FR.stashOf(U.account), mine = FR.eaten(U.account);
       // Mala, 2026-10-27: "you can use our bittermelon sprite as the sinkerfruit". One sprite, tinted per fruit.
-      const icon = (id) => `<img class="cc-fruit-icon cc-fruit-${id}" src="combat/sprites/items/bitterMelon.png" alt="${esc(FR.FRUITS[id].name)}">`;
+      const icon = (id) => FR.RULES.respec ? `<img class="cc-fruit-icon cc-fruit-art" src="combat/sprites/fruit/${id}.png" alt="${esc(FR.FRUITS[id].name)}">`   // respec S5: each fruit has its own art
+        : `<img class="cc-fruit-icon cc-fruit-${id}" src="combat/sprites/items/bitterMelon.png" alt="${esc(FR.FRUITS[id].name)}">`;
       if (!held.length && !mine) return "";
       const me = mine ? `<p>${icon(mine.id)} <b>You ate ${esc(FR.FRUITS[mine.id].name)}.</b> ${esc(FR.FRUITS[mine.id].line)} You can never swim; water, soaking and cuffs damp the power.${FR.ripe(U.account) ? " It has ripened." : ""}</p>` : "";
       const want = FR.posted?.(U.account), sale = Object.entries(U.account.fruitSales || {}).find(([, v]) => v.owed > 0);   // FR-01: a settled sale lingers (owed 0) only as the return timer
@@ -2077,9 +2078,11 @@
       ov.querySelectorAll("[data-fruit-sell]").forEach(b => b.onclick = () => { const r = root.ConceptCombatFruit.sellFruit(U.account, b.dataset.fruitSell); U.keeperCounter = null; redo(r.ok ? { ...r, lines: [r.line] } : { ok: false, reason: r.error }); });
       ov.querySelector("#ccFruitCancel")?.addEventListener("click", () => { U.fruitPick = null; showAccount(); });
       ov.querySelector("#ccFruitConfirm")?.addEventListener("click", () => {
-        const r = root.ConceptCombatFruit.eat(U.account, U.fruitPick); U.fruitPick = null;
+        const FR = root.ConceptCombatFruit, eatenId = U.fruitPick, r = FR.eat(U.account, eatenId); U.fruitPick = null;
         if (!r.ok) { flashTip(r.error); return showAccount(); }
-        U.account = r.account; saveAccount(); showAccount(); flashTip(r.line);
+        const rite = FR.RULES.respec && Ceremony ? Ceremony.rite("eat", { id: eatenId, name: FR.FRUITS[eatenId].name }) : null;   // respec S5: two beats, then eat()'s posting line
+        if (rite && Tracks) for (const c of rite.cues) Tracks.cue(c.slot, c.opts || {});
+        U.account = r.account; saveAccount(); showAccount(); flashTip(rite ? [...rite.beats, r.line].join(" ") : r.line);
       });
       ov.querySelectorAll("[data-saga-pick]").forEach(b => b.onclick = () => { U.sagaPick = b.dataset.sagaPick; showAccount(); });
       ov.querySelector("#ccSagaCancel")?.addEventListener("click", () => { U.sagaPick = null; showAccount(); });

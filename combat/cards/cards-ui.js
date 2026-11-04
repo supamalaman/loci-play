@@ -18,7 +18,7 @@
   // One card face: kind and rarity are words (never colour alone), the generated rule text is the screen-reader text.
   const ART_BASE = "combat/cards/";
   const art = (card) => (CA && card?.art?.key && CA.art[card.art.key]) || null;
-  // The picture: the cut art when the manifest has it, else a plain panel with the kind glyph and the kind word (the 30 starters have no art yet).
+  // The picture: the cut art when the manifest has it, else a plain panel with the kind glyph and the kind word (every card in the data has art today; the panel is the safety net).
   // A card whose art carries its own name plate (`baked`) prints no second name; a suit or a renamed card gets a plain label over the picture (CARDS.md 18.6).
   function picture(card, A, big = false) {
     const k = D.kinds[card.kind];

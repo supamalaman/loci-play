@@ -136,7 +136,8 @@
     const B = bingoLib(), store = next.bingo?.bounties ? next.bingo : B.createStore();   // §6: eating posts your head (Bingo's first live caller)
     B.post(store, { head: "player", poster: "the Record", amount: RULES.respec ? bountyFor(next) : RULES.wantedPost, battle: account.battles || 0 });
     return { ok: true, account: { ...next, bingo: store },
-      line: `You eat ${FRUITS[id].name}. A power wakes in you, and the water will never hold you up again. The Record posts your head: ${RULES.respec ? bountyFor(next) : RULES.wantedPost} Seeds. Hunters will come.` };
+      line: RULES.respec ? `You eat ${FRUITS[id].name}. The Record posts your head: ${bountyFor(next)} Seeds. Hunters will come.`   // S5: the rite's two beats speak the taste and the curse
+        : `You eat ${FRUITS[id].name}. A power wakes in you, and the water will never hold you up again. The Record posts your head: ${RULES.wantedPost} Seeds. Hunters will come.` };
   }
   const battleOpts = (account) => (eaten(account) ? { id: eaten(account).id, ripe: ripe(account), ...(RULES.respec ? { respec: true, shapes: masteryOf(account).shapes, awakened: stage(account) === "awakened" } : {}) } : null);
   function returnToTide(account) {

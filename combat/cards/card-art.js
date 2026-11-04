@@ -9,6 +9,83 @@
   return {
    "back": "art/back.png",
    "art": {
+    "deadwood-drop": {
+     "src": "art/starters/01-deadwood-drop.png",
+     "w": 388,
+     "h": 521,
+     "sha": "d81b08ee555e",
+     "baked": true
+    },
+    "gust-step": {
+     "src": "art/starters/02-gust-step.png",
+     "w": 390,
+     "h": 523,
+     "sha": "3cba96caef9a",
+     "baked": true
+    },
+    "second-look": {
+     "src": "art/starters/03-second-look.png",
+     "w": 389,
+     "h": 523,
+     "sha": "0596c7a425b6",
+     "baked": true
+    },
+    "sapwell": {
+     "src": "art/starters/04-sapwell.png",
+     "w": 393,
+     "h": 534,
+     "sha": "6726f77e5888",
+     "baked": true
+    },
+    "second-wind-leaf": {
+     "src": "art/starters/05-second-wind-leaf.png",
+     "w": 397,
+     "h": 484,
+     "sha": "ddf215570ab0",
+     "baked": true
+    },
+    "clean-cut": {
+     "src": "art/starters/06-clean-cut.png",
+     "w": 361,
+     "h": 491,
+     "sha": "77939755af82",
+     "baked": true
+    },
+    "rootbind": {
+     "src": "art/starters/07-rootbind.png",
+     "w": 363,
+     "h": 488,
+     "sha": "e2353b791ed5",
+     "baked": true
+    },
+    "long-shadow": {
+     "src": "art/starters/08-long-shadow.png",
+     "w": 361,
+     "h": 491,
+     "sha": "219b59583ec3",
+     "baked": true
+    },
+    "last-bloom": {
+     "src": "art/starters/09-last-bloom.png",
+     "w": 361,
+     "h": 489,
+     "sha": "16c0c2295789",
+     "baked": true
+    },
+    "springback-thicket": {
+     "src": "art/starters/10-springback-thicket.png",
+     "w": 398,
+     "h": 484,
+     "sha": "c85abcb49ccb",
+     "baked": true
+    },
+    "thorn-return": {
+     "src": "art/starters/11-thorn-return.png",
+     "w": 401,
+     "h": 481,
+     "sha": "ac1ced5c9c00",
+     "baked": true
+    },
     "dawn-tonic": {
      "src": "art/starters/12-dawn-tonic.png",
      "w": 208,
@@ -56,6 +133,97 @@
      "w": 208,
      "h": 328,
      "sha": "faed2b13c68b",
+     "baked": true
+    },
+    "gatepost-sentry": {
+     "src": "art/starters/19-gatepost-sentry.png",
+     "w": 307,
+     "h": 407,
+     "sha": "47dd28ea2df8",
+     "baked": true
+    },
+    "stone-warden": {
+     "src": "art/starters/20-stone-warden.png",
+     "w": 307,
+     "h": 406,
+     "sha": "4ae0a27aa49f",
+     "baked": true
+    },
+    "pair-of-lanterns": {
+     "src": "art/starters/21-pair-of-lanterns.png",
+     "w": 307,
+     "h": 407,
+     "sha": "96f165ab83eb",
+     "baked": true
+    },
+    "long-memory": {
+     "src": "art/starters/22-the-long-memory.png",
+     "w": 307,
+     "h": 401,
+     "sha": "6c485ca0022c",
+     "baked": true
+    },
+    "windbreak-row": {
+     "src": "art/starters/23-windbreak-row.png",
+     "w": 307,
+     "h": 401,
+     "sha": "d35c53afcafc",
+     "baked": true
+    },
+    "thin-air": {
+     "src": "art/starters/24-thin-air.png",
+     "w": 307,
+     "h": 401,
+     "sha": "c86285021a05",
+     "baked": true
+    },
+    "open-season": {
+     "src": "art/starters/25-open-season.png",
+     "w": 307,
+     "h": 422,
+     "sha": "80cd5f79fda3",
+     "baked": true
+    },
+    "quiet-hour": {
+     "src": "art/starters/26-quiet-hour.png",
+     "w": 307,
+     "h": 422,
+     "sha": "626e74b18c87",
+     "baked": true
+    },
+    "thornguard-wrap": {
+     "src": "art/starters/27-thornguard-wrap.png",
+     "w": 307,
+     "h": 422,
+     "sha": "d9b26360416b",
+     "baked": true
+    },
+    "swift-gloves": {
+     "src": "art/starters/28-swift-gloves.png",
+     "w": 333,
+     "h": 509,
+     "sha": "e92eee79dcac",
+     "baked": true
+    },
+    "menders-band": {
+     "src": "art/starters/29-menders-band.png",
+     "w": 336,
+     "h": 510,
+     "sha": "d9edc66f8a43",
+     "baked": true
+    },
+    "ironbark-coat": {
+     "src": "art/starters/30-ironbark-coat.png",
+     "w": 331,
+     "h": 520,
+     "sha": "3c6a9e0d9db7",
+     "baked": true
+    },
+    "talisman-kiln": {
+     "src": "art/starters/31-talisman-kiln.png",
+     "w": 337,
+     "h": 521,
+     "sha": "ce6be0e98b35",
      "baked": true
     },
     "black-vase-eye": {

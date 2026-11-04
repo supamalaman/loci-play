@@ -617,6 +617,7 @@
 .cc-fruit ul { list-style: none; padding-left: 0; }
 .cc-fruit li { margin: 4px 0; }
 .cc-fruit-icon { height: 28px; width: 28px; image-rendering: pixelated; vertical-align: middle; }
+.cc-fruit-art { height: 32px; width: 32px; }   /* respec S5: the cut fruit art needs no tint */
 .cc-fruit-hide { filter: hue-rotate(-75deg) saturate(1.2); }
 .cc-fruit-mist { filter: saturate(0.35) brightness(1.45); }
 .cc-fruit .cc-item { display: inline-flex; width: auto; border-color: #ffffff40; margin-right: 6px; }
