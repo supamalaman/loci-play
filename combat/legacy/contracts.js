@@ -1,6 +1,7 @@
 "use strict";
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.ConceptCombatContracts=factory();})(typeof self!=='undefined'?self:this,function(){
- const specialties={none:{name:'None',mul:1,phi:0,seeds:0},beast:{name:'Beasts',mul:1.25,phi:2,seeds:100},construct:{name:'Constructs',mul:1.25,phi:2,seeds:100},large:{name:'Large bodies',mul:1.3,phi:3,seeds:150},concentrating:{name:'Concentrating targets',mul:1.2,phi:2,seeds:100},water:{name:'Targets in water',mul:1.25,phi:2,seeds:100}};
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require("./desk-margin.js"));else root.ConceptCombatContracts=factory(root.ConceptCombatDeskMargin);})(typeof self!=='undefined'?self:this,function(DM){
+ const sur=(DM&&DM.table&&DM.table.tariff&&DM.table.tariff.surcharge)||{beast:1,construct:1,concentrating:1,water:1,large:2};   // A4: the phi surcharge lives in the desk-margin table (T-A5); the fallback is the same numbers
+ const specialties={none:{name:'None',mul:1,phi:0,seeds:0},beast:{name:'Beasts',mul:1.25,phi:sur.beast,seeds:100},construct:{name:'Constructs',mul:1.25,phi:sur.construct,seeds:100},large:{name:'Large bodies',mul:1.3,phi:sur.large,seeds:150},concentrating:{name:'Concentrating targets',mul:1.2,phi:sur.concentrating,seeds:100},water:{name:'Targets in water',mul:1.25,phi:sur.water,seeds:100}};
  function design(raw={},ability){
   const errors=[],steps=Array.isArray(raw.unlock)?raw.unlock:[],cast=raw.cast||{},active=raw.active||{},spec=raw.specialization||'none',spend=raw.spend||'strength',reset=raw.reset||'repeat';
   if(Object.keys(raw).some(k=>!['unlock','cast','active','specialization','spend','reset'].includes(k)))errors.push('Unknown contract layer.');

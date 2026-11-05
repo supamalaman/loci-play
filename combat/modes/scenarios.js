@@ -146,6 +146,39 @@
     return { crew, ids: pool.slice(0, Math.max(1, Math.min(n, pool.length))) };
   }
 
+  // SC05: `groups` crews of `count` fighters each, one side per crew (the melee counts sides). The crews are drawn from every crew with enough
+  // eligible fighters (or the listed ones), skipping a pair that feuds (the rule the random roster uses), anyone on the player's side and any crew
+  // feuding with it. Ids stay `random-foe-N` so the mid beat, the foe names and the LF table work as for any scenario.
+  function pickGroups(S, base, seed, ctx) {
+    const chars = ctx.characters || {}, F = S.foes, [lo, hi] = F.count;
+    const mine = (base.participants || []).filter((p) => p.side === "player").map((p) => p.character);
+    const feuds = ctx.rules?.factions?.feuds || [];
+    const feud = (a, b) => feuds.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+    const poolOf = (crew) => Object.entries(chars).filter(([id, ch]) => ch.subfaction === crew && id !== "warden" && id !== ctx.mainCharacter && !(F.exclude || []).includes(id)
+      && !ch.permanentAlly && !ch.randomEventOnly && Array.isArray(ch.configs) && !mine.includes(id) && !mine.some((m) => feud(crew, chars[m]?.subfaction))).map(([id]) => id)
+      .sort((a, b) => hash(seed, "scenario:foe:" + a) - hash(seed, "scenario:foe:" + b) || (a < b ? -1 : 1));
+    const n = lo + Math.floor(hash(seed, "scenario:count") * (hi - lo + 1));
+    const names = F.crews === "any" ? [...new Set(Object.values(chars).map((c) => c.subfaction).filter(Boolean))].sort() : F.crews;
+    const roomy = names.map((crew) => [crew, poolOf(crew)]).filter(([, p]) => p.length >= n)
+      .sort((a, b) => hash(seed, "scenario:crew:" + a[0]) - hash(seed, "scenario:crew:" + b[0]) || (a[0] < b[0] ? -1 : 1));
+    const chosen = [];
+    for (const c of roomy) { if (chosen.length >= F.groups) break; if (!chosen.some(([o]) => feud(o, c[0]))) chosen.push(c); }
+    return chosen.map(([crew, pool]) => ({ crew, ids: pool.slice(0, n) }));
+  }
+
+  // SC10: the Warfare encounter laid under a random battle: its field, its actors and scaled events (engine warfareEventOptions) and its two wild animals,
+  // what ui.js builds for the Warfare button. The rolled ally, foes and events are not used. Without the engine pieces in ctx the battle stays as rolled.
+  function warfareBase(base, seed, ctx) {
+    const WF = ctx.encounters?.warfare, mons = ctx.W?.data?.monsters;
+    if (!WF || !ctx.warfareEventOptions || !ctx.G || !mons) return null;
+    const ev = ctx.warfareEventOptions(seed, { foughtBeside: ctx.foughtBeside || [], mainCharacter: ctx.mainCharacter });
+    let arena = ctx.G.designed(WF.arena); if (ctx.V) arena = ctx.V.populate(arena, { seed });
+    const initialWild = [["feralPig", [7, 3]], ["termites", [7, 5]]].filter(([kind]) => mons[kind]).map(([kind, at], i) => ({ id: `warfare-wild-${i + 1}`, kind, form: mons[kind].form, name: mons[kind].name,
+      reason: "the three-faction clash", born: 1, x: at[0], y: at[1], lf: mons[kind].lf, maxLF: mons[kind].lf, status: {} }));
+    return { ...base, participants: ev.participants, randomEventSchedule: ev.randomEventSchedule, arenaData: arena, initialWild,
+      scenario: { ...(base.scenario || {}), ally: null, theyOpen: false, terrain: arenaName(arena, WF.arena, ctx) } };
+  }
+
   // Authored events (SCENARIOS.md 3.4; slice 2). `force` swaps the rolled event at a checkpoint for an authored one (random-events.js create
   // with force/checkpoints) and drops the arrivals the rolled event had brought; `wild` lays a field wild form on the map at the start.
   // The authored event's arrivals are placed by the engine's own eventParticipantsFor (ctx.eventParticipantsFor), so they stand where a rolled one would.
@@ -177,6 +210,21 @@
       parts = [...parts, ...ctx.eventParticipantsFor(fresh, parts, out.arenaData)];
       result = { ...result, randomEventSchedule: kept, participants: parts };
     }
+    // Wolf Season (SC06): unit-form wild animals laid on open ground at the foes' edge, the way wild/monsters.js spawn makes one (a wild unit is its own side and never holds the battle open).
+    for (const pack of (S.wild || []).filter((w) => w.kind === "wolf")) {
+      const def = ctx.W?.data?.monsters?.wolf; if (!def || !out.arenaData?.map) continue;
+      const taken = new Set((result.participants || []).filter((p) => p.at).map((p) => K(...p.at)).concat((result.initialWild || []).filter((u) => u.x != null).map((u) => K(u.x, u.y))));
+      const units = [];
+      for (let i = 0; i < (pack.count || 1); i++) { const at = foeSpot(out.arenaData, ctx, taken, null); taken.add(K(...at)); units.push({ id: `wild-wolf-0-${i + 1}`, kind: "wolf", form: def.form, name: def.name, reason: "down from the ridge for the same reason you came", born: 0, x: at[0], y: at[1], lf: def.lf, maxLF: def.lf, status: {}, ...(def.sprite ? { sprite: def.sprite } : {}) }); }
+      result = { ...result, initialWild: [...(result.initialWild || []), ...units] };
+    }
+    // A flash flood front (Hold the Ford, tier 3): a front-form wild thing starting on the highest open ground, the way the wild's own downpour places one (wild/monsters.js).
+    if ((S.wild || []).some((w) => w.kind === "flashFlood") && ctx.W?.data?.monsters?.flashFlood && out.arenaData?.map) {
+      const def = ctx.W.data.monsters.flashFlood, A = out.arenaData, taken = new Set((result.participants || []).filter((p) => p.at).map((p) => K(...p.at)));
+      let best = null;
+      A.map.forEach((row, y) => [...row].forEach((ch, x) => { if (!walkable(A, ctx, x, y) || taken.has(K(x, y))) return; const h = Number((A.height || [])[y]?.[x] ?? 0); if (!best || h > best.h || (h === best.h && (x > best.x))) best = { x, y, h }; }));
+      if (best) result = { ...result, initialWild: [...(result.initialWild || []), { id: "wild-flashFlood-0-1", kind: "flashFlood", form: def.form, name: def.name, reason: "a downpour gathers on the high ground", born: 0, x: best.x, y: best.y, strength: def.strength }] };
+    }
     const fire = (S.wild || []).find((w) => w.kind === "brushfire");
     const fuel = ctx.W?.data?.monsters?.brushfire?.fuel;
     if (fire && fuel && out.arenaData?.map) {
@@ -200,11 +248,22 @@
     const tier = ctx.tier || tierOf(ctx.wins);
     // foes: "roll" keeps the foes the engine rolled (SC07, SC09: the premise is the sky or the visitors, not the crew); the tier trim does not apply.
     const isFoe = (p) => /^random-foe-/.test(p.id), rolled = S.foes === "roll";
-    const ids = rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : pickFoes(S, base, seed, tier, ctx).ids, n = ids.length, maxLF = LF_BY_COUNT[n];
-    const foes = rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: "enemy", at: null, maxLF }));
-    const others = (base.participants || []).filter((p) => !/^random-foe-/.test(p.id));
-    let out = { ...base, participants: [others[0], ...foes, ...others.slice(1)] };   // the player first, the foes, then the ally and event arrivals (the engine's order)
-    if (Array.isArray(S.arenas) && ctx.G) {
+    const warfare = S.encounter === "warfare";
+    if (warfare) { const w = warfareBase(base, seed, ctx); if (!w) return base; base = w; }   // SC10: the encounter's own actors, field and events replace the roll
+    const groups = !rolled && S.foes.groups ? pickGroups(S, base, seed, ctx) : null;   // SC05: one crew per side
+    if (groups && groups.length < S.foes.groups) return base;   // too few crews that can stand apart: the roll stays as it was
+    const sideOf = (character) => (groups ? groups.find((g) => g.ids.includes(character)).crew : "enemy");
+    const ids = warfare ? [] : groups ? groups.flatMap((g) => g.ids) : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : pickFoes(S, base, seed, tier, ctx).ids;
+    const n = warfare ? (base.participants || []).filter((p) => p.side === "enemy").length : ids.length, maxLF = LF_BY_COUNT[n];
+    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF }));
+    const others = warfare ? base.participants : (base.participants || []).filter((p) => !/^random-foe-/.test(p.id));
+    let out = warfare ? { ...base } : { ...base, participants: [others[0], ...foes, ...others.slice(1)] };   // the player first, the foes, then the ally and event arrivals (the engine's order)
+    if (groups) {   // a melee: events that bring in other opponents are dropped with their arrivals (the Powers That Be rule, themed-battles.js KEEP_EVENTS)
+      const keep = (e) => e.type === "weather" || e.type === "ally", gone = new Set((out.randomEventSchedule || []).filter((e) => !keep(e)).flatMap((e) => e.actorIds || []));
+      out = { ...out, participants: out.participants.filter((p) => !gone.has(p.id)), randomEventSchedule: (out.randomEventSchedule || []).filter(keep) };
+    }
+    if (warfare) { /* the encounter's field and units are already laid */ }
+    else if (Array.isArray(S.arenas) && ctx.G) {
       const fresh = S.arenas.filter((a) => a !== ctx.lastArena), list = fresh.length ? fresh : S.arenas;   // D9: not the map fought last battle
       out = reArena(out, list[Math.floor(hash(seed, "scenario:arena") * list.length)], seed, ctx);
     }
@@ -212,7 +271,9 @@
     if (S.phase) out.startPhase = S.phase;
     if (S.weather) out.randomEventSchedule = (out.randomEventSchedule || []).filter((e) => e.type !== "weather");   // a rolled weather event would re-roll the forced sky at round 1
     if (S.weather && ctx.Climate) out.weatherState = { ...ctx.Climate.rollWeather(out.arenaData, { seed: out.seed ?? seed, archetype: out.arenaData?.archetype }), id: S.weather };
-    if (S.force || S.wild) out = authorEvents(out, S, seed, ctx);
+    // Tier 3 adds the scenario's one extra hazard (spec 3.3; Mala approved the list 2026-11-02): authored events, checkpoints and wild forms merged over the base ones.
+    const T = tier >= 3 && S.hazard ? { ...S, force: { ...(S.force || {}), ...(S.hazard.force || {}) }, checkpoints: [...(S.checkpoints || []), ...(S.hazard.checkpoints || [])], wild: [...(S.wild || []), ...(S.hazard.wild || [])] } : S;
+    if (T.force || T.wild) out = authorEvents(out, T, seed, ctx);
     const objective = { ...S.objective };
     // Spec 3.3: tier 1 gets two more rounds, tier 3 one fewer (floor 5); never past the 14-round ceiling objectives.js enforces.
     if (objective.deadline != null) objective.deadline = Math.min(14, tier <= 1 ? objective.deadline + 2 : tier >= 3 ? Math.max(5, objective.deadline - 1) : objective.deadline);
@@ -221,7 +282,7 @@
     if (S.houses === "always" && ctx.rules?.houses) rules.houses = { ...ctx.rules.houses, chance: { default: 1 } };
     const sc = out.scenario, terrain = sc?.terrain || arenaName(out.arenaData, out.arenaData?.id, ctx);
     const title = `Random scenario: ${S.name} · ${terrain} · ${n} opponent${n === 1 ? "" : "s"}${sc?.ally ? ` · with ${ctx.characters?.[sc.ally]?.name || sc.ally}` : ""} · ${sc?.theyOpen ? "they move first" : "you move first"}`;
-    const done = { ...out, title, mode: objective.kind === "classic" ? "classic" : "scenario", scenarioBattle: S.id, rules,
+    const done = { ...out, title, mode: objective.kind === "classic" ? (S.mode || "classic") : "scenario", scenarioBattle: S.id, rules,
       theme: { id: `scenario-${S.id}`, title: S.name, text: S.text.open, mid: S.text.mid.text, result: { ...S.text.result } } };
     return done;
   }

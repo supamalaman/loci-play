@@ -122,7 +122,7 @@
       event: { kind: "dreamNamed", actor: actor.id, correct: true, text: `You name ${m.name}: "${m.teaches}" It begins to fade.` } };
     const W = R.nameIt.wrong;
     return { actor: { ...actor, dream: { ...actor.dream, potencyMul: actor.dream.potencyMul * W.potencyMul, nameRetryRound: round + W.retryAfterRounds } }, correct,
-      event: { kind: "dreamNamed", actor: actor.id, correct: false, text: `That isn't it. ${m.name} grows stronger on the fear.` } };
+      event: { kind: "dreamNamed", actor: actor.id, correct: false, text: `That isn't it. ${m.name} holds on.` } };
   }
 
   function endOfRound(actor, round) {

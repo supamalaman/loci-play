@@ -1,7 +1,7 @@
 "use strict";
 // Random-battle scenarios, the data (spec ~/loci-orbit/ready-to-review/claude-random-scenarios-spec/specs/SCENARIOS.md, 3.1 and 4).
 // A scenario is a premise plus an objective, laid over the options `E.randomEncounterOptions` returns (modes/scenarios.js).
-// Slice 1 holds the two premise-only classic scenarios: SC03 The Open House and SC01 Night Shift at the Quarry; slice 2 adds the two authored-event ones, SC07 Brushfire Season and SC09 Something Comes Down. Both end
+// Slice 6 adds SC05 (a melee of two other crews: `mode`, `foes.groups`) and SC10 (the Warfare encounter: `encounter`). Slice 1 holds the two premise-only classic scenarios: SC03 The Open House and SC01 Night Shift at the Quarry; slice 2 adds the two authored-event ones, SC07 Brushfire Season and SC09 Something Comes Down. Both end
 // the way every classic battle ends (the default branch of checkOutcome, rules.standoff, rules.maxRounds); neither adds a
 // clock, because neither adds an objective. The clocked kinds (survive, hold, break, salvage, ward, bounty, exit) are later slices.
 //
@@ -85,6 +85,7 @@
       checkpoints: [{ id: "squallTurn", round: 4, label: "The squall turns" }, { id: "squallWrack", round: 7, label: "The wrack comes down" }],   // authored rounds 1 / 4 / 7
       force: { opening: { type: "terrain", effect: "shallow-flood" }, squallTurn: { type: "weather" }, squallWrack: { type: "terrain", effect: "fallen-cover" } },
       objective: { kind: "survive", deadline: 9, onDeadline: "win" },
+      hazard: { checkpoints: [{ id: "squallDriven", round: 3, label: "Driven in by the storm" }], force: { squallDriven: { type: "monsters" } } },   // tier 3: wild things driven in
       text: {
         open: "The front arrives early. The terraces start giving the rain back downhill.",
         mid: { when: { round: 5 }, text: "Water finds the low beds first. After that it finds you." },
@@ -97,6 +98,7 @@
       foes: "roll", count: [1, 2],
       force: { opening: { type: "dream", duration: 3, monsters: 2 } },   // a rift of three waves of two; the clock removes the case of an unreachable rift monster holding the battle open
       objective: { kind: "survive", deadline: 12, onDeadline: "win", clear: true },
+      hazard: { checkpoints: [{ id: "riftTwo", round: 5, label: "A second rift" }], force: { riftTwo: { type: "dream", duration: 2, monsters: 2 } } },   // tier 3: a second wave
       text: {
         open: "Someone laid out a blanket on the one patch of lawn the night keeps opening onto something else.",
         mid: { when: { round: 5 }, text: "The sandwiches are untouched. The things coming through the seam are not interested in sandwiches." },
@@ -108,11 +110,24 @@
       phase: "night",
       foes: "roll", count: [1, 2],
       objective: { kind: "survive", deadline: 10, onDeadline: "win" },   // rules.time.nightLength (a test pins it): it ends when the sky changes
+      hazard: { force: { midpoint: { type: "monsters" } } },   // tier 3: the dark brings things at the midpoint
       text: {
         open: "Dawn is a long way off. Nobody on this field has agreed to wait for it.",
         mid: { when: { round: 5 }, text: "Halfway through the dark, the field gets quiet in the way that means it is listening." },
         result: { player: "The sky changes color and everyone remembers they have somewhere to be.", enemy: "You do not see the morning.",
           none: "The light comes up on a field with no one left to ask." } } },
+
+    wolfSeason: { id: "wolfSeason", name: "Wolf Season", minTier: 2, weight: 1,   // SC06
+      arenas: ["banyanGrove", "banyanEdgeGlade"],
+      foes: { crews: ["wilds"], exclude: LAW, count: [1, 2] },
+      wild: [{ kind: "wolf", count: 2 }],   // two feral dogs at the edge, hostile to every side, never holding the battle open
+      objective: { kind: "survive", deadline: 10, onDeadline: "win" },
+      hazard: { wild: [{ kind: "brushfire" }] },   // tier 3: a fire at the grove's dry edge (only where the arena has fuel)
+      text: {
+        open: "The wolves came down from the ridge, and they are not particular about whom they trouble.",
+        mid: { when: { round: 5 }, text: "Halfway there: the light has not changed yet, and the grove is still yours to hold." },
+        result: { player: "You held the grove.", enemy: "You did not hold the grove.",
+          none: "The grove goes quiet, and nobody can say who it belonged to." } } },
 
     holdTheFord: { id: "holdTheFord", name: "Hold the Ford", minTier: 1, weight: 1,   // SC15
       arenas: ["canalGarden", "bioswaleCourt"],
@@ -120,11 +135,34 @@
       foes: "roll", count: [2, 3],
       force: { midpoint: { type: "terrain", effect: "shallow-flood" } },   // at round 5 the water rises
       objective: { kind: "hold", deadline: 8, onDeadline: "lose" },
+      hazard: { wild: [{ kind: "flashFlood" }], checkpoints: [{ id: "fordEarly", round: 3, label: "The water comes early" }], force: { fordEarly: { type: "terrain", effect: "shallow-flood" } } },   // tier 3: a flash flood front and an earlier rise
       text: {
         open: "The bridge is gone. The ford is three stones wide and everyone needs it.",
         mid: { when: { round: 5 }, text: "The water rises one hand's width, and the ford gets harder to hold." },
         result: { player: "The crossing is yours, and the water gives no opinion.", enemy: "The ford belongs to whoever crosses it last.",
           none: "The water takes the ford, and with it the argument." } } },
+
+    threeCrews: { id: "threeCrews", name: "Three Crews, One Alley", minTier: 2, weight: 1,   // SC05
+      arenas: "any",
+      mode: "melee",                                                   // last crew standing (modes.js melee); the crews hit each other, so the player picks the moment
+      foes: { crews: "any", groups: 2, exclude: LAW, count: [2, 2] },   // two crews of two, never a feuding pair, each on a side of its own
+      objective: { kind: "classic" },                                  // no deadline yet: the spec's clock of 12 ("most crew standing", D6) waits for the objective core (loop in the NOTE)
+      text: {
+        open: "Two crews and you, in one alley, and nobody has agreed on whose it is.",
+        mid: { when: { firstFall: true }, text: "One crew is a person short. The others take that as an invitation." },
+        result: { player: "The alley is yours until somebody tells it otherwise.", enemy: "You leave through the end of the alley the others left open.",
+          none: "Nobody gives way, and the round limit comes. The alley is still nobody's, and all three crews know it." } } },
+
+    longFront: { id: "longFront", name: "The Long Front", minTier: 3, weight: 0.5,   // SC10, selection only: the Warfare encounter, offered from the random chooser
+      encounter: "warfare", mode: "warfare",
+      arenas: "any",                                                   // the Warfare field (apply lays it); no map draw
+      foes: "roll", count: [2, 2],                                     // the encounter's own two enemies, with its scaled events and wild animals
+      objective: { kind: "classic" },
+      text: {
+        open: "Three sides are already on this field. They will keep going until only one side remains. None of them will stop to name the field.",   // the Warfare encounter's own opener (narrator.js BEATS.warfare), reused as SCENARIOS.md SC10 asks
+        mid: { when: { round: 6 }, text: "Six rounds in. Nobody on the line is fresh any more." },
+        result: { player: "Your side is the last one standing on the long front.", enemy: "The front closes over you, and the line moves on.",
+          none: "The front goes quiet. Nothing has been settled and everyone knows it." } } },
   };
 
   return { SCENARIOS, LAW };

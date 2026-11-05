@@ -97,7 +97,7 @@
   const NEXT_RULES = [
     [(x) => x.kind === "unit" && x.imitable, () => ({ text: "Next: you can Imitate it from this menu.", path: "Observe ▸ Imitate" })],
     [(x) => x.kind === "place", (x) => ({ text: `Next: Gaia warns at ${x.warnAt} wounds. Commune with plants here, or keep wounds under ${x.warnAt}.`, path: null })],
-    [(x) => x.kind === "dream", () => ({ text: "Next: it fades when the dream closes, or when someone names it.", path: null })],
+    [(x) => x.kind === "dream", (x) => ({ text: `Next: name it from Rituals ▸ Dreams${x.cost != null ? ` · ${x.cost} AP` : ""}.`, path: "Rituals ▸ Dreams" })],
     [(x) => (x.kind === "plant" || x.kind === "structure") && x.closed, () => ({ text: "It will not answer you again this battle.", path: null })],
     [(x) => (x.kind === "plant" || x.kind === "structure") && x.ready, (x) => ({ text: `Next: approach and ${x.deed}. ${x.dist <= x.range ? "You are beside it" : `Stand beside the ${x.common} (${x.dist} tiles away)`}, then Rituals ▸ ${x.ritual} · ${x.ap} AP + ${x.phi} ΦF. It will ask what you just learned.`, path: `Rituals ▸ ${x.ritual}` })],
     [(x) => x.kind === "plant" || x.kind === "structure", (x) => ({ text: `Next: observe again. ${x.need - x.fam} more familiarity (about ${Math.max(x.step, (x.need - x.fam - (x.bonus || 0)) * x.step)} AP).`, path: "Observe" })],
@@ -222,5 +222,31 @@
   // `shows` is the trait tag the AI adds to its chosen action; it is not part of what the action is.
   const plain=action=>{const {shows,...rest}=action||{};return JSON.stringify(rest);};
   function value(s,a,action,h){return options(s,a,h).find(o=>plain(o.action)===plain(action))?.value??0;}
-  return {recordFact,recordCards,validFact,factsOf,share,findingNoteOptions,has,nature,botanist,knowledge,cognitive,setCognitive,plantBook,structureBook,discoveries,credit,damageBonus,eligible,hidden,plantPlan,options,value,nextStep};
+  // Observe teaches O3: the first-look system note per observe kind, two sentences each. The UI shows it once per
+  // account (never in test battles) and the codex keeps it; the summon row wires when O2c lands its observe kind.
+  const SYSTEM_NOTES={
+    plant:{title:"Communing",text:"Observing a plant teaches you its answers: each look raises familiarity, and a plant you know well can be communed with from Rituals. Stand beside it and perform the ritual — it will ask what you just learned."},
+    structure:{title:"Waking",text:"Old structures house tsukumogami, spirits that wake for an Animist who studied them: observe one until it is ready, then stand beside it and wake it from Rituals. It will ask what you just learned."},
+    dream:{title:"Dream lessons",text:"Dream monsters are lessons wearing teeth: observing one reveals what it teaches. They fade when the dream closes, or when someone names them."},
+    unit:{title:"Studying foes",text:"Observing a fighter reveals how it fights: each study can expose a trait you may imitate, or a weakness to exploit. Spend AP on Observe against a foe to learn its tells before you commit."},
+    place:{title:"Reading the ground",text:"Observing the place reads the ground itself: site temper, shelter, and what Gaia tolerates here. Wound the land past her patience and Gaia warns you; commune with plants to stay in her good graces."},
+    summon:{title:"Summon questions",text:"Each palace room holds one of your summons' questions: observing a room earns a hint for that summon this battle. Call it from Rituals ▸ Summon ally — one wrong choice is struck."}};
+  const SYSTEM_NOTE_KINDS=Object.keys(SYSTEM_NOTES);
+  function systemNoteFor(kind){return SYSTEM_NOTES[kind]||null;}
+  // O3 kind mapping (MED-1: Investigate looks are first looks too). `look` carries the battle slices the mapping
+  // reads ({ actors, objects }); the investigate-with-object branch mirrors deepLook's own resolution (actions.js),
+  // anything not a plant routes to structure exactly as the engine does.
+  function observeKindOf(act, look) {
+    if (!act) return null;
+    if (act.type === "observePlant") return "plant";
+    if (act.type === "observeStructure") return "structure";
+    if (act.type === "observePlace") return "place";
+    if (act.type === "investigate" && (act.place || act.object)) {
+      if (act.place) return "place";
+      return (look?.objects || []).find((o) => o.id === act.object)?.kind === "plant" ? "plant" : "structure";
+    }
+    if (act.type === "observe" || act.type === "investigate") return look?.actors?.[act.target]?.dream ? "dream" : "unit";
+    return null;
+  }
+  return {recordFact,recordCards,validFact,factsOf,share,findingNoteOptions,has,nature,botanist,knowledge,cognitive,setCognitive,plantBook,structureBook,discoveries,credit,damageBonus,eligible,hidden,plantPlan,options,value,nextStep,systemNoteFor,SYSTEM_NOTE_KINDS,observeKindOf};
 });

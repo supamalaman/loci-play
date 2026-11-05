@@ -167,8 +167,12 @@
       closeDreamSummons(s, field);
       closeDreamTreeants(s, field);
     }
+    // Observe teaches O2b: a dream monster the player named (the nameDream action) fades when the round closes (the same outcome as dream.js endOfRound's "named" branch, which the engine never calls), in a Dream Space or out of one (random rifts). Dreams on the player's side are never named (the action refuses them).
+    function fadeNamedDreams(s) {
+      for (const actor of Object.values(s.actors)) if (actor.dream?.named && !actor.defeated && actor.side !== "player") { actor.defeated = true; spiritGone(s, actor); log(s, { kind: "dreamFade", actor: actor.id, text: `${actor.name} fades: you woke from it.` }); }
+    }
     function resolveDreamRound(s) {
-      if (!dreamSpaceRules || !s.dreamSpace || s.outcome) return;
+      if (!dreamSpaceRules || !s.dreamSpace || s.outcome) { if (!s.outcome) fadeNamedDreams(s); return; }
       const units = Object.values(s.actors);
       const snapshot = { seed: s.seed, round: s.round, arena: moduleArena(s.arena), units,
         wild: [...s.wild, ...units.filter((a) => a.dream)], heroId: s.dreamSpace.owner };
@@ -198,6 +202,7 @@
         actor.defeated = true; spiritGone(s, actor);
         log(s, { kind: "dreamFade", actor: id, text: actor.name + " fades as the Dream Space closes." });
       }
+      fadeNamedDreams(s);   // Observe teaches O2b (after the psyche credit above)
       if (!s.dreamSpace && result.summonLinger) closeDreamSummons(s, fieldBefore);
       if (!s.dreamSpace) closeDreamTreeants(s, fieldBefore);
       if (result.appear) {

@@ -48,18 +48,23 @@
     const more = G ? [g.tier >= 2 ? `verb ${name(G.verb)} (free, once a turn)` : `at II: ${name(G.verb)}`, g.tier >= 3 ? `technique ${name(G.tech)} (free, once a battle)` : `at III: ${name(G.tech)}`].join("; ") : "";
     return `Gift: ${g.name} ${NUMERALS[g.tier]}: ${G?.does || ""}.${more ? ` ${more[0].toUpperCase()}${more.slice(1)}.` : ""}`;
   }
-  // One soul at a time (D55, pre-screen cap): the strongest soul speaks —
-  // highest tier, then highest score, then first equipped. Soul Choir (the
+  // One soul at a time (D55, pre-screen cap): the CHOSEN soul speaks when it
+  // is awake (account.gear.speaking, Active Jinki J1), otherwise the strongest
+  // soul speaks — highest tier, then highest score, then first equipped. Soul Choir (the
   // perk) holds the strongest soul of EACH kind — same-kind gifts never
   // stack, so every gift is capped per wearer. Returns arts {[kind]: tier}
   // for readers, the merged trick inject for passives(), and held item ids
   // for the card's dormant lines.
   function activeGifts(account, equippedIds) {
     const choir = (account?.perks?.soulChoir || 0) > 0;
-    const hale = (id) => (account?.gear?.durability?.[id] ?? 1) > 0;   // worn-out gifts sleep (mirrors loot worn)
+    const hale = (id) => (account?.gear?.durability?.[id] ?? 1) > 0 && !(account?.museum?.placed || []).includes(id);   // worn-out gifts sleep (mirrors loot worn); an enshrined soul rests in the Museum
     const awake = (equippedIds || []).filter(hale).map((id) => ({ id, g: giftsFor(account, id), score: scoreOf(account?.gear?.care?.[id]) }))
       .filter((x) => x.g)
       .sort((x, y) => y.g.tier - x.g.tier || y.score - x.score);
+    // The player's choice (account.gear.speaking, an item id or null = the rule above): a chosen soul that is awake goes first, so it is the one that speaks, or, under the
+    // Choir, the one that wins its own kind (the other kinds still take their strongest). One that cannot speak (not worn, worn out, not awakened) changes nothing.
+    const chosen = awake.findIndex((x) => x.id === account?.gear?.speaking);
+    if (chosen > 0) awake.unshift(awake.splice(chosen, 1)[0]);
     const perKind = new Map();   // awake runs strongest-first: the first of each kind wins, seconds never stack
     for (const x of awake) if (!perKind.has(x.g.kind)) perKind.set(x.g.kind, x);
     const held = choir ? [...perKind.values()] : awake.slice(0, 1);
@@ -71,6 +76,15 @@
     }
     return { arts, inject, held: ids };
   }
+  // Why the chosen soul is not speaking, in one line, or null when there is no choice or it speaks (the Field Kit shows it, J2). `nameOf(id)` is the item's name.
+  function restingReason(account, equippedIds, nameOf = (id) => id) {
+    const id = account?.gear?.speaking; if (!id) return null;
+    if (activeGifts(account, equippedIds).held.includes(id)) return null;
+    const name = nameOf(id), because = !(account?.gear?.owned || []).includes(id) ? "it is no longer yours" : (account?.museum?.placed || []).includes(id) ? "it is in the Museum" : !giftsFor(account, id) ? "it has not awakened" : !(equippedIds || []).includes(id) ? "put it on to hear it" : "it is worn out: repair it to hear it";
+    return `Your chosen soul, ${name}, is resting: ${because}.`;
+  }
+  // "Breakfall II": the gift a soul lends, as the round-1 line and the Souls strip name it.
+  const giftName = (account, id) => { const g = giftsFor(account, id); return g ? `${g.name} ${NUMERALS[g.tier]}` : null; };
   // Ability ids the soul lends this battle: the verb at II, the
   // technique at III. Read by abilitiesOf (engine.js).
   function artIds(arts) {
@@ -153,5 +167,5 @@
     }
     return { account: a, events };
   }
-  return { LADDER, KINDS, AWAKEN_AT, PROMOTE_AT, GIFTS, tierOf, giftsFor, giftLine, activeGifts, artIds, scoreOf, stepOf, kindOf, ensureOrigin, rarityOf, awaken, promote, check, cues };
+  return { LADDER, KINDS, AWAKEN_AT, PROMOTE_AT, GIFTS, tierOf, giftsFor, giftLine, activeGifts, restingReason, giftName, artIds, scoreOf, stepOf, kindOf, ensureOrigin, rarityOf, awaken, promote, check, cues };
 });

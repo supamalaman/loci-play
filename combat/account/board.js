@@ -18,10 +18,12 @@
   else root.ConceptCombatBoard = factory(root.ConceptCombatMint);
 })(typeof self !== "undefined" ? self : this, function (MINT) {
   const RULES = { postings: 3, expiryBattles: 3,
-    bases: { assassinate: 18, survive: 12, escape: 14, noDamage: 20, solo: 16, turnLimit: 14, noUlts: 15, vowBound: 12 },
+    bases: { assassinate: 18, survive: 12, escape: 14, noDamage: 20, solo: 16, turnLimit: 14, noUlts: 15, vowBound: 12, convert: 14, capture: 14, kneeVictory: 22, trialWin: 12 },   // the last four are the non-lethal jobs Fame opens (FAME.md E7; PROVISIONAL, under the mint cap)
     constraintMul: { solo: 1.5, turnLimit: 1.4, noUlts: 1.3, noDamage: 1.6 } };
   const LIVE = ["assassinate", "survive", "escape", "noDamage", "solo", "turnLimit", "noUlts", "vowBound"];
-  const STUBS = ["convert", "capture", "kneeVictory", "trialWin", "revelationFirst", "bingoBounty", "ladderRanked", "tabooBound", "kitLocked", "kneesOnly"];
+  const FAME_LIVE = ["convert", "capture", "kneeVictory", "trialWin"];   // Fame F2 (FAME.md E7): non-lethal jobs, offered from Fame 2, verified from the finished battle's Fame rows
+  const FAME_MIN = 2;
+  const STUBS = ["revelationFirst", "bingoBounty", "ladderRanked", "tabooBound", "kitLocked", "kneesOnly"];
   const roll = (seed, tag) => {
     let h = 2166136261;
     for (const c of `${seed}:${tag}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
@@ -34,8 +36,8 @@
     for (const c of constraints || []) p *= RULES.constraintMul[c] || 1;
     return MINT.capped("board", Math.round(p)).seeds;
   }
-  function draft(seed, i, battles, roster) {
-    const condition = pick(seed, `board:cond:${i}`, LIVE);
+  function draft(seed, i, battles, roster, fame = 0) {
+    const condition = pick(seed, `board:cond:${i}`, fame >= FAME_MIN ? [...LIVE, ...FAME_LIVE] : LIVE);   // old accounts at Fame 0 or 1 draw exactly the old pool
     const m = { id: `b${battles}-${condition}-${i}`, condition, constraints: [], expiresAt: battles + RULES.expiryBattles };
     let diff = 1;
     if (condition === "assassinate") m.target = pick(seed, `board:target:${i}`, roster.length ? roster : ["student"]);
@@ -51,23 +53,23 @@
     m.payout = price(condition, diff, m.constraints);
     return m;
   }
-  function generate({ seed = 1, battles = 0, lastIds = [], roster = [] } = {}) {
+  function generate({ seed = 1, battles = 0, lastIds = [], roster = [], fame = 0 } = {}) {
     const out = [];
     let guard = 0;
     while (out.length < RULES.postings && guard++ < 30) {
-      const m = draft(`${seed}:${guard}`, out.length, battles, roster);
+      const m = draft(`${seed}:${guard}`, out.length, battles, roster, fame);
       if (lastIds.includes(m.id) || out.some((o) => o.id === m.id)) continue;
       out.push(m);
     }
     return out;
   }
   function state(a) { return (a.board ||= { postings: [], accepted: null, lastIds: [], done: 0 }); }
-  function refresh(account, { seed = 1, roster = [] } = {}) {
+  function refresh(account, { seed = 1, roster = [], fame = 0 } = {}) {
     const b = state(account), battles = account.battles || 0;
     b.lastIds = b.postings.map((p) => p.id);
     const kept = b.postings.find((p) => p.id === b.accepted && p.expiresAt > battles);
     if (b.accepted && !kept) b.accepted = null;   // the accepted job rotted off the board (no back-pay, no penalty)
-    const fresh = generate({ seed: `${seed}:b${battles}`, battles, lastIds: b.lastIds, roster })
+    const fresh = generate({ seed: `${seed}:b${battles}`, battles, lastIds: b.lastIds, roster, fame })
       .filter((p) => p.id !== b.accepted).slice(0, RULES.postings - (kept ? 1 : 0));
     b.postings = [...(kept ? [kept] : []), ...fresh];
     return account;
@@ -98,6 +100,11 @@
     turnLimit: (m, r) => r.winner === "player" && r.round <= m.n ? null : `over ${m.n} rounds (or not a win).`,
     noUlts: (m, r) => r.winner === "player" && !r.playerUlts ? null : "an ult went off (or not a win).",
     vowBound: (m, r) => r.winner === "player" && r.vowsKept > 0 ? null : "no kept vow (or not a win).",
+    // Fame F2: the record carries `fameRows`, the row names Fame.eventsFrom read off the finished battle (persuade, spared, knockout, sealed, tamed, presence, bonus, trial).
+    convert: (m, r) => r.winner === "player" && (r.fameRows || []).includes("persuade") ? null : "no foe came to terms (or not a win).",
+    capture: (m, r) => r.winner === "player" && (r.fameRows || []).some((x) => x === "sealed" || x === "tamed") ? null : "nothing was sealed or tamed (or not a win).",
+    kneeVictory: (m, r) => r.winner === "player" && (r.fameRows || []).includes("presence") ? null : "no victory by presence (or not a win).",
+    trialWin: (m, r) => r.winner === "player" && (r.fameRows || []).includes("trial") ? null : "no trial was won (or not a win).",
   };
   const CONSTRAINT_CHECKS = {
     solo: (m, r) => r.foughtBeside.length ? "broke solo." : null,
@@ -123,8 +130,9 @@
   }
   function describe(m) {
     const bits = { assassinate: `Assassinate ${m.target}`, survive: `Survive ${m.n} rounds`, escape: "Get out alive",
-      noDamage: "Win untouched", solo: "Win solo", turnLimit: `Win in ${m.n} rounds`, noUlts: "Win without ults", vowBound: "Win with a kept vow" };
+      noDamage: "Win untouched", solo: "Win solo", turnLimit: `Win in ${m.n} rounds`, noUlts: "Win without ults", vowBound: "Win with a kept vow",
+      convert: "Win a foe over", capture: "Seal or tame a foe", kneeVictory: "Win by presence", trialWin: "Win a trial" };
     return `${bits[m.condition] || m.condition}${(m.constraints || []).length ? ` (${m.constraints.join(", ")})` : ""} — ${m.payout} Seeds`;
   }
-  return { RULES, LIVE, STUBS, generate, refresh, accept, abandon, verify, settle, describe };
+  return { RULES, LIVE, FAME_LIVE, FAME_MIN, STUBS, generate, refresh, accept, abandon, verify, settle, describe };
 });

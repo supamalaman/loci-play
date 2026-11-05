@@ -74,7 +74,7 @@
     multitudes: w("contextual", "ui.js:4692", ["showMultitudesCard"], "S6"), audition: w("contextual", "ui.js:4703", ["showAuditionCard"], "S6"),
     proposeStakes: w("gambler", "ui.js:4760", ["showStakesCard"], "S6"), sweatIt: w("gambler", "ui.js:4800", ["showStakeCard"], "S6"),
     vowCard: w("contextual", "ui.js:4819", ["showVowCard"], "S6"),
-    communeQuestion: w("contextual", "ui.js:4895", ["showCommuneQuestion", "showAwakenQuestion"], "S6"), summonQuestion: w("contextual", "ui.js:4948", ["showSummonQuestion"], "S6"),
+    communeQuestion: w("contextual", "ui.js:4895", ["showCommuneQuestion", "showAwakenQuestion", "showNameDreamQuestion"], "S6"), summonQuestion: w("contextual", "ui.js:4948", ["showSummonQuestion"], "S6"),
     battleOver: w("arantxa", "ui.js:5339", [], "S4"), cutscenePopups: w("served", "ui.js:327", [], null, "already served: faceFile"),
     narratorWindow: w("arantxa", "ui.js:2056", [], "S4"), dispatch: w("chief", "law/dispatch.js:45", [], null, "radio voice only (decision D9)"),
     saveBroken: w(null, "ui.js:1329", ["showSaveBroken"], null, "system overlay (broken save guard, 2026-11-03): plain words about the player's data, no keeper"), firstPick: w(null, "ui.js:1340", ["showFirstPick"], null, "its own scene (Familiar S2, 2026-11-03): the first-launch familiar choice"),

@@ -397,7 +397,7 @@
     // Mystery layer (Muse W2.5, docs/mystery.md): face-down set intents + concealed stakes. Budget 3 face-downs
     // per side per battle; set intents expire after 2 rounds unrevealed (no refund); triggers on-attacked /
     // on-turn-start / manual. Opponent view is count-only; reveals announce at T1+. Numbers provisional.
-    mystery: { budget: 3, expiry: 2, triggers: ["on-attacked", "on-turn-start", "manual"] },
+    mystery: { budget: 3, expiry: 2, triggers: ["on-attacked", "on-turn-start", "manual"], ai: { ripPerCard: 3 } },   // ripPerCard (Muse AI-half-1): what the AI adds to an Observe it already wants when the target holds any face-down card (Observe rips one); provisional
     repositionTiles: 2,                          // defensive reposition after an announcement
     delayedResponseWindow: true,                 // a landing delayed area effect lets its target spend the reaction (guard/reposition)
     lensChangeInCombat: "tempoCost",

@@ -28,8 +28,8 @@
     persuasionPer: 0.01, hallPer: 0.04, hallMaxLevel: 5,       // E1 and E3 (section 3); the 0.3 persuasion cap stays in parley.js
     perk: "nameRecognition",                                   // the perk line whose ranks lift the cap (the perks shelf; absent until it lands)
     tiers: ["Unknown", "Noticed", "Known", "Respected", "Renowned", "Legend", "Storied", "Fabled", "Mythic"],
-    deeds: { persuade: "came to terms with", spared: "spared", knockout: "knocked out", sealed: "sealed", tamed: "tamed", presence: "won by presence", bonus: "won without a death", trial: "won the trial of", clean: "kept clean hands", busk: "busked", perform: "gave a performance the crowd remembers" },
-    unnamed: ["presence", "bonus", "clean", "busk", "perform"],            // rows whose line has no foe to name
+    deeds: { persuade: "came to terms with", spared: "spared", knockout: "knocked out", sealed: "sealed", tamed: "tamed", presence: "won by presence", bonus: "won without a death", trial: "won a trial", clean: "kept clean hands", busk: "busked", perform: "gave a performance the crowd remembers" },
+    unnamed: ["presence", "bonus", "clean", "busk", "perform", "trial"],            // rows whose line has no foe to name
   };
   const rowsOnce = ["presence", "bonus", "trial", "clean", "perform"];     // rows with no foe key: they are not diminished by key
 
@@ -66,10 +66,13 @@
     if (out.reason === "presence") events.push({ row: "presence", key: "presence", name: "the field" });
     // Perform (row 10, F0c; FAME.md section 15): the player's side spent Inspiration on a performance this battle. Crowd regard, so a kill does not stop it. Once a battle (R-20261103-02).
     if (Object.entries(s.inspirationPerformed || {}).some(([id, n]) => sideOf(id) === "player" && n > 0)) events.push({ row: "perform", key: "perform", name: "the crowd" });
+    // Trial (row 6, F2): the player's side invoked a trial and at least one count came back guilty, or the player was the accused and every count was innocent. One row a battle.
+    const ours = (id) => sideOf(id) === "player", guiltyN = (t) => (t.verdicts || []).filter((v) => /:guilty$/.test(v)).length;
+    if ((s.trialLedger || []).some((t) => (ours(t.by) && guiltyN(t) > 0) || (ours(t.accused) && (t.verdicts || []).length > 0 && guiltyN(t) === 0))) events.push({ row: "trial", key: "trial", name: "the court" });
     // Bonus: nobody died. A foe that fell and is neither knocked out nor spared died; rides on a paid award (checked in award).
     // A foe died if it fell and was neither knocked out, spared nor won over: a boss, a beast or a monster counts, a summon or a foe that never arrived does not.
     const died = actors.some((a) => foeSide(a) && !a.summon && !a.summonBinding && !a.notArrived && !a.escaped && a.defeated && !a.knockedOut && !a.spared && !(a.persuaded && sideOf(a.persuaded.with) === "player"));
-    if (out.nonLethal && !died && events.some((e) => e.row !== "perform")) events.push({ row: "bonus", key: "bonus", name: "the field" });
+    if (out.nonLethal && !died && events.some((e) => e.row !== "perform" && e.row !== "trial")) events.push({ row: "bonus", key: "bonus", name: "the field" });
     return events;
   }
 
@@ -106,7 +109,7 @@
       }
       const room = Math.max(0, RULES.perBattleCap - total), paid = Math.min(pts, room);
       if (seenNow && (paid > 0 || pts === 0) && !keysThisBattle.has(seenNow.k)) { keysThisBattle.add(seenNow.k); pending[seenNow.k] = { n: seenNow.n, last: clock }; }   // a foe the cap cut off entirely does not use up its window slot
-      total += paid; if (e.row !== "bonus" && e.row !== "perform") paidOnFoes += paid;   // a performance does not unlock the no-death bonus
+      total += paid; if (e.row !== "bonus" && e.row !== "perform" && e.row !== "trial") paidOnFoes += paid;   // a performance or a won trial is not a foe row: it does not unlock the no-death bonus (FAME.md row 8: rows 1-5 only)
       rows.push({ row: e.row, key: e.key, name: e.name, base, pts: paid, wanted: pts, note });
       if (note && pts === 0 && e.row !== "perform") stale = true;   // a repeat that pays nothing says so, even a one-point row halved to 0
     }

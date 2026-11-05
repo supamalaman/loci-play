@@ -33,13 +33,20 @@
   const rarityOf = (account, id) => { const base = I.equipment[id].rarity; return account && JK ? JK.rarityOf(account, id, base) : base; };
   // Accounts created before loot existed get empty bags; owned gear without a durability record is at full.
   function withBags(a) {
-    const gear = { owned: [], equipped: {}, durability: {}, care: {}, cherished: [], ascended: {},
-      ...(a.gear || {}) };   // care: JC2 biography; cherished: since last battle; ascended: J1 rarity overrides
+    const gear = { owned: [], equipped: {}, durability: {}, care: {}, cherished: [], ascended: {}, speaking: null,
+      ...(a.gear || {}) };   // care: JC2 biography; cherished: since last battle; ascended: J1 rarity overrides; speaking: the soul the player chose to speak, an item id or null for the strongest (Active Jinki, J1)
     const durability = { ...gear.durability };
     for (const id of gear.owned) if (durability[id] == null) durability[id] = maxDurability(id, a);
-    return { seeds: 0, discoveries: 0, marks: [], stash: {}, trackMixes: a.trackMixes || {}, carried: [], schoolTitles: [], wornSchoolTitle: "", ...a, gear: { ...gear, durability } };   // W4.4: the Monomyth wallet and the ledger live here now (old saves normalize on load)
+    return { seeds: 0, discoveries: 0, marks: [], stash: {}, trackMixes: a.trackMixes || {}, carried: [], schoolTitles: [], wornSchoolTitle: "", ...a, gear: { ...gear, durability },
+      museum: { placed: [], plinths: MUSEUM_PLINTHS, scene: false, ...(a.museum || {}) } };   // the Museum (M1): placed = enshrined item ids (they stay in gear.owned), plinths = capacity, scene = the first-placement scene has played   // W4.4: the Monomyth wallet and the ledger live here now (old saves normalize on load)
   }
   const worn = (a, id) => (a.gear.durability[id] ?? 1) <= 0;
+  // ── The Museum (spec claude-museum-spec/specs/MUSEUM.md, slice M1): a safe place of reverence for cherished gear. An enshrined piece stays in gear.owned (the placed list is a
+  // flag beside it, so every "do you own it?" check keeps working), is taken off, cannot be sold, equipped or mended, does not wear, and its care stays as it was; taking it back
+  // is free and exact. It has no effect in battle: care and Jinki stay sentimental, never power or Seeds.
+  const MUSEUM_PLINTHS = 12;
+  const enshrined = (a, id) => (a?.museum?.placed || []).includes(id);
+  const inMuseum = (a, id) => `${I.equipment[id]?.name || id} is in the Museum: take it back first.`;
   // J2: threshold crossings are EVENTS — the sprite swap CELEBRATES.
   // Null when the states build is absent (silence, not breakage).
   const stateCrossed = (id, before, after, max) => {
@@ -235,6 +242,7 @@
   function tendPlan(account, id) {
     const a = withBags(account), it = I.equipment[id];
     if (!it || !a.gear.owned.includes(id)) return { path: "none", reason: "You don't own that gear." };
+    if (enshrined(a, id)) return { path: "none", reason: inMuseum(a, id) };
     const max = maxDurability(id, a), now = a.gear.durability[id], missing = max - now;
     if (missing <= 0) return { path: "none", reason: `${it.name} is already in full repair.` };
     const kits = (kind) => Object.keys(I.consumables).filter((k) => I.consumables[k].effect?.repair === kind && a.stash[k] > 0);
@@ -270,6 +278,7 @@
   function cherish(account, id) {
     const a = withBags(account), it = I.equipment[id];
     if (!it || !a.gear.owned.includes(id)) return { ok: false, account: a, reason: "You don't own that gear." };
+    if (enshrined(a, id)) return { ok: false, account: a, reason: inMuseum(a, id) };
     if (a.gear.durability[id] <= 0) return { ok: false, account: a, reason: `${it.name} is broken; love cannot raise it. It needs a full repair.` };
     if (a.gear.cherished.includes(id)) return { ok: false, account: a, reason: `You cherished ${it.name} already since the last battle.` };
     return applyTend(a, id, { path: "cherish", to: Math.min(maxDurability(id, a), a.gear.durability[id] + 1) });
@@ -356,7 +365,7 @@
     for (const d of drops) {
       const it = catalog(d.kind)[d.id];
       if (d.kind === "equipment" && a.gear.owned.includes(d.id)) {
-        if (I.rules.durability.duplicateRepairs && a.gear.durability[d.id] < maxDurability(d.id, a)) {
+        if (I.rules.durability.duplicateRepairs && a.gear.durability[d.id] < maxDurability(d.id, a) && !enshrined(a, d.id)) {   // an enshrined piece is frozen: its duplicate takes the refund path
           const dupBefore = a.gear.durability[d.id], dupMax = maxDurability(d.id, a);
           a = { ...a, gear: { ...a.gear, durability: { ...a.gear.durability, [d.id]: dupMax } } };
           lines.push(`${it.name} (duplicate): your worn one is fully repaired`); d.repaired = true;
@@ -424,10 +433,11 @@
     let value = I.rarities[it.rarity].sell;   // sold at the born rarity: Jinki care is sentimental, never Seeds (Mala, 2026-10-27; crafting is the money system)
     if (kind === "equipment") {
       if (!a.gear.owned.includes(id)) return { ok: false, account: a, reason: "You don't own that." };
+      if (enshrined(a, id)) return { ok: false, account: a, reason: inMuseum(a, id) };
       if (worn(a, id)) value = Math.round(value * I.rules.durability.brokenSellShare);
       const equipped = Object.fromEntries(Object.entries(a.gear.equipped).filter(([, v]) => v !== id));
       const durability = { ...a.gear.durability }; delete durability[id];
-      a = { ...a, seeds: a.seeds + value, gear: { ...a.gear, owned: a.gear.owned.filter((x) => x !== id), equipped, durability } };   // keep every other item's care, cherished and history (audit 2026-10-27: a sale wiped them all)
+      a = { ...a, seeds: a.seeds + value, gear: { ...a.gear, owned: a.gear.owned.filter((x) => x !== id), equipped, durability, speaking: a.gear.speaking === id ? null : a.gear.speaking } };   // selling the chosen soul clears the choice   // keep every other item's care, cherished and history (audit 2026-10-27: a sale wiped them all)
     } else {
       if (!(a.stash[id] > 0)) return { ok: false, account: a, reason: "None in your stash." };
       const stash = { ...a.stash, [id]: a.stash[id] - 1 }; if (!stash[id]) delete stash[id];
@@ -436,11 +446,53 @@
     return { ok: true, account: a, value };
   }
 
+  // ── The Museum (M1) ──
+  // A piece qualifies when it has been cherished at least once or has awakened (care score 10 or more; M3). It must be owned and not already placed.
+  const AWAKENED_SCORE = 10;
+  function museumQualifies(account, id) {
+    const a = withBags(account), r = a.gear.care[id];
+    return !!I.equipment[id] && a.gear.owned.includes(id) && !!r && (r.cherishes >= 1 || careScore(r) >= AWAKENED_SCORE);
+  }
+  // Enshrine: the piece comes off, stays owned, and is frozen as it is; a chosen speaking soul that is enshrined clears the choice. `first` is true the first time any piece is placed
+  // (the placement scene, M9, plays once). Placing a piece that is already placed is a no-op that says so.
+  function enshrine(account, id) {
+    let a = withBags(account); const it = I.equipment[id];
+    if (!it) return { ok: false, account: a, reason: "Not equipment." };
+    if (!a.gear.owned.includes(id)) return { ok: false, account: a, reason: "You don't own that." };
+    if (enshrined(a, id)) return { ok: true, account: a, already: true };
+    if (!museumQualifies(a, id)) return { ok: false, account: a, reason: `${it.name} has not been cherished yet: the Museum keeps what has been loved.` };
+    if (a.museum.placed.length >= a.museum.plinths) return { ok: false, account: a, reason: `Every plinth is taken (${a.museum.placed.length} of ${a.museum.plinths}).` };
+    const equipped = Object.fromEntries(Object.entries(a.gear.equipped).filter(([, v]) => v !== id)), first = !a.museum.scene;
+    a = { ...a, gear: { ...a.gear, equipped, speaking: a.gear.speaking === id ? null : a.gear.speaking }, museum: { ...a.museum, placed: [...a.museum.placed, id], scene: true } };
+    return { ok: true, account: a, first };
+  }
+  // Take a piece back, free, between battles: it returns exactly as it left (off the body; equip it again to wear it), and its care resumes.
+  function withdraw(account, id) {
+    const a = withBags(account);
+    if (!enshrined(a, id)) return { ok: false, account: a, reason: "That is not in the Museum." };
+    return { ok: true, account: { ...a, museum: { ...a.museum, placed: a.museum.placed.filter((x) => x !== id) } } };
+  }
+  // ── Active Jinki (J1): which awakened soul speaks ──
+  // Choose a soul to speak (an owned, awakened piece; it need not be worn: it is then "resting" until it is), or null for the automatic rule (the strongest speaks). Between battles only.
+  function setSpeaking(account, id) {
+    const a = withBags(account);
+    if (id == null) return { ok: true, account: { ...a, gear: { ...a.gear, speaking: null } } };
+    if (!a.gear.owned.includes(id)) return { ok: false, account: a, reason: "You don't own that." };
+    if (enshrined(a, id)) return { ok: false, account: a, reason: inMuseum(a, id) };
+    if (!JK?.giftsFor?.(a, id)) return { ok: false, account: a, reason: "Only an awakened piece has a soul to hear." };
+    return { ok: true, account: { ...a, gear: { ...a.gear, speaking: id } } };
+  }
+  // The lines the round-1 log shows for the souls that speak this battle: "Worn cap speaks: Breakfall II." (none when no soul speaks).
+  function speakingLines(account) {
+    const a = withBags(account), held = JK?.activeGifts?.(a, Object.values(a.gear.equipped))?.held || [];
+    return held.map((id) => `${I.equipment[id].name} speaks: ${JK.giftName(a, id)}.`);
+  }
   // ── gear and battle packing ──────────────────────────────────────────────
   function equip(account, id) {
     const a = withBags(account), it = I.equipment[id];
     if (!it) return { ok: false, account: a, reason: "Not equipment." };
     if (!a.gear.owned.includes(id)) return { ok: false, account: a, reason: "You don't own that yet." };
+    if (enshrined(a, id)) return { ok: false, account: a, reason: inMuseum(a, id) };
     return { ok: true, account: { ...a, gear: { ...a.gear, equipped: { ...a.gear.equipped, [it.slot]: id } } } };
   }
   function unequip(account, slot) {
@@ -466,6 +518,7 @@
     const a = withBags(account), it = I.equipment[gearId];
     if (!it) return { ok: false, account: a, reason: "Unknown gear." };
     if (!a.gear.owned.includes(gearId)) return { ok: false, account: a, reason: "You don't own that." };
+    if (enshrined(a, gearId)) return { ok: false, account: a, reason: inMuseum(a, gearId) };
     const full = maxDurability(gearId, a);
     if ((a.gear.durability[gearId] ?? full) >= full) return { ok: false, account: a, reason: "Already hale." };
     const cost = Math.max(5, Math.round(I.rarities[rarityOf(a, gearId)].price / 2));
@@ -479,6 +532,7 @@
     const a = withBags(account);
     if (!["lofi", "stripped"].includes(mix)) return { ok: false, account: a, reason: "The shop cuts lofi and stripped; base comes free." };
     if (!a.gear.owned.includes(itemId)) return { ok: false, account: a, reason: "Outfit gear you own." };
+    if (enshrined(a, itemId)) return { ok: false, account: a, reason: inMuseum(a, itemId) };   // a placed piece is frozen as it is (Museum M1: reverence, no outfit changes)
     if (a.trackMixes[itemId] === mix) return { ok: false, account: a, reason: "Already wearing that mix." };
     if (a.seeds < 40) return { ok: false, account: a, reason: `Not enough Seeds (${a.seeds}/40).` };
     return { ok: true, account: { ...a, seeds: a.seeds - 40, trackMixes: { ...a.trackMixes, [itemId]: mix } } };
@@ -488,6 +542,7 @@
     if (!kit || !kit.effect.repair) return { ok: false, account: a, reason: "That isn't a repair item." };
     if (!(a.stash[kitId] > 0)) return { ok: false, account: a, reason: `No ${kit.name} in your stash.` };
     if (!a.gear.owned.includes(gearId)) return { ok: false, account: a, reason: "You don't own that gear." };
+    if (enshrined(a, gearId)) return { ok: false, account: a, reason: inMuseum(a, gearId) };
     const max = maxDurability(gearId, a), now = a.gear.durability[gearId];
     if (now >= max) return { ok: false, account: a, reason: `${I.equipment[gearId].name} is already in full repair.` };
     const after = kit.effect.repair === "full" ? max : Math.min(max, now + Math.ceil(max / 2));
@@ -504,5 +559,5 @@
     return { ...a, carried: [...a.carried.slice(0, i), ...a.carried.slice(i + 1)] };
   }
 
-  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, equip, unequip, passives, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
+  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, equip, unequip, passives, setSpeaking, speakingLines, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
 });

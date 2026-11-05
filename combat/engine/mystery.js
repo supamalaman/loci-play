@@ -6,7 +6,7 @@
 // { unitId, side, ability, trigger, target, setRound, age }.
 // Budget 3 per side per battle; expiry after 2 rounds unrevealed, no refund.
 // Opponent view is COUNT ONLY (seeFoe) — no leaks, ever. The AI never reads
-// contents (it has no mystery code path; audited at integration, docs/mystery.md).
+// contents (its only reader is the counts-only mysteryUnitCount; sealed by tests/mystery-ai.test.mjs).
 // Concealed stakes ride s.stakes.faceDown (engine/ante.js + account/ante.js).
 (function (root, install) {
   if (typeof module === "object" && module.exports) module.exports = install;
@@ -132,6 +132,11 @@
       if (card) fireCard(s, card, [attacker.x, attacker.y], "sprung by the attack");
     }
 
-    return { mysterySet, mysteryReveal, mysteryForce, mysteryTick, mysteryTurnStart, mysteryAttacked, mysteryMigrate };
+    // The AI's only mystery reader (Muse AI-half-1): how many face-down cards one
+    // setter still holds, across both lists (MCR-06: a converted setter's cards may
+    // sit on the other list until they heal). A NUMBER, never contents.
+    const mysteryUnitCount = (s, unitId) => ["player", "enemy"].reduce((n, side) => n + (s.mystery?.[side] || []).filter((c) => c.unitId === unitId).length, 0);
+
+    return { mysterySet, mysteryReveal, mysteryForce, mysteryTick, mysteryTurnStart, mysteryAttacked, mysteryMigrate, mysteryUnitCount };
   })();
 });

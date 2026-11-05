@@ -1416,9 +1416,11 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       if (cand.type === "ability" && a.status?.overpressure && !ClassRuntime?.wire?.[cand.ability]?.relief) return 0;   // overpressure: vent (a relief wire) or nothing — Strike and moves still score, mirroring the beforeAbility guard
       if (["observe","observePlace","observePlant","observeStructure","commune","communeStructure"].includes(cand.type)||cand.observationGoal) {
         const firstFor = (t) => (t === "commune" && communeFirstFor(s, a, cand.object)) || (t === "communeStructure" && awakenFirstFor(s, a, cand.object));
-        if (obsMemo && obsMemo.s === s && obsMemo.id === id) { const v = obsMemo.opts.find((o) => plainAction(o.action) === plainAction(cand))?.value ?? 0; return firstFor(cand.type) ? Math.max(v, COMMUNE_FIRST) : v; }
+        const ot = cand.type === "observe" && cand.target ? s.actors[cand.target] : null;   // Mystery half-1: Observe rips the observed unit's ONE oldest set plan, so a foe holding any face-down card is worth studying once. Counts only, never contents; allies' cards are not; only a unit already inclined to Observe (value > 0: trait or necessity) adds it
+        const ripOf = (v) => (v > 0 && ot && ot.side !== a.side && (H.mysteryUnitCount?.(s, ot.id) || 0) > 0 ? (s.rules.mystery?.ai?.ripPerCard ?? 0) : 0);
+        if (obsMemo && obsMemo.s === s && obsMemo.id === id) { const v = obsMemo.opts.find((o) => plainAction(o.action) === plainAction(cand))?.value ?? 0; return (firstFor(cand.type) ? Math.max(v, COMMUNE_FIRST) : v) + ripOf(v); }
         const v = H.Observation.value(s,a,cand,H.observationH());
-        return firstFor(cand.type) ? Math.max(v, COMMUNE_FIRST) : v;
+        return (firstFor(cand.type) ? Math.max(v, COMMUNE_FIRST) : v) + ripOf(v);
       }
       { const o = cand.type === "strike" && cand.target && anchorsOf(s, a).find((p) => p.x === cand.target[0] && p.y === cand.target[1]);
         if (o) { const after = apply(s, cand, { preview: true }); if (!after.ok) return -1;   // a tower's anchor: its HP lost, and the tower if it falls

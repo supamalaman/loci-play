@@ -25,6 +25,7 @@
       wildSnapshot } = H;
     const sealedNext = () => (typeof module === "object" && module.exports ? require("../sealed-next.js") : globalThis.ConceptCombatSealedNext);
     const DreamData = () => (typeof module === "object" && module.exports ? require("../dream/dream-data.js") : globalThis.ConceptCombatDreamData) || null;   // O2a: a dream monster's teaches for the observe result
+    const Dream = () => (typeof module === "object" && module.exports ? require("../dream/dream.js") : globalThis.ConceptCombatDream) || null;   // O2b: naming the dream from Rituals
     // defined by parts installed after this one: reached through H when called
     const aiAction = (...args) => H.aiAction(...args);
     const candidates = (...args) => H.candidates(...args);
@@ -305,7 +306,7 @@
         const canImitate = (id) => insightRules?.imitable?.(id) && !(hasTrait(a, id) && !a.tempTraits?.[id] && !(s.imitation?.carried || []).includes(id)) && !(s.imitated || []).some((e) => e.actor === a.id && e.trait === id);
         if ((result.revealed || []).some((c) => c.kind === "trait" && canImitate(c.trait))) log(s, { kind: "observe", actor: a.id, target: t.id, text: H.Observation.nextStep({ kind: "unit", imitable: true }).text });
         const teaches = t?.dream?.key && DreamData()?.monsters?.[t.dream.key]?.teaches;
-        if (teaches) { log(s, { kind: "observe", actor: a.id, target: t.id, text: `It teaches: ${teaches}` }); log(s, { kind: "observe", actor: a.id, target: t.id, text: H.Observation.nextStep({ kind: "dream" }).text }); }
+        if (teaches) { log(s, { kind: "observe", actor: a.id, target: t.id, text: `It teaches: ${teaches}` }); if (!t.dream.named && t.side !== a.side) log(s, { kind: "observe", actor: a.id, target: t.id, text: H.Observation.nextStep({ kind: "dream", cost: DreamData().rules.nameIt.actionCost }).text }); }   // the Name path is promised only where the row offers it: not for a dream already named, nor one on your side
       }
       if (a.id === "player" && !s.preview) for (const note of H.Injury?.observeNotes(s, a, t) || []) log(s, { kind: "observe", actor: a.id, target: t.id, text: `You notice: ${note}` });
       if (a.id === "player" && Affinity && !s.preview) { const al = Affinity.line(C, t); if (al) log(s, { kind: "observe", actor: a.id, target: t.id, text: al }); }   // W4.5: the soul's vow-drive is visible
@@ -1806,6 +1807,25 @@
         const ally = communeAlly(s, a, obj); H.Exposure.communed(s, a);   // Exposure: the borrowed boons are for one commune
         log(s, { kind: "commune", actor: ally.id, target: a.id, tiles: [[obj.x, obj.y]], text: `The ${prof.common} answers ${a.name} and steps out of the ground as ${ally.name} (${ally.lf} LF). ${score.explain}`,
           why: ["It fights beside you until its life runs out. Then it dies, and its body stays where it fell."] });
+      },
+      nameDream(s, a, act) {   // Observe teaches O2b (D6): name a dream monster from Rituals; spends an action, right fades it, wrong feeds it
+        const Dr = Dream();
+        if (!Dr) return "Naming dreams is unavailable.";
+        if (!H.Observation.eligible(a)) return "This unit cannot name a dream.";
+        const t = s.actors[act.target];
+        if (!t?.dream || t.defeated) return "Choose a living dream to name.";
+        const m = Dr.data.monsters[t.dream.key];
+        if (!m) return "That dream has no name to learn.";
+        if (t.side === a.side) return "That dream fights beside you: there is nothing to name.";
+        if (t.dream.named) return "It is already named: it fades at round end.";
+        if (s.round < (t.dream.nameRetryRound || 0)) return `You can try naming it again in round ${t.dream.nameRetryRound}.`;
+        if (dist(s, a.x, a.y, t.x, t.y) > 1) return "Stand beside the dream to name it.";
+        if (!m.wake.choices.includes(act.choice)) return "That is not one of its answers.";
+        const spend = spendTempo(s, a, Dr.data.rules.nameIt.actionCost, `Name ${t.name}`); if (spend) return spend;
+        const r = Dr.nameIt(t, act.choice, s.round);
+        s.actors[t.id] = r.actor;
+        log(s, { kind: "dreamNamed", actor: a.id, target: t.id, correct: r.correct, text: r.event.text,
+          why: [r.correct ? "Named: it fades at round end." : `Wrong: it holds on; you can try again in ${Dr.data.rules.nameIt.wrong.retryAfterRounds} rounds.`] });
       },
       observeStructure(s, a, act, deep = null) {   // Tsukumogami step 1: get to know one structure
         if (!Tsukumogami) return "Tsukumogami is unavailable.";
