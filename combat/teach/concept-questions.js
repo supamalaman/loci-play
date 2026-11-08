@@ -253,6 +253,15 @@
       explain: "The book's premise is the method's engine: name the block precisely, then turn it into fuel. A dream examined becomes a plan; a plan executed becomes a career." },
     { id: "act-kat-live-1", topic: "Acting", prompt: "Why does the Katselas approach teach 'how to live as an actor' alongside 'how to act'?", choices: ["Acting classes needed filler material", "A career is decades of rejection, money, and morale — craft alone doesn't survive it", "Only working actors need technique"], answer: 1,
       explain: "Attitude and Administration exist because talent without a life that supports it burns out. The method protects the actor so the actor can keep acting." },
+    // ── living water W1 (mechanism: rain pools in the low ground, water spreads downhill; asserts the LIVE agenda only)
+    { id: "wat-rain-1", topic: "Water", prompt: "Rain falls on the whole field, yet the low ground floods first. Why?", choices: ["Low tiles drink faster", "Water flows downhill, so high tiles drain into low ones", "Rain aims for valleys"], answer: 1,
+      explain: "The agenda rains everywhere open, then every wet tile hands volume to its lowest lower neighbor. Pooling is drainage arriving, not rain preferring." },
+    { id: "wat-canopy-1", topic: "Water", prompt: "A tile under a tree canopy stays dry in the early rain. What ends its shelter?", choices: ["Nothing — canopy is permanent", "The rain outlasts what the canopy can hold", "Wind alone"], answer: 1,
+      explain: "Canopy holds the rain off only while rainRounds stays within canopyHoldsRainRounds; a long storm soaks through. Same rule the microclimate already used. (Runoff still pools downhill under trees — canopy stops rain, not rivers.)" },
+    { id: "wat-flow-1", topic: "Water", prompt: "A stream tile on a slope carries a current vector each round. What does the vector mean?", choices: ["The tile is about to dry", "That edge drains toward its lowest lower neighbor", "Something swims there"], answer: 1,
+      explain: "Flow records a [dx,dy] toward the lowest lower neighbor — the current's direction. W1 only telegraphs it; W2's currents will push units along it." },
+    { id: "wat-tele-1", topic: "Water", prompt: "No water effect ever lands untelegraphed. How does the agenda warn you?", choices: ["A log line naming the tiles it touches", "A popup you must dismiss", "It doesn't — veterans watch the sky"], answer: 0,
+      explain: "'Rain pools in the low ground' and 'Water spreads downhill' log with their tiles every round they act: one telegraph per threat per round, always ahead of the effect." },
   ];
   return { questions };
 });

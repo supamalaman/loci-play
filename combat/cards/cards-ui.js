@@ -119,7 +119,7 @@
   // "Cards: 3 of 4 unused" for the owner (and allies); an aware observer who may know gets the numbers; an unaware observer gets "".
   function unitLine(view) {
     if (!view) return "";
-    const sets = view.sets ? ` · ${view.sets} set` : "";
+    const sets = view.sets ? ` · ${view.sets} set${view.sets === 1 ? "" : "s"}` : "";
     if (view.full) return `Cards: ${view.unused} of ${view.deckSize} unused${sets}`;
     const base = `Cards (seen): ${view.unused} of ${view.deckSize} unused${sets}`;
     return view.unusedList ? `${base} · shown: ${view.unusedList.join(", ")}` : base;

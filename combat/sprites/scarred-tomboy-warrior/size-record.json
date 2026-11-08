@@ -1,0 +1,283 @@
+{
+  "size_class": "person",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "pad": "4px transparent",
+  "source": "Scarred Tomboy Warrior Sprite Sheet.png",
+  "poses": {
+    "idle": {
+      "pixel_size": [
+        179,
+        208
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        175,
+        204
+      ],
+      "foot_point_px": [
+        89.5,
+        204
+      ],
+      "sha256": "3a24857f411ad773d07e44a5f3da4024679629e1ebca3f1310179f3cfa4a1bbf"
+    },
+    "walk": {
+      "pixel_size": [
+        234,
+        208
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        230,
+        204
+      ],
+      "foot_point_px": [
+        117.0,
+        204
+      ],
+      "sha256": "7ae0e4835cfa2ef20e92d1393f81b499b74d1dbc382747ec8400c58873e12c9a"
+    },
+    "dodge": {
+      "pixel_size": [
+        279,
+        208
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        275,
+        204
+      ],
+      "foot_point_px": [
+        139.5,
+        204
+      ],
+      "sha256": "e83a459e245546ef8ddd4fe1a2a946c23ffde63b01d92ccb3dd43a56b1550971"
+    },
+    "knockback": {
+      "pixel_size": [
+        252,
+        208
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        248,
+        204
+      ],
+      "foot_point_px": [
+        126.0,
+        204
+      ],
+      "sha256": "f412a8e39f33f276e62404952c49cfddbb9c41995ca8efb5dc41615051d694ab"
+    },
+    "punch": {
+      "pixel_size": [
+        290,
+        208
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        286,
+        204
+      ],
+      "foot_point_px": [
+        145.0,
+        204
+      ],
+      "sha256": "0ad79c53657ea8f467bbdb2e29f417821d094b1342844dd24278b08d8d6f0457"
+    },
+    "cast": {
+      "pixel_size": [
+        283,
+        232
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        279,
+        228
+      ],
+      "foot_point_px": [
+        141.5,
+        228
+      ],
+      "sha256": "16f59ea268a2d14f99712c7598a686f5473999ea56c897a8e6474eba4c74878f"
+    },
+    "cast-off": {
+      "pixel_size": [
+        283,
+        232
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        279,
+        228
+      ],
+      "foot_point_px": [
+        141.5,
+        228
+      ],
+      "sha256": "16f59ea268a2d14f99712c7598a686f5473999ea56c897a8e6474eba4c74878f"
+    },
+    "cast-def": {
+      "pixel_size": [
+        285,
+        238
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        281,
+        234
+      ],
+      "foot_point_px": [
+        142.5,
+        234
+      ],
+      "sha256": "a7f5dc4b2ad6847f1da6526bd62c1598ba7f56d6272edf58538adbb2f0071239"
+    },
+    "block": {
+      "pixel_size": [
+        294,
+        235
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        290,
+        231
+      ],
+      "foot_point_px": [
+        147.0,
+        231
+      ],
+      "sha256": "a01a5f27dc82a95444c438bbfd7b2d64d862c1519399b84685b99ea7828f42ee"
+    },
+    "knocked-out": {
+      "pixel_size": [
+        287,
+        170
+      ],
+      "alpha_bounds": [
+        12,
+        14,
+        283,
+        166
+      ],
+      "foot_point_px": [
+        147.5,
+        166
+      ],
+      "sha256": "66c67441dc41dde574c67badc16e43d29438ab3f76d359ee11a443ea0c989c93"
+    },
+    "ultimate": {
+      "pixel_size": [
+        292,
+        238
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        288,
+        234
+      ],
+      "foot_point_px": [
+        146.0,
+        234
+      ],
+      "sha256": "9282ec4c839e59a09fabfeea24bb24edcff6fc3287f06746ee0bf0e52fc2ba28"
+    },
+    "portrait-neutral": {
+      "pixel_size": [
+        285,
+        270
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        281,
+        266
+      ],
+      "foot_point_px": [
+        142.5,
+        266
+      ],
+      "sha256": "d791246e1ca06500a44dba3637d0493d53e965c2c09b94e49d5cd0acf451a0a5"
+    },
+    "portrait-happy": {
+      "pixel_size": [
+        294,
+        270
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        290,
+        266
+      ],
+      "foot_point_px": [
+        147.0,
+        266
+      ],
+      "sha256": "0408a1e14c160555d93753abb0b595b6e38a1b485a014744256e40c32b044a07"
+    },
+    "portrait-angry": {
+      "pixel_size": [
+        294,
+        270
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        290,
+        266
+      ],
+      "foot_point_px": [
+        147.0,
+        266
+      ],
+      "sha256": "dd803e8b6c303b075934ca735fc9514123b01ea44d4d0c96eaa3e81ee5a762de"
+    },
+    "portrait-sad": {
+      "pixel_size": [
+        294,
+        270
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        290,
+        266
+      ],
+      "foot_point_px": [
+        147.0,
+        266
+      ],
+      "sha256": "a920eee94a9f2fc80a221798488d8229ca91d1236bc48167d52f13cf9a752a85"
+    },
+    "portrait-surprised": {
+      "pixel_size": [
+        292,
+        270
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        288,
+        266
+      ],
+      "foot_point_px": [
+        146.0,
+        266
+      ],
+      "sha256": "f1e40a7b90f529d1e1ae836a3c307e03c19d817f029a812292db0cfb47b74a25"
+    }
+  }
+}

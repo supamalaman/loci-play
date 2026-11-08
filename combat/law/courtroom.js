@@ -23,6 +23,7 @@
   const RULES = { riteCost: 1, evidenceNeeded: 2, maxCounts: 3, invokeTempo: 25, playTempo: 10 };
   const seed01 = (seed, tag) => { let h = 2166136261; for (const c of `${seed}:${tag}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619); h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
   const revealedOn = (s, who, accused) => (s.insight?.knowledge?.[who]?.[accused]?.revealed || []).length;
+  const foundIds = (s, accused) => Object.values(s.cls?.lawEvidence?.[accused] || {}).flat().filter((e) => e.grade === "found").map((e) => e.id);
   function fixtures(s) {
     return Object.values(s.actors || {}).filter((u) => !u.defeated).map((u) => ({ id: u.id, name: u.name, side: u.side === "player" ? "ally" : u.side,
       honest: !!u.traits?.some?.((t) => (t?.id || t) === "honest"), lf: u.lf, maxLF: u.maxLF, alive: true, arrivalRound: u.arrivalRound ?? 0 }));
@@ -50,7 +51,7 @@
     a.rite.steps.splice(0, RULES.riteCost);
     const t = TR.openTrial({ form: "courtroom", accusedId, prosecutorId: invokerId, seed: s.seed,
       units: fixtures(s), counts: countsFor(s, accusedId) });
-    s.trial = { t, invokerId, accusedId, queued: null, contempt: [], over: false, revealedAtOpen: revealedOn(s, invokerId, accusedId) };
+    s.trial = { t, invokerId, accusedId, queued: null, contempt: [], over: false, foundAtOpen: foundIds(s, accusedId) };
     H.log(s, { kind: "trial", actor: invokerId, target: accusedId, text: `${a.name} invokes a mock-trial rite: the battle HOLDS. ${t.counts.length} counts against ${s.actors[accusedId].name}. Violence now is contempt.` });
     return { ok: true };
   }
@@ -96,10 +97,11 @@
   function maybeRetrial(s, H) {
     const tr = s.trial, guilty = (tr.t.verdicts?.counts || []).filter((v) => v.verdict === "guilty");
     if (!guilty.length || (tr.t.retrialsUsed || 0) >= 2) return;
-    const now = revealedOn(s, tr.invokerId, tr.accusedId);
-    if (now <= tr.revealedAtOpen) return;   // genuinely new evidence only
+    // I4c (INVESTIGATE.md 11.3): only newly-found evidence re-opens — a bare reveal is not new evidence. The reveal count still gates the invoke (the evidence floor).
+    const fresh = foundIds(s, tr.accusedId).filter((id) => !(tr.foundAtOpen || []).includes(id));
+    if (!fresh.length) return;   // genuinely new evidence only
     if (seed01(s.seed, `retrial:${tr.t.retrialsUsed}:${s.round}`) >= 0.5) return;
-    TR.retry(tr.t, guilty[0].count, `obs-${now}-r${s.round}`);
+    if (TR.retry(tr.t, guilty[0].count, `found-${fresh.sort()[0]}`).ok) tr.foundAtOpen.push(...fresh);   // consumed: the same find never re-opens twice (the retry key dedupes too)
   }
   function sealPick(s, H, accused) {
     const ids = H.abilitiesOf ? H.abilitiesOf(accused) : [];
@@ -163,5 +165,5 @@
     H.log(s, { kind: "trial", actor: a.id, text: `${a.name} brawls during trial: CONTEMPT. The room turns against their side (favor ${tr.t.favor >= 0 ? "+" : ""}${tr.t.favor}). No double-jeopardy shield; hunters will remember.` });
     return `${a.name} cannot fight during trial: contempt of court.`;
   }
-  return { RULES, canInvoke, countsFor, fixtures, invoke, queuePlay, queueDefense, advance, applyVerdicts, violenceGate };
+  return { RULES, canInvoke, countsFor, fixtures, invoke, queuePlay, queueDefense, advance, applyVerdicts, violenceGate, foundIds };
 });

@@ -1,0 +1,23 @@
+{
+  "size_class": "small",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 0.5,
+  "world_height_definition": "PROPOSED by the Cutter (Sedge CU, 2026-11-03) from CARD_STARTER_SET: #18: small, skirmish kit, 18 LF. A person (the Warden) = 1.0. The PNGs are drawn at person-scale resolution, so the game draws this familiar at world_height x a person's height. Decided 2026-11-05: Mala delegated the size call to Cleat BD ('your call on size class'); the Cutter's proposal stands (the lineup reads right beside the Warden).",
+  "runtime_consumed": false,
+  "source": "Hedge-Sprite Forest Guardian Sprite Sheet.png (staged-art/card-familiars, Sedge CU)",
+  "note": "Nothing in web/combat reads size_class or world_height yet; the card summon slice (Cards C3) wires the draw scale.",
+  "foot_point_px": [
+    151.0,
+    260
+  ],
+  "idle_alpha_size_px": [
+    142,
+    252
+  ],
+  "minimum_pixel_size_px": 48,
+  "minimum_pixel_size_definition": "The draw height this size class must reach on screen, from the class table in ROLES.md Art sizing (tiny 24, small 48, person 96, large 144, giant 192 px, where a person draws at 96 px): Mala delegated the call to Cleat BD, 2026-11-05 ('your call on size class ... I trust your judgement'). The idle's source alpha height (idle_alpha_size_px) is far above it, so nothing here is REGEN.",
+  "foot_point_definition": "The idle's foot point in that PNG's pixels (centre x, bottom alpha row), copied from the Cutter's size-record.json in staged-art/card-familiars/<folder>/; every pose's own foot point is in that record."
+}

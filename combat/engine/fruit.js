@@ -32,16 +32,16 @@
   return (function () {
     const { C, log, dist, key, wildRules } = H;
     const RULES = {
-      kits: { coil: ["windTheSpring"], hide: ["takeTheShape"], mist: ["fogBank"] },
+      kits: { coil: ["windTheSpring"], hide: ["takeTheShape"], mist: ["fogBank"], locus: ["commitToMemory"] },
       drowningMul: 1.5, drainedTakenMul: 1.25,
       coil: { impactTakenMul: 0.6, potencyPerCoil: 4, reachPerCoil: 1, maxCoils: 3 },
       mist: { driftMiss: 0.35, fogRadius: 1, fogRounds: 2 },
       hide: { tempShare: 0.25, tempCap: 25, turns: 3, absorbFeat: 15 },
       // Respec S2a (refined, Ripe). Recoil is a reaction with no card: it spends the round's reaction and 4 ΦF on its own.
-      refined: { hide: ["scent"], mist: ["vapourStep"] },
+      refined: { hide: ["scent"], mist: ["vapourStep"], locus: ["walkTheRooms"] },
       // Respec S2b1: the awakened arts (Awakened stage, announced, 15 PhiF). Mainspring: the eater's pushes on a target within 2 travel +1 tile, and the first Strike each turn
       // lets its coils go without spending them, for 2 of your turns (the cast turn and the next).
-      awakened: { coil: ["mainspring"], mist: ["weatherFront"], hide: ["fullShape", "dropTheShape"] },
+      awakened: { coil: ["mainspring"], mist: ["weatherFront"], hide: ["fullShape", "dropTheShape"], locus: ["memoryPalace"] },
       // Respec S2b3 Full Shape (Hide, Awakened, 15 PhiF): the shape also brings the beast's passive, for at most 4 of the eater's turns; 3 PhiF upkeep at each later turn start; a free drop.
       // The creature data has no passive field, so each swallowable kind is mapped to a live biology trait that suits it (a Decision in the NOTE).
       full: { turns: 4, upkeep: 3 },
@@ -52,10 +52,13 @@
       // Respec S2b2 Weather Front (Mist, Awakened, 15 PhiF): a fog ring on the cast tile grows radius 1, 2, 3 over three of the eater's turns, then clears together.
       // Allies standing in it are lent Drift by the ripe-mist rule that already exists; foes standing in it lose apLoss action points as their turn starts.
       front: { turns: 3, radii: [1, 2, 3], apLoss: 10 },
+      // Respec S6b, the Locusfruit (a memory palace in a body): rooms by stage (Fresh 1, Ripe 2, Awakened 3) hold techniques watched this battle, recalled once at +2 PhiF; Ripe leaves up to 3 memory
+      // marks (the tiles it ended turns on) that Walk the Rooms steps between; the Awakened Memory Palace (radius 3, 2 of the eater's turns) gives allies a free repeat and taxes a foe's stored technique.
+      locus: { rooms: { fresh: 1, ripe: 2, awakened: 3 }, recallPf: 2, marks: 3, palace: { turns: 2, radius: 3, apLoss: 10 } },
       recoil: { pf: 4, push: 1 }, scent: { radius: 3 }, vapour: { radius: 4 },
       steelWillAP: 10,
     };
-    const FRUIT_NAME = { coil: "Coilfruit", hide: "Hidefruit", mist: "Mistfruit" };
+    const FRUIT_NAME = { coil: "Coilfruit", hide: "Hidefruit", mist: "Mistfruit", locus: "Locusfruit" };
     const ab = (id) => C.abilities[id];
     const active = (x, a) => !!x && (x.until == null || x.until >= a.ownerTurns);
     const fruitOf = (a) => a?.fruit && RULES.kits[a.fruit.id] ? a.fruit : null;
@@ -87,7 +90,7 @@
       hasBeast: (s, a) => (a.beastSummons || []).length > 0,   // Full Shape needs a learned creature; the plain shape's card is greyed without one by fruitBlocked
     };
     function armRival(s, opts) {
-      const r = opts.rival, u = s.actors.rival; if (!r || !u || !RULES.kits[r.fruit]) return;
+      const r = opts.rival, u = s.actors.rival; if (!r || !u || !RULES.kits[r.fruit] || r.fruit === "locus") return;   // no rival eater carries the Locusfruit (it is earned, never loose)
       u.fruit = { id: r.fruit, ripe: !!r.ripe, respec: true, shapes: [] }; giveTrait(u);
       u.passives = { ...(u.passives || {}), cantSwim: true, drowningDamageMul: Math.max(u.passives?.drowningDamageMul || 1, RULES.drowningMul) };
       log(s, { kind: "hunter", actor: "rival", text: `${s.actors.rival.name} walks in from the edge of the fight, carrying ${FRUIT_NAME[s.actors.rival.fruit.id] || "a fruit"}: another eater, and the sea refuses them too.`, why: ["Sinkerfruit: a loose fruit can be in someone else's hands. Water and cuffs quiet it; Steel will cuts through."] });
@@ -133,8 +136,30 @@
     function fruitKitOf(a) {
       const f = fruitOf(a); if (!f) return [];
       const shape = a.status?.hideShape && a.status.hideShape.expiresAt > a.ownerTurns ? a.status.hideShape.move : null;
-      return [...RULES.kits[f.id], ...refinedOf(a), ...awakenedOf(a), ...(shape && ab(shape) ? [shape] : [])];
+      return [...RULES.kits[f.id], ...refinedOf(a), ...awakenedOf(a), ...(shape && ab(shape) ? [shape] : []), ...roomsOf(a).map((r) => r.ability).filter((id) => ab(id))];   // a stored technique is castable once: the rooms (Locusfruit)
     }
+    // ── The Locusfruit (S6b). Rooms live on the eater's fruit record for one battle: { ability, user, name }; marks are [x, y] tiles. ──
+    const roomCap = (a) => { const f = fruitOf(a); return f?.id === "locus" ? RULES.locus.rooms[f.awakened ? "awakened" : f.ripe ? "ripe" : "fresh"] : 0; };
+    const roomsOf = (a) => (fruitOf(a)?.id === "locus" ? (a.fruit.rooms ||= []) : []);
+    const roomOf = (a, id) => roomsOf(a).find((r) => r.ability === id) || null;
+    // Bound arts cannot be stored (the spec's "boss, signature, form, merge, identity"; a finished boss folio's part is Layer D 19.13, deferred), and neither can an ultimate (its charge would be skipped).
+    const boundArt = (id) => { const d = ab(id); return !d || !!(d.fruitOnly || d.merge || d.pairs || d.classKind || d.boss || d.signature || d.identity || d.formOnly) || d.tier === "ultimate"; };
+    // What the eater watched a foe use this battle: techniques it witnessed (observedAbilities) that an enemy-side unit cast (the log's act lines), newest last, one entry per technique.
+    function watched(s, a) {
+      const seen = new Set(s.observedAbilities?.[a.id] || []), out = [];
+      for (const e of s.log || []) if (e.kind === "act" && e.ability && seen.has(e.ability) && s.actors[e.actor] && s.actors[e.actor].side !== a.side && !out.some((o) => o.ability === e.ability)) out.push({ ability: e.ability, user: e.actor });
+      return out;
+    }
+    const known = (s, a, id) => (H.abilitiesOf?.(a) || []).some((x) => x === id && !roomOf(a, x));   // a technique the eater already has, rooms aside
+    // Rooms empty in the sea; the "win with every room full" feat rides s.fruitFeats as a pending note the account settles at a win (account/fruit.js settleFeats).
+    function emptyRooms(s, a, why) {
+      const n = roomsOf(a).length; if (!n) return;
+      a.fruit.rooms = []; unfull(s, a);
+      if (!s.preview) log(s, { kind: "effect", actor: a.id, text: `The water washes your palace clean: ${why}.`, why: ["Locusfruit: the water washes the palace clean; every room empties."] });
+    }
+    const full = (s, a) => { if (tracking(s, a) && roomCap(a) >= 2 && roomsOf(a).length >= roomCap(a)) { const l = (s.fruitFeats ||= []); if (!l.includes("locus.fullPending")) l.push("locus.fullPending"); markFeat(s, a, "locus.fill"); } };
+    const unfull = (s, a) => { if (s.fruitFeats && tracking(s, a)) s.fruitFeats = s.fruitFeats.filter((x) => x !== "locus.fullPending"); };
+    const palaceOn = (a) => !!a.status?.palace && a.status.palace.expiresAt > a.ownerTurns;
     function damped(s, a) {
       if (!fruitOf(a) || a.defeated) return "";
       if ((H.tileAt(s, a.x, a.y)?.tags || []).includes("water")) return "The sea takes it: you stand in water.";
@@ -145,6 +170,11 @@
     // A fruit technique, or Hidefruit's borrowed move, is refused while damped; Take the Shape is greyed with nothing learned.
     function fruitBlocked(s, a, id, act) {
       const f = fruitOf(a);
+      if (f?.id === "locus" && roomOf(a, id) && !RULES.kits.locus.includes(id)) {   // recalling a stored technique: the sea takes it, and it costs 2 more PhiF
+        const why = damped(s, a); if (why) return why;
+        const need = (ab(id)?.cost || 0) + RULES.locus.recallPf; if (a.pf < need) return `Recalling ${ab(id).name} from a room costs its own ${ab(id).cost} ΦF and ${RULES.locus.recallPf} more (${need}).`;
+        return null;
+      }
       // A fruit's technique is its eater's own (the fruit is who they are: spec section 1, bound to identity). Watching it taught a Control the Fog Bank in a sim and the
       // cast then read a fruit it did not have (fruitResolve): a unit without that fruit is refused, however it came by the card.
       if (!f || !(RULES.kits[f.id].includes(id) || refinedOf(a).includes(id) || awakenedOf(a).includes(id))) {
@@ -168,6 +198,23 @@
         if (!hidden(s, a).length) return `Nothing hides within ${RULES.scent.radius} tiles.`;
       }
       if (id === "mainspring" && a.status?.mainspring && a.status.mainspring.expiresAt > a.ownerTurns) return "The spring is already wound.";
+      if (id === "commitToMemory") {   // the card greys until a technique is named: a store-less cast is refused before it pays (the picker UI names it; until then tests and the log name the watched list)
+        if (roomsOf(a).length >= roomCap(a)) return `Every room is full (${roomsOf(a).length} of ${roomCap(a)}): recall one first.`;
+        const keepable = watched(s, a).filter((w) => !boundArt(w.ability) && !known(s, a, w.ability) && !roomOf(a, w.ability));
+        if (!keepable.length) return "Nothing to keep: you have watched no foe use a technique you could store.";
+        const pick = act?.store; if (pick == null) return `Name a technique to store (watched: ${keepable.map((w) => ab(w.ability).name).join(", ")}).`;
+        const w = watched(s, a).find((x) => x.ability === pick);
+        if (!w) return "That memory will not stay: you did not watch a foe use it this battle.";
+        if (boundArt(pick)) return "That memory will not stay: it is a bound art (a boss, signature, form, merge, identity or ultimate technique).";
+        if (known(s, a, pick) || roomOf(a, pick)) return roomOf(a, pick) ? "It is in a room already." : "You already know that technique.";
+      }
+      if (id === "walkTheRooms") {
+        const marks = a.fruit.marks || []; if (!marks.length) return "No memory marks yet: they are the tiles you ended turns on.";
+        const at = act?.target; if (!at) return null;
+        if (!Array.isArray(at) || !marks.some((m) => m[0] === at[0] && m[1] === at[1])) return "Walk the Rooms steps to a memory mark: choose a tile you ended a turn on.";
+        if (H.unitOccupied?.(s, at[0], at[1]) || H.tileAt(s, at[0], at[1])?.blocksMove) return "That marked tile is taken.";
+      }
+      if (id === "memoryPalace" && palaceOn(a)) return "The palace is already open.";
       if (id === "weatherFront" && frontOn(a)) return "The front is already out.";
       if (id === "vapourStep") {
         if (!fogAt(s, a.x, a.y)) return "Vapour Step starts in fog: stand in a fog tile.";
@@ -204,6 +251,8 @@
     // At a unit's turn start (engine/turns.js, one line): the eater's front grows a ring (or ends if the fruit went quiet), and anyone standing in a hostile front loses AP.
     function fruitTurnStart(s, a) {
       if (s.preview || a.defeated) return;
+      if (fruitOf(a)?.id === "locus" && damped(s, a)) { emptyRooms(s, a, damped(s, a).replace(/^The sea takes it: /, "")); if (a.status?.palace) { a.status.palace = null; log(s, { kind: "effect", actor: a.id, text: `${a.name}'s palace closes: the sea has the power.` }); } }
+      if (a.status?.palace && a.status.palace.expiresAt <= a.ownerTurns) { a.status.palace = null; log(s, { kind: "effect", actor: a.id, text: `${a.name}'s palace closes.` }); }
       if (a.status?.hideShape?.full) {   // Full Shape: the clock, the sea and the upkeep, in that order; each way out takes the passive back
         if (a.status.hideShape.expiresAt <= a.ownerTurns) endShape(s, a, "the four turns are up");
         else if (damped(s, a)) endShape(s, a, "the sea has the power");
@@ -229,10 +278,12 @@
     function fruitAfterHit(s, src, tgt, type, inst, { dmg = 0, warded = 0, wardHide = false } = {}) {
       if (s.preview) return;
       if (warded > 0 && wardHide && fruitOf(tgt)?.id === "hide" && tracking(s, tgt)) { const c = (s.fruitTally ||= {}); c[`${tgt.id}:hideAbsorb`] = (c[`${tgt.id}:hideAbsorb`] || 0) + warded; if (c[`${tgt.id}:hideAbsorb`] >= RULES.hide.absorbFeat) markFeat(s, tgt, "hide.absorb15"); }
+      if (dmg > 0 && inst?.recalled && inst.recalled.user === tgt.id && src?.side !== tgt.side) markFeat(s, src, "locus.turnBack");   // a foe's own technique, turned back on it
       if (dmg > 0) fruitRecoil(s, src, tgt, type, inst);
     }
     // Called from damage.js after the defeat block: the foe is down and nothing saved it (a revival or a transmigration would have left it standing).
     function fruitKilled(s, src, tgt, inst) {
+      if (inst?.recalled && src?.side !== tgt.side) markFeat(s, src, "locus.ko");
       const move = src?.status?.hideShape?.move;
       if (move && inst?.ability === move && src.status.hideShape.expiresAt > src.ownerTurns && src.side !== tgt.side) markFeat(s, src, "hide.ko");
     }
@@ -323,6 +374,7 @@
       t.status.soaked = { label: "Soaked", owner: t.id, expiresAt: t.ownerTurns + 2 };
       const lost = [t.status.coils?.n ? "the stored coils" : "", t.status.mainspring ? "the wound mainspring" : "", t.status.hideShape || t.status.ward?.hide ? "the borrowed shape and its hide" : "", frontOn(t) ? "the weather front" : ""].filter(Boolean);
       if (t.status.weatherFront) { t.status.weatherFront = null; s.barriers = (s.barriers || []).filter((b) => !(b.front && b.owner === t.id)); }
+      if (fruitOf(t)?.id === "locus") { emptyRooms(s, t, `soaked by ${by}`); t.status.palace = null; }
       unwear(t); t.status.coils = null; t.status.mainspring = null; t.status.hideShape = null; if (t.status.ward?.hide) t.status.ward = null;   // merge fix (Pantry): the hide ward goes with the shape   // the counters the techniques name: water takes the coil and ends the shape
       log(s, { kind: "effect", actor: t.id, target: t.id, text: `${t.name} is soaked by ${by}: the fruit's power goes quiet.`, why: ["Sinkerfruit: water damps the power for a turn (no fruit technique, no ΦF regen, damage ×1.25).", ...(lost.length ? [`The water takes ${lost.join(" and ")}.`] : [])] });
     }
@@ -348,6 +400,29 @@
       if (id === "windTheSpring") {
         const n = Math.min(RULES.coil.maxCoils, (a.status.coils?.n || 0) + 1); a.status.coils = { n }; if (n === RULES.coil.maxCoils) markFeat(s, a, "coil.store3");
         log(s, { kind: "effect", actor: a.id, text: `${a.name} winds the spring: ${n} coil${n === 1 ? "" : "s"} stored (next Strike +${n * RULES.coil.potencyPerCoil} potency, +${n * RULES.coil.reachPerCoil} reach).`, why: ["Coilfruit: the next Strike releases every stored coil."] });
+        return true;
+      }
+      if (id === "commitToMemory") {
+        const w = watched(s, a).find((x) => x.ability === inst.store);
+        if (!w || boundArt(w.ability) || roomsOf(a).length >= roomCap(a)) { log(s, { kind: "effect", actor: a.id, text: `${a.name} reaches for a memory that will not stay.` }); return true; }
+        roomsOf(a).push({ ability: w.ability, user: w.user, name: ab(w.ability).name }); markFeat(s, a, "locus.store"); full(s, a);
+        log(s, { kind: "effect", actor: a.id, text: `${a.name} commits ${s.actors[w.user]?.name || "a foe"}'s ${ab(w.ability).name} to memory: room ${roomsOf(a).length} of ${roomCap(a)}.`, why: ["Locusfruit: it stores only what it watched. Recall it once at its own cost plus 2 ΦF; the room then empties."] });
+        return true;
+      }
+      if (id === "walkTheRooms") {
+        const [tx, ty] = inst.tiles?.[0] || [a.x, a.y], from = [a.x, a.y];
+        a.x = tx; a.y = ty; a.moved = true; markFeat(s, a, "locus.walk");
+        log(s, { kind: "move", actor: a.id, path: [from, [tx, ty]], text: `${a.name} walks the rooms to the mark at (${tx},${ty}).`, why: ["Locusfruit, Ripe: a step to any tile you ended a turn on, no line needed. It provokes nothing, but what is on the tile you land on still happens."] });
+        H.applyEntryEffects?.(s, a, a, tx, ty);
+        return true;
+      }
+      if (id === "memoryPalace") {
+        const P = RULES.locus.palace; a.status.palace = { x: a.x, y: a.y, expiresAt: a.ownerTurns + P.turns };
+        const free = []; for (const u of Object.values(s.actors)) if (!u.defeated && u.side === a.side && dist(s, a.x, a.y, u.x, u.y) <= P.radius) {
+          const last = [...(s.log || [])].reverse().find((e) => e.kind === "act" && e.actor === u.id && e.ability && ab(e.ability));
+          if (last) { (u.status.palaceFree ||= {})[a.id] = { ability: last.ability, expiresAt: a.status.palace.expiresAt }; free.push(`${u.name} (${ab(last.ability).name})`); }
+        }
+        log(s, { kind: "effect", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} opens a memory palace on (${a.x},${a.y}): radius ${P.radius} for ${P.turns} turns.${free.length ? ` Allies who may repeat their last technique with the action points returned: ${free.join(", ")}.` : ""}`, why: ["Locusfruit, Awakened: an ally inside may cast its last used technique once more with the palace returning the action points it pays; a foe inside who uses a technique stored here loses 10 AP."] });
         return true;
       }
       if (id === "dropTheShape") { endShape(s, a, "dropped, for nothing"); return true; }
@@ -392,10 +467,34 @@
       }
       return false;
     }
+    // Every committed ability cast (engine/actions.js, one call): the Locusfruit's side of it. (1) The eater's own cast of a stored technique is a recall: 2 more PhiF, the room empties, and
+    // the cast is marked so a kill or a hit on the technique's own user can earn a feat. (2) A foe inside an open palace who casts a technique stored there loses 10 AP. (3) An ally inside it
+    // repeats its last technique once for free (the AP comes back). (4) Commit to Memory carries the chosen technique onto the cast.
+    function fruitCast(s, a, act, inst) {
+      if (s.preview || !act?.ability) return;
+      if (act.ability === "commitToMemory") inst.store = act.store;
+      const room = fruitOf(a)?.id === "locus" && !RULES.kits.locus.includes(act.ability) && !RULES.refined.locus.includes(act.ability) && !RULES.awakened.locus.includes(act.ability) ? roomOf(a, act.ability) : null;
+      if (room) {
+        a.pf = Math.max(0, a.pf - RULES.locus.recallPf); a.fruit.rooms = a.fruit.rooms.filter((r) => r !== room); unfull(s, a); inst.recalled = { user: room.user };
+        log(s, { kind: "effect", actor: a.id, text: `${a.name} recalls ${room.name} from memory (${RULES.locus.recallPf} ΦF more): the room empties.`, why: ["Locusfruit: a stored technique is cast once, at its own cost plus 2 ΦF."] });
+      }
+      for (const e of Object.values(s.actors)) {
+        if (e.defeated || !palaceOn(e) || fruitOf(e)?.id !== "locus") continue;
+        const P = RULES.locus.palace, inside = dist(s, e.x, e.y, a.x, a.y) <= P.radius;
+        if (a.side !== e.side && inside && roomOf(e, act.ability)) { const lost = Math.min(a.tempo, P.apLoss); a.tempo -= lost; log(s, { kind: "tempo", actor: a.id, text: `${a.name} uses ${ab(act.ability).name} inside ${e.name}'s palace, which has it stored: ${lost} action points lost.`, why: ["Locusfruit, Awakened: you knew it was coming."] }); }
+        const free = a.side === e.side && a.status?.palaceFree?.[e.id];
+        if (free && free.ability === act.ability && free.expiresAt > e.ownerTurns && inside) { delete a.status.palaceFree[e.id]; const back = inst.tempoCost ?? 0; a.tempo = Math.min(a.tempoCapacity ?? 999, a.tempo + back); log(s, { kind: "tempo", actor: a.id, text: `${a.name} repeats ${ab(act.ability).name} inside ${e.name}'s palace: ${back} action points back.`, why: ["Locusfruit, Awakened: an ally may repeat its last technique once with the action points returned."] }); }
+      }
+    }
+    // At the end of the eater's turn (engine/turns.js, one call): a Ripe Locusfruit leaves a memory mark on the tile it stands on (up to 3, the oldest dropped; none while the sea has the power).
+    function fruitTurnEnd(s, a) {
+      if (s.preview || a.defeated || fruitOf(a)?.id !== "locus" || !RULES.refined.locus.every((id) => refinedOf(a).includes(id)) || damped(s, a)) return;
+      const marks = (a.fruit.marks ||= []).filter((m) => !(m[0] === a.x && m[1] === a.y)); marks.push([a.x, a.y]); a.fruit.marks = marks.slice(-RULES.locus.marks);
+    }
     // OP1 §6 (moved out of engine.js, the line cap): a posted head draws a hunter, about one battle in eight. Skips silently with no
     // free edge tile or a feuding crew ("up to"). Returns opts, with the hunter added to the participants when it fits.
     function withHunter(opts, enc, arena) {
-      return withEdge(withEdge(opts, enc, arena, "hunter", opts.hunter), enc, arena, "rival", opts.rival?.character, !!(opts.rival?.fruit && RULES.kits[opts.rival.fruit]));
+      return withEdge(withEdge(opts, enc, arena, "hunter", opts.hunter), enc, arena, "rival", opts.rival?.character, !!(opts.rival?.fruit && RULES.kits[opts.rival.fruit] && opts.rival.fruit !== "locus"));
     }
     function withEdge(opts, enc, arena, id, character, allowed = true) {   // a hunter or a rival eater walks in from the edge (S4a moved the body here so both share it)
       if (!(character && allowed && C.characters[character])) return opts;
@@ -413,6 +512,6 @@
     function hunterEntrance(s) {
       if (s.actors.hunter) log(s, { kind: "hunter", actor: "hunter", text: `${s.actors.hunter.name} walks in from the edge of the fight: the Record pays for your head, and they mean to collect.`, why: ["Sinkerfruit: a posted head draws a hunter (how often, and who, follows the bounty)."] });
     }
-    return { withHunter, hunterEntrance, markFeat, refinedOf, awakenedOf, fruitTraitChecks, armAnimeFruit, fruitPushBonus, fruitRecoil, fruitAfterHit, fruitKilled, fruitKnocked, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitTurnStart, fruitRelease, fruitReach, fruitSoak, fruitResolve };
+    return { withHunter, hunterEntrance, markFeat, refinedOf, awakenedOf, fruitTraitChecks, armAnimeFruit, fruitPushBonus, fruitRecoil, fruitAfterHit, fruitKilled, fruitKnocked, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitTurnStart, fruitRelease, fruitReach, fruitSoak, fruitResolve, fruitCast, fruitTurnEnd };
   })();
 });

@@ -407,8 +407,11 @@
     return Object.assign(summon, ownerState.fresh());
   }
 
-  // Palace summons are the Warden's (Mala 2026-10-22); the menu, the readiness check and the action all ask this one question.
-  const callsPalace = (actor) => actor?.character === "warden";
+  // Palace callers (Mala, 2026-11-05, decision b; was the Warden alone, 2026-10-22): any true player-side character calls,
+  // and the menu, the readiness check, the action and the AI all ask this one question. Called things
+  // cannot call back: palace summons, bound dreams, monsters, bead beasts and tamed dreams are excluded,
+  // as the enemy path excludes its own called actors (enemy-summons.js qualifies).
+  const callsPalace = (actor) => actor?.side === "player" && !actor?.summon && !actor?.summonBinding && !actor?.monster && !actor?.beast && !actor?.tamed;
   return { callsPalace, ownerState, freshen, revealTrueForm, revealMaxForm, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
     canOrderUltimate, orderUltimate, resolveUltimate, orderLost, data: SD };
 });

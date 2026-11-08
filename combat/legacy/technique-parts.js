@@ -61,6 +61,11 @@
         "class:allure"
       ]
     },
+    "ancestralReconstruction": {
+      "riders": [
+        "class:homologyReconstruct"
+      ]
+    },
     "anchor": {
       "riders": [
         "anchor"
@@ -388,6 +393,21 @@
         "class:unfold"
       ]
     },
+    "commitToMemory": {
+      "riders": [
+        "fruit:locus"
+      ]
+    },
+    "comparativeAnatomy": {
+      "riders": [
+        "class:homologyCompare"
+      ]
+    },
+    "comparativeAnatomyFidelity": {
+      "riders": [
+        "class:homologyCompare"
+      ]
+    },
     "compareExplanations": {
       "riders": [
         "class:compare"
@@ -427,6 +447,16 @@
           ]
         ]
       }
+    },
+    "conservedJoint": {
+      "riders": [
+        "class:homologyJoint"
+      ]
+    },
+    "conservedJointSkeleton": {
+      "riders": [
+        "class:homologyJoint"
+      ]
     },
     "consonance": {
       "riders": [
@@ -765,6 +795,12 @@
     },
     "eightCount": {
       "riders": []
+    },
+    "eightfoldClinch": {
+      "riders": [
+        "class:hold",
+        "lingering"
+      ]
     },
     "elsewhereOnCue": {
       "riders": [
@@ -1595,6 +1631,11 @@
         "reactive"
       ]
     },
+    "memoryPalace": {
+      "riders": [
+        "fruit:locus"
+      ]
+    },
     "merge": {
       "riders": [
         "class:monkey"
@@ -2105,6 +2146,11 @@
     "riff": {
       "riders": [
         "class:performance"
+      ]
+    },
+    "riptide": {
+      "riders": [
+        "pull"
       ]
     },
     "smallDoses": {
@@ -2798,6 +2844,11 @@
     "wait": {
       "riders": [
         "class:stealth"
+      ]
+    },
+    "walkTheRooms": {
+      "riders": [
+        "fruit:locus"
       ]
     },
     "warCry": {

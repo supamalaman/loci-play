@@ -18,7 +18,7 @@
     legendary: { weight: 0.5, price: 400, sell: 160, durability: 15 },
   };
   const slots = ["head", "body", "feet", "tool", "charm"];
-  const rules = { battleSlots: 2, stashLimit: 20, currency: "Seeds",
+  const rules = { battleSlots: 2, stashLimit: 20, currency: "Seeds", salvageShare: 0.1,   // kit-board resale: share of rarity price in Seeds (Mala, 2026-11-05)
     durability: { wearPerBattle: 1, warnAt: 1, brokenSellShare: 0.5, duplicateRepairs: true } };
 
   // biome tags match terrain archetypes, so a quarry battle drops quarry things more often

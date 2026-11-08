@@ -1,0 +1,24 @@
+{
+  "size_class": "large",
+  "minimum_pixel_size_px": 144,
+  "idle_alpha_size_px": [
+    248,
+    195
+  ],
+  "idle_pixel_size": [
+    256,
+    203
+  ],
+  "foot_point_px": [
+    128.0,
+    199
+  ],
+  "world_height": 1.5,
+  "world_height_definition": "PROPOSED by Kerf CU 2026-11-06 as large cephalopod (Haliphron). Person=1.0.",
+  "footprint_tiles": [
+    2,
+    2
+  ],
+  "source": "Haliphron Octopus Pixel Sprite Sheet.png",
+  "note": "Combat character sheet. Faces face-*.png. Wiring TBD (foe kit / class)."
+}

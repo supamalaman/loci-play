@@ -67,6 +67,7 @@
     threatBoard: w("ravana", "ui.js:1234", ["showSetup"], "S2"), contractBoard: w("hermes", "ui.js:1083", ["showBoard"], "S2"),
     hiringHall: w("jambavan", "ui.js:1100", ["showHall"], "S1"), codex: w("magistrate", "ui.js:1119", ["showCodex"], "S4"),
     scribingDesk: w("freemason", "legacy/workshop-ui.js:4", [], "S4"), lab: w("madScientist", "ui.js:1157", ["showLab"], "S5"),
+    sheet: w("contextual", "ui.js:showSheet", ["showSheet"], "S6"),   // Fame F3a: the character sheet has no keeper of its own; S6 (the overlay resolver) names who speaks there (FAME.md 10.2 The sheet + 10.8 slicing row; differs from 10.6's exemption wording, disclosed in the shelf NOTE)
     workshop: w("starfarer", "ui.js:1386", ["showWorkshop", "showWorkshopHub"], "S4"), school: w("lakshmana", "ui.js:1514", ["showSchool"], "S2"),
     square: w("gambler", "ui.js:1551", ["showBusk"], "S2"), classicMenu: w("arantxa", "ui.js:1181", ["showSetup"], "S4"),
     battleSidePanel: w(null, "ui.js:673", [], null, "control surface: owns the Dialogue toggle, no keeper"),

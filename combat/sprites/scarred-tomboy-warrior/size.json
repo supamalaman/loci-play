@@ -1,0 +1,26 @@
+{
+  "size_class": "person",
+  "minimum_pixel_size_px": 96,
+  "idle_alpha_size_px": [
+    171,
+    200
+  ],
+  "idle_pixel_size": [
+    179,
+    208
+  ],
+  "foot_point_px": [
+    89.5,
+    204
+  ],
+  "world_height": 1.0,
+  "world_height_definition": "PROPOSED by Kerf CU 2026-11-06 (NOTE: person size); accepted by Mala 2026-11-06 (R-20261106-04, sizes as proposed). Person=1.0.",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "source": "Scarred Tomboy Warrior Sprite Sheet.png",
+  "minimum_pixel_size_definition": "ROLES.md person=96px. idle alpha height above it, not REGEN.",
+  "runtime_consumed": false,
+  "note": "Grown form of the Tomboy Warrior (R-20261106-01). Combat 10 poses + 5 portraits. Wiring TBD; nothing draws it yet. size.json written at land by Bollard IN from the Cutter's size-record.json (2026-11-07)."
+}

@@ -1,0 +1,25 @@
+{
+  "size_class": "small",
+  "minimum_pixel_size_px": 48,
+  "idle_alpha_size_px": [
+    177,
+    191
+  ],
+  "idle_pixel_size": [
+    185,
+    199
+  ],
+  "foot_point_px": [
+    92.5,
+    195
+  ],
+  "world_height": 0.5,
+  "world_height_definition": "PROPOSED by Kerf CU 2026-11-06 as familiar peer of ember-moth (small). Person=1.0.",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "source": "Mech-Jellyfish Familiar Sprite Sheet.png",
+  "minimum_pixel_size_definition": "ROLES.md small=48px. idle alpha height above it \u2192 not REGEN.",
+  "note": "Familiar kit art; faces face-*.png. Wiring TBD."
+}

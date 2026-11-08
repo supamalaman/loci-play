@@ -1,0 +1,295 @@
+{
+ "size_class": "giant",
+ "footprint_tiles": [
+  1,
+  1
+ ],
+ "pad": "4px transparent (importer)",
+ "source": "Kraken Pixel Art Sprite Sheet.png",
+ "poses": {
+  "block.png": {
+   "pixel_size": [
+    277,
+    221
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    273,
+    217
+   ],
+   "foot_point_px": [
+    138.5,
+    217
+   ],
+   "sha256": "c7c28d75396e4fc53fb14760b36c22e093b2d9015dc327531b5fd368198f886d"
+  },
+  "cast-def.png": {
+   "pixel_size": [
+    288,
+    208
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    284,
+    204
+   ],
+   "foot_point_px": [
+    144.0,
+    204
+   ],
+   "sha256": "13b287a446e6330cdac2a5f061969ab86926dc6cc886b083f20f966ed2cc5046"
+  },
+  "cast-off.png": {
+   "pixel_size": [
+    298,
+    242
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    294,
+    238
+   ],
+   "foot_point_px": [
+    149.0,
+    238
+   ],
+   "sha256": "600b4a5c0b4d01f2844a0cfa4865b22a64b7fb2a8c79c05ff730da92895d5b95"
+  },
+  "cast.png": {
+   "pixel_size": [
+    298,
+    242
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    294,
+    238
+   ],
+   "foot_point_px": [
+    149.0,
+    238
+   ],
+   "sha256": "600b4a5c0b4d01f2844a0cfa4865b22a64b7fb2a8c79c05ff730da92895d5b95"
+  },
+  "dodge.png": {
+   "pixel_size": [
+    277,
+    196
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    273,
+    192
+   ],
+   "foot_point_px": [
+    138.5,
+    192
+   ],
+   "sha256": "18ad5f6f98a9cf0bb0245f18a483adc5a796d45529b69eb34959dbf82c17e686"
+  },
+  "portrait-neutral.png": {
+   "pixel_size": [
+    292,
+    222
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    288,
+    218
+   ],
+   "foot_point_px": [
+    146.0,
+    218
+   ],
+   "sha256": "ffb0a0654959bfc821414547048a963114eba6d7870a11c8d5d377a489c77ef0"
+  },
+  "portrait-happy.png": {
+   "pixel_size": [
+    292,
+    221
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    288,
+    217
+   ],
+   "foot_point_px": [
+    146.0,
+    217
+   ],
+   "sha256": "6e3d2a11084bd62b57783043411b912d4f9c39887f6824f87f808dd4564f8540"
+  },
+  "portrait-angry.png": {
+   "pixel_size": [
+    282,
+    229
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    278,
+    225
+   ],
+   "foot_point_px": [
+    141.0,
+    225
+   ],
+   "sha256": "81fe2ea2944fa5f522fd968054dedce9c94c40c48d2043a4e1346ece94cb88f5"
+  },
+  "portrait-sad.png": {
+   "pixel_size": [
+    296,
+    213
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    292,
+    209
+   ],
+   "foot_point_px": [
+    148.0,
+    209
+   ],
+   "sha256": "66918c6fccdc9d1db614cebaf36559b84d7bdead3850a18a215db54a03860071"
+  },
+  "portrait-surprised.png": {
+   "pixel_size": [
+    294,
+    222
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    290,
+    218
+   ],
+   "foot_point_px": [
+    147.0,
+    218
+   ],
+   "sha256": "0b52c65f1af5797a2c15f226bdc80b7758fa0678485ae1ab6964036bc118bdbb"
+  },
+  "idle.png": {
+   "pixel_size": [
+    289,
+    203
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    285,
+    199
+   ],
+   "foot_point_px": [
+    144.5,
+    199
+   ],
+   "sha256": "0f5fd6b37ed19904b8a560e23e183471089f6069cd9e6bf77804692a7963a1ac"
+  },
+  "knockback.png": {
+   "pixel_size": [
+    287,
+    197
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    283,
+    193
+   ],
+   "foot_point_px": [
+    143.5,
+    193
+   ],
+   "sha256": "6b27172b1c4822217155ba2bf506a06554ddcad07767501a3d96b7d7ec85fe71"
+  },
+  "knocked-out.png": {
+   "pixel_size": [
+    277,
+    156
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    273,
+    152
+   ],
+   "foot_point_px": [
+    138.5,
+    152
+   ],
+   "sha256": "b7e817bc157085d65dbcdc2fb13238fb08580b323fb90439fcac3a0e004c0016"
+  },
+  "punch.png": {
+   "pixel_size": [
+    303,
+    185
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    299,
+    181
+   ],
+   "foot_point_px": [
+    151.5,
+    181
+   ],
+   "sha256": "b80c8dc51c87bc4f6d03ba3faa1054a7e49c2f0be005515bf8a78e59f28a6a24"
+  },
+  "ultimate.png": {
+   "pixel_size": [
+    317,
+    247
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    313,
+    243
+   ],
+   "foot_point_px": [
+    158.5,
+    243
+   ],
+   "sha256": "ee8f73474c1e84c6053b2591e7b78d4ed9226044a31887887a67dbc8c2d52ce0"
+  },
+  "walk.png": {
+   "pixel_size": [
+    302,
+    184
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    298,
+    180
+   ],
+   "foot_point_px": [
+    151.0,
+    180
+   ],
+   "sha256": "3f8eccf22e8df8474444883e22ee14c71d6d455dcee9b0546eee029a74544a63"
+  }
+ },
+ "size_class_status": "cutter's pick, not confirmed (kraken reads giant; clears the 192px minimum at 195px idle alpha height by 3px)",
+ "world_height": 2.0,
+ "world_height_definition": "Twice a person. Warden idle is the 183 cm / 1.0 reference; lineup.png shows kraken idle at 2x warden height.",
+ "minimum_pixel_size_px": 192,
+ "foot_point_definition": "Bottom-center of opaque alpha bounds.",
+ "artist": "unattributed",
+ "artist_tag": "unattributed",
+ "credit": "unattributed",
+ "cutter": "Beacon CU",
+ "date": "2026-11-05",
+ "runtime_consumed": false,
+ "cleanup": "2026-11-05 halo-bar fix: boxes inset past divider smear (L/R +5, T +5 from frame-inset boxes), full re-cut at --tol 3 after a 2-8 tolerance sweep (tol 2 keeps film, tol 8 erodes 16-18% of figure; tol 3 erodes 3.7-6.5% edge-only, zero bars, zero islands). No per-sheet post script; boxes.json + cut_sheet.py reproduce the cut."
+}

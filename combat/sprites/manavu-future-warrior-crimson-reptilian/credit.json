@@ -1,0 +1,13 @@
+{
+ "artist": "@ManavuArt",
+ "artist_tag": "@ManavuArt",
+ "artist_display": "@ManavuArt",
+ "role": "character sprite design",
+ "source_sheet": "Manavu Future_Warrior_Crimson_Reptilian_15_Sprites.png",
+ "source_sha256": "fecf6511a6f22d91081a3bf56b768729f2e5b8525c0f23f838e8f0fbbd96da60",
+ "package": "manavu-future-warrior-crimson-reptilian",
+ "cutter": "Keystone CU",
+ "session": "grok:f531c831",
+ "date": "2026-11-04",
+ "display_in_game": "Integrator: copy artist into sprite-manifest / character data so the tag is visible in game. Cutter does not edit the live manifest."
+}

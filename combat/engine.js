@@ -105,7 +105,7 @@
     }
     // ClassRuntime helpers: the engine primitives the class runtime is allowed to use.
     const relayH = () => ({ ...classH(), strikeRange: (s, a) => H.strikeRange(s, a), manifest: (s, a, id) => manifest(s, a, id), target: (...p) => H.target(...p) });
-    const classH = () => ({ States: H.States, Observation: H.Observation, Hires: H.Hires, spreadIdea: (...x) => H.spreadIdea(...x), Traps, insightRules, Longtermism: H.Longtermism, Dispatch, Courtroom, vesselOf: (s, a) => H.vesselOf?.(s, a), summonPack: (s, a) => H.summonPack?.(s, a), itemName: (id) => pickupRules?.sources?.[id]?.name || accountItems?.consumables?.[id]?.name || id, exposure: H.Exposure, abilitiesOf: (a) => abilitiesOf(a), inspire: (s, a, n, why) => H.Inspiration.gain(s, a, n, why), inspireWitnesses: (s, at, key, except) => H.Inspiration.witness(s, at, key, except), rollSession: (s, a, n) => H.Inspiration.rollSession(s, a, n), spendInspiration: (s, a, n, kind) => H.Inspiration.spend(s, a, n, kind), line, log, hit, knock, dist, actorAt, inside, tileAt, barrierAt, heightAt, addStun, waterAt: H.waterAt, surfaceAt, C, seededChance, dreamSame, hasSight: (s, ...p) => hasSight(s, ...p), actor: (s, id) => s.actors[id], startTurn: (s) => H.startTurn(s), freshBody: (b, s) => H.freshBody(b, s),
+    const classH = () => ({ lensOf, States: H.States, Observation: H.Observation, Hires: H.Hires, spreadIdea: (...x) => H.spreadIdea(...x), Traps, insightRules, Longtermism: H.Longtermism, Dispatch, Courtroom, vesselOf: (s, a) => H.vesselOf?.(s, a), summonPack: (s, a) => H.summonPack?.(s, a), itemName: (id) => pickupRules?.sources?.[id]?.name || accountItems?.consumables?.[id]?.name || id, exposure: H.Exposure, abilitiesOf: (a) => abilitiesOf(a), inspire: (s, a, n, why) => H.Inspiration.gain(s, a, n, why), inspireWitnesses: (s, at, key, except) => H.Inspiration.witness(s, at, key, except), rollSession: (s, a, n) => H.Inspiration.rollSession(s, a, n), spendInspiration: (s, a, n, kind) => H.Inspiration.spend(s, a, n, kind), line, log, hit, knock, dist, actorAt, inside, tileAt, barrierAt, heightAt, addStun, waterAt: H.waterAt, surfaceAt, C, seededChance, dreamSame, hasSight: (s, ...p) => hasSight(s, ...p), actor: (s, id) => s.actors[id], startTurn: (s) => H.startTurn(s), freshBody: (b, s) => H.freshBody(b, s),
       ability:id=>ab(id), conceptChannel:id=>C.conceptDamageTypes[id], accountItems,
       releaseSong:(s,a,radius)=>{for(const u of Performers.units(s))if(dist(s,a.x,a.y,u.x,u.y)<=radius&&dreamSame(s,a.x,a.y,u.x,u.y)&&s.actors[u.status?.held?.by]?.side!==u.side)delete u.status?.held;
         s.terrainEffects=(s.terrainEffects||[]).filter(e=>!(e.kind==="pastedFragment"&&e.side!==a.side&&e.tiles.some(([x,y])=>dist(s,a.x,a.y,x,y)<=radius&&dreamSame(s,a.x,a.y,x,y))));},
@@ -274,16 +274,13 @@
       if (field && actor?.widenedPalace) profile.maxActive += 1;   // Widened Palace dream slot
       return { ...profile, active: Object.values(s.actors).filter(u => EmergentIdeas?.summonerOf(u) === id && EmergentIdeas.summonPresent(u)).map(u => u.id) };
     }
-    function summonQuestionHints(s, id) {
-      const a = s.actors[id];
-      return (a?.passives?.questionHint || 0) + (s.summonHintCount || 0) + (EmergentIdeas?.rehearsalHints(a) || 0);
-    }
+    // summonQuestionHints lives in engine/queries.js (moved whole for O2c: engine.js is at its cap).
     function summonReadiness(s, id, summon, unlocked = s.unlockedSummons || []) {
       const actor = s.actors[id];
       if (!actor || actor.defeated || actor.lf <= 0) return { ok: false, reason: "Choose a living summoner." };
       if (actor.form?.golden) return { ok: false, reason: "The Integrated Self has no need to summon." };
       if (!summonRules || !summonQuestions) return { ok: false, reason: "Summoning is unavailable." };
-      if (!summonRules.callsPalace(actor)) return { ok: false, reason: "Only the Warden calls the palace." };
+      if (!summonRules.callsPalace(actor)) return { ok: false, reason: "Only the player's side calls the palace." };
       return summonRules.canSummon({ ...summonProfile(s, id), used: s.summonUsed, ap: actor.tempo, pf: actor.pf }, summon, { unlocked });
     }
     function proficientSummonerTestOptions() {
@@ -830,7 +827,7 @@
           const garden=(s.terrainEffects||[]).some(e=>e.kind==="rainGarden"&&e.tiles.includes(k)&&s.actors[e.owner]?.ownerTurns<e.expiresAt);
           const dam=(s.terrainEffects||[]).some(e=>e.kind==="checkDam"&&e.x===nx&&e.y===ny&&s.actors[e.owner]?.ownerTurns<e.expiresAt);
           const thornTax=kind==="route"&&(s.terrainEffects||[]).some(e=>e.kind==="thorn"&&e.tiles?.some(([tx,ty])=>tx===nx&&ty===ny)&&s.actors[e.owner]?.ownerTurns<e.expiresAt&&s.actors[e.owner]?.side!==actorAt(s,fromX,fromY)?.side);
-          const cost = kind === "move" ? H.stepCost(s, x, y, nx, ny, flyer || (mover?.awakened ? mover : null)) : 1 + (kind === "route" ? (garden ? 1 : 0) + (dam ? 2 : 0) + (thornTax ? 1 : 0) : 0);   // the mover reaches stepCost only when awakened: everyone else's pathing is untouched
+          const cost = kind === "move" ? H.moveCost(s, x, y, nx, ny, mover, flyer) : 1 + (kind === "route" ? (garden ? 1 : 0) + (dam ? 2 : 0) + (thornTax ? 1 : 0) : 0);
           if (!Number.isFinite(cost) || dd + cost > budget || (d.has(k) && d.get(k) <= dd + cost)) continue;
           d.set(k, dd + cost); prev.set(k, [x, y]); q.push({ at: [nx, ny], cost: dd + cost });
         }
@@ -1404,7 +1401,7 @@
       moveBudgetFor, ownerOfConcept, paths, pickupRules, planViewActive, plantUnderfoot, presidentCanRecognize, presidentContext,
       presidentEffects, presidentRules, presidentUnits, processRandomEvents, proficiencyFor, progress, randomEncounterOptions, rangeEnvelope,
       recordBattleMirrorOutcome, recordEarthMoved, recordMirrorEvent, refreshDrowning, replay, report, reserveSlotsFor, restoreRandomTerrain,
-      runWildEnvironment, saveWildWorld, settleHomeward, spendTempo, summonProfile, summonReadiness, summonQuestionHints, springTraps, structures, summonQuestions, summonRules,
+      runWildEnvironment, saveWildWorld, settleHomeward, spendTempo, summonProfile, summonReadiness, springTraps, structures, summonQuestions, summonRules,
       summonTrueFormTestOptions, surfaceAt, syncPickup, syncPresidentUnit, terrainData, tileAt, traitKey, unitAt, unitOccupied, updateWildTelegraphs,
       vegetation, weatherTileValue, wildRules, wildSnapshot
     };
@@ -1439,7 +1436,7 @@
     } = H;
     return { cards: H.Cards, warfareEventOptions, eventParticipantsFor, create, apply, preview, targeting, moveOptions, jumpOptions, climbOptions, movementBudget: (s, id) => moveBudgetFor(s, s.actors[id]), movementStepCost: (...a) => H.stepCost(...a), availableAbilities, randomEncounterOptions, manifest: (s, id, abId) => manifest(s, s.actors[id], abId),
       waterState: (s,x,y) => H.waterState(s,x,y), updateWater: s => H.updateWater(s), recoverWater: (s,id) => H.waterRecovery(s,s.actors[id]),
-      abilitiesOf: (s, id) => abilitiesOf(s.actors[id]), riteDraws: (def) => H.riteDraws(def), decider, aiAction, inspectAiAction: (s, options) => H.withAiTrace(() => aiAction(s), options), replay, answerTransfer, progress, report, mysteryFoeView: (s, side) => ({ count: (s.mystery?.[side] || []).length }), mysteryOwnView: (s, side) => (s.mystery?.[side] || []).map((c) => ({ ...c })),
+      abilitiesOf: (s, id) => abilitiesOf(s.actors[id]), riteDraws: (def) => H.riteDraws(def), decider, aiAction, inspectAiAction: (s, options) => H.withAiTrace(() => aiAction(s), options), replay, answerTransfer, progress, report, mysteryFoeView: (s, side) => H.mysteryFoeCount(s, side), mysteryOwnView: (s, side) => (s.mystery?.[side] || []).map((c) => ({ ...c })),
       // For tests and sims: land a hit or a stun through the real pipeline, and read the monster context.
       testEntry: (s, srcId, unitId, x, y) => { const u = s.actors[unitId]; u.x = x; u.y = y; applyEntryEffects(s, s.actors[srcId], u, x, y, "is forced into"); },
       weatherTileValue, demonstratedTraits,
@@ -1476,7 +1473,7 @@
       placeCivilian: (s, spec) => Civilian.present(s, spec),
       touristTestOptions: () => ({ encounter:"firstWall",title:"The Tourist · postcard test",seed:5,tourist:{at:[2,3]},startingActor:"player",arenaData:{name:"Camera Garden",map:Array(8).fill("............"),objects:[{id:"fern",kind:"plant",type:"Fern",form:"groundcover",material:"plant",x:5,y:1,hp:12,blocksMove:false}]},participants:[{id:"player",character:"warden",side:"player",at:[5,3]},{id:"student",character:"student",side:"enemy",at:[10,6]}] }),
       multitudes: (s, id) => H.Multitudes.view(s, s.actors[id]), multitudesTestOptions, embodiedConceptsTestOptions: () => ({ encounter: "firstWall", focusedDreamTest: true, title: "Embodied Concepts · test", seed: 53, startingActor: "player", initialSummons: [], rules: { embodiedConcepts: { ...C.rules.embodiedConcepts, enabled: true } }, arenaData: { name: "Embodiment test", map: Array(7).fill("..........."), objects: [] }, participants: [{ id: "player", character: "warden", side: "player", at: [3, 3] }, { id: "student", character: "student", side: "enemy", at: [8, 3] }] }),   // reachability: the opt-in rides opts.rules (folded here: engine.js stays under its cap)
-      aiFailure, aiSnapshot, stallPreview, deathDoorOdds, proficientSummonerTestOptions, summonProfile, summonReadiness, summonQuestionHints, emergentIdeas: (s, id) => EmergentIdeas?.active(s.actors[id]) || [], performerTestOptions, focusedDreamTestOptions, devPlaygroundOptions, themedBattleOptions, meleeTestOptions, summonTrueFormTestOptions, archivistTestOptions, fullCourtPressOptions,
+      aiFailure, aiSnapshot, stallPreview, deathDoorOdds, proficientSummonerTestOptions, summonProfile, summonReadiness, summonQuestionHints: H.summonQuestionHints, emergentIdeas: (s, id) => EmergentIdeas?.active(s.actors[id]) || [], performerTestOptions, focusedDreamTestOptions, devPlaygroundOptions, themedBattleOptions, meleeTestOptions, summonTrueFormTestOptions, archivistTestOptions, fullCourtPressOptions,
       geometry: { line, hasSight: (s, ...p) => hasSight(s, ...p), paths: (s, ...p) => paths(s, ...p), dist: (s, ...p) => dist(s, ...p), tileAt: (s, x, y) => tileAt(s, x, y), surfaceAt: (s, x, y) => surfaceAt(s, x, y), barrierAt: (s, x, y) => barrierAt(s, x, y), actorAt: (s, x, y) => actorAt(s, x, y), heightAt: (s, x, y) => heightAt(s, x, y), observedAbilities: (s, id) => (s.observedAbilities?.[id] || []).filter(aid => ab(aid)?.tier !== "ultimate").map(aid => ({ id: aid, name: ab(aid).name, concepts: ab(aid).concepts })) },
       lensOf: (s, id, c) => lensOf(s.actors[id], c), compositionEdge: (s, id) => compositionEdge(s.actors[id]), content: C, stance: (s, v, t) => H.stanceFor(s, s.actors[v], s.actors[t]), hostileSides: (s, t) => H.hostileSidesFor(s, s.actors[t]),
       astral: { regionOf: (s, x, y) => H.astralRegionOf(s, x, y), sameRegion: (s, ax, ay, bx, by) => H.astralSameRegion(s, ax, ay, bx, by) }, applyRevealEffect: (s, id) => applyRevealEffect(s, s.actors[id]) };   // astral pocket queries + reveal effects, for tests

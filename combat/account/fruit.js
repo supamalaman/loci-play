@@ -16,7 +16,8 @@
 //                                    Playground, autoplay: they save nothing) never rolls; a real win rolls rollDrop
 //   eat(account, id)               → { ok, account, line } | { ok: false, error } (a second fruit is refused)
 //   battleOpts(account)            → { id, ripe } for engine create (opts.fruit), or null
-//   returnToTide(account)          → { account, line } (a saga close: the eaten fruit goes back to the pool)
+//   returnToTide(account)          → { account, line } (a saga close: the eaten fruit goes back to the pool; the Locusfruit goes back to the palace)
+//   grantLocus(account)            → { account, granted, line } (S6a: a perfect-recall walk puts the Locusfruit in the stash once; behind RULES.respec)
 // Wanted + sale (OP1 §6-7, codex-sinkerfruit-wanted; Mala OP-Q1: Wanted rides inside OP1):
 //   posted(account)                → the live player bounty or null
 //   hunterFor(account, { seed })   → a hunter roster id (~1 battle in 8 while posted), or null
@@ -57,9 +58,14 @@
     coil: { name: "Coilfruit", family: "body", line: "A coiled, spiral-skinned fruit. Your body learns to give and to spring back: impact ×0.6, and Wind the Spring." },
     hide: { name: "Hidefruit", family: "beast", line: "A fruit with a pelt-like rind. Take the shape of a creature you learned by swallowing its beads." },
     mist: { name: "Mistfruit", family: "weather", line: "A pale fruit in a halo of vapour. Become weather: Drift (strikes without will miss 35%) and Fog Bank." },
+    // The Locusfruit (respec S6a; Mala, 2026-10-31: "something special & unique to loci"): a memory palace in a body. It never lives in the world pool: `noPool` makes its resting
+    // state "palace" (not "pool"), so no drop, rival or hunter roll can mint it; a perfect-recall walk moves it to the stash once (grantLocus), and a saga close or a sale sends it back
+    // to the palace. It has no battle kit until S6b (engine/fruit.js RULES.kits), so eating one does nothing in a fight yet; the walk grant is behind RULES.respec.
+    locus: { name: "Locusfruit", family: "mind", noPool: true, line: "A purple fruit threaded with tendrils. Your body becomes a memory palace: what you have watched, you can keep." },
   };
   const IDS = Object.keys(FRUITS);
-  const poolOf = (account) => Object.fromEntries(IDS.map((id) => [id, account?.fruitPool?.[id] || "pool"]));
+  const poolOf = (account) => Object.fromEntries(IDS.map((id) => [id, account?.fruitPool?.[id] || (FRUITS[id].noPool ? "palace" : "pool")]));
+  const homeState = (id) => (FRUITS[id].noPool ? "palace" : "pool");   // where a returned fruit rests: the tide for the three, the palace for the Locusfruit
   const stashOf = (account) => IDS.filter((id) => poolOf(account)[id] === "stash");
   const eaten = (account) => (account?.fruit && FRUITS[account.fruit.id] ? account.fruit : null);
   const timerRipe = (account) => { const f = eaten(account); return !!f && (account.battles || 0) - (f.eatenAt || 0) >= RULES.ripeAfter; };
@@ -68,6 +74,7 @@
   const FEATS = {
     coil: [{ id: "coil.store3", label: "store 3 coils" }, { id: "coil.release3", label: "release 3 coils in one Strike" }, { id: "coil.take3", label: "take 3 impact hits at ×0.6 in one battle" }, { id: "coil.winDamped", label: "win a battle in which you were damped" }, { id: "coil.knock", label: "knock a foe into a wall or water with a release" }, { id: "coil.recoil", label: "Recoil an attacker" }],
     hide: [{ id: "hide.shape", label: "take a shape" }, { id: "hide.second", label: "take a second, different beast's shape" }, { id: "hide.winShaped", label: "win while shaped" }, { id: "hide.ko", label: "KO a foe with a borrowed move" }, { id: "hide.absorb15", label: "absorb 15 damage on the borrowed hide" }, { id: "hide.scent", label: "Scent a concealed foe" }],
+    locus: [{ id: "locus.store", label: "store a foe's technique" }, { id: "locus.ko", label: "KO a foe with a recalled technique" }, { id: "locus.turnBack", label: "turn a foe's own technique back on it" }, { id: "locus.walk", label: "walk the rooms", needsRipe: true }, { id: "locus.fill", label: "fill every room", needsRipe: true }, { id: "locus.winFull", label: "win with every room full", needsRipe: true }],
     mist: [{ id: "mist.fog", label: "lay a fog bank" }, { id: "mist.drift3", label: "a foe's Strike drifts aside 3 times in one battle" }, { id: "mist.winClean", label: "win a battle without taking a will-less Strike" }, { id: "mist.fogLos", label: "a fog bank breaks a foe's line of sight to your side" }, { id: "mist.allyDrift", label: "a ripe fog lends an ally Drift" }, { id: "mist.vapour", label: "Vapour Step through fog" }],
   };
   const masteryOf = (account) => ({ feats: [...(account?.fruitMastery?.feats || [])], shapes: [...(account?.fruitMastery?.shapes || [])] });
@@ -102,6 +109,7 @@
     if (won && shaped && f.id === "hide") got.push("hide.winShaped");
     if (won && drained && f.id === "coil") got.push("coil.winDamped");
     if (won && !struck && f.id === "mist") got.push("mist.winClean");
+    if (won && f.id === "locus" && feats.includes("locus.fullPending")) got.push("locus.winFull");   // the engine notes "every room full" on the battle (s.fruitFeats) and drops the note when a room empties
     for (const id of got) {
       if (!mine.has(id) || m.feats.includes(id)) continue;
       m.feats.push(id);
@@ -135,20 +143,21 @@
     const next = { ...account, fruit: { id, eatenAt: account.battles || 0 }, fruitPool: { ...poolOf(account), [id]: "eaten" } };
     const B = bingoLib(), store = next.bingo?.bounties ? next.bingo : B.createStore();   // §6: eating posts your head (Bingo's first live caller)
     B.post(store, { head: "player", poster: "the Record", amount: RULES.respec ? bountyFor(next) : RULES.wantedPost, battle: account.battles || 0 });
+    const kitless = FRUITS[id].noKit;   // S6a: a fruit with no battle kit promises only what eating truly does (bounty + hunters); S6b removes the flag with the kit
     return { ok: true, account: { ...next, bingo: store },
-      line: RULES.respec ? `You eat ${FRUITS[id].name}. The Record posts your head: ${bountyFor(next)} Seeds. Hunters will come.`   // S5: the rite's two beats speak the taste and the curse
+      line: RULES.respec || kitless ? `You eat ${FRUITS[id].name}. The Record posts your head: ${RULES.respec ? bountyFor(next) : RULES.wantedPost} Seeds. Hunters will come.`   // S5: the rite's two beats speak the taste and the curse
         : `You eat ${FRUITS[id].name}. A power wakes in you, and the water will never hold you up again. The Record posts your head: ${RULES.wantedPost} Seeds. Hunters will come.` };
   }
   const battleOpts = (account) => (eaten(account) ? { id: eaten(account).id, ripe: ripe(account), ...(RULES.respec ? { respec: true, shapes: masteryOf(account).shapes, awakened: stage(account) === "awakened" } : {}) } : null);
   function returnToTide(account) {
     const f = eaten(account); if (!f) return { account, line: "" };
-    const next = { ...account, fruit: null, fruitPool: { ...poolOf(account), [f.id]: "pool" } };
+    const next = { ...account, fruit: null, fruitPool: { ...poolOf(account), [f.id]: homeState(f.id) } };
     if (RULES.respec) { delete next.fruitMastery; delete next.fruitDeeds; }   // a closed saga is a new story: the feats go with it (spec section 2)
     if (next.bingo?.bounties?.player) {   // a closed saga is a new story: the Record strikes your name, hunters stop
       delete next.bingo.bounties.player;
       next.bingo.log.push("your saga closes: the Record strikes your name. The sea forgets you.");
     }
-    return { account: next, line: `${FRUITS[f.id].name} returns to the tide. You could swim again.` };
+    return { account: next, line: FRUITS[f.id].noPool ? `${FRUITS[f.id].name} returns to your palace. You could swim again.` : `${FRUITS[f.id].name} returns to the tide. You could swim again.` };
   }
   const posted = (account) => account?.bingo?.bounties?.player || null;
   function hunterFor(account, { seed = 0 } = {}) {
@@ -182,6 +191,12 @@
     if (roll(seed, `rival-spoil:${account?.battles || 0}`) >= RULES.rival.winChance) return { account, lines: [`${FRUITS[fruit].name} slips back into the tide.`] };
     return { account: { ...account, fruitPool: { ...poolOf(account), [fruit]: "stash" } }, lines: [`${FRUITS[fruit].name} washes up in the spoils.`] };
   }
+  // S6a: the walks half of the game earns the fourth fruit. A perfect-recall walk (app.js: every question recalled, at least one asked) puts the Locusfruit in the stash, once;
+  // it is not granted while it is eaten, sold or already in the stash, and a saga close or a sale returns it to the palace so a later perfect walk earns it again. Behind RULES.respec.
+  function grantLocus(account) {
+    if (!RULES.respec || poolOf(account).locus !== "palace") return { account, granted: false, line: "" };
+    return { account: { ...account, fruitPool: { ...poolOf(account), locus: "stash" } }, granted: true, line: "A strange fruit grows in your palace: Locusfruit." };
+  }
   function sellFruit(account, id) {
     if (!FRUITS[id]) return { ok: false, error: "That isn't a fruit you hold." };
     if (poolOf(account)[id] !== "stash") return { ok: false, error: `${FRUITS[id].name} isn't in your stash.` };
@@ -207,8 +222,8 @@
       }
       if (n - (sale.soldAt || 0) >= RULES.soldReturnAfter) {   // the sold fruit returns; any unmet tab is forgiven (40 battles is the statute)
         const sales = { ...a.fruitSales }; delete sales[id];
-        a = { ...a, fruitSales: sales, fruitPool: { ...poolOf(a), [id]: "pool" } };
-        lines.push(`${FRUITS[id].name} returns to the tide.`);
+        a = { ...a, fruitSales: sales, fruitPool: { ...poolOf(a), [id]: homeState(id) } };
+        lines.push(FRUITS[id].noPool ? `${FRUITS[id].name} returns to your palace.` : `${FRUITS[id].name} returns to the tide.`);
       }
     }
     if (hunterDown) {   // §6: beating a hunter pays the purse through the bingo faucet
@@ -239,5 +254,5 @@
     }
     return { account: a, lines };
   }
-  return { RULES, FEATS, masteryOf, stage, settleFeats, bountyFor, tierOf, purseFor, deedsOf, FRUITS, HUNTERS, poolOf, stashOf, eaten, ripe, rollDrop, afterBattle, eat, battleOpts, returnToTide, posted, hunterFor, encounterFor, settleRival, rivalBeaten, sellFruit, settleFruit };
+  return { RULES, FEATS, masteryOf, stage, settleFeats, bountyFor, tierOf, purseFor, deedsOf, FRUITS, HUNTERS, poolOf, stashOf, eaten, ripe, rollDrop, afterBattle, eat, battleOpts, returnToTide, grantLocus, posted, hunterFor, encounterFor, settleRival, rivalBeaten, sellFruit, settleFruit };
 });

@@ -149,6 +149,7 @@
     rigid: { name: "Rigid", category: "biology", text: "Rigid metal frame: moves 1 tile less, takes ×0.85 damage.", difficulty: 1 },
     brittle: { name: "Brittle", category: "biology", text: "Brittle glass body: takes ×1.5 damage.", difficulty: 1 },
     botanist: { name: "Field Botany", category: "psychology", text: "Knows plants by name and habit: reads one in half the time, communes for less, and what answers them comes out hardier.", open: true, difficulty: 1 },
+    comparative: { name: "Comparative", category: "psychology", text: "Observes enemy techniques, compares them for common descent, and prepares an ally against the technique it can predict.", open: true, difficulty: 1 },   // Homology (Mala, 2026-11-04): the trait graph/homology-rules.js aiAct reads
     // Biology (Mala, 2026-10-10): innate, never imitable. Who carries it: classes-data.js `magic` (kept in step by
     // tests/performers.test.mjs). It decides how a Bard's charm and a Musician's song take (kits-data.js soothe tables).
     touchedByMagic: { name: "Touched by Magic", category: "biology", text: "Made of magic, or shaped by it early. Charms meet practiced resistance in a person like this; a creature like this is drawn to them.", difficulty: 2 },
@@ -333,7 +334,7 @@
       /* tsukumogami structures, 2026-10-29 */ "heavy", "rigid", "brittle", "light",
       /* trepanation, 2026-10-30 */ "trepanation"],
     psychology: ["discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
-      "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
+      "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "comparative", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
       "attentionToDetail", "culinaryTraining", "directorsVision", "knowsPeople", "methodActing", "focused", "scattered", "sampler", "adrenalineJunkie", "artist", "unendingChant", "shipsEngineer", "arcaneMastery",
       /* tsukumogami self-trait, 2026-10-29 */ "animist",
@@ -411,6 +412,7 @@
     contemplative: { counters: ["restless", "impatient", "scattered"], synergies: ["curious", "truthSeeker", "thrifty", "focused"] },
     restless: { counters: ["contemplative", "stubborn"], synergies: ["impatient", "gambler", "skittish"] },
     horticultureExpertise: { counters: ["impatient", "greedy"], synergies: ["botanist", "steward", "hiker"] },
+    comparative: { counters: ["impatient", "fool"], synergies: ["curious", "botanist", "genius"] },
     grappler: { counters: ["skittish", "restless"], synergies: ["stubborn", "competitive", "guarded"] },
     tinkerer: { counters: ["impatient", "fool"], synergies: ["curious", "genius", "thrifty"] },
     stoner: { counters: ["dutiful", "traditionalist", "impatient"], synergies: ["curious", "agreeable", "talkative"] },
@@ -461,6 +463,7 @@
     realization: { text: "Something true about them that changes what they are to you.", unlocks: [] },
     teaching:    { text: "The idea they embody.", unlocks: ["nameHint"] },
     contradiction: { text: "What they say and what they do don't match.", unlocks: ["pointOutContradiction"] },
+    evidence: { text: "Proof of a breach of the law. Finding it makes the breach found.", unlocks: [] },   // I4c: always deep; only Investigate reaches it
   };
 
   // Actions unlocked by insight. cost = action points. Effects are descriptors the engine applies.
@@ -641,7 +644,7 @@
       { kind: "tell", text: "Checks its footing before a shove.", difficulty: 1 },
       { kind: "weakness", channel: "citrinitas", text: "Watches the canopy, not the ground: spreading effects catch it.", difficulty: 2 } ] },
     // Field Botanist (Mala, 2026-10-10): the class the plant systems were waiting for. Always a hiker and a botanist.
-    fieldBotanist: { traits: ["curious", "stubborn", "hiker", "botanist", "horticultureExpertise", "steward"], chanceTraits: [["agreeable", 0.3], ["speakWithAnimals", 0.15]], obs: [
+    fieldBotanist: { traits: ["curious", "stubborn", "hiker", "botanist", "comparative", "horticultureExpertise", "steward"], chanceTraits: [["agreeable", 0.3], ["speakWithAnimals", 0.15]], obs: [
       { kind: "tell", text: "Kneels to look at what is growing before choosing where to stand.", difficulty: 1 },
       { kind: "weakness", channel: "nigredo", text: "Travels light and close to the ground: a heavy blow finds nothing braced behind it.", difficulty: 2 },
       { kind: "realization", text: "The plants on the field are their allies in waiting. Clear the planting near them and they fight alone.", difficulty: 2 } ] },

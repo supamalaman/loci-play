@@ -1,0 +1,26 @@
+{
+  "size_class": "person",
+  "minimum_pixel_size_px": 96,
+  "idle_alpha_size_px": [
+    246,
+    220
+  ],
+  "idle_pixel_size": [
+    254,
+    228
+  ],
+  "foot_point_px": [
+    127.0,
+    224
+  ],
+  "world_height": 1.0,
+  "world_height_definition": "PROPOSED by Kerf CU 2026-11-06 (NOTE: person size); accepted by Mala 2026-11-06 (R-20261106-04, sizes as proposed). Person=1.0.",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "source": "Tomboy Warrior Pixel-Art Sprite Sheet.png",
+  "minimum_pixel_size_definition": "ROLES.md person=96px. idle alpha height above it, not REGEN.",
+  "runtime_consumed": false,
+  "note": "Base form of the Tomboy Warrior (R-20261106-01: grows into scarred-tomboy-warrior after round 5). Combat 10 poses + 5 portraits. Wiring TBD (character/foe kit); nothing draws it yet. size.json written at land by Bollard IN from the Cutter's size-record.json (2026-11-07)."
+}

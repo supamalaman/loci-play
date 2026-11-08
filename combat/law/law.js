@@ -88,7 +88,12 @@
       if (!t.statute) continue;
       const L = ((S(s).lawLedger ||= {})[a.id] ||= {}); L[t.owner] = (L[t.owner] || 0) + 1;
       const o = s.actors[t.owner], g = s.rules?.lawTruth === false ? "proven" : grade(s, a, m.announced, (u) => !!o && u.side === o.side, H);   // lawTruth false: the old automatic guilt (sims' baseline)
-      if (g !== "proven") (((S(s).lawEvidence ||= {})[a.id] ||= {})[t.owner] ||= []).push({ round: s.round, grade: g, delivery: m.delivery || null });
+      if (g !== "proven") {
+        const entry = { round: s.round, grade: g, delivery: m.delivery || null };
+        if (g === "unproven") entry.id = `ev${(s.seq = (s.seq || 0) + 1)}`;   // I4c: only unproven breaches file cards, so only they take ids (the shared seq is untouched otherwise)
+        (((S(s).lawEvidence ||= {})[a.id] ||= {})[t.owner] ||= []).push(entry);
+        if (g === "unproven") fileEvidenceCard(s, a, t.owner, entry);   // I4c: each unproven breach files one evidence card in the accused's deck
+      }
       if (g === "proven") { say(s, H, o || a, `${a.name} breaches ${o ? o.name + "'s" : "the"} Statute (${L[t.owner]} on the ledger).`, ["Judgment of the Gods sentences each breach."]); continue; }
       say(s, H, o || a, `${a.name} breaches ${o ? o.name + "'s" : "the"} Statute (${g}, ${L[t.owner]} on the ledger).`,
         [g === "sworn" ? "Announced under the law: a sworn act cannot be denied." : g === "witnessed" ? "Seen by the law's side: a witnessed breach stands."
@@ -206,7 +211,7 @@
     return false;
   }
 
-  const served = (s, u, ownerId) => { if (S(s).lawLedger?.[u.id]) delete S(s).lawLedger[u.id][ownerId]; if (S(s).lawEvidence?.[u.id]) delete S(s).lawEvidence[u.id][ownerId]; };
+  const served = (s, u, ownerId) => { if (S(s).lawLedger?.[u.id]) delete S(s).lawLedger[u.id][ownerId]; const gone = ((S(s).lawEvidence?.[u.id] || {})[ownerId] || []).map((e) => e.id); if (S(s).lawEvidence?.[u.id]) delete S(s).lawEvidence[u.id][ownerId]; const decks = [s.insight?.decks?.[u.id], s.placeObservation?.key && s.insight?.decks?.[s.placeObservation.key]].filter(Boolean); for (const deck of decks) if (gone.length) deck.cards = deck.cards.filter((c) => c.kind !== "evidence" || !gone.includes(c.evidence?.entry)); };   // I4c+4d: serving the breach removes its evidence cards (accused and place decks)
   // The Ordeal of the River (Hammurabi Law 2): the accused goes into the river. Fall: the river has judged (served). Live: the
   // unproven breaches are struck, and the false accuser pays per struck breach (never below 1 LF: the fine stings, it does not
   // kill). Same damage rules as Judgment; no randomness.
@@ -259,6 +264,45 @@
   function turnStart(s, a) {
     if (s.terrainEffects?.length) s.terrainEffects = s.terrainEffects.filter((e) => !(e.kind === "statute" || e.kind === "exileGate") || zoneLive(s, e));
   }
+  // ── evidence cards (Investigate I4c): each unproven breach files one `evidence` card in the accused's deck
+  // (deep, so only Investigate reaches it); finding the card upgrades that entry to `found`. The card carries the
+  // entry id, so duplicate breaches never cross-upgrade; cards are filed only here, never fabricated.
+  const evidenceText = (entry, foundIt) => foundIt
+    ? `Evidence: ${entry.delivery || "an unshaped act"} on round ${entry.round ?? "?"}. It is no longer only your word.`   // INVESTIGATE.md 11.6, exact
+    : `Evidence: ${entry.delivery || "an unshaped act"} on round ${entry.round ?? "?"}: still only somebody's word.`;   // provisional: the spec is silent pre-find; same shape
+  function fileEvidenceCard(s, accused, ownerId, entry) {
+    const one = fileCardOn(s, s.insight?.decks?.[accused.id], `${accused.id}:evidence:${entry.id}`, accused.id, ownerId, entry);
+    const pk = s.placeObservation?.key;   // I4d: the same breach files on the place deck too (the place where it happened)
+    if (pk) fileCardOn(s, s.insight?.decks?.[pk], `${pk}:evidence:${entry.id}`, accused.id, ownerId, entry);
+    return one;
+  }
+  function fileCardOn(s, deck, id, accusedId, ownerId, entry) {
+    if (!deck || deck.cards.some((c) => c.evidence?.entry === entry.id)) return null;
+    const card = { id, kind: "evidence", deep: true, difficulty: 2, tie: 0, key: "evidence",
+      text: evidenceText(entry, false), unlocks: [], open: false, grants: {}, evidence: { accused: accusedId, owner: ownerId, entry: entry.id } };   // grants: climate.grantsFrom reads every revealed place card's grants; {} grants nothing
+    deck.cards.push(card);
+    return card;
+  }
+  function foundEvidence(s, H, observer, subject, revealed) {
+    const out = [];
+    for (const card of revealed || []) {
+      if (card?.kind !== "evidence" || !card.evidence) continue;
+      const arr = S(s).lawEvidence?.[card.evidence.accused]?.[card.evidence.owner] || [];
+      const entry = arr.find((e) => e.id === card.evidence.entry);
+      if (!entry || entry.grade !== "unproven") {   // served or a stale copy: nothing to upgrade; the twin of an already-found entry still reads found
+        if (entry?.grade === "found" && card) card.text = evidenceText(entry, true);
+        continue;
+      }
+      entry.grade = "found";
+      card.text = evidenceText(entry, true);
+      const subj = s.actors?.[card.evidence.accused] || subject;   // I4d: place finds name the accused, not the place
+      say(s, H, observer, `${observer.name} finds proof against ${subj.name}: ${card.text}`,
+        ["Found evidence argues like witnessed: stronger than unproven, not as strong as a sworn act."]);
+      out.push(entry.id);
+    }
+    return out;
+  }
+
   // ── exhibits: Observe debriefs units into trial witnesses (TRIAL.md). Silent
   // v1 (the observe log shows the study); surfacing exhibits in UI is later work.
   const hasTrait = (u, id) => (u.traits || []).some((t) => (t.id || t) === id);
@@ -305,5 +349,5 @@
     return null;
   }
 
-  return { LAW, IDS, taxes, price, beforeAbility, target, resolve, moved, beforeMove, afterHit, turnStart, aiValue, statutes, gates, outlawBy, guilty, breaches, isMagistrate, isLawgiver, evidence, proven, debrief };
+  return { LAW, IDS, taxes, price, beforeAbility, target, resolve, moved, beforeMove, afterHit, turnStart, aiValue, statutes, gates, outlawBy, guilty, breaches, isMagistrate, isLawgiver, evidence, proven, debrief, foundEvidence };
 });

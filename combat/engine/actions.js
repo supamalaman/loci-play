@@ -21,7 +21,7 @@
       hasDeception, hasSight, hasTrait, heightAt, hit, inside, insightRules, isMonster, keepDreamPositions, key, line, liveSummon, log, manifest,
       mirrorRules, moveBudgetFor, onEdge, ownerOfConcept, patchAt, paths, pickupRules, plantUnderfoot, presidentContext, presidentEffects,
       presidentRules, presidentUnits, rangeEnvelope, recordMirrorEvent, refreshDrowning, revealDreamSummons, riteDiscount, roundFn, saveWildWorld, settleHomeward,
-      spendTempo, standFootprint, strikeTarget, summonQuestions, summonRules, summonProfile, summonReadiness, summonQuestionHints, summonSnapshot, syncPickup, syncPresidentUnit, target, tileAt, unitAt, vegetation, wildRules,
+      spendTempo, standFootprint, strikeTarget, summonQuestions, summonRules, summonProfile, summonReadiness, summonSnapshot, syncPickup, syncPresidentUnit, target, tileAt, unitAt, vegetation, wildRules,
       wildSnapshot } = H;
     const sealedNext = () => (typeof module === "object" && module.exports ? require("../sealed-next.js") : globalThis.ConceptCombatSealedNext);
     const DreamData = () => (typeof module === "object" && module.exports ? require("../dream/dream-data.js") : globalThis.ConceptCombatDreamData) || null;   // O2a: a dream monster's teaches for the observe result
@@ -131,11 +131,15 @@
       return true;
     }
     const waterAt = (s, x, y) => !!tileAt(s, x, y).tags?.includes("water");
+    const isKraken = (m) => !!m && (m.kind === "kraken" || m.beast?.kind === "kraken");   // tamed krakens keep kind under beast (tamer.js)
+    // Pathing entry: the mover reaches stepCost only when awakened or kraken — everyone else's pathing is untouched (engine.js paths calls this).
+    const moveCost = (s, x, y, nx, ny, mover, flyer) => stepCost(s, x, y, nx, ny, flyer || (mover?.awakened || isKraken(mover) ? mover : null));
     function stepCost(s, x, y, nx, ny, mover = null) {
       if (mover && ClassRuntime && ClassRuntime.flies(mover)) return 1;   // ClassRuntime: Flight ignores terrain movement costs
       const dh = heightAt(s, nx, ny) - heightAt(s, x, y), terrain = tileAt(s, nx, ny);
       if (dh >= 2 && !terrain.ramp && !tileAt(s, x, y).ramp) return Infinity;
       if (dh <= -2) return Infinity; // drops of 2+ are explicit Jump actions
+      if (isKraken(mover)) return waterAt(s, nx, ny) ? 0.5 : Infinity;   // Kraken (Mala, 2026-11-05): never leaves the water; a water step costs half a move point, so it swims twice as far per action and per AP as anything walking
       if (mover?.awakened) return 1;   // Tsukumogami: terrain-blind — every step costs one, cliffs still cliff
       if (usableRamp(s, x, y, nx, ny)) return Math.max(1, Math.abs(dh));
       if (waterAt(s, nx, ny) && terrain.blocksMove) return H.hasTrait(mover, "treeWalker") ? 1 : 2; // swimmers may wade through a deep-water tile, at a large AP surcharge; Tree Walkers pay normal (anime batch)
@@ -145,7 +149,7 @@
       if (a.awakened) return 0;   // Tsukumogami: movement costs no tempo — the turn's price is the one action
       if (!route || route.length < 2) return 0;
       const points = route.slice(1).reduce((sum, [nx, ny], i) => sum + stepCost(s, route[i][0], route[i][1], nx, ny, a), 0);
-      const waterSteps = (ClassRuntime && ClassRuntime.flies(a)) || H.hasTrait(a, "treeWalker") ? 0 : route.slice(1).reduce((sum, [nx, ny], i) => sum + (waterAt(s, route[i][0], route[i][1]) || waterAt(s, nx, ny) ? 1 : 0), 0);   // ClassRuntime: flyers skip the water surcharge; Tree Walkers too (anime batch)
+      const waterSteps = (ClassRuntime && ClassRuntime.flies(a)) || H.hasTrait(a, "treeWalker") || isKraken(a) ? 0 : route.slice(1).reduce((sum, [nx, ny], i) => sum + (waterAt(s, route[i][0], route[i][1]) || waterAt(s, nx, ny) ? 1 : 0), 0);   // ClassRuntime: flyers skip the water surcharge; Tree Walkers too (anime batch); the kraken is native (no surcharge on its own ground)
       // Planting is slow going: a step onto a living, walkable plant costs ×1.5 AP unless the mover is a hiker (or flies).
       const PM = vegetation?.data?.rules?.plantMove, flying = !!(ClassRuntime && ClassRuntime.flies(a));
       const hiker = !PM || flying || (a.traits || []).some(t => (typeof t === "string" ? t : t?.id) === PM.exemptTrait);
@@ -295,6 +299,7 @@
       if (ClassRuntime?.observed && !s.preview) ClassRuntime.observed(s, a, t, classH());   // Hypebeast: one look punctures the hype
     };
     const observeTail = (s, a, t, result, { bySubject, invest, free, aiText }) => {
+      ClassRuntime?.law?.foundEvidence?.(s, H, a, t, result.revealed);   // I4d: the upgrade lands before recordCards, so findings keep the found text (the callout now leads the find turn's log)
       bySubject[t.id] = result.know; H.Observation.setCognitive(s,a,result.cognitive);
       H.Observation.credit(s,a,t,result.revealed,H.observationH());
       scoutNoted(s, a, t.id); H.Exposure.observed(s, a, t);
@@ -588,9 +593,9 @@
           const plant = here.find((o) => o.kind === "plant" && o.hp > 0);
           // Invasive creeper (Mala, 2026-10-25: "burn plant is saying no plant is next to me even though creepers are coming up"):
           // fire clears the vine from that tile and banks the burn step, but an invasive leaves no ashes worth calling back.
-          if (!plant && H.creeperAt(s, x, y)) {
+          if (!plant && H.fieldAt(s, x, y)) {
             const spend = spendTempo(s, a, R.burnAp, "Burn"); if (spend) return spend;
-            H.clearCreeper(s, a, [[x, y]]);
+            H.clearField(s, a, [[x, y]]);
             log(s, { kind: "ritual", actor: a.id, tiles: [[x, y]], burn: true, text: `${a.name} burns the creeper back from (${x},${y}).`, why: ["Fire clears an invasive vine. It leaves no ashes to call back: there is no form worth returning."] });
             bankRiteSideStep(s, a, "burn");
             return;
@@ -649,6 +654,7 @@
       move(s, a, act) {
         { const refused = moveRefusal(s, a); if (refused) return refused; }   // the reasons a unit cannot move at all, shared with Scramble
         const [tx, ty] = act.to || [];
+        if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
         if((a.committed?.noRetreat||a.promise?.surrender==="retreat")&&presidentRules&&!presidentRules.canMove({...presidentUnits(s).find(u=>u.id===a.id),committed:{noRetreat:true}},{x:tx,y:ty},presidentUnits(s).filter(u=>u.side!==a.side)))return "Your commitment has surrendered retreat: that move would increase your distance from the nearest enemy.";
         const baseBudget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a) - (a.pathwayPromise ? 2 : 0));   // the homeward extra sits on top of the legs-adjusted base
         const budget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a)), route = paths(s, a.x, a.y, budget, "move").pathTo(tx, ty);   // Injury: the move action reads the same legs budget as moveOptions (wounded −1, maimed 0)
@@ -736,6 +742,7 @@
         const spendError = a.tempo < jumpCost(s, a) ? `Jump needs ${jumpCost(s, a)} action points (have ${a.tempo}).` : null;
         if (spendError) return spendError;
         const [tx, ty] = act.to || [];
+        if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
         if (!inside(s, tx, ty) || dist(s, a.x, a.y, tx, ty) !== 1) return "Jump to an adjacent tile.";
         const drop = heightAt(s, a.x, a.y) - heightAt(s, tx, ty);
         if (drop < 2) return "Jump is only needed for a drop of 2 or more levels.";
@@ -753,6 +760,7 @@
         if (grappled(s, a)) return `${a.name} is held and cannot move.`;
         if (Vows) { const no = Vows.refuses(s, a, "move"); if (no) return no; }   // Vows: Rooted
         const [tx, ty] = act.to || [];
+        if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
         if (!climbOptions(s, a.id).some(o => o.to[0] === tx && o.to[1] === ty)) return "Choose an adjacent ledge you can climb.";   // TS-01: climbOptions already drops ledges the whole footprint cannot fit
         const climbCost = H.climbCost(s, a);
         const spendError = spendTempo(s, a, climbCost, "Climb"); if (spendError) return spendError;
@@ -779,11 +787,11 @@
         }
         // (pocket model, 2026-10-24: souls are fighters on the plane now — a strike at a soul is a
         // strike like any other. The old same-map ghost relay is gone; cipher expose still wounds the soul bar.)
-        if (!t && H.creeperAt(s, tx, ty)) {   // Mala, 2026-10-11: any normal attack clears creeper
+        if (!t && H.fieldAt(s, tx, ty)) {   // Mala, 2026-10-11: any normal attack clears creeper
           if (reachDist(tx, ty) > strikeRange(s, a)) return strikeRange(s, a) > 1 ? `Strike reaches ${strikeRange(s, a)} tiles.` : "Strike reaches only adjacent tiles.";
           const cut = act.effort ?? s.rules.actionCosts.strikeMin, cutError = spendTempo(s, a, cut, "Strike", true); if (cutError) return cutError;
           log(s, { kind: "act", actor: a.id, tiles: [[tx, ty]], text: `${a.name} strikes at the creeper.` });
-          H.clearCreeper(s, a, [[tx, ty]]); return;
+          H.clearField(s, a, [[tx, ty]]); return;
         }
         if (!t) {   // Mala, 2026-10-13: a data center can be struck by anyone who is not on its builder's side (docs/data-center.md)
           const dc = ClassRuntime?.strikeable?.(s, a, tx, ty);   // any object: a data center, a tower anchor, a bench, a tree
@@ -1029,7 +1037,7 @@
         if (!summonRules || !summonQuestions) return "Summoning is unavailable.";
         const def = summonRules.data?.summons?.[act.summon];
         if (!def) return "No such summon.";
-        if (!summonRules.callsPalace(a)) return "Only the Warden calls the palace.";   // summon-owner: palace summons are Warden-only (Mala, 2026-10-22)
+        if (!summonRules.callsPalace(a)) return "Only the player's side calls the palace.";   // summon-owner: the player's side calls (Mala, 2026-11-05, decision b; was Warden-only 2026-10-22)
         const unlocked = (act.unlocked || []).includes(act.summon);
         if (!unlocked) return `${def.name} is not unlocked yet.`;
         const cost = summonProfile(s, a.id);
@@ -1039,7 +1047,7 @@
         const summonTax = hasTrait(a, "attentionToDetail") ? 5 : 0;   // Attention to Detail: sturdier craft costs slightly
         if (a.tempo < cost.apCost + summonTax) return `Summoning needs ${cost.apCost + summonTax} action points.`;
         if (a.pf < cost.phiCost) return `Summoning needs ${cost.phiCost} ΦF.`;
-        const q = summonQuestions.pickQuestion(act.summon, `${s.seed}:${s.round}:${a.id}:${act.summon}`, { hintCount: summonQuestionHints(s, a.id) });
+        const q = summonQuestions.pickQuestion(act.summon, `${s.seed}:${s.round}:${a.id}:${act.summon}`, { hintCount: H.summonQuestionHints(s, a.id, act.summon) });   // O2c: per-summon study hints (via H: queries installs after actions)
         if (!q || q.id !== act.questionId) return "The summon question is no longer current.";
         const score = summonQuestions.scoreAnswer(act.summon, q.id, act.answer, { choiceMap: q.choiceMap });
         const at = summonRules.placeSummon(moduleArena(s.arena), [a.x, a.y], H.arrivalBlocked(s), act.at || null);
@@ -1696,7 +1704,7 @@
           if (detail) { a.focus.detail = false; log(s, { kind: "observe", actor: a.id, target: t.id, text: `${a.name}'s retained detail on ${t.name} adds +1 point to the study.` }); }
           observeTail(s, a, t, result, { bySubject, invest: invest + (detail ? 10 : 0), free });
           { const wheelNote = H.wheelhouseName?.(s, t); if (wheelNote) log(s, { kind: "observe", actor: a.id, target: t.id, text: wheelNote }); }
-          if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe");   // Mystery: an Eye-read rips a foe's oldest set plan; allies' cards are left alone (Harbor round-2 item 7 ruling)
+          if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe", { invest: invest + (detail ? 10 : 0), observer: a.id });   // Mystery: an Eye-read rips a foe's oldest set plan (a card set needs study AP by its power); allies' cards are left alone (Harbor round-2 item 7 ruling)
           return;
         }
         const k = s.knowledge[a.id][t.id];
@@ -1707,7 +1715,7 @@
         log(s, { kind: "observe", actor: a.id, text: `${a.name} observes ${t.name}: ${conceptName(t.primary)} primary, ${conceptName(t.secondary)} secondary.`,
           why: learned.length ? learned.map((id) => `Learned ${ab(id).name}: ${ab(id).reveal}`) : ["Nothing new to learn."] });
         { const wheelNote = H.wheelhouseName?.(s, t); if (wheelNote) log(s, { kind: "observe", actor: a.id, target: t.id, text: wheelNote }); }
-        if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe");   // Mystery: Observe rips a foe's oldest set plan; allies' cards are left alone (Harbor round-2 item 7 ruling)
+        if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe", { invest: 0, observer: a.id });   // Mystery: Observe rips a foe's oldest set plan; allies' cards are left alone (Harbor round-2 item 7 ruling). Battle Cards C2: this legacy Observe has no study, so a face-down card set (which needs study AP, Cards.ripAp) stays down
       },
       observePlace(s, a, act, deep = null) {
         if (!H.Observation.eligible(a)) return "This unit cannot Observe the place.";
@@ -1724,6 +1732,7 @@
         if (result.error) return result.lines.join(" ");
         const spend = spendTempo(s, a, deep ? a.tempo : invest, deep ? "Investigate the place" : "Observe the place"); if (spend) return spend;
         if (deep) deep.spent = true;
+        ClassRuntime?.law?.foundEvidence?.(s, H, a, { name: "the place" }, result.revealed);   // I4d: finding place evidence upgrades its breach — before recordCards, so findings keep the found text
         H.Observation.recordCards(s,a,deck.subject.key,result.revealed,"observePlace");
         bySubject[deck.subject.key] = result.know; H.Observation.setCognitive(s,a,result.cognitive);
         (s.observationTurns ||= {})[a.id]=a.ownerTurns;
@@ -1826,6 +1835,17 @@
         s.actors[t.id] = r.actor;
         log(s, { kind: "dreamNamed", actor: a.id, target: t.id, correct: r.correct, text: r.event.text,
           why: [r.correct ? "Named: it fades at round end." : `Wrong: it holds on; you can try again in ${Dr.data.rules.nameIt.wrong.retryAfterRounds} rounds.`] });
+      },
+      observeSummon(s, a, act) {   // Observe teaches O2c (D7): study a summon's palace room: the first study each battle adds +1 hint to its calling question
+        const def = summonRules?.data?.summons?.[act.summon];
+        if (!def) return "No such summon.";
+        if (!H.Observation.eligible(a)) return "This unit cannot study a palace room.";
+        if (s.summonHints?.[a.id]?.[act.summon]) return "Already studied this battle: no new hint.";
+        if (a.tempo < 20) return "Studying the room needs 20 action points.";   // fixed price for the fixed +1 (gremlin SEV-3): the effort selector must not change it; mirrors O2b nameDream
+        const spend = spendTempo(s, a, 20, `Study ${def.name}'s room`); if (spend) return spend;
+        ((s.summonHints ||= {})[a.id] ||= {})[act.summon] = 1;
+        log(s, { kind: "observe", actor: a.id, target: act.summon, text: `You study ${def.name}'s room: one wrong choice on its calling question is struck this battle.` });
+        log(s, { kind: "observe", actor: a.id, target: act.summon, text: H.Observation.nextStep({ kind: "summon" }).text });
       },
       observeStructure(s, a, act, deep = null) {   // Tsukumogami step 1: get to know one structure
         if (!Tsukumogami) return "Tsukumogami is unavailable.";
@@ -2545,6 +2565,7 @@
           if (m.effect === "damage" || m.effect === "paleStampede") inst.deferredCharge = chargeArgs;   // a stampede that tramples no one charges nothing either
           else chargeUltimate(s, a, ...chargeArgs);
         }
+        H.fruitCast?.(s, a, act, inst);   // Sinkerfruit (Locusfruit): a recall costs 2 more PhiF and empties its room; a palace taxes or refunds
         log(s, { kind: "act", actor: a.id, ability: act.ability, tiles: deception ? announcedTiles : t.tiles, route: deception ? null : (t.route || null),
           text: `${a.name} uses ${m.name} (${d.tier}, ${conceptName(m.concept)}, ${m.delivery}${m.area.shape !== "single" ? ", " + m.area.shape : ""}) for ${m.cost} ΦF.`, why });
         // AGI Takeoff witness rule: the third deception technique an AGI sees (anyone's but its
@@ -2623,6 +2644,6 @@
       }
     }
 
-    return { scoutNoted, talksToAttack, talkCost, reportCheck, strongGrip, climbCost, jumpCost, squeeze, aiFailure, aiSnapshot, aiLearnResult, apply, stallPreview, handlers, resolvePrune, imitateComplete, moveRefusal, footOpen, stepCost, movementTempoCost, usableRamp, waterAt };
+    return { scoutNoted, talksToAttack, talkCost, reportCheck, strongGrip, climbCost, jumpCost, squeeze, aiFailure, aiSnapshot, aiLearnResult, apply, stallPreview, handlers, resolvePrune, imitateComplete, moveRefusal, footOpen, stepCost, moveCost, movementTempoCost, usableRamp, waterAt };
   })();
 });

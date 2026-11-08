@@ -368,7 +368,7 @@
         return;
       }
       if (inst.effect === "damage") {
-        H.clearCreeper(s, a, inst.tiles);   // any normal attack clears creeper under its footprint
+        H.clearField(s, a, inst.tiles);   // any normal attack clears creeper under its footprint
         if(inst.concept==="resonance"){
           const shaken=(s.terrainEffects||[]).filter(e=>e.kind==="pastedFragment"&&e.tiles?.some(t=>(inst.tiles||[]).some(q=>q[0]===t[0]&&q[1]===t[1]))&&s.actors[e.owner]?.side!==a.side);
           if(shaken.length){s.terrainEffects=s.terrainEffects.filter(e=>!shaken.includes(e));const edge=findOpp("resonance","collage","disrupts",null,"shakeLoose");if(edge)edgeUsed(s,edge.id);log(s,{kind:"effect",actor:a.id,tiles:shaken.flatMap(e=>e.tiles),text:`Resonance shakes loose ${shaken.length} pasted fragment${shaken.length===1?"":"s"}.`,why:[`The vibration removes temporary collage pieces from its committed field${edge?` [${edge.id}]`:""}.`]});}
@@ -995,6 +995,7 @@
         if (inst.seedThorn && t.lf < lfBefore && seedThorn(s, a, t.x, t.y, inst.seedThorn)) log(s, { kind: "effect", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${inst.seedThorn.label || "Thorns"} spring up where ${inst.name} struck (${t.x},${t.y}).`, why: [`Entering the tile deals ${inst.seedThorn.dmg}.`] });
         if (inst.knockback && !t.defeated && !s.outcome) knock(s, a, t, inst.knockback, inst, "push");
         if (inst.pull && !t.defeated && !s.outcome) knock(s, a, t, inst.pull, inst, "pull");
+        if (ab(inst.ability)?.startsSubmission && !t.defeated && !s.outcome) startClinchHold(s, a, t, inst);   // via the card, not the manifest (manifest is an allowlist; engine.js is capped)
         { const fr = ab(inst.ability)?.formRider; if (fr && bossRules?.formRider && !s.outcome) { const fc = H.formCtx(s, a, t); fc.leapt = !!inst.formLeapt; bossRules.formRider(a, t, fr, fc); inst.formLeapt = fc.leapt; } }   // learned forms
       }
       { const fr = ab(inst.ability)?.formRider; if (fr && bossRules?.formCastRider && !s.outcome) bossRules.formCastRider(a, fr, H.formCtx(s, a), inst.tiles || []); }
@@ -1219,6 +1220,21 @@
       log(s, { kind: "effect", actor: m.owner, target: t.id, tiles: [[t.x, t.y]], text: `The seeds lodged in ${t.name} sprout: ${m.count} × ${m.damage}.` });
       for (let i = 0; i < m.count && !t.defeated; i++) hit(s, src, t, null, m.damage, [`Lodged seed sprouts (${m.name}).`], { label: "Sprouting seeds", damageType: m.damageType });
     }
+    // kraken S2 (Eightfold Clinch): a contact technique that starts the submission flow on touch. The hold
+    // mirrors the grapple action's guards and statuses (bosses too large, already held, the regrip window),
+    // then presses the submission at once — the technique's 35 AP pays for both. Meter/ties/rounds run in
+    // conditions.js submissionRound like any pressed hold.
+    function startClinchHold(s, a, t, inst) {
+      const G = s.rules.grapple, R = s.rules.submission;
+      if (!G || !R) return;
+      if (t.massive || t.boss) { log(s, { kind: "grapple", actor: a.id, target: t.id, held: false, tiles: [[t.x, t.y]], text: `${t.name} is too large to hold.` }); return; }
+      if (H.grappled(s, t)) { log(s, { kind: "grapple", actor: a.id, target: t.id, held: false, tiles: [[t.x, t.y]], text: `${t.name} is already held.` }); return; }
+      if (t.regripImmuneUntil >= s.round) { log(s, { kind: "grapple", actor: a.id, target: t.id, held: false, tiles: [[t.x, t.y]], text: `${t.name} is still slipping free.` }); return; }
+      t.status.grappled = { label: "Grappled", owner: a.id, untilRound: s.round + G.rounds, at: [[t.x, t.y], [a.x, a.y]] };
+      t.status.submission = { label: "Submission", by: a.id, meter: 0, rounds: 0, ties: 0 };
+      t.tempo = Math.max(0, (t.tempo || 0) - G.apCut);
+      log(s, { kind: "grapple", actor: a.id, target: t.id, held: true, tiles: [[t.x, t.y]], text: `${a.name}'s ${inst.name || "clinch"} takes hold of ${t.name}: no movement or dodging until the end of round ${s.round + G.rounds}, and the submission struggle begins.` });
+    }
     function knock(s, a, t, n, inst, direction = "push") {
       n = H.fruitPushBonus?.(s, a, t, n, direction) ?? n;   // Sinkerfruit (respec S2b1): Mainspring
       if (bossRules?.formImmovable?.(t)) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name}'s exoskeleton doesn't budge.` }); return; }   // learned forms: Exoskeleton
@@ -1284,13 +1300,25 @@
         log(s, { kind: "resist", actor: t.id, target: t.id, text: `${t.name}'s climbing lanyard catches the ${direction}; no displacement this battle.`, why: ["The tool prevents the first forced movement; later shoves resolve normally."] });
         return;
       }
-      if (direction === "pull" && dist(s, a.x, a.y, t.x, t.y) <= 1) {
+      const waterPull = direction === "pull" && (inst?.pullTowardWater || ab(inst?.ability)?.pullTowardWater);   // kraken S2 (Riptide): the card flag, since the manifest allowlist does not carry it
+      if (direction === "pull" && !waterPull && dist(s, a.x, a.y, t.x, t.y) <= 1) {
         log(s, { kind: "note", actor: t.id, text: `${t.name} is already adjacent; the pull leaves their position unchanged.` }); return;
       }
       if (t.id === a.id) { log(s, { kind: "note", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} shoves against themselves and goes nowhere.`, why: ["A shove needs someone else to push against."] }); return; }   // zero-vector displacement is undefined; decline it instead of inventing a self-collision
       const sign = direction === "pull" ? -1 : 1;
       const dx = Math.sign(t.x - a.x) * sign, dy = Math.sign(t.y - a.y) * sign;
       let [sx, sy] = Math.abs(t.x - a.x) >= Math.abs(t.y - a.y) ? [dx, 0] : [0, dy];
+      if (waterPull) {
+        let anchor = null, best = Infinity;   // the caster's nearest standing water, ties in reading order
+        for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) {
+          if (!waterAt(s, x, y)) continue;
+          const d = Math.abs(x - a.x) + Math.abs(y - a.y);
+          if (d < best) { best = d; anchor = [x, y]; }
+        }
+        if (!anchor || (anchor[0] === t.x && anchor[1] === t.y)) { log(s, { kind: "note", actor: t.id, tiles: [[t.x, t.y]], text: anchor ? `${t.name} is already in the water; the riptide holds them.` : "There is no water to pull toward." }); return; }
+        const wx = Math.sign(anchor[0] - t.x), wy = Math.sign(anchor[1] - t.y);
+        [sx, sy] = Math.abs(anchor[0] - t.x) >= Math.abs(anchor[1] - t.y) ? [wx, 0] : [0, wy];
+      }
       if (direction === "push" && ClassRuntime?.steerShove) [sx, sy] = ClassRuntime.steerShove(s, t, sx, sy, classH());   // graded slopes steer shoves
       const nx = t.x + sx * n, ny = t.y + sy * n;
       let occupant = inside(s, nx, ny) ? unitAt(s, nx, ny) : null;

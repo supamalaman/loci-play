@@ -49,13 +49,19 @@
     // Fire one card through the normal ability dispatch (prepaid rides the internal
     // 4th arg; announce forced T1+). Holds (stays down) when the fire path
     // refuses. Returns an error string or null (fired).
-    function fireCard(s, card, targetOverride, why) {
+    function fireCard(s, card, targetOverride, why, ctx) {
       const a = s.actors[card.unitId];
       const mine = lists(s)[card.side] || [];
       const i = mine.indexOf(card);
+      if (i >= 0 && card.kind === "card" && (!a || a.defeated)) mine.splice(i, 1);   // a defeated setter's face-down CARD is discarded, not left down to be ripped or read (Battle Cards C2)
       if (!a || a.defeated) return "The setter is gone.";
       if (i < 0) return "No such face-down card.";
       mine.splice(i, 1);
+      if (card.kind === "card") {   // Battle Cards C2: a set CARD resolves through Cards.resolveSet (its own log lines: the name never enters a public entry); a refusal holds it down like an ability
+        const err = H.Cards.resolveSet(s, a, card, targetOverride, why, ctx);
+        if (err) mine.splice(Math.min(i, mine.length), 0, card);
+        return err;
+      }
       const outer = s.phase === "response" && s.pending ? s.pending : null;
       if (outer) (s.pendingStack ||= []).push(outer);
       const unstack = () => { if (outer && s.pendingStack?.at(-1) === outer) s.pendingStack.pop(); };
@@ -81,8 +87,8 @@
       log(s, { kind: "mystery", actor: u.id, text: `${u.name}'s face-down plans change sides (${moved.length} down).`, why: ["Conversion transfers set plans with their setter; the spent budget stays spent."] });
     }
 
-    const oldest = (s, side, unitId, trigger) => {
-      const hit = (lists(s)[side] || []).find((c) => (!unitId || c.unitId === unitId) && (!trigger || c.trigger === trigger)) || null;
+    const oldest = (s, side, unitId, trigger, phase) => {
+      const hit = (lists(s)[side] || []).find((c) => (!unitId || c.unitId === unitId) && (!trigger || c.trigger === trigger) && (!phase || (c.phase || "after") === phase)) || null;
       if (hit || !unitId || !["player", "enemy"].includes(side)) return hit;
       const other = side === "player" ? "enemy" : "player";   // MCR-06: owner-bound fallback — a setter converted outside the eager path heals on read
       if ((lists(s)[other] || []).some((c) => c.unitId === unitId)) { mysteryMigrate(s, s.actors[unitId]); return (lists(s)[side] || []).find((c) => c.unitId === unitId && (!trigger || c.trigger === trigger)) || null; }
@@ -99,18 +105,22 @@
     }
 
     // Forced reveal + fire (Observe rips, on-attacked, on-turn-start). Silent hold otherwise.
-    function mysteryForce(s, unitId, targetOverride, why) {
+    // `ctx.invest` is the AP the Observe put into the study: a set CARD needs more of it the more powerful the card is (Cards.ripAp), so the rip takes the oldest plan the study can reach and a
+    // stronger card stays down in silence. Without ctx.invest (the legacy Observe has no study size) every plan is in reach.
+    function mysteryForce(s, unitId, targetOverride, why, ctx) {
       const u = s.actors[unitId];
       if (!u) return null;
-      const card = oldest(s, u.side, unitId, null);
+      let card = oldest(s, u.side, unitId, null);
       if (!card) return null;
-      return fireCard(s, card, targetOverride, why);
+      if (ctx?.invest != null) card = (lists(s)[u.side] || []).find((c) => c.unitId === unitId && (c.kind !== "card" || ctx.invest >= H.Cards.ripAp(c))) || null;
+      if (!card) return null;
+      return fireCard(s, card, targetOverride, why, card.kind === "card" ? { rip: true, observer: ctx?.observer || null } : undefined);
     }
 
     // Round start: age all cards; expiry drops them unrevealed, no refund, unnamed.
     function mysteryTick(s) {
       for (const side of ["player", "enemy"]) {
-        const mine = lists(s)[side] || [];
+        const mine = (lists(s)[side] || []).filter((c) => !(c.kind === "card" && s.actors?.[c.unitId]?.defeated));   // Battle Cards C2: a defeated setter's face-down CARDS are discarded here, unnamed (an ability plan keeps Mystery's own rule)
         for (const c of mine) c.age += 1;
         const kept = mine.filter((c) => c.age <= RULES(s).expiry);
         if (kept.length !== mine.length) log(s, { kind: "mystery", text: `A stale set plan fades (${mine.length - kept.length}).`, why: ["Expiry eats them: the price of secrecy, unrefunded."] });
@@ -125,18 +135,42 @@
       if (card) fireCard(s, card, undefined, "the turn begins");
     }
 
-    // After a hit lands: the victim's oldest on-attacked card fires back at the attacker.
-    function mysteryAttacked(s, victim, attacker) {
+    // The victim's on-attacked plans of one phase, oldest first. oldest() runs first only for its MCR-06 heal of a plan stranded on the other side by a conversion.
+    const springers = (s, victim, phase) => { oldest(s, victim.side, victim.id, "on-attacked", phase); return (lists(s)[victim.side] || []).filter((c) => c.unitId === victim.id && c.trigger === "on-attacked" && (c.phase || "after") === phase); };
+
+    // After a hit lands: the victim's oldest on-attacked card fires back at the attacker. `hurt` is the LF the hit took (a set CARD with phase "after" needs it above 0).
+    // A set card that holds (its condition unmet, nothing hurt) leaves the next card its turn; an ability plan that holds ends the try, as before.
+    function mysteryAttacked(s, victim, attacker, hurt) {
       if (!victim || victim.defeated || !attacker) return;
-      const card = oldest(s, victim.side, victim.id, "on-attacked");
-      if (card) fireCard(s, card, [attacker.x, attacker.y], "sprung by the attack");
+      for (const card of springers(s, victim, "after")) {
+        if (!fireCard(s, card, [attacker.x, attacker.y], "sprung by the attack", { attacker, hurt: hurt || 0 }) || card.kind !== "card") break;
+      }
     }
 
-    // The AI's only mystery reader (Muse AI-half-1): how many face-down cards one
+    // Before a hit lands (damage.js, ahead of the ward): the victim's on-attacked set CARDS with phase "before" fire (a ward that the same blow then meets). One card per hit.
+    function mysteryBeforeHit(s, victim, attacker) {
+      if (!victim || victim.defeated || !attacker) return;
+      for (const card of springers(s, victim, "before")) {
+        if (!fireCard(s, card, [attacker.x, attacker.y], "sprung by the attack", { attacker, hurt: 0 })) break;
+      }
+    }
+
+    // Battle Cards C2: a set CARD enters the same face-down list, budget and expiry (the budget is shared with ability plans). Returns an error string or null.
+    const mysteryRoom = (s, side) => (s.mysterySpent?.[side] || 0) < RULES(s).budget;   // a read: it never creates s.mysterySpent (Cards.options and the AI call it on every look; aiAction must not mutate the state)
+    function mysteryPlace(s, a, entry) {
+      if (!mysteryRoom(s, a.side)) return `Face-down budget spent (${RULES(s).budget} per side).`;
+      const spent = (s.mysterySpent ||= { player: 0, enemy: 0 }); spent[a.side] = (spent[a.side] || 0) + 1;
+      (lists(s)[a.side] ||= []).push(entry);
+      return null;
+    }
+    const mysteryFoeCount = (s, side) => ({ count: (lists(s)[side] || []).filter((c) => c.kind !== "card").length });   // the foe view of Mystery: a card set counts only through Cards.viewFor (aware viewers)
+    const mysteryCardCount = (s, unitId) => s.actors?.[unitId]?.defeated ? 0 : ["player", "enemy"].reduce((n, side) => n + (lists(s)[side] || []).filter((c) => c.kind === "card" && c.unitId === unitId).length, 0);   // a defeated setter's cards count for no one (they are discarded at the next fire attempt or round start)
+
+    // The AI's only mystery reader (Muse AI-half-1): how many face-down plans one
     // setter still holds, across both lists (MCR-06: a converted setter's cards may
     // sit on the other list until they heal). A NUMBER, never contents.
-    const mysteryUnitCount = (s, unitId) => ["player", "enemy"].reduce((n, side) => n + (s.mystery?.[side] || []).filter((c) => c.unitId === unitId).length, 0);
+    const mysteryUnitCount = (s, unitId) => ["player", "enemy"].reduce((n, side) => n + (s.mystery?.[side] || []).filter((c) => c.kind !== "card" && c.unitId === unitId).length, 0);   // a face-down CARD set is not counted: the AI reads a card only through Cards.viewFor, and only when it is aware (CARDS.md 18.3)
 
-    return { mysterySet, mysteryReveal, mysteryForce, mysteryTick, mysteryTurnStart, mysteryAttacked, mysteryMigrate, mysteryUnitCount };
+    return { mysterySet, mysteryReveal, mysteryForce, mysteryTick, mysteryTurnStart, mysteryAttacked, mysteryBeforeHit, mysteryRoom, mysteryPlace, mysteryCardCount, mysteryFoeCount, mysteryMigrate, mysteryUnitCount };
   })();
 });

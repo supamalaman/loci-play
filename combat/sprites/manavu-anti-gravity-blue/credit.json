@@ -1,0 +1,13 @@
+{
+ "artist": "@ManavuArt",
+ "artist_tag": "@ManavuArt",
+ "artist_display": "@ManavuArt",
+ "role": "character sprite design",
+ "source_sheet": "Manavu Anti-Gravity Soldier Sprite Sheet (1).png",
+ "source_sha256": "6b5264ce32771660bdad434df029c5aeaf18ce47de15dccb409404df44984223",
+ "package": "manavu-anti-gravity-blue",
+ "cutter": "Keystone CU",
+ "session": "grok:f531c831",
+ "date": "2026-11-04",
+ "display_in_game": "Integrator: copy artist into sprite-manifest / character data so the tag is visible in game. Cutter does not edit the live manifest."
+}

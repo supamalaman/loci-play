@@ -110,6 +110,7 @@
       H.courtRound?.(s);   // Heart Court: one telegraphed act (engine/living-map.js)
       H.advanceTime(s);   // day and night: phase, nightfall creatures, dawn flight (engine.js; rules.time)
       processRandomEvents(s);
+      H.waterAgenda?.(s);   // Living Water W1: the agenda phase, after weather (engine/conditions.js)
       H.Hires?.roundStart(s);   // a called merc or mediator arrives (engine/hires.js)
       H.friendRound?.(s);
       H.fishRound?.(s);   // dream fish restock the water (engine/conditions.js)   // a remembered Sasquatch may come to help (engine/tamer.js)
@@ -173,6 +174,7 @@
       s.turnDamageCounts = {};
       a.ownerTurns += 1;
       H.mysteryTurnStart?.(s, a);   // Mystery (Muse W2.5): on-turn-start set plans fire
+      if (a.companion?.card && !a.defeated) { H.Cards.familiarTurn(s, a); a.tempo = 0; if (!s.preview) endTurn(s); return; }   // Battle Cards C3: a card familiar strikes or wards by its card, then its turn ends (no AI, no AP)
       if (H.gamblerOf?.(s, a)) { const hot = (a._unspent ?? 0) >= (H.hyperRules?.heat.unspentAp ?? 40); s.heat = { ...(s.heat || {}), [a.id]: hot ? Math.min(H.hyperRules.heat.max, (s.heat?.[a.id] || 0) + 1) : 0 }; }   // W5.3: rhythm of madness
       H.Contracts?.turn(s,a);
       // Cavalry: +4 movement on his first owner turn only (7 instead of 3; Mala raised it from +3 on 2026-10-13). Steps still cost 10 AP.
@@ -523,6 +525,7 @@
       H.monsterRelease(s);   // a fully observed ghost departs   // a vampire that ends its turn in the sun burns
       companionTick(s, a);   // a class companion (the Fighting Coach) counts down too
       H.Hires?.turnEnd(s, a);   // a merc's contract and nerve, a mediator's patience
+      if (a) H.fruitTurnEnd?.(s, a);   // Sinkerfruit (Locusfruit): a Ripe eater leaves a memory mark on the tile it ends a turn on
       H.Multitudes.turnEnd(s, a); H.Exposure.turnEnd(s, a);   // Exposure: a turn ended beside his own wall   // Contains Multitudes: an embodiment ends with his last turn of it
       // Visage (biology): whoever ends their turn within 2 of the face meets its gaze. The gaze itself
       // exempts the fearless, marks dread, and may rout; the Emissary's enraged button stays an action.

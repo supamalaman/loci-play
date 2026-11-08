@@ -529,6 +529,114 @@
       ]
     }
   },
+  "hadidCourt": {
+    "schemaVersion": 1,
+    "id": "hadidCourt",
+    "name": "Hadid Court",
+    "archetype": "terrace",
+    "map": [
+      ",T,,,,,,,T,,,,,,,T,",
+      ",,,##,,,,.,,,,##,,,",
+      ",,m,,,##m,m##,,,m,,",
+      "...../////////.....",
+      "/////........./////",
+      ".hh....#...#....hh.",
+      "..#...m.....m...#..",
+      "T..#...#...#...#..T",
+      "...../////////.....",
+      "/////........./////",
+      "...................",
+      ".,..h..,..,..,h.,..",
+      ",..,.h,..,..,h.,..,",
+      "..,..,.....,..,..,.",
+      ".T...............T."
+    ],
+    "height": [
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000011111111100000",
+      "1111111111111111111",
+      "1111111111111111111",
+      "1111111111111111111",
+      "1111111111111111111",
+      "1111122222222211111",
+      "2222222222222222222",
+      "2222222222222222222",
+      "2222222222222222222",
+      "1111111111111111111",
+      "1111111111111111111"
+    ],
+    "spawns": {
+      "player": [
+        [
+          9,
+          1
+        ]
+      ],
+      "enemy": [
+        [
+          8,
+          13
+        ],
+        [
+          9,
+          13
+        ],
+        [
+          10,
+          13
+        ]
+      ]
+    },
+    "requirements": {
+      "walkableLevels": true
+    },
+    "note": "Zaha Hadid fluid parametricism, dry: staggered ribbon-pillars sweep sightlines without right angles, a folded pour-form canopy rides four piers over the mid plaza, and grades step 0-1-2 through ramp seams. No water anywhere (F1 builds dry by ruling).",
+    "visual": {
+      "style": "isometric",
+      "seed": 21,
+      "lighting": "day",
+      "palette": {
+        "stone": "#cfc4b4",
+        "soil": "#6f5136",
+        "turf": "#5f9a4a",
+        "water": "#3d8fa8",
+        "wall": "#8a7f72",
+        "ramp": "#b3a48e"
+      },
+      "features": [
+        {
+          "type": "canopy",
+          "x": 6,
+          "y": 5,
+          "width": 6,
+          "depth": 3,
+          "rise": 1.8,
+          "slats": 24,
+          "columns": [
+            [
+              7.5,
+              5.5
+            ],
+            [
+              11.5,
+              5.5
+            ],
+            [
+              7.5,
+              7.5
+            ],
+            [
+              11.5,
+              7.5
+            ]
+          ]
+        }
+      ]
+    }
+  },
   "loiTerraces": {
     "schemaVersion": 1,
     "id": "loiTerraces",
@@ -1009,6 +1117,70 @@
         }
       ]
     }
+  },
+  "rillGarden": {
+    "archetype": "wetland",
+    "biome": "tropicalGarden",
+    "height": [
+      "222222222222222",
+      "222222222222222",
+      "222222222222222",
+      "111111111111111",
+      "111111111111111",
+      "111111111111111",
+      "111111000111111",
+      "000000000000000",
+      "000000000000000"
+    ],
+    "id": "rillGarden",
+    "map": [
+      ".T,,...w...,,T.",
+      ".,,,...w...,,,.",
+      "....,,.w.,,....",
+      ".,,,...w...,,,.",
+      ".T,,h..w..h,,T.",
+      ".,,,...w...,,,.",
+      "....,,www,,....",
+      "...,,wwwww,,...",
+      ".T,,.wwwww.,,T."
+    ],
+    "name": "Rill Garden",
+    "note": "Living Water W1 proving ground: a single rill runs north to south down a height gradient (2 to 0) into a still basin. Streams only — no deep water anywhere, so the agenda can accumulate and flow without ever shipping a flooded battle (pre-mortem #1).",
+    "requirements": {
+      "walkableLevels": true
+    },
+    "schemaVersion": 1,
+    "spawns": {
+      "enemy": [
+        [
+          12,
+          4
+        ],
+        [
+          12,
+          2
+        ]
+      ],
+      "player": [
+        [
+          2,
+          4
+        ]
+      ]
+    },
+    "visual": {
+      "lighting": "day",
+      "palette": {
+        "soil": "#6f5136",
+        "stone": "#b9ab95",
+        "turf": "#5f9a4a",
+        "wall": "#7b6f60",
+        "water": "#3d8fa8"
+      },
+      "seed": 7,
+      "style": "isometric"
+    },
+    "waterAgenda": true
   },
   "shipInterior": {
     "name": "Visitor Ship Interior",

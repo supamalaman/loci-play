@@ -5,6 +5,7 @@
 //   rollDrops(account, result, { seed, biome })      → [{ kind: "consumable"|"equipment", id, rarity }]
 //   shopStock(account, { seed, biome })              → [{ kind, id, price }]
 //   buy(account, offer) / sell(account, kind, id)    → { ok, account, reason }
+//   sellConsumable(account, id) / trashConsumable(account, id)  → { ok, account, value?, reason }   (kit board: 10% of price, or destroy)
 //   equip(account, id) / unequip(account, slot)      → { ok, account, reason }
 //   passives(account)                                → merged passive modifiers for the engine
 //   packForBattle(account, ids)                      → { ok, account, carried, reason }   (choose consumables to bring)
@@ -446,6 +447,25 @@
     return { ok: true, account: a, value };
   }
 
+  // Kit-board salvage (Mala, 2026-11-05: "a spot to drag and drop to trash an item or sell an item for seeds (10% value)").
+  // Consumables resell here at 10% of rarity price (3/7/16/40) — deliberately below sell()'s 40% rate, which a
+  // "no new faucet" test pins for the engine path. Trash destroys with no return. One unit per call.
+  function sellConsumable(account, id) {
+    let a = withBags(account); const it = I.consumables[id];
+    if (!it) return { ok: false, account: a, reason: "Unknown item." };
+    if (!(a.stash[id] > 0)) return { ok: false, account: a, reason: "None in your stash." };
+    const value = Math.round(I.rarities[it.rarity].price * I.rules.salvageShare);
+    const stash = { ...a.stash, [id]: a.stash[id] - 1 }; if (!stash[id]) delete stash[id];
+    return { ok: true, account: { ...a, seeds: a.seeds + value, stash }, value };
+  }
+  function trashConsumable(account, id) {
+    let a = withBags(account); const it = I.consumables[id];
+    if (!it) return { ok: false, account: a, reason: "Unknown item." };
+    if (!(a.stash[id] > 0)) return { ok: false, account: a, reason: "None in your stash." };
+    const stash = { ...a.stash, [id]: a.stash[id] - 1 }; if (!stash[id]) delete stash[id];
+    return { ok: true, account: { ...a, stash } };
+  }
+
   // ── The Museum (M1) ──
   // A piece qualifies when it has been cherished at least once or has awakened (care score 10 or more; M3). It must be owned and not already placed.
   const AWAKENED_SCORE = 10;
@@ -559,5 +579,5 @@
     return { ...a, carried: [...a.carried.slice(0, i), ...a.carried.slice(i + 1)] };
   }
 
-  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, equip, unequip, passives, setSpeaking, speakingLines, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
+  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, sellConsumable, trashConsumable, equip, unequip, passives, setSpeaking, speakingLines, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
 });

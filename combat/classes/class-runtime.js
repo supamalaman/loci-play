@@ -79,6 +79,12 @@
     rackAndLabel: X("miseStation", {target:"tile",range:2}),
     parallelPrep: X("miseStation", {target:"tile",range:3}),
     everythingInItsPlace: X("miseStation", {target:"tile",range:3}),
+    // Homology (Mala, 2026-11-04: given to the Field Botanist; web/combat/graph/homology-rules.js). The same entries homology-rules.js `playable()` writes, now static so content.js promotes the abilities.
+    comparativeAnatomy: X("homologyCompare", {target:"enemy",range:5}),
+    comparativeAnatomyFidelity: X("homologyCompare", {target:"enemy",range:3}),
+    conservedJoint: X("homologyJoint", {target:"enemy",range:6}),
+    conservedJointSkeleton: X("homologyJoint", {target:"enemy",range:4}),
+    ancestralReconstruction: X("homologyReconstruct", {target:"enemy",range:6}),
     // Teleology + Retrocausality (muse, 2026-10-26, orbit prototype; web/combat/teleology/teleology.js).
     designateDestiny: X("teleDestiny", {target:"tile",range:1}),
     borrowedBlow: X("teleBorrow", {target:"enemy",range:4}),
@@ -180,6 +186,7 @@
     findTheBase: X("fulcrum", { target: "self", range: 0 }), turnTheWeight: D({ target: "enemy", delivery: "contact", range: 1, needs: "fulcrum", throwTiles: 2 }),
     yieldingGuard: X("buff", { target: "self", range: 0, buff: "yield" }), snapBack: D({ target: "enemy", delivery: "contact", range: 1, potency: 1, needs: "stored", releaseStored: true }),
     springLeverThrow: D({ target: "enemy", delivery: "contact", range: 1, needs: "fulcrum", releaseStored: true, throwTiles: 3 }),
+    eightfoldClinch: D({ target: "enemy", delivery: "contact", range: 1 }),   // S2: staged merge supplies potency 0 + startsSubmission; resolve.js starts the hold
     // Mangaka: Final Chapter runs on the engine's montage path (engine.js manifest), allowed one ultimate source at ×0.7.
     // Glamour (playable 2026-10-19 with Jiang Qing): Shimmer veils a unit, Allure draws foes in, Masquerade misleads a crowd.
     shimmer: X("shimmer", { target: "unit", range: 5 }), allure: X("allure", { target: "self", range: 0, radius: 2 }),
@@ -324,6 +331,7 @@
   for (const [cls, b] of Object.entries(CB)) for (const id of b.kit) if (wire[id]) (PAIRS[id] ||= []).push(CLASS_PAIRS[cls]);
   for (const id of ["shieldBash", "holdTheLine", "oathOfTheShield"]) (PAIRS[id] ||= []).push(["interposition", "strategic_commitment"]);   // the Paladin re-spec moved these to reserve: gated to the legacy pair so no other Interposition holder (Knight, Super Hero) gets them
   for (const id of ["decoy", "genjutsu"]) (PAIRS[id] ||= []).push(["stealth", "threshold"]);   // ninja pair extras outside the four slots
+  (PAIRS.eightfoldClinch ||= []).push(["swale", "leverage"]);   // Tidewrestler class technique (Mala, 2026-11-07; R-20261107-05): wired here, so content.js takes this pair, not the kits row's (riptide is not wired and keeps its own row's pairs)
   (PAIRS["perfectHeist"] ||= []).push(["stealth", "deception"]);   // thief pair extra outside the four slots
   for (const id of ["merge", "spareHair"]) (PAIRS[id] ||= []).push(["deception", "leverage"]);   // monkey pair extras outside the four slots
   for (const id of ["chargeWave", "vowOpenHand", "vowNeverQuench", "vowSharedBowl", "hurlFeast"]) (PAIRS[id] ||= []).push(["bird_mountain", "adaptation"]);   // martial pair extras outside the four slots

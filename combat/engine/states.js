@@ -2,7 +2,7 @@
 // States (Mala, 2026-10-24; docs/state-kit.md): one table of conditions a unit can be in, read by one resolver.
 // The table is C.states in content.js (numbers live in content.js), one row per state, data only:
 //
-//   { name, text, why, hidden?, group?,
+//   { name, text, why, hidden?, group?, cardMod?: "taken" | "dealt" (a card's row: strongest-wins per unit per direction, never multiplies another card row),
 //     gate?:     { blocks: ["all" | "move" | "guard" | "ability" | "ultimate" | "ability:<id>" | "channel:<damageType>"], except?: [abilityId], reason? },
 //     clock?:    { counts: "ownerTurns" | "rounds" | "hits" | "manual", n, then?: [effect] },
 //     mods?:     [{ on: "taken" | "dealt", family?: damageType | [damageType], mult }],
@@ -56,7 +56,7 @@
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
     const { log } = H;
-    const KIND = { move: "move", jump: "move", climb: "move", guard: "guard", overwatch: "overwatch", ability: "ability" };   // overwatch: Cure (S1), so a gate can block the Overwatch action type
+    const KIND = { move: "move", jump: "move", climb: "move", guard: "guard", overwatch: "overwatch", ability: "ability", playCard: "card" };   // overwatch: Cure (S1), so a gate can block the Overwatch action type
     const defOf = (id) => { const d = H.C.states?.[id]; return d ? { ...d, id } : null; };
     const live = (u) => !!u && !u.defeated && !u.notArrived;
     const quiet = (def, inst) => !!def.hidden && !inst.revealed.length;
@@ -245,12 +245,19 @@
     function damageMods(s, src, tgt, inst, damageType) {
       if (!src?.states && !tgt?.states) return null;
       let mult = 1; const notes = [];
-      const read = (u, on) => each(u, (st, def) => {
-        for (const m of def.mods || []) {
-          if (m.on !== on || (m.family && ![].concat(m.family).includes(damageType))) continue;
-          mult *= m.mult; if (!quiet(def, st)) notes.push(`${def.name} ×${m.mult}.`);
-        }
-      });
+      // Card-sourced rows (a def tagged cardMod, CARDS.md section 17) never multiply each other: per unit per direction only the
+      // strongest applies (the mult farthest from 1; ties keep the row already held), and it multiplies with non-card rows as usual.
+      const read = (u, on) => {
+        let best = null;
+        each(u, (st, def) => {
+          for (const m of def.mods || []) {
+            if (m.on !== on || (m.family && ![].concat(m.family).includes(damageType))) continue;
+            if (def.cardMod === on) { if (!best || Math.abs(m.mult - 1) > Math.abs(best.mult - 1)) best = { mult: m.mult, def, st }; continue; }
+            mult *= m.mult; if (!quiet(def, st)) notes.push(`${def.name} ×${m.mult}.`);
+          }
+        });
+        if (best) { mult *= best.mult; if (!quiet(best.def, best.st)) notes.push(`${best.def.name} ×${best.mult}.`); }
+      };
       read(tgt, "taken"); if (src && src !== tgt) read(src, "dealt");
       return mult === 1 && !notes.length ? null : { mult, notes };
     }
@@ -305,6 +312,7 @@
       H.Factions?.rivalsMeet?.(s);   // rivals on the field: one log line each (factions.js)
     }
     function turnStart(s, a) {
+      H.Cards?.sweep(s);   // Battle Cards C4: a zone grants and takes back its hidden rows at every unit's turn start
       H.Factions?.rivalsMeet?.(s);   // a rival who arrived since
       presenceSweep(s);   // someone who arrived since (a late ally) counts from the next turn's start
       placeSweep(s);      // a holder pushed out, or a granter gone, during someone else's turn
@@ -316,6 +324,7 @@
       });
     }
     function roundEnd(s) {
+      H.Cards?.zoneTick(s);   // Battle Cards C4: a zone's rounds tick down before the rows' own clocks
       for (const a of Object.values(s.actors)) if (a.states) each(a, (st, def) => {
         if (def.clock?.counts === "rounds") { st.count -= 1; if (st.count <= 0) { finish(s, a, st, def); return; } }
         adjacentBreak(s, a, st, def);
@@ -325,6 +334,7 @@
     // ── Ability data: def.states.grant = [{ id, to: "self" | "target", turns? }]; a state's { ability } breakers.
     function afterAction(s, a, action) {
       placeSweep(s);   // any action can move a holder (a step, a shove, a pull): moved and apart breakers look after every one
+      H.Cards?.sweep(s);   // Battle Cards C4: so does a zone: a unit that stepped or was pushed out loses its row, one that stepped in gains it
       if (action?.type !== "ability" || !action.ability) return;
       const def = abOf(action.ability);
       const at = typeof action.target === "string" ? s.actors[action.target]

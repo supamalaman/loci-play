@@ -153,5 +153,17 @@
     return a;
   }
 
-  return { RULES, cap, levelFor, need, tierName, effects, eventsFrom, add, award, migrate };
+  // ── the character sheet's Fame block (FAME.md section 10.2, F3a) ──
+  // Pure: the sheet renders this, so the strings are testable without a DOM. `present` names the systems that exist ({ board, desk }): an unlock is
+  // listed only when its system is present, so the sheet never advertises an absent feature.
+  const SOURCE_NAMES = { busk: "Busking", persuade: "Coming to terms", spared: "Sparing", knockout: "Knockouts", sealed: "Sealing", tamed: "Taming", presence: "Presence", trial: "Trials", clean: "Clean hands", bonus: "No deaths", perform: "Performing" };
+  function sheetBlock(account, present = {}) {
+    const level = levelFor(account), cost = level >= cap(account) ? null : need(level), xp = cost == null ? 0 : Math.max(0, Math.floor(account?.fameXp || 0));
+    const by = Object.entries(account?.fameBy || {}).filter(([k, v]) => Object.prototype.hasOwnProperty.call(SOURCE_NAMES, k) && v > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([source, pts]) => [source, pts, SOURCE_NAMES[source]]);
+    const fx = effects(level), unlocks = [];
+    if (present.board) unlocks.push({ at: 2, what: "non-lethal jobs on the Notice board" });
+    if (present.desk) unlocks.push({ at: 3, what: "the second slot on the desk shelf" });
+    return { level, tier: tierName(level), xp, need: cost, next: cost == null ? null : tierName(level + 1), by, effects: { persuasion: fx.persuasion, hallPct: fx.hallPct }, unlocks };
+  }
+  return { RULES, cap, levelFor, need, tierName, effects, eventsFrom, add, award, migrate, sheetBlock };
 });

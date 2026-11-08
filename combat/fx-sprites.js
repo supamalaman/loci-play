@@ -22,7 +22,7 @@
     threshold: "electric", resonance: "electric", timing: "electric", pipeline: "electric", hardware: "electric", mise_en_place: "electric", enhancement: "electric",
     adaptation: "water", swale: "water", plasticity: "water", periodicity: "water",
     deception: "shadow", reversal: "shadow", stealth: "shadow",
-    pathway: "arcane", section: "arcane", collage: "arcane", indexing: "arcane", adjacency: "arcane", inference: "arcane", software: "arcane", retrieval: "arcane", imagination: "arcane", longtermism: "arcane",
+    pathway: "arcane", section: "arcane", collage: "arcane", indexing: "arcane", homology: "arcane", adjacency: "arcane", inference: "arcane", software: "arcane", retrieval: "arcane", imagination: "arcane", longtermism: "arcane",
     boundary: "fire", strategic_commitment: "fire", antifragility: "fire", hospitality: "fire",   // the Hot Pot Berserker: the boiling pot and the hearth (2026-10-25)
     diffusion: "poison", obsolescence: "poison",
     pruning: "nature", succession: "nature", traditional_medicine: "nature", herbal_medicine: "nature",

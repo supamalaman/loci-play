@@ -40,7 +40,7 @@
     ordealTrial: 6, ordealFine: 4,           // Hammurabi Law 2 (SPEC.md numbers)
     exchangesPerCount: 2,                    // prosecution + defense acts, twice, then verdict
   };
-  const GRADES = { struck: 0, unproven: 1, witnessed: 2, sworn: 3 };
+  const GRADES = { struck: 0, unproven: 1, witnessed: 2, found: 2, sworn: 3 };   // I4c: found argues like witnessed (Decision 7)
   const SEV = { minor: 1, serious: 2, grave: 3, capital: 4 };
 
   // ── law forms (registry: data + hooks; new forms slot in here) ──
@@ -78,6 +78,7 @@
     favor: "Which way the room leans: +defense, −prosecution. Strong leans decide close counts.",
     sworn: "Proven by your own announced word. Cannot be denied — you said it in public.",
     witnessed: "Proven because someone credible saw it. Arguable, but it holds.",
+    found: "Proven by found evidence. Argues like witnessed: stronger than unproven, not as strong as a sworn act.",
     unproven: "Claimed but not proven. The defense strikes these; Hammurabic courts river-try them.",
     exhibit: "A witness brought into the room. Who they are matters as much as what they say.",
     alibi: "A defense witness: someone who says the accused was elsewhere, or the act never was.",
@@ -273,7 +274,7 @@
           else swing(-1, `Prosecution presses an unproven count: it holds, barely.`, ["Thin counts need witnesses, not volume."]);
           break;
         }
-        swing(dir * TRIAL.argueWitnessed, `${side === "defense" ? "Defense argues" : "Prosecution presses"} a witnessed count: the grade holds, the room shifts ${dir > 0 ? "defense" : "prosecution"}.`, ["Witnessed counts resist argument."]);
+        swing(dir * TRIAL.argueWitnessed, `${side === "defense" ? "Defense argues" : "Prosecution presses"} a ${c.grade === "found" ? "found" : "witnessed"} count: the grade holds, the room shifts ${dir > 0 ? "defense" : "prosecution"}.`, ["Witnessed counts resist argument."]);   // I4c: found counts argue here too, labeled found
         break;
       }
       case "evidence": {

@@ -261,7 +261,8 @@
     const k2 = { revealed: [...know.revealed, ...revealed.map((o) => o.id)], progress: more ? leftover : 0, invested: know.invested + ap };
     const unlocked = actionsUnlockedBy(deck, k2.revealed).filter((a) => !before.has(a));
     const lines = [`You investigate ${name} deeply (${total} points):`];
-    if (revealed.length) for (const o of revealed) lines.push(`You notice: ${o.text}`);
+    // Evidence cards speak through the law callout, not here: this text is pre-upgrade, and logging it would print the unproven wording on the find turn beside the found callout (I4c).
+    if (revealed.length) for (const o of revealed) { if (o.kind !== "evidence") lines.push(`You notice: ${o.text}`); }
     else lines.push(`Nothing surfaced, but you are closer: ${k2.progress} carried.`);
     if (extra) lines.push("20/20 Vision: a fine visual detail brings one more observation into focus.");
     for (const a of unlocked) lines.push(`New action: ${ID.actions[a].name}`);

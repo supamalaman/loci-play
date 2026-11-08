@@ -48,7 +48,9 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   const walkable = (w, x, y) => inside(w.arena, x, y) && !D.terrain[w.arena.map[y][x]].blocksMove && !(objAt(w, x, y) || {}).blocksMove;
 
   // Cheapest walking route for a monster (terrain step costs; units and other monsters block).
-  function route(w, from, isGoal, budget = 99, onlyWater = false) {
+  // deepWater (kraken, 2026-11-05): pools ("~") are unwalkable ground to everything else, but a deep
+  // swimmer treats them as water at the shallow cost.
+  function route(w, from, isGoal, budget = 99, onlyWater = false, deepWater = false) {
     const wet = (x, y) => ["w", "~"].includes(w.arena.map[y]?.[x]);
     const dist = new Map([[K(...from), 0]]), prev = new Map(), done = new Set();
     for (;;) {
@@ -63,7 +65,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
         const goal = isGoal(nx, ny);
         if (onlyWater && !wet(nx, ny)) continue;   // the porgy never beaches: water tiles only
         if (!goal && (unitAt(w, nx, ny) || wildAt(w, nx, ny))) continue;
-        const c = goal && (unitAt(w, nx, ny) || objAt(w, nx, ny)) ? 1 : G.stepCost(w.arena, x, y, nx, ny);
+        const c = goal && (unitAt(w, nx, ny) || objAt(w, nx, ny)) ? 1 : deepWater && w.arena.map[ny]?.[nx] === "~" ? 2 : G.stepCost(w.arena, x, y, nx, ny);
         if (c == null || d + c > budget) continue;
         if (!dist.has(nk) || d + c < dist.get(nk)) { dist.set(nk, d + c); prev.set(nk, k); }
       }
@@ -80,6 +82,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     if (kind === "gaia") { m.target = w.gaiaProvokedBy || null; w.gaiaInvoked = true; w.gaiaAwakeningPending = false; }
     if (kind === "moa") m.nest = at.slice();   // it marks its nest where it appears
     if (kind === "sasquatch") { m.home = at.slice(); m.traits = (def.traits || []).slice(); }   // its ground, and its genius
+    if (kind === "kraken") m.traits = (def.traits || []).slice();   // swimmer follows it into a tame (no drowning)
     if (def.form === "front") Object.assign(m, { x: at[0], y: at[1], strength: def.strength });
     if (def.form === "field") m.tiles = { [K(...at)]: 0 };
     w.wild.push(m);
@@ -91,6 +94,8 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     if (!canAppear(w, kind)) return { world: w, events: [], error: "That monster is already present or the wild side is full." };
     if (!Array.isArray(at) || !walkable(w, at[0], at[1]) || unitAt(w, at[0], at[1]) || wildAt(w, at[0], at[1]))
       return { world: w, events: [], error: "Choose an open, walkable tile for the monster." };
+    if (def.waterOnly && !["w", "~"].includes(w.arena.map[at[1]]?.[at[0]]))
+      return { world: w, events: [], error: `The ${def.name.toLowerCase()} must be called into water.` };
     const event = spawn(w, kind, at, reason, { summoned: true, summonerId, side: "wild" });
     return { world: w, events: [event] };
   }
@@ -202,6 +207,17 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       const drift = waterTiles(w).filter(([x, y]) => !(x === m.x && y === m.y) && open([x, y]) && man(x, y, m.x, m.y) <= def.move * 3).sort((a, b) => man(a[0], a[1], m.x, m.y) - man(b[0], b[1], m.x, m.y))[0];
       return drift ? { tile: drift, why: "open water" } : null;
     }
+    if (m.kind === "kraken") {   // the porgy's hunt at kraken scale: nearest body it can swim to, else drift the deep
+      const wet = (x, y) => ["w", "~"].includes(w.arena.map[y]?.[x]);
+      const open = ([x, y]) => inside(w.arena, x, y) && !unitAt(w, x, y) && !wildAt(w, x, y);
+      for (const u of prey(w).filter((u) => man(u.x, u.y, m.x, m.y) <= def.seekUnits).sort((a, b) => man(a.x, a.y, m.x, m.y) - man(b.x, b.y, m.x, m.y) || (a.id < b.id ? -1 : 1))) {
+        if (wet(u.x, u.y)) return { unit: u.id, tile: [u.x, u.y], why: "the nearest body" };
+        const shore = DIRS.map(([dx, dy]) => [u.x + dx, u.y + dy]).filter(([x, y]) => wet(x, y) && open([x, y])).sort((a, b) => man(a[0], a[1], m.x, m.y) - man(b[0], b[1], m.x, m.y))[0];
+        if (shore) return { unit: u.id, tile: shore, why: "the nearest body" };
+      }
+      const drift = waterTiles(w).filter(([x, y]) => !(x === m.x && y === m.y) && open([x, y]) && man(x, y, m.x, m.y) <= def.move * 3).sort((a, b) => man(a[0], a[1], m.x, m.y) - man(b[0], b[1], m.x, m.y))[0];
+      return drift ? { tile: drift, why: "the deep water" } : null;
+    }
     if (m.kind === "wolf") {   // the straggler: fewest of its own side within 2, then nearest
       const near = (u) => living(w).filter((v) => v.id !== u.id && v.side === u.side && man(v.x, v.y, u.x, u.y) <= 2).length;
       const u = prey(w).filter((u) => man(u.x, u.y, m.x, m.y) <= def.seekUnits).sort((a, b) => near(a) - near(b) || man(a.x, a.y, m.x, m.y) - man(b.x, b.y, m.x, m.y) || (a.id < b.id ? -1 : 1))[0];
@@ -289,13 +305,13 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     }
     if (!t) return;
     const goal = (x, y) => x === t.tile[0] && y === t.tile[1];
-    const r = route(w, [m.x, m.y], goal, 99, !!def.waterOnly);
+    const r = route(w, [m.x, m.y], goal, 99, !!def.waterOnly, !!def.deepWater);
     if (r) {
       const from = [m.x, m.y];
       let budget = def.move, steps = 0;
       for (const [x, y] of r.path.slice(1)) {
         if (goal(x, y) && (unitAt(w, x, y) || objAt(w, x, y)?.blocksMove)) break;    // stop adjacent to a body or solid wood
-        const c = G.stepCost(w.arena, m.x, m.y, x, y) ?? 99; if (c > budget) break;
+        const c = def.deepWater && w.arena.map[y]?.[x] === "~" ? 2 : G.stepCost(w.arena, m.x, m.y, x, y) ?? 99; if (c > budget) break;
         budget -= c; m.x = x; m.y = y; steps++;
         if (m.kind === "feralPig" && def.rootsTo[w.arena.map[y][x]]) {
           const ch = def.rootsTo[w.arena.map[y][x]];
@@ -333,6 +349,10 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       const hit = { ducks: [def.peck, "The ducks peck:"], wolf: [def.bite, "The feral dog bites:"], moa: [def.kick, "The moa kicks:"], porgy: [def.nip, "The porgy nips:"] }[m.kind];
       const victim = DIRS.map(([dx, dy]) => biteAt(w, m.x + dx, m.y + dy)).filter(Boolean).sort((a, b) => (a.id === t.unit ? -1 : b.id === t.unit ? 1 : a.id < b.id ? -1 : 1))[0];
       if (victim) { damageUnit(w, victim, hit[0], def.channel, [m.x, m.y], events, 0, hit[1], m.kind, m.id); if (def.skittish && roll(w, m.id, "bolt:" + w.round) < def.skittish) m.fleeing = "bolted after biting"; }
+    }
+    if (m.kind === "kraken") {
+      const victim = DIRS.map(([dx, dy]) => biteAt(w, m.x + dx, m.y + dy)).filter(Boolean).sort((a, b) => (a.id === t.unit ? -1 : b.id === t.unit ? 1 : a.id < b.id ? -1 : 1))[0];
+      if (victim) damageUnit(w, victim, def.slam, def.channel, [m.x, m.y], events, def.knockback, "The kraken slams:", m.kind, m.id);
     }
     if (m.kind === "gaia") {
       const victim = unitAt(w, ...t.tile);
@@ -382,20 +402,22 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   // Field spread candidates: adjacent tiles with their chance.
   function frontier(w, m) {
     const def = W.monsters[m.kind], out = new Map();
-    const shade = m.kind === "creeper" ? VR.shadeTiles(w.arena) : new Set();
+    const row = (W.fields || {})[m.kind] || null, sp = (row && row.spread) || {};
+    const shade = sp.shadeSkip ? VR.shadeTiles(w.arena) : new Set();
+    const onto = sp.onto || [",", "m"];
     for (const k of Object.keys(m.tiles)) {
       const [x, y] = P(k);
       for (const [dx, dy] of DIRS) {
         const nx = x + dx, ny = y + dy, nk = K(nx, ny);
         if (!inside(w.arena, nx, ny) || nk in m.tiles || out.has(nk)) continue;
-        if (m.kind === "brushfire") {
+        if (sp.mode === "fuel") {
           const c = isFuel(w, nx, ny) * (def.biomeMul[w.arena.archetype] ?? 1);
           if (c > 0) out.set(nk, { at: [nx, ny], chance: Math.min(1, c) });
         } else {
           const ch = w.arena.map[ny][nx];
-          if (![",", "m"].includes(ch) || shade.has(nk) || objAt(w, nx, ny)?.blocksMove) continue;
+          if (!onto.includes(ch) || shade.has(nk) || objAt(w, nx, ny)?.blocksMove) continue;
           const edge = DIRS.some(([ex, ey]) => inside(w.arena, nx + ex, ny + ey) && w.arena.map[ny + ey][nx + ex] !== ch);
-          out.set(nk, { at: [nx, ny], chance: edge ? 1 : 0.6 });
+          out.set(nk, { at: [nx, ny], chance: edge ? (sp.edgeChance ?? 1) : (sp.openChance ?? 0.6) });
         }
       }
     }
@@ -434,10 +456,14 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     for (const f of opts) { m.tiles[K(...f.at)] = 0; events.push({ kind: "creeperGrow", at: f.at, text: `Creeper grows onto (${f.at.join(",")}).` }); }
   }
 
-  // Area damage clears creeper: the engine calls this for area effects of potency ≥ clearedBy.
-  function clearTiles(world, tiles, potency) {
-    const w = clone(world), events = [], c = active(w, "creeper");
-    if (c && potency >= W.monsters.creeper.clearedBy) for (const [x, y] of tiles) if (K(x, y) in c.tiles) { delete c.tiles[K(x, y)]; events.push({ kind: "creeperCleared", at: [x, y], text: `Creeper cleared at (${x},${y}).` }); }
+  // Area damage clears a field kind: the engine calls this for area effects of potency ≥ clearedBy.
+  function clearTiles(world, tiles, potency, kind = "creeper") {
+    const w = clone(world), events = [], c = active(w, kind);
+    const row = ((W.fields || {})[kind] || {}).clear || {};
+    const clearedBy = row.clearedBy ?? (W.monsters[kind] || {}).clearedBy;
+    const label = (((W.fields || {})[kind] || {}).label) || kind;
+    const eventKind = row.eventKind || "creeperCleared";
+    if (c && potency >= clearedBy) for (const [x, y] of tiles) if (K(x, y) in c.tiles) { delete c.tiles[K(x, y)]; events.push({ kind: eventKind, at: [x, y], text: `${label} cleared at (${x},${y}).` }); }
     if (c && !Object.keys(c.tiles).length) c.done = "cleared";
     return { world: w, events: events.concat(fleeing(w)) };
   }
@@ -537,6 +563,8 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
         tryKind("ducks", "nearWater", spot, "a feral flock comes up from the water"); } }
     { const pr = W.monsters.porgy.appear[0], open = waterTiles(w).filter(([x, y]) => !unitAt(w, x, y) && !wildAt(w, x, y));
       if (w.round >= pr.round && open.length) tryKind("porgy", "inWater", open[Math.floor(roll(w, "porgy", "where") * open.length)], "a salema rises in the shallows"); }
+    { const kr = W.monsters.kraken.appear[0], open = waterTiles(w).filter(([x, y]) => !unitAt(w, x, y) && !wildAt(w, x, y));
+      if (w.round >= kr.round && open.length) tryKind("kraken", "inWater", open[Math.floor(roll(w, "kraken", "where") * open.length)], "a kraken rises from the deep"); }
     for (const kind of ["wolf", "moa", "sasquatch"]) { const r = W.monsters[kind].appear[0];
       if (w.round >= r.round && r.biomes.includes(w.arena.archetype)) tryKind(kind, "roundAtLeast", edgeTileNear(w, [w.arena.map[0].length - 1, Math.floor(w.arena.map.length / 2)], kind), kind === "wolf" ? "a howl, and a feral dog trots in" : kind === "moa" ? "a moa stalks in and settles on a nest" : "something huge steps out of the treeline"); }
     const disturbance = w.arena.map.join("").split("").filter((c) => c === "*").length + debris.length + (w.disturbed || 0);
@@ -556,8 +584,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       if (m.suspended) continue;                     // held in a capture ritual's chant (engine.js C18)
       if (m.form === "unit") actUnit(w, m, events);
       else if (m.kind === "flashFlood") actFlood(w, m, events);
-      else if (m.kind === "brushfire") actFire(w, m, events);
-      else if (m.kind === "creeper") actCreeper(w, m, events);
+      else { const act = (((W.fields || {})[m.kind] || {}).act); if (act === "fire") actFire(w, m, events); else if (act === "creeper") actCreeper(w, m, events); }
     }
     events.push(...fleeing(w));
     if (w.allowAppearances !== false) events.push(...appearances(w));

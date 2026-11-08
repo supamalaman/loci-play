@@ -17,9 +17,12 @@
   const FM = root.ConceptCombatFame;   // account/fame.js (FAME.md): non-lethal victories pay Fame
   const D = root.ConceptCombatTerrain, G = root.ConceptCombatMapgen, V = root.ConceptCombatVegetationRules, S = root.ConceptCombatStructures;
   const W = root.ConceptCombatWild, PK = root.ConceptCombatPickups, MD = root.ConceptCombatModes;
+  const WD = root.ConceptCombatWildData || null;   // L0: field-kind rows (monsters-data.js); null in slice contexts without it
+  const isFieldKind = (m, kind) => !!m && !!m.tiles && m.kind === kind && (!WD || !!(WD.fields || {})[kind]);
   const RO = root.ConceptCombatRoles;   // classes/roles.js: attack, support / defense or specialist, read off a loadout's abilities
   const A = root.ConceptCombatAccount, Loot = root.ConceptCombatLoot, Cook = root.ConceptCombatCooking, CS = root.ConceptCombatCommandSearch; const Board = root.ConceptCombatBoard; const Tracks = root.ConceptCombatTracks; const Ceremony = root.ConceptCombatCeremony; const JStates = root.ConceptCombatJinkiStates;
   const CardsUI = root.ConceptCombatCardsUI, Cardbook = root.ConceptCombatCardbook;   // Battle Cards: the Field Kit "Battle deck" group (C0) and the battle Cards drawer (C1)
+  const SF = root.ConceptCombatSaveFile || null;   // export/import your save (combat/save-file.js)
   const AN = root.ConceptCombatAnte || null;   // W1.5: ante stakes math (account/ante.js)
   const PR = root.ConceptCombatPresence || null;   // W2.1: the zero-blow path (vows/presence.js)
   const DB = root.ConceptCombatDebt || null;   // W2.2: borrow from the future (vows/debt.js)
@@ -179,6 +182,8 @@
   const store = {
     get(key, d) { try { return JSON.parse(localStorage.getItem(key)) ?? d; } catch { return d; } },
     set(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} },
+    remove(key) { try { localStorage.removeItem(key); } catch {} },   // save-file import clears keys the file lacks
+    keys(prefix) { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(prefix)) out.push(k); } } catch {} return out; },   // save-file export lists the per-character pins keys
   };
   const SPRITE = { warden: "#e9c46a", pathfinder: "#d98bd0", sieve: "#8fb3ff", student: "#8fb3ff",
     earthkeeper: "#b29a70", ranger: "#8db4d4", rain: "#66b7c7", mason: "#c58a69", ecology: "#86c88c",
@@ -214,13 +219,15 @@
     "hot-pot-berserker": "hot-pot-berserker", chef: "chef", seedkeeper: "seedkeeper", memorialist: "memorialist", pearl_diver: "pearl_diver", ferryman: "ferryman",   // hot builds wave 5 (2026-10-24): Posterity + Wake 3v3 buildup
     hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
     bard_artificer: "bard-artificer", big_game_hunter: "big-game-hunter", burlesque_dancer: "burlesque-dancer", clown: "clown", mma_fighter_alternate: "mma-fighter-alternate", hermes: "hermes", kaikeyi: "kaikeyi",
-    cactusguard: "cactusguard", cactuswar: "cactuswar", pixel_treant: "pixel-treant",   // warrior hot-builds wave 6 (Muse Berry BD, 2026-10-29): facing unreviewed, default left
+    cactusguard: "cactusguard", cactuswar: "cactuswar", pixel_treant: "pixel-treant",   // warrior hot-builds wave 6 (Muse Berry BD, 2026-10-29); facing reviewed 2026-11-07 (claude-sprite-facing-fix-build): these keys are set right-facing in SPRITE_FACES_RIGHT below
     "bard-artificer": "bard-artificer", "big-game-hunter": "big-game-hunter", "burlesque-dancer": "burlesque-dancer", "mma-fighter-alternate": "mma-fighter-alternate", chef: "chef" };   // fighter hot-builds wave 6 (Muse Berry BD, 2026-10-29): facing unreviewed, default left; kebab keys added RETURN-2 T-1 (renderer queries unit.sprite, the kebab art id — fighting_coach precedent); chef cut-in (Berry CU, 2026-10-30)
   for (const key of TRUE_FORM_SPRITES) SPRITE_DIR[key] = key;
   for (const key of MAX_SPRITES) SPRITE_DIR[key] = key;
   const TREEANT_SPRITES = ["treeant-banyan", "treeant-bristlecone"];   // per-type Treeant art (keys match their folders)
   for (const key of TREEANT_SPRITES) SPRITE_DIR[key] = key;
-  SPRITE_DIR.control = "control";   // benchmark instrument (docs/control.md); faces left like its sheet, so the default FACES_RIGHT false stands
+  const CARD_FAMILIARS = ["ember-moth", "hedge-sprite", "gatepost-sentry", "stone-warden", "pair-of-lanterns", "long-memory"];   // Battle Cards C3: the summon cards' familiars (keys match their sprite folders and their card art keys)
+  for (const key of CARD_FAMILIARS) SPRITE_DIR[key] = key;
+  SPRITE_DIR.control = "control";   // benchmark instrument (docs/control.md); its sheet faces right (eye-checked 2026-11-07, reversing the 2026-10-20 call), so it is in SPRITE_FACES_RIGHT below
   const SUMMON_SPRITES = ["the_king", "mitsuko", "inner_child", "perimeter_guardian", "napoleon", "kobe", "aristotle", "genghis_khan", "zherm", "little_king"];
   SPRITE.archivist="#ddad58";SPRITE["archivist-kaiba"]="#ddad58";
   SPRITE["modern-artist"]="#df93d4"; SPRITE["field-botanist"]="#8fbf6a"; SPRITE.kickboxer="#d9a441"; SPRITE.fighting_coach="#c7584a"; SPRITE["fighting-coach"]="#c7584a";
@@ -246,6 +253,7 @@
   SPRITE_POSES["gold-form"] = ["idle", "walk", "cast", "block", "punch", "knocked-out", "knee", "hurt", "infatuated", "aura"];   // knight condition poses
   const invTax = (s, u) => (root.ConceptCombatInjury?.gradeOf(u, "head") || 0) === 1 ? (s.rules.injury?.headWoundedObserveAp ?? 10) : 0;   // Investigate pays the Observe head-wound tax (Mala, 2026-10-31)
   const SPRITE_FACES_RIGHT = Object.fromEntries(Object.keys(SPRITE_DIR).map((sprite) => [sprite, sprite === "warden" || sprite === "agi"]));
+  for (const key of CARD_FAMILIARS) { SPRITE_FACES_RIGHT[key] = true; SPRITE[key] ||= "#e9a23b"; }   // the sheets draw them facing right (unreviewed: the Cutter's NOTE)
   for (const sprite of [...SUMMON_SPRITES,...TRUE_FORM_SPRITES,...MAX_SPRITES,"mitsuko-true-form"]) SPRITE_FACES_RIGHT[sprite] = true;
   SPRITE_FACES_RIGHT["modern-artist"]=true; SPRITE_FACES_RIGHT["field-botanist"]=true; SPRITE_FACES_RIGHT["chef"]=true;   // chef directionals face right (Berry CU facing call, 2026-10-30)
   SPRITE_FACES_RIGHT.fighting_coach=true; SPRITE_FACES_RIGHT.hypebeast=true;
@@ -314,6 +322,7 @@
     "ember_judge", "defective-machine", "director", "doctor", "gaia", "gaia-accord", "gaia-wounded", "kaiba", "oil-billionaire", "tech-billionaire",
     "oni", "emissary", "tallyman", "dream_hound", "dream_salt", "dream_witness"]) SPRITE_FACES_RIGHT[sprite] = true;
   SPRITE_FACES_RIGHT.deepsea_warrior = true;   // art strikes right in all 10 poses (muse eye-check 2026-10-19, contact sheet); registry default false drew it unflipped, facing away in battle.
+  for (const sprite of ["magistrate", "kaikeyi", "hermes", "control", "sasquatch", "cactusguard", "cactuswar", "pixel_treant", "burlesque_dancer", "burlesque-dancer", "mma_fighter_alternate", "mma-fighter-alternate", "treeant-bristlecone"]) SPRITE_FACES_RIGHT[sprite] = true;   // eye-checked right on contact sheets (Marlin BD, 2026-11-07; Mala: the Magistrate idled facing away in combat)
   function shouldFlipSprite(sprite, targetIsRight) {
     return (SPRITE_FACES_RIGHT[sprite] ?? true) !== targetIsRight;
   }
@@ -520,7 +529,7 @@
   // Face portraits for whoever is speaking (sprites/<folder>/face-<expression>.png; docs/conversational-cast.md).
   // faceFile falls back from the asked expression to neutral, then to null: the caller shows the battle sprite instead,
   // never someone else's face.
-  const FACE_ART = { "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"] };
+  const FACE_ART = { "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"] };   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
   const faceFile = (sprite, expression = "neutral") => {
     if (sprite && sprite.startsWith("tsukumogami")) {   // Tsukumogami: every type shares the house mecha's five faces
       const has = ["neutral", "happy", "angry", "sad", "surprised"];
@@ -536,6 +545,9 @@
     const idle=folder?`combat/sprites/${folder}/idle.png`:null, face=faceFile(folder || key,expression);
     return {src:face || idle,idle,isFace:!!face,key};
   }
+  // The concepts a human can pick in the setup dropdowns and the concept grid: not sealed ones, and not `aiOnly` ones (Homology until its casting picker exists, L3: the engine needs the
+  // two compared techniques and a recipient, and the UI cannot send them yet, so a human who chose it would hold five techniques that all refuse).
+  function pickableConceptIds(concepts) { return Object.keys(concepts).filter((id) => !concepts[id].sealed && !concepts[id].aiOnly); }
   function portraitMarkup(unit, expression="speaking", facesRight=true) {
     const p=portraitSource(unit,expression),name=unit?.name || "Speaker";
     return `<div class="cc-conversation-portrait ${p.isFace?"is-face":"is-idle"}">${p.src?`<img data-portrait data-portrait-idle="${esc(p.idle || "")}" data-portrait-flip="${shouldFlipSprite(p.key,facesRight)?-1:1}" style="transform:scaleX(${p.isFace?1:shouldFlipSprite(p.key,facesRight)?-1:1})" src="${esc(p.src)}" alt="${esc(name)}">`:""}<span class="cc-portrait-placeholder" role="img" aria-label="${esc(name)}" ${p.src?"hidden":""}>${esc(name.slice(0,1))}</span></div>`;
@@ -616,7 +628,11 @@
   }
   // Landscape Lexicon terms that have a five-panel teaching strip (web/combat/lexicon/<slug>.webp). Keyed by the
   // term's slug in landscape-catalog.js.
-  const LEXICON_ART = ["borrowed-scenery", "compression-and-release", "desire-line", "edge-effect", "negative-space-ma", "mystery", "succession"];
+  const LEXICON_ART = ["borrowed-scenery", "compression-and-release", "desire-line", "edge-effect", "negative-space-ma", "mystery", "parterre", "succession"];   // parterre wired with the Lexicon refresh (D3, Mala 2026-11-05): the strip already shipped, unwired
+  // The Lexicon browser's article small line and its search text (pure, so a test reads them; S2 of the snapshot refresh): register, then the category's label when the term has one, then playable or reference.
+  const lexiconSmall = (t, labels, playable) => [t.register, t.category && labels?.[t.category] ? labels[t.category] : null, playable ? "playable" : "reference"].filter(Boolean).join(" · ");
+  const lexiconMore = (n, searching) => n > 100 ? (searching ? `Showing the first 100 of ${n} matches: narrow the search.` : `Showing the first 100 of ${n} terms: search to find the rest.`) : "";   // the list stops at 100; say so instead of hiding the rest
+  const lexiconText = (t, labels) => `${t.term} ${t.slug} ${(t.aliases || []).join(" ")} ${t.shortDefinition || ""} ${t.register} ${t.category || ""} ${t.category && labels?.[t.category] ? labels[t.category] : ""}`.toLowerCase();
   // Illustrated terms first while nothing is being searched for, otherwise the catalog's own order.
   const lexiconOrder = (terms, query) => query ? terms : [...terms.filter((t) => LEXICON_ART.includes(t.slug)), ...terms.filter((t) => !LEXICON_ART.includes(t.slug))];
   // Which sky is behind the arena. `dim` is how much dark is laid over the picture; `unlit` is what is drawn while the
@@ -827,10 +843,16 @@
       if (is("soil")) return null;   // soil blocks keep their earth colour until a dirt texture lands
       return tex("concrete-clean", 2);   // 2x2 mirrored image: one panel a tile
     };
+    // The ground file a tile draws (a count of numbered files, or a list of names); the Redux loading screen asks the same question, so it warms the same files.
+    function groundTileId(s, set, x, y, fam = set.of(E.geometry.surfaceAt(s, x, y))) {
+      if (!fam) return null;
+      const n = set.families[fam], k = ((x * 73856093) ^ (y * 19349663) ^ (s.arena.visual?.seed || 0)) >>> 0;
+      return Array.isArray(n) ? `${set.folder}/${n[k % n.length]}` : `${set.folder}/${fam}-${String(1 + (k % n)).padStart(2, "0")}`;
+    }
     function groundTiles(s, set) {
       for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) {
         const fam = set.of(E.geometry.surfaceAt(s, x, y)); if (!fam) continue;
-        const n = set.families[fam], k = ((x * 73856093) ^ (y * 19349663) ^ (s.arena.visual?.seed || 0)) >>> 0, id = Array.isArray(n) ? `${set.folder}/${n[k % n.length]}` : `${set.folder}/${fam}-${String(1 + (k % n)).padStart(2, "0")}`;   // a count (numbered files) or a list of names
+        const id = groundTileId(s, set, x, y, fam);
         onGround(x, y, (px, py) => { const img = worldSprite("objects", id); if (!img) return; groundDrawn++; const w = geo.tw, h = w * img.naturalHeight / img.naturalWidth; g.drawImage(img, px, py, w, h); }, false);
       }
     }
@@ -848,6 +870,18 @@
       }
       const img = worldImages.get(key); return img.complete && img.naturalWidth ? img : null;
     }
+    // What the Redux loading screen (loading.js) waits for, from the resolvers the draw code uses: unit poses, the ground tiles and textures, and plants.
+    // Everything else (optional poses, faces, hazards, weather, auras, status icons, smoke, wild creatures, items, walls) still arrives lazily.
+    // A new start, or a trip back to the setup screen, while the loading screen is up: drop it (its continuation checks the token) and release its hold.
+    function dropLoading() { U.loadToken = (U.loadToken || 0) + 1; if (U.loadingUI) { U.loadingUI.remove(); U.loadingUI = null; } U.narrationHold = false; }   // the hold clears even when no overlay mounted (triage: the fallback can freeze a fight)
+    const loadingDeps = {
+      folderOf: (a) => { const key = tsukumogamiArt(communeArt(a.form?.golden ? "gold-form" : a.form?.formId === "one_with_nature" ? "gaia-form" : a.sprite)); return SPRITE_DIR[key] || (key === "gaia-form" ? key : null); },
+      posesOf: (folder) => SPRITE_POSES[folder] || PLAYER_POSES,
+      groundIds: (s) => { if (!isoOn()) return []; const set = GROUND_TILES[MAPD ? MAPD.groundSet(s.arena) : s.arena?.visual?.groundTiles]; if (!set) return []; const out = []; for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) { const id = groundTileId(s, set, x, y); if (id) out.push(id); } return out; },
+      textureIds: () => isoOn() ? ["textures/grass-anime", "textures/concrete-weathered", "textures/concrete-clean"] : [],
+      plantFiles: (s) => [...new Set((s.arena?.objects || []).filter((o) => o.kind === "plant" && V?.data?.species?.[o.type]?.sheet).flatMap((o) => [1, 2, 3].map((n) => `${o.type}-${n}`)))],
+      objectIds: (s) => [...new Set((s.arena?.objects || []).filter((o) => !(o.kind === "plant" && V?.data?.species?.[o.type]?.sheet)).map(objectSpriteId).filter(Boolean))],
+    };
     const poseSprites = Object.fromEntries(Object.entries({ ...SPRITE_DIR, "gaia-form": "gaia-form" }).map(([character, folder]) => [character,
       Object.fromEntries((SPRITE_POSES[folder] || PLAYER_POSES).map((pose) => {
         const img = new Image(); img.src = new URL(`combat/sprites/${folder}/${pose}.png`, document.baseURI).href;
@@ -943,7 +977,7 @@
     }
     const wildPoseImages = new Map();
     function wildSprite(kind, pose) {
-      const folder = kind === "feralPig" ? "feral-pig" : kind === "termites" ? "termites" : kind === "gaia" ? "gaia-wounded" : kind === "nettleCaterpillar" ? "nettle-caterpillar" : kind === "wolf" ? "wolf" : kind === "ducks" ? "ducks" : kind === "sasquatch" ? "sasquatch" : kind === "moa" ? "moa" : kind === "porgy" ? "porgy" : null;
+      const folder = kind === "feralPig" ? "feral-pig" : kind === "termites" ? "termites" : kind === "gaia" ? "gaia-wounded" : kind === "nettleCaterpillar" ? "nettle-caterpillar" : kind === "wolf" ? "wolf" : kind === "ducks" ? "ducks" : kind === "sasquatch" ? "sasquatch" : kind === "moa" ? "moa" : kind === "porgy" ? "porgy" : kind === "kraken" ? "kraken" : null;   // kraken: muse-kraken-cut + muse-kraken-build (1.3.541, Bollard IN)
       if (!folder) return null;
       const key = `${folder}/${pose}`;
       if (!wildPoseImages.has(key)) {
@@ -995,7 +1029,8 @@
       const known=[...(INS?.publicProfileTraits?.(id)||[]),...(ch.traits||[]).filter(key=>data?.traits?.[key]?.open),...(U.account.self?.traits||[]).filter(t=>t.known).map(t=>t.id)];
       const traits=[...new Set(known)].map(key=>{const t=data?.traits?.[key] || (U.account.self?.traits||[]).find(t=>t.id===key);return `${t?.name||key}: ${t?.text||"Known class trait"}`;});
       const build=root.ConceptCombatClassBuilds?.builds?.[id];
-      const skills=(build?.kit||[...new Set([U.character.primary,U.character.secondary].filter(Boolean).flatMap(key=>C.concepts[key]?.abilities||[]))]).map(key=>C.abilities[key]).filter(Boolean).map(a=>`${a.name}: ${a.announce||a.description||a.effect||"Class technique"}`);
+      const pairOk=(d)=>!d.pairs||d.pairs.some(([p,q])=>p===U.character.primary&&q===U.character.secondary);   // a pair-gated technique (Riptide, Track…) is listed only for the pair that holds it, as abilitiesOf gates it (1.3.543 review)
+      const skills=(build?.kit||[...new Set([U.character.primary,U.character.secondary].filter(Boolean).flatMap(key=>C.concepts[key]?.abilities||[]))]).map(key=>C.abilities[key]).filter(Boolean).filter(pairOk).map(a=>`${a.name}: ${a.announce||a.description||a.effect||"Class technique"}`);
       const talents=Object.entries(build?.passives||{}).map(([key,v])=>`${key.replaceAll("_"," ")}: ${v.trigger}. ${v.bound}.`);
       if(id==="arantxa") { const b=root.ConceptCombatBonds?.BONDS?.arantxa;skills.push(...[b?.blessing,b?.shared].filter(Boolean).map(v=>`${v.name}: ${v.text}`)); }
       if(id==="archivist") talents.push("Permanent ally: always fights on your side.");
@@ -1025,11 +1060,12 @@
     // ── Kit board (Mala, 2026-10-25: "change the inventory system to be drag and drop"). Drag items between the stash, the
     // battle pack and the camp kitchen's pot; drag gear onto its slot to wear it and off to store it. A click does the obvious
     // move too (stash → pack, pack or pot → stash, gear on ↔ off), and a double-click sends a stash food to the pot.
+    // Salvage row (Mala, 2026-11-05): drop a stash/pack/pot item on Sell (10% of rarity price in Seeds) or Trash (destroyed).
     function kitFree(id) { return (U.account.stash[id] || 0) - U.packSelection.filter((x) => x === id).length - U.potSelection.filter((x) => x === id).length; }
     function kitTile(kind, id, from, extra = "") {
       const it = kind === "gear" ? Loot.data.equipment[id] : Loot.data.consumables[id]; if (!it) return "";
       const prep = kind === "item" && Cook?.prepOf(id), tags = kind === "item" ? (Cook?.tagsOf(id) || []) : [];
-      const tip = `${it.name}. ${it.text}${prep ? ` · ${prep === "raw" ? "raw" : prep === "dish" ? "a dish" : "ready to eat"}, ${Cook.rules.eatAp[prep]} AP to eat` : ""}${tags.length ? ` · ${tags.join(", ")}` : ""}`;
+      const tip = `${it.name}. ${it.text}${prep ? ` · ${prep === "raw" ? "raw" : prep === "dish" ? "a dish" : "ready to eat"}, ${Cook.rules.eatAp[prep]} AP to eat` : ""}${tags.length ? ` · ${tags.join(", ")}` : ""}${kind === "item" ? ` · Sells for ${Math.round(Loot.data.rarities[it.rarity].price * Loot.data.rules.salvageShare)} Seeds` : ""}`;
       return `<div class="cc-kit-tile${prep ? ` is-${prep}` : ""}" draggable="true" data-kit-kind="${kind}" data-kit-id="${esc(id)}" data-kit-from="${esc(from)}" title="${esc(tip)}" tabindex="0">${itemIcon(id, it.name)}${extra}</div>`;
     }
     function kitBoard() {
@@ -1048,12 +1084,15 @@
         <h3>Worn gear</h3><div class="cc-kit-slots cc-kit-gear" data-kit-zone="gear">${gear}</div>
         <h3>Camp kitchen</h3><div class="cc-kit-slots" data-kit-zone="pot">${pot}</div>
         <div class="cc-kit-cook">${can.length ? can.map((rid) => `<button type="button" data-kit-cook="${rid}">Cook ${esc(Cook.recipes[rid].name)}</button>`).join("") : `<span class="cc-muted">${U.potSelection.length ? "No recipe uses these together." : "Drag ingredients into the pot."}</span>`}${U.potSelection.length ? `<button type="button" data-kit-empty-pot>Empty pot</button>` : ""}</div>
-        <details class="cc-kit-book"><summary>Recipes</summary><ul>${book}</ul><p class="cc-muted">Anything cooks here between battles. In battle anyone can make a field recipe; cooks (Hedge Witch, Shaman, Hot Pot Berserker, herbal and traditional medicine) make them all. Eating costs AP by preparation: raw ${Cook?.rules.eatAp.raw}, ready ${Cook?.rules.eatAp.ready}, a dish ${Cook?.rules.eatAp.dish}.</p></details></div></section>`;
+        <details class="cc-kit-book"><summary>Recipes</summary><ul>${book}</ul><p class="cc-muted">Anything cooks here between battles. In battle anyone can make a field recipe; cooks (Hedge Witch, Shaman, Hot Pot Berserker, herbal and traditional medicine) make them all. Eating costs AP by preparation: raw ${Cook?.rules.eatAp.raw}, ready ${Cook?.rules.eatAp.ready}, a dish ${Cook?.rules.eatAp.dish}.</p></details></div>
+      <div class="cc-kit-salvage"><div><h3>Sell for Seeds</h3><div class="cc-kit-slots" data-kit-zone="sell"><div class="cc-kit-empty">sell</div></div></div><div><h3>Trash</h3><div class="cc-kit-slots" data-kit-zone="trash"><div class="cc-kit-empty">trash</div></div></div></div></section>`;
     }
-    // One move on the board. from: stash | pack:i | pot:i | gear:slot | gearbag. to: stash | pack | pot | gear | gearbag.
+    // One move on the board. from: stash | pack:i | pot:i | gear:slot | gearbag. to: stash | pack | pot | gear | gearbag | sell | trash.
     function kitMove(kind, id, from, to) {
       const [src, idx] = from.split(":"), item = Loot.data.consumables[id];
       const take = () => { if (src === "pack") U.packSelection.splice(+idx, 1); if (src === "pot") U.potSelection.splice(+idx, 1); };
+      if (kind === "gear" && to === "sell") return flashTip("Gear sells from its row below.");
+      if (kind === "gear" && to === "trash") return flashTip("Gear can't be trashed.");
       if (kind === "gear") {
         if (to === "gear" && src === "gearbag") { const r = Loot.equip(U.account, id); if (!r.ok) return flashTip(r.reason); U.account = r.account; saveAccount(); }
         else if ((to === "gearbag" || to === "stash") && src === "gear") { const r = Loot.unequip(U.account, idx); U.account = r.account; saveAccount(); }
@@ -1072,6 +1111,13 @@
         if (U.potSelection.length >= 3 && src !== "pot") return flashTip("The pot holds three ingredients.");
         if (src === "stash" && kitFree(id) <= 0) return flashTip(`No more ${item?.name || id} in the stash.`);
         take(); U.potSelection.push(id);
+      } else if (to === "sell" || to === "trash") {
+        if (src === "stash" && kitFree(id) <= 0) return flashTip(`All ${item?.name || id} are packed or potted.`);
+        const r = to === "sell" ? Loot.sellConsumable(U.account, id) : Loot.trashConsumable(U.account, id);
+        if (!r.ok) return flashTip(r.reason);   // engine first: a failure leaves selections and tiles untouched (own gremlin)
+        take();
+        U.account = r.account; saveAccount();
+        flashTip(to === "sell" ? `Sold ${item?.name || id} for ${r.value} Seeds.` : `Trashed ${item?.name || id}.`);
       } else return;
       showAccount();
     }
@@ -1156,7 +1202,7 @@
     // The town (Mala, 2026-10-17; docs/town-hub.md). Each door or side-menu entry opens a screen the classic menu already
     // had; the classic menu's panels open one at a time from here, with a way back to the town.
     const TOWN_NAV = [{ id: "scenarios", label: "▦ Town Hall · battles" }, { id: "character", label: "♙ Home · character" }, { id: "index", label: "▤ The Archive" },
-      { id: "account", label: "⚖ Ledger House · account" }, { id: "hall", label: "✉ Hiring Hall · mercs, mediators" }, { id: "board", label: "▤ Notice board · missions" }, { id: "threat", label: "☰ Threat leaderboard" }, { id: "lab", label: "⚗ The Lab" }, { id: "codex", label: "§ The Magistrate's Codex" }, { id: "workshop", label: "✦ Workshop · three benches" }, { id: "school", label: "✎ School · drills" }, { id: "square", label: "🎩 Town square · busk" }, { id: "classic", label: "☷ Classic menu" }];
+      { id: "account", label: "⚖ Ledger House · kit & purse" }, { id: "hall", label: "✉ Hiring Hall · mercs, mediators" }, { id: "board", label: "▤ Notice board · missions" }, { id: "threat", label: "☰ Threat leaderboard" }, { id: "lab", label: "⚗ The Lab" }, { id: "codex", label: "§ The Magistrate's Codex" }, { id: "workshop", label: "✦ Workshop · three benches" }, { id: "school", label: "✎ School · drills" }, { id: "square", label: "🎩 Town square · busk" }, { id: "classic", label: "☷ Classic menu" }];
     function openFromTown(id) {
       leaveTown();
       if (id === "account") { U.mode = "setup"; return showAccount(); }
@@ -1353,7 +1399,7 @@
       $("ccSaveClear").focus();
     }
     // Familiar choice S2: the first-launch scene (FAMILIARS.md section 2, mock A). A new account carries
-    // `familiars` with done false; the Warden — the only palace caller (summons.js callsPalace) — meets
+    // `familiars` with done false; a player-side character — any of them may call the palace (summons.js callsPalace) — meets
     // Mitsuko pre-selected beside the greyed Raven, and one button spends the first token via buyFamiliar.
     // A damaged block (no token, or the default already picked) skips the scene: there is nothing to buy with, and the scene has no close.
     const needsFirstPick = () => { const f = U.account?.familiars; return !!(f && !f.done && f.tokens > 0 && !f.picks.includes("mitsuko")); };
@@ -1371,7 +1417,7 @@
       const concepts = def.standIn ? `${cap(def.standIn.primary)} + ${cap(def.standIn.secondary)}` : "";
       ov.innerHTML = `<div class="cc-card cc-first-pick" role="dialog" aria-label="Choose your first familiar">
         <h2>Choose your first familiar</h2>
-        <p class="cc-muted">A familiar keeps you company in the palace and answers when you call it in a fight. You will meet more as you level up.</p>
+        <p class="cc-muted">A familiar keeps you company in the palace and answers when you call it in a fight. Familiars answer any summoner; some summons are Warden-only, and dream monsters answer no orders at all. You will meet more as you level up.</p>
         <div class="cc-pick-cards">
           <div class="cc-pick sel"><div class="cc-pick-stage"><img src="combat/sprites/mitsuko/idle.png" alt="Mitsuko"></div>
             <h3>${esc(def.name)}</h3><div class="cc-pick-role">${esc(att.label || "")}</div>
@@ -1389,6 +1435,68 @@
         U.account = r.account; saveAccount(); showSetup();
       };
       $("ccFirstPickGo").focus();
+    }
+    // Export/import your save: a versioned file of the allow-listed keys, previewed before anything is written.
+    const downloadFile = (name, text) => SF.nativeCall("saveFile", name, text).then((r) => {
+      if (r === null) {   // browser (and Redux): a plain download
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = name; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        return {};
+      }
+      const o = JSON.parse(r);   // native app: the Swift save panel
+      if (o.error) throw new Error(o.error);
+      return o;
+    });
+    function openSaveFile() {
+      if (!SF) return flashTip("Saving to a file is unavailable.");
+      const blocked = SF.battleBlock(U); if (blocked) return flashTip(blocked);
+      const hasNative = !!(typeof window !== "undefined" && window.webkit?.messageHandlers?.loci);
+      const ov = $("ccOverlay"); ov.hidden = false;
+      ov.innerHTML = `<div class="cc-card"><h2>Save file</h2>
+        <h3>Export save</h3><p class="cc-muted">Download your character and settings as one file.</p>
+        <div class="cc-row"><button type="button" id="ccSaveDownload">Download save file</button><button type="button" id="ccSaveCopy">Copy save text</button></div>
+        <h3>Import save</h3><p class="cc-muted">Replace this game with a save file. Nothing is written until you confirm.</p>
+        ${hasNative ? `<div class="cc-row"><button type="button" id="ccSaveBrowse">Choose save file…</button></div>`
+          : `<label>Save file <input type="file" id="ccSavePick" accept=".json,application/json"></label>`}
+        <details><summary>Copy or paste the save text instead</summary>
+          <textarea id="ccSaveText" rows="4" cols="60" placeholder="Paste a save file's text here, or copy the text out."></textarea>
+          <div class="cc-row"><button type="button" id="ccSaveCheck">Check pasted text</button></div></details>
+        <p id="ccSavePreview" class="cc-muted" aria-live="polite"></p>
+        <label class="cc-inline"><input type="checkbox" id="ccSaveBackup" checked> Download a backup of this game first</label>
+        <div class="cc-row"><button type="button" class="cc-primary" id="ccSaveReplace" disabled>Replace this game</button><button type="button" id="ccSaveCancel">Cancel</button></div></div>`;
+      let pending = null;
+      // Exporting reads but never writes: a memory-first view over the store, so a broken save's bytes
+      // survive the export instead of being overwritten by the fresh fallback (Tally batch 8, high).
+      const currentText = () => { const view = { get: (k) => k === SF.ACCOUNT_KEY ? A.serialize(U.account) : k === PROFILE_KEY ? U.profile : k === CHAR_KEY ? U.character : store.get(k), keys: (p) => store.keys(p) }; return JSON.stringify(SF.buildExport(view, Date.now())); };
+      const show = (html, good) => { $("ccSavePreview").innerHTML = html; $("ccSaveReplace").disabled = !good; };
+      const failTip = (words) => (e) => { console.warn(`save-file: ${words}`, e); flashTip(words); };
+      $("ccSaveDownload").onclick = () => { const text = currentText();
+        downloadFile(SF.exportFilename(U.account.name, Date.now()), text).then((o) => flashTip(o && o.cancelled ? "Export cancelled." : "Save exported."), failTip("Export failed.")); };
+      $("ccSaveCopy").onclick = async () => { const ta = $("ccSaveText"); ta.value = currentText(); ta.select();
+        try { await navigator.clipboard.writeText(ta.value); flashTip("Save text copied."); } catch { flashTip("Save text selected: copy it."); } };
+      const check = (text) => { const r = SF.parseImport(text, root.ConceptCombatVersion);
+        if (!r.ok) { pending = null; show(esc(r.error), false); return; }
+        pending = r;
+        const cleared = SF.ALLOW.filter((k) => !(k in r.data) && store.get(k) !== undefined).length;
+        show(`${esc(r.preview)}${r.dropped.length ? ` <span class="cc-muted">(${r.dropped.length} unused ${r.dropped.length === 1 ? "key" : "keys"} left out.)</span>` : ""}${cleared ? ` <span class="cc-muted">(${cleared} of this game's settings aren't in the file and will be cleared.)</span>` : ""}`, true); };
+      const pick = $("ccSavePick");
+      if (pick) pick.onchange = () => { const f = pick.files[0]; if (!f) return;
+        if (f.size > SF.MAX_BYTES) { pending = null; show(esc(SF.sizeRefusal()), false); return; }   // refuse before reading
+        const rd = new FileReader(); rd.onload = () => { $("ccSaveText").value = String(rd.result || ""); check($("ccSaveText").value); }; rd.readAsText(f); };
+      const browse = $("ccSaveBrowse");
+      if (browse) browse.onclick = () => SF.nativeCall("openFile").then((r) => { if (!r) return; const o = JSON.parse(r); if (o.cancelled) return; if (o.error) return failTip("Open failed.")(o.error); $("ccSaveText").value = o.text || ""; check(o.text || ""); });
+      $("ccSaveCheck").onclick = () => check($("ccSaveText").value);
+      $("ccSaveReplace").onclick = () => { if (!pending) return;
+        const swap = () => { SF.applyImport(store, pending.data); location.reload(); };
+        // Replace over broken bytes (triage 2026-11-04): the guard blocks silent writes, but Replace is
+        // explicit and previewed — so it runs, after forcing a backup of the raw broken bytes first.
+        if (U.saveBroken) { let raw = null; try { raw = localStorage.getItem(SF.ACCOUNT_KEY); } catch {}
+          if (raw == null) return failTip("Nothing to back up: the broken save is already gone.")();
+          downloadFile(SF.exportFilename(`${U.account.name}-broken-backup`, Date.now()), raw).then((o) => { if (!SF.shouldSwapAfterBackup(o)) return flashTip("Backup cancelled, nothing replaced."); swap(); }, failTip("Backup failed, nothing replaced.")); return; }
+        if ($("ccSaveBackup").checked) { const text = currentText(); downloadFile(SF.exportFilename(`${U.account.name}-backup`, Date.now()), text).then((o) => { if (!SF.shouldSwapAfterBackup(o)) return flashTip("Backup cancelled, nothing replaced."); swap(); }, failTip("Backup failed, nothing replaced.")); }
+        else swap(); };
+      $("ccSaveCancel").onclick = () => showSetup();
     }
     function showSetup() {
       if (U.saveBroken && !U.saveBrokenAcked) return showSaveBroken();
@@ -1474,17 +1582,19 @@
         <details class="cc-menu-section" id="ccCharacterPanel" ${U.setupPanels.character?"open":""}><summary><span aria-hidden="true">♙</span> Character <span class="cc-main-identity" tabindex="0" title="${esc(mainDescription())}">${spriteImg(chosenSprite(mainClass()),C.characters[mainClass()].name,"cc-main-icon")}<b>${esc(C.characters[mainClass()].name)}</b></span></summary><div class="cc-menu-body">
         <label>Main Character <select id="ccMainCharacter">${Object.entries(C.characters).filter(([id,ch])=>id==="warden"||(!ch.randomEventOnly&&ch.configs)).map(([id,ch])=>`<option value="${id}" ${id===mainClass()?"selected":""}>${esc(ch.name)}</option>`).join("")}</select></label>
         <label>Load saved character <select id="ccSavedCharacter"><option value="">Choose a saved build…</option>${U.savedCharacters.map((ch,i)=>`<option value="${i}">${esc(ch.name)}</option>`).join("")}</select></label>
+        <p><button type="button" id="ccHomeSheet">Character sheet</button> <span class="cc-muted">who you are: Fame, perks, body, victories</span></p>
         <section class="cc-loadout-card" aria-label="Character loadout and lenses">
           ${packageControls(mainClass())}
           <div class="cc-loadout-pair">
-            <label>Primary concept <select id="ccSetupPrimary">${Object.keys(C.concepts).filter(id => !C.concepts[id].sealed).map(id => `<option value="${id}" ${U.character.primary === id ? "selected" : ""}>${esc(C.concepts[id].name)}</option>`).join("")}</select></label>
+            <label>Primary concept <select id="ccSetupPrimary">${pickableConceptIds(C.concepts).map(id => `<option value="${id}" ${U.character.primary === id ? "selected" : ""}>${esc(C.concepts[id].name)}</option>`).join("")}</select></label>
             <span class="cc-pair-arrow" aria-hidden="true">＋</span>
-            <label>Secondary concept <select id="ccSetupSecondary"><option value="">None</option>${Object.keys(C.concepts).filter(id => !C.concepts[id].sealed && id !== U.character.primary).map(id => `<option value="${id}" ${U.character.secondary === id ? "selected" : ""}>${esc(C.concepts[id].name)}</option>`).join("")}</select></label>
+            <label>Secondary concept <select id="ccSetupSecondary"><option value="">None</option>${pickableConceptIds(C.concepts).filter(id => id !== U.character.primary).map(id => `<option value="${id}" ${U.character.secondary === id ? "selected" : ""}>${esc(C.concepts[id].name)}</option>`).join("")}</select></label>
           </div>
           <div class="cc-setup-lenses"><h4>Lens profiles <small>free before battle</small></h4><div id="ccSetupLensGrid">${[U.character.primary, U.character.secondary].filter(Boolean).map(lensSel).join("")}</div></div>
           <div class="cc-save-build"><label>Build name <input id="ccCharacterName" placeholder="${esc(C.characters[mainClass()].name)} build"></label><button type="button" id="ccSaveBuild">Save character</button></div>
         </section>
         <div class="cc-prof cc-muted">Level ${prof.level} · ${prof.xp} XP · reserve storage ${prof.reserveSlots} · lens proficiency ${prof.proficiency}</div>
+        <div class="cc-row"><button type="button" id="ccExportSave">Export save</button><button type="button" id="ccImportSave">Import save</button></div>
         ${wearingCard()}
         ${setupPack()}
         </div></details>
@@ -1507,9 +1617,12 @@
       ov.querySelectorAll("[data-challenge-encounter]").forEach((b) => { b.onclick = () => { const sel = $("ccEncounter"); if (sel) { sel.value = b.dataset.challengeEncounter; sel.onchange?.({ target: sel }); } startSafely({ encounter: b.dataset.challengeEncounter, opener: "player" }); }; });   // a boss row opens its own fight
       ov.querySelectorAll("[data-challenge]").forEach((b) => { b.onclick = () => { U.setupFoe = b.dataset.challenge; U.setupAlly = npcRoster.find(n => n.id !== U.setupFoe)?.id; U.bringAlly = false; const ally = ov.querySelector("#ccWithAlly"); if (ally) ally.checked = false; const sel = $("ccEncounter"); if (sel) { sel.value = "rosterScrimmage"; sel.onchange?.({ target: sel }); } startSafely({ encounter: "rosterScrimmage", opener: "player" }); }; });
       ov.querySelector(".cc-item-pack").ontoggle=ev=>{U.setupPanels.pack=ev.currentTarget.open;};
+      $("ccHomeSheet").onclick = () => showSheet(U.townOn && U.menuView === "town" ? "town" : "setup");
       $("ccMainCharacter").onchange=ev=>selectMain(ev.target.value);
       $("ccSavedCharacter").onchange=ev=>{const saved=U.savedCharacters[Number(ev.target.value)];if(ev.target.value===""||!saved||!C.characters[saved.classId])return;U.character={...saved,lens:{...saved.lens}};U.setupLenses=U.character.lens;if(saved.sprite)U.spritePackages[saved.classId]=saved.sprite;store.set("loci:combat:sprite-packages",U.spritePackages);store.set(CHAR_KEY,U.character);showSetup();};
       $("ccSaveBuild").onclick=()=>{const name=$("ccCharacterName").value.trim()||`${C.characters[mainClass()].name} build`;const saved={...U.character,classId:mainClass(),name,lens:{...U.setupLenses},sprite:chosenSprite(mainClass())};const i=U.savedCharacters.findIndex(c=>c.name===name);if(i<0)U.savedCharacters.push(saved);else U.savedCharacters[i]=saved;store.set("loci:combat:saved-characters",U.savedCharacters);showSetup();flashTip("Character saved.");};
+      $("ccExportSave").onclick = () => openSaveFile();
+      $("ccImportSave").onclick = () => openSaveFile();
       $("ccStart").onclick = () => startSafely();
       $("ccTeachMode")?.addEventListener("change", (ev) => { U.teachMode = ev.target.checked; store.set("loci:combat:teach-mode", U.teachMode); });
       $("ccNarration").onchange = (ev) => store.set("loci:combat:narration", ev.target.value);
@@ -1829,7 +1942,7 @@
       if (!BK) { flashTip("The square is empty."); return; }
       stopAi(); U.mode = "busk";
       const ov = $("ccOverlay"); ov.hidden = false;
-      const back = () => { if (returnMode === "setup") showSetup(); else if (returnMode === "town") showTown(); else { ov.hidden = true; U.mode = returnMode; render(); pump(); } };
+      const back = () => { if (returnMode === "setup") showSetup(); else if (returnMode === "sheet") showSheet(U.sheetReturnMode || "setup"); else if (returnMode === "town") showTown(); else { ov.hidden = true; U.mode = returnMode; render(); pump(); } };
       const gearCount = Object.values(U.account.gear?.equipped || {}).filter(Boolean).length;
       const glamour = BK.glamourOf({ primary: U.character?.primary, secondary: U.character?.secondary }, gearCount, 0);
       const fame = Math.min(BK.RULES.fameMax, U.account.fame || 0);
@@ -1958,13 +2071,13 @@
       const icon = (id) => FR.RULES.respec ? `<img class="cc-fruit-icon cc-fruit-art" src="combat/sprites/fruit/${id}.png" alt="${esc(FR.FRUITS[id].name)}">`   // respec S5: each fruit has its own art
         : `<img class="cc-fruit-icon cc-fruit-${id}" src="combat/sprites/items/bitterMelon.png" alt="${esc(FR.FRUITS[id].name)}">`;
       if (!held.length && !mine) return "";
-      const me = mine ? `<p>${icon(mine.id)} <b>You ate ${esc(FR.FRUITS[mine.id].name)}.</b> ${esc(FR.FRUITS[mine.id].line)} You can never swim; water, soaking and cuffs damp the power.${FR.ripe(U.account) ? " It has ripened." : ""}</p>` : "";
+      const me = mine ? `<p>${icon(mine.id)} <b>You ate ${esc(FR.FRUITS[mine.id].name)}.</b> ${esc(FR.FRUITS[mine.id].line)}${FR.FRUITS[mine.id].noKit ? "" : " You can never swim; water, soaking and cuffs damp the power."}${FR.ripe(U.account) ? " It has ripened." : ""}</p>` : "";
       const want = FR.posted?.(U.account), sale = Object.entries(U.account.fruitSales || {}).find(([, v]) => v.owed > 0);   // FR-01: a settled sale lingers (owed 0) only as the return timer
       const wantLine = want ? `<p><b>Wanted: ${want.amount} Seeds on your head.</b> Hunters come, ${FR.RULES.respec ? `more often and tougher as your head climbs (${FR.tierOf(want.amount) === 0 ? "about one battle in eight" : FR.tierOf(want.amount) === 1 ? "about one in six" : "about one in five"} now)` : "about one battle in eight"}.</p>` : "";
       const saleLine = sale ? `<p class="cc-muted">Sold ${esc(FR.FRUITS[sale[0]].name)} by the tide: ${sale[1].owed} Seeds still owed, 50 a battle.</p>` : "";
       const rows = held.map((id) => `<li>${icon(id)} <button type="button" class="cc-item" data-fruit-pick="${id}" ${mine ? "disabled" : ""}>Eat ${esc(FR.FRUITS[id].name)}</button> <small>${esc(mine ? "Your body has one sea in it already: a second fruit is refused." : FR.FRUITS[id].line)}</small></li>`).join("");
       const pick = !mine && held.includes(U.fruitPick) ? U.fruitPick : null;
-      const confirm = pick ? `<div class="cc-fruit-confirm"><p><b>Eat ${esc(FR.FRUITS[pick].name)}?</b> ${esc(FR.FRUITS[pick].line)} You will never swim again, and water will damp the power. This can't be undone.</p>
+      const confirm = pick ? `<div class="cc-fruit-confirm"><p><b>Eat ${esc(FR.FRUITS[pick].name)}?</b> ${esc(FR.FRUITS[pick].line)} ${FR.FRUITS[pick].noKit ? "The Record will post your head, and hunters will come." : "You will never swim again, and water will damp the power."} This can't be undone.</p>
         <p><button type="button" class="cc-item badc" id="ccFruitConfirm">Eat it</button> <button type="button" class="cc-item good" id="ccFruitCancel">Put it away</button></p></div>` : "";
       return `<section class="cc-gaia-regard cc-fruit"><h3>Strange fruit</h3>${me}${wantLine}${saleLine}${rows ? `<ul>${rows}</ul>` : ""}${confirm}</section>`;
     }
@@ -2006,6 +2119,42 @@
       }
       U.keeperSeedsAt = U.account.seeds || 0;
     }
+    // The character sheet and the Ledger House show the same blocks from one implementation each (FAME.md section 10.1; Fame F3b). Cut from showAccount, unchanged.
+    const gaiaBlock = () => GB ? (() => { const g = GB.of(U.account), t = GB.tierOf(g.standing), mine = GB.boonsFor(g.standing), face = GB.portrait(g.standing); return `<section class="cc-gaia-regard"><h3>Gaia's regard · ${esc(t.name)} · ${g.standing}/${GB.rules.max}</h3><figure class="cc-gaia-portrait is-${face.form}"><img src="combat/sprites/${face.sprite}/idle.png" alt="${esc(face.name)}"><figcaption>${esc(face.name)}</figcaption></figure><div class="cc-gaia-bar"><i style="width:${g.standing}%"></i></div><p class="cc-muted">${esc(t.line)}${t.next ? ` ${t.toNext} more to ${esc(t.next)}.` : ""} Communing with plants raises it; driving Gaia to anger lowers it.</p>${mine.length ? `<ul>${mine.map((b) => `<li><b>${esc(b.name)}</b>: ${esc(b.text)}</li>`).join("")}</ul>` : `<p class="cc-muted">No boons yet.</p>`}</section>`; })() : "";
+    const imitationBlock = () => IM && INS ? (() => { const i = IM.of(U.account), name = (t) => esc(INS.data.traits[t]?.name || t), text = (t) => esc(INS.data.traits[t]?.text || ""), temp = Object.keys(i.temp); return `<section class="cc-gaia-regard cc-imitation"><h3>Imitated traits</h3>${i.permanent.length || temp.length ? `<ul>${i.permanent.map((t) => `<li><b title="${text(t)}">${name(t)}</b>: yours</li>`).join("")}${temp.map((t) => `<li><b title="${text(t)}">${name(t)}</b>: ${i.temp[t]} battle${i.temp[t] === 1 ? "" : "s"} left · practice ${i.progress[t] || 0}/${IM.needed(INS.data.imitateDifficulty(t) || 1)}</li>`).join("")}</ul>` : `<p class="cc-muted">None yet. Find a trait in someone with Observe, then Imitate it from the same menu.</p>`}</section>`; })() : "";
+    const perksBlock = () => `<section class="cc-gaia-regard"><h3>Perks · ${U.account.perkPoints || 0} points</h3>${Object.entries(A.rules.perkMenu).map(([id, m]) => { const have = U.account.perks?.[id] || 0, capped = have >= m.cap, broke = (U.account.perkPoints || 0) < (m.cost || 1), locked = m.requiresLevel && (U.account.level || 1) < m.requiresLevel, held = A.unlocksUpTo(U.account, U.account.level || 1), full = held.length >= U.account.order.length, gate = !capped && A.deedGate ? A.deedGate(U.account, id) : null; let picker = ""; if (m.choice === "summon" && !locked && !capped && !broke && !full && !gate) { const open = U.account.order.filter((x) => !held.includes(x)); picker = ` <select data-seat-pick>${open.map((x) => `<option value="${esc(x)}">${esc(x)} · Lv ${A.rules.unlockLevels[U.account.order.indexOf(x)]}</option>`).join("")}</select>`; } const off = capped || broke || locked || gate || (m.choice === "summon" && full); return `<article class="cc-account-row"><div><b>${esc(m.name)}</b> <small>${esc(m.text)}${locked && !have ? ` Unlocks at ${m.requiresLevel}.` : ""}${m.choice === "summon" && full && !capped ? " Every summon is already yours." : ""} ${have}/${m.cap}${m.cost > 1 ? ` · ${m.cost} pts` : ""}</small>${picker}${gate ? ` <small class="cc-muted">needs ${gate.need} ${esc(gate.text)} (you have ${gate.have})</small>` : ""}</div><button type="button" data-perk="${id}" ${off ? "disabled" : ""}>${m.choice === "summon" ? "Name" : "+1"}</button></article>`; }).join("")}<p class="cc-muted">One point per level; priced lines say so. Perks ride into battle on the Warden.</p></section>`;
+    const stakesBlock = () => `<section class="cc-gaia-regard"><h3>Stakes · ${(U.account.stakesLedger || []).length} wagered</h3>${(U.account.stakesLedger || []).slice(-5).map((e) => `<p class="cc-muted">${esc(e.pairKey || "unknown")} · ${esc(e.winner)} · you staked ${AN?.lotValue(e.playerLot) ?? "?"} vs their ${AN?.lotValue(e.foeLot) ?? "?"}</p>`).join("") || `<p class="cc-muted">No wagers yet. Talk ▸ Propose stakes, round 1.</p>`}</section>`;
+    const victoriesBlock = () => `<section class="cc-gaia-regard"><h3>Victories · ${A.victoriesOf(U.account).length} classes beaten</h3>${A.victoriesOf(U.account).length ? `<p>${A.victoriesOf(U.account).map(v => `${esc(v.name)}${v.count > 1 ? ` ×${v.count}` : ""}`).join(" · ")}</p>` : `<p class="cc-muted">None yet. Each class you beat in a real battle is recorded here.</p>`}</section>`;
+    const wirePerks = (ov, rerender) => ov.querySelectorAll("[data-perk]").forEach(b => b.onclick = () => { const pick = b.closest("article")?.querySelector("[data-seat-pick]"); const r = pick ? A.spendPerk(U.account, b.dataset.perk, null, pick.value) : A.spendPerk(U.account, b.dataset.perk); if (r.account) { U.account = r.account; saveAccount(); rerender(); } else flashTip(r.error); });
+    // The sheet's Body section (FAME.md section 10.2): the biology traits read-only, the surgery slots and a way to the Lab, where graft and remove stay.
+    const bodyBlock = () => {
+      const SG = root.ConceptCombatSurgery, a = U.account; if (!SG) return "";
+      const sl = SG.slots(a), bio = (a.self?.traits || []).filter((t) => SG.isBiology(t.id));
+      return `<section class="cc-gaia-regard cc-sheet-body" id="ccSheetBody"><h3>Body · surgery slots ${sl.used}/${sl.max}${a.woozy ? " · Woozy" : ""}</h3>${bio.map((t) => `<p><b>${esc(t.name || t.id)}</b> <small class="cc-muted">${t.grafted ? `grafted${SG.tierOf(t.id) ? ` · ${esc(SG.TIERS[SG.tierOf(t.id)].name)}` : ""}` : "born with it"}</small></p>`).join("") || `<p class="cc-muted">No biology traits yet.</p>`}<p><button type="button" id="ccSheetLab">Visit the Lab</button></p></section>`;
+    };
+    // The character sheet (FAME.md section 10, F3a): who you are. This slice is the shell (header, Social with Fame, Wearing); Body, Growth and the Build card
+    // arrive in F3b and F3c, and the Ledger House keeps every block it has until then.
+    function showSheet(returnMode = U.mode === "sheet" ? (U.sheetReturnMode || "setup") : U.mode) {
+      U.sheetReturnMode = returnMode; stopAi(); U.mode = "sheet";
+      const ov = $("ccOverlay"); ov.hidden = false;
+      const main = C.characters[mainClass()], fb = FM ? FM.sheetBlock(U.account, { board: !!(Board && Board.FAME_LIVE), desk: false }) : null;   // desk:false — no reader of deskSlots exists yet (desk-margin.js only exports it), so the sheet does not promise the second desk slot at Fame 3 (loop in the NOTE)
+      const titles = A.titlesOf(U.account);
+      const fameHtml = fb ? `<section class="cc-gaia-regard cc-sheet-social" id="ccSheetSocial"><h3>Fame · <span id="ccSheetTier">${esc(fb.tier)}</span></h3>
+          <p>Level ${fb.level}${fb.need == null ? " · the top" : ` · ${fb.xp}/${fb.need} to ${esc(fb.next)}`}</p>
+          ${fb.by.length ? `<p class="cc-muted">${fb.by.map(([, pts, name]) => `${esc(name)} ${pts}`).join(" · ")}</p>` : `<p class="cc-muted">Win without a kill, or busk, and people start to remember.</p>`}
+          <p class="cc-muted">${fb.level > 0 ? `Persuasion +${fb.effects.persuasion.toFixed(2)} · Hiring Hall -${fb.effects.hallPct}%` : `Each level: persuasion +${FM.RULES.persuasionPer.toFixed(2)}, Hiring Hall -${Math.round(FM.RULES.hallPer * 100)}%`}</p>
+          ${fb.unlocks.map((u) => `<p class="cc-muted">At ${u.at}: ${esc(u.what)}</p>`).join("")}
+          ${BK ? `<p><button type="button" id="ccSheetBusk">Town square</button></p>` : ""}</section>` : "";
+      ov.innerHTML = `<div class="cc-card cc-sheet" role="dialog" aria-label="Character sheet"><header><div><!-- slot: a keeper's face goes here (S6 names who speaks; none until then) --><h2>Character sheet</h2><p class="cc-muted">${esc(main.name)} · Level ${U.account.level} · ${U.account.xp} XP · ${U.account.wins}/${U.account.battles} wins · ${U.account.unlocked.length} summons unlocked${titles.length ? ` · ${titles.map(esc).join(", ")}` : ""}${fb ? ` · <span id="ccSheetChip">Fame ${fb.level} · ${esc(fb.tier)}</span>` : ""}</p></div>
+          <button type="button" id="ccSheetBack">Back</button><button type="button" id="ccSheetLedger">Ledger House</button></header>
+        ${fameHtml}${gaiaBlock()}<div id="ccSheetBodyWrap">${imitationBlock()}${bodyBlock()}</div><div id="ccSheetGrowth">${perksBlock()}${victoriesBlock()}${stakesBlock()}</div>${wearingCard()}</div>`;
+      const toAccount = () => { U.sheetReturnMode = null; U.mode = returnMode; showAccount(); };   // the Ledger sees the mode the sheet was opened from, never "sheet": its Close then returns there instead of stranding the player on the sheet
+      $("ccSheetBack").onclick = () => { U.sheetReturnMode = null; if (returnMode === "town") return showTown(); if (returnMode === "account") return toAccount(); if (returnMode === "setup") return showSetup(); ov.hidden = true; U.mode = returnMode; render(); };
+      $("ccSheetLedger").onclick = toAccount;
+      const sb = $("ccSheetBusk"); if (sb) sb.onclick = () => showBusk("sheet");
+      const sl = $("ccSheetLab"); if (sl) sl.onclick = () => showLab();
+      wirePerks(ov, () => showSheet(returnMode));
+    }
     function showAccount() {
       noteFieldKitMoney();
       const returnMode = U.mode === "account" ? (U.accountReturnMode || "setup") : U.mode;
@@ -2019,10 +2168,7 @@
       ov.hidden = false;
       const stock = Loot.shopStock(U.account, { seed: U.account.battles + 41, biome: null });
       const closeLabel = returnMode === "setup" ? "Back to setup" : returnMode === "town" ? "Back to town" : returnMode === "over" ? "Back to results" : "Return to quest";
-      ov.innerHTML = `<div class="cc-card cc-account"><header><div><h2>Field Kit & Account</h2><p class="cc-muted">Level ${U.account.level} · ${U.account.xp} XP · ${U.account.wins}/${U.account.battles} wins · ${U.account.seeds} Seeds · ${U.account.unlocked.length} summons unlocked${A.titlesOf(U.account).length ? ` · ${A.titlesOf(U.account).map(esc).join(", ")}` : ""}</p></div><button type="button" id="ccAccountClose">${closeLabel}</button>${Tracks ? `<button type="button" id="ccSoundToggle">Sound: ${Tracks.enabled() ? "on" : "off"}</button>` : ""}</header>${GB ? (() => { const g = GB.of(U.account), t = GB.tierOf(g.standing), mine = GB.boonsFor(g.standing), face = GB.portrait(g.standing); return `<section class="cc-gaia-regard"><h3>Gaia's regard · ${esc(t.name)} · ${g.standing}/${GB.rules.max}</h3><figure class="cc-gaia-portrait is-${face.form}"><img src="combat/sprites/${face.sprite}/idle.png" alt="${esc(face.name)}"><figcaption>${esc(face.name)}</figcaption></figure><div class="cc-gaia-bar"><i style="width:${g.standing}%"></i></div><p class="cc-muted">${esc(t.line)}${t.next ? ` ${t.toNext} more to ${esc(t.next)}.` : ""} Communing with plants raises it; driving Gaia to anger lowers it.</p>${mine.length ? `<ul>${mine.map((b) => `<li><b>${esc(b.name)}</b>: ${esc(b.text)}</li>`).join("")}</ul>` : `<p class="cc-muted">No boons yet.</p>`}</section>`; })() : ""}${beadBoard()}${pactBoard()}${kilnBoard()}${stallBoard()}${IM && INS ? (() => { const i = IM.of(U.account), name = (t) => esc(INS.data.traits[t]?.name || t), text = (t) => esc(INS.data.traits[t]?.text || ""), temp = Object.keys(i.temp); return `<section class="cc-gaia-regard cc-imitation"><h3>Imitated traits</h3>${i.permanent.length || temp.length ? `<ul>${i.permanent.map((t) => `<li><b title="${text(t)}">${name(t)}</b>: yours</li>`).join("")}${temp.map((t) => `<li><b title="${text(t)}">${name(t)}</b>: ${i.temp[t]} battle${i.temp[t] === 1 ? "" : "s"} left · practice ${i.progress[t] || 0}/${IM.needed(INS.data.imitateDifficulty(t) || 1)}</li>`).join("")}</ul>` : `<p class="cc-muted">None yet. Find a trait in someone with Observe, then Imitate it from the same menu.</p>`}</section>`; })() : ""}
-        <section class="cc-gaia-regard"><h3>Perks · ${U.account.perkPoints || 0} points</h3>${Object.entries(A.rules.perkMenu).map(([id, m]) => { const have = U.account.perks?.[id] || 0, capped = have >= m.cap, broke = (U.account.perkPoints || 0) < (m.cost || 1), locked = m.requiresLevel && (U.account.level || 1) < m.requiresLevel, held = A.unlocksUpTo(U.account, U.account.level || 1), full = held.length >= U.account.order.length, gate = !capped && A.deedGate ? A.deedGate(U.account, id) : null; let picker = ""; if (m.choice === "summon" && !locked && !capped && !broke && !full && !gate) { const open = U.account.order.filter((x) => !held.includes(x)); picker = ` <select data-seat-pick>${open.map((x) => `<option value="${esc(x)}">${esc(x)} · Lv ${A.rules.unlockLevels[U.account.order.indexOf(x)]}</option>`).join("")}</select>`; } const off = capped || broke || locked || gate || (m.choice === "summon" && full); return `<article class="cc-account-row"><div><b>${esc(m.name)}</b> <small>${esc(m.text)}${locked && !have ? ` Unlocks at ${m.requiresLevel}.` : ""}${m.choice === "summon" && full && !capped ? " Every summon is already yours." : ""} ${have}/${m.cap}${m.cost > 1 ? ` · ${m.cost} pts` : ""}</small>${picker}${gate ? ` <small class="cc-muted">needs ${gate.need} ${esc(gate.text)} (you have ${gate.have})</small>` : ""}</div><button type="button" data-perk="${id}" ${off ? "disabled" : ""}>${m.choice === "summon" ? "Name" : "+1"}</button></article>`; }).join("")}<p class="cc-muted">One point per level; priced lines say so. Perks ride into battle on the Warden.</p></section>
-        <section class="cc-gaia-regard"><h3>Stakes · ${(U.account.stakesLedger || []).length} wagered</h3>${(U.account.stakesLedger || []).slice(-5).map((e) => `<p class="cc-muted">${esc(e.pairKey || "unknown")} · ${esc(e.winner)} · you staked ${AN?.lotValue(e.playerLot) ?? "?"} vs their ${AN?.lotValue(e.foeLot) ?? "?"}</p>`).join("") || `<p class="cc-muted">No wagers yet. Talk ▸ Propose stakes, round 1.</p>`}</section>
-        <section class="cc-gaia-regard"><h3>Victories · ${A.victoriesOf(U.account).length} classes beaten</h3>${A.victoriesOf(U.account).length ? `<p>${A.victoriesOf(U.account).map(v => `${esc(v.name)}${v.count > 1 ? ` ×${v.count}` : ""}`).join(" · ")}</p>` : `<p class="cc-muted">None yet. Each class you beat in a real battle is recorded here.</p>`}</section>
+      ov.innerHTML = `<div class="cc-card cc-account"><header><div><h2>Ledger House</h2><p class="cc-muted">${U.account.seeds} Seeds · ${Object.values(U.account.stash || {}).reduce((n, c) => n + (c || 0), 0)} stashed · ${(U.account.gear?.owned || []).length} gear · who you are is on the Character sheet</p></div><button type="button" id="ccAccountClose">${closeLabel}</button><button type="button" id="ccAccountSheet">Character sheet</button>${Tracks ? `<button type="button" id="ccSoundToggle">Sound: ${Tracks.enabled() ? "on" : "off"}</button>` : ""}</header>${beadBoard()}${pactBoard()}${kilnBoard()}${stallBoard()}
         ${fruitCard()}
         ${sagaCard()}
         ${BOSS && A.orbsOf(U.account).length ? `<section class="cc-gaia-regard"><h3>Orbs · ${A.orbsOf(U.account).length}</h3><p>${[...new Set(A.orbsOf(U.account))].map(id => `${id === "brainChip" ? `<img src="combat/sprites/items/brainChip.png" alt="" style="height:28px;vertical-align:middle;image-rendering:pixelated"> ` : ""}${esc(BOSS.data.orbs[id]?.name || id)}${A.orbsOf(U.account).filter(x => x === id).length > 1 ? ` ×${A.orbsOf(U.account).filter(x => x === id).length}` : ""}`).join(" · ")}</p><p class="cc-muted">Carried into every real battle. Break one from Gear: ${BOSS.data.formBalance.activationAp} AP, a form for ${BOSS.data.formBalance.duration} of your turns and a full ultimate bar. The Brain Chip answers the Warden.</p></section>` : ""}
@@ -2031,6 +2177,7 @@
         <section data-counter="shop"><h3>Field shop</h3>${stock.map(o=>`<article class="cc-account-row"><div class="cc-item-with-icon">${itemIcon(o.id,o.name)}<div><b>${esc(o.kind === "vessel" && SL ? SL.VESSEL_NAME[o.id] : o.name)}</b> <small>${esc(o.rarity)} · ${o.price} Seeds${o.drift && Math.abs(o.drift - 1) > 0.005 ? ` (${Math.round(o.drift * 100)}%)` : ""}</small><p>${esc(o.kind === "vessel" ? "An empty vessel. Packs into battle for sealing." : o.kind === "part" ? "Kiln stock: fires into vessels." : Loot.data[o.kind === "equipment" ? "equipment" : "consumables"][o.id].text)}</p></div></div><button type="button" data-buy="${o.kind}:${o.id}" ${U.account.seeds < o.price ? "disabled" : ""}>Buy</button></article>`).join("")}</section></div>
         <p class="cc-muted">Equipped gear loses 1 durability after each battle. Repair kits restore half; field workshops restore it fully. Worn gear is inactive.</p></div>`;
       if ($("ccSoundToggle")) $("ccSoundToggle").onclick = () => { Tracks.setEnabled(!Tracks.enabled()); showAccount(); };
+      $("ccAccountSheet").onclick = () => showSheet("account");
       $("ccAccountClose").onclick = () => {
         const resume = U.accountReturnMode || "setup";
         U.accountReturnMode = null;
@@ -2040,7 +2187,6 @@
         if (resume === "wait" && !U.s?.outcome) pump();
       };
       ov.querySelectorAll("[data-swallow]").forEach(b => b.onclick = () => { const BS = root.ConceptCombatBeadSwallow; const r = BS ? BS.swallow(U.account, +b.dataset.swallow, W?.data?.monsters) : { ok: false, error: "Swallowing is unavailable." }; if (r.ok) { U.account = r.account; saveAccount(); flashTip(r.line); showAccount(); } else flashTip(r.error); });   // swallow a bead (account/beads.js)
-      ov.querySelectorAll("[data-perk]").forEach(b => b.onclick = () => { const pick = b.closest("article")?.querySelector("[data-seat-pick]"); const r = pick ? A.spendPerk(U.account, b.dataset.perk, null, pick.value) : A.spendPerk(U.account, b.dataset.perk); if (r.account) { U.account = r.account; saveAccount(); showAccount(); } else flashTip(r.error); });
       ov.querySelectorAll("[data-pact-sign]").forEach(b => b.onclick = () => { const id = b.dataset.pactSign, r = PC.sign(U.account.contracts, { line: id, terms: SM.data.summons[id].pact }); r.ok ? (saveAccount(), showAccount()) : flashTip(r.error); });
       ov.querySelectorAll("[data-pact-apologize]").forEach(b => b.onclick = () => { const id = b.dataset.pactApologize, terms = SM.data.summons[id].pact, due = PC.scale(terms.call, PC.PACT.apologyMul); if ((U.account.seeds || 0) < due.seeds) return flashTip(`The apology needs ${due.seeds} Seeds.`); const r = PC.sign(U.account.contracts, { line: id, terms, apology: true }); if (!r.ok) return flashTip(r.error); U.account.seeds -= due.seeds; saveAccount(); U.keeperCounter = null; showAccount(); flashTip(`${SM.data.summons[id].name} accepts the apology.`); });
       ov.querySelectorAll("[data-pact-release]").forEach(b => b.onclick = () => { const r = PC.release(U.account.contracts, { line: b.dataset.pactRelease }); r.ok ? (saveAccount(), showAccount()) : flashTip(r.error); });
@@ -2286,8 +2432,9 @@
         <details class="cc-lexicon st-lexicon"><summary>Landscape Lexicon <small>${catalog?.concepts?.length || 0} terms · read-only reference</small></summary><input id="ccLexSearch" type="search" placeholder="Search terms, definitions, or registers" aria-label="Search the Landscape Lexicon"><div class="cc-lex-list" id="ccLexList"></div><p class="cc-muted">Playable concepts are marked. Lexicon relations remain references until an explicit, tested combat rule is authored.</p></details></div>`;
       const renderLex = (query = "") => {
         const list = $("ccLexList"); if (!list) return;
-        const q = query.toLowerCase();
-        list.innerHTML = lexiconOrder(catalog?.concepts || [], q).filter(t => `${t.term} ${t.slug} ${(t.aliases || []).join(" ")} ${t.shortDefinition || ""} ${t.register}`.toLowerCase().includes(q)).slice(0, 100).map(t => `<article><b>${esc(t.term)}</b> <small>${esc(t.register)} · ${playable.some(id => id === t.slug || C.concepts[id].lexiconSlug === t.slug) ? "playable" : "reference"}</small><p>${esc(t.shortDefinition || "")}</p>${LEXICON_ART.includes(t.slug) ? `<img class="cc-lex-art" loading="lazy" alt="Teaching strip: ${esc(t.term)}" src="combat/lexicon/${t.slug}.webp">` : ""}</article>`).join("") || `<p class="cc-muted">No matching terms.</p>`;
+        const q = query.toLowerCase(), labels = catalog?.source?.categories;
+        const hits = lexiconOrder(catalog?.concepts || [], q).filter(t => lexiconText(t, labels).includes(q));
+        list.innerHTML = hits.slice(0, 100).map(t => `<article><b>${esc(t.term)}</b> <small>${esc(lexiconSmall(t, labels, playable.some(id => id === t.slug || C.concepts[id].lexiconSlug === t.slug)))}</small><p>${esc(t.shortDefinition || "")}</p>${LEXICON_ART.includes(t.slug) ? `<img class="cc-lex-art" loading="lazy" alt="Teaching strip: ${esc(t.term)}" src="combat/lexicon/${t.slug}.webp">` : ""}</article>`).join("") + (lexiconMore(hits.length, !!q) ? `<p class="cc-muted">${esc(lexiconMore(hits.length, !!q))}</p>` : "") || `<p class="cc-muted">No matching terms.</p>`;
       };
       renderLex();
       $("ccLexSearch").oninput = e => renderLex(e.target.value);
@@ -2624,7 +2771,29 @@
         ? o.narration
         : ((ov.querySelector("#ccNarration") || {}).value || params.narration || "");
       render();
-      openNarration("open", () => pump());
+      // The Redux loading screen (loading.js; PLAN-redux-loading-screen.md): every Redux fight shows the art and "<Title> Loading..." over the field until the first art has
+      // arrived (a floor and a ceiling, so it neither flashes nor holds the fight). Nothing may act meanwhile: narrationHold stops the key handler and the ordered-summon
+      // watchdog (both read it), and pump() only runs after. A second start, or a teardown, while loading drops the stale continuation.
+      const LD = root.ConceptCombatLoading;
+      const showLoading = !!LD && LD.shouldShow({ protocol: location.protocol, force: /(?:^|[?&])loading=1(?:&|$)/.test(location.search), testBattle: testBattle(), practice: !!U.practiceBattle, steps: !!params.steps, autoplay: !!params.autoplay, autostart: !!params.autostart });
+      dropLoading();
+      if (showLoading) {
+        let started = false;
+        try {   // a throw while building the list or the overlay must never leave the fight without its pump
+          const token = U.loadToken; U.narrationHold = true;
+          const urls = LD.neededImages(U.s, loadingDeps);
+          U.loadingUI = LD.mountOverlay(document, host, { title: LD.titleOf({ setupTitle: U.setupOpts?.title, encounterName: C.encounters?.[encounter]?.name }), art: LD.pickArt(U.s.seed || 0), total: urls.length, reduced: !U.fullAnimation || matchMedia("(prefers-reduced-motion: reduce)").matches });
+          LD.whenReady(urls, { onProgress: (loaded, total) => U.loadingUI?.progress(loaded, total) }).then(() => {
+            if (U.loadToken !== token) return;
+            if (U.mode !== "menu") { dropLoading(); return; }   // navigated away while it loaded (setup, town, any door): there is no fight to open
+            U.loadingUI?.remove(); U.loadingUI = null;
+            U.narrationHold = false; if (U.destroyed) return;   // the hold releases even when the fight is gone (triage: the fallback can freeze a fight)
+            openNarration("open", () => pump());
+          });
+          started = true;
+        } catch (err) { console.error("loading screen", err); }
+        if (!started) { dropLoading(); openNarration("open", () => pump()); }
+      } else openNarration("open", () => pump());
     }
     function startSafely(o) {
       if (needsFirstPick()) firstPickDefault(!!(params.autoplay || params.steps || o?.setupOpts?.testMenu || o?.setupOpts?.devPlayground));   // S2: scripted entries and Quick Battle never reach a fight with an empty menu; a test start saves nothing
@@ -3581,6 +3750,7 @@
     function overlays() {
       const o = { fill: new Map(), ring: new Set(), path: null, line: null, marks: [] };
       const s = U.s; if (!s) return o;
+      { let zt = 0; for (const z of (E.cards?.zoneTiles ? E.cards.zoneTiles(s) : [])) for (const t of z.tiles) { o.fill.set(k(t), "rgba(255,0,255,.24)"); zt++; } U.zoneTilesShown = zt; }   // Battle Cards C4: a field card's zone lies on the ground in magenta, the one colour no other fill uses; set first so a target ring or an area preview over it still wins
       // committed delayed effects + announced areas are always visible
       for (const ev of s.scheduled) if (ev.inst.tiles) for (const t of ev.inst.tiles) o.marks.push({ at: t, kind: "delayed", who: s.actors[ev.trigger.actor].name });
       for (const c of s.corpses || []) o.marks.push({ at: [c.x, c.y], kind: "corpse" });   // ritual burial
@@ -4345,10 +4515,11 @@
       }
       return drawLivingObject(o, x, y, tw, th, palette);
     }
+    const objectSpriteId = (o) => o.kind === "plant" ? (o.form === "tree" ? "tree" : o.form) : o.type === "house" ? o.sprite : o.type?.startsWith("parterre") ? `parterre/${o.type}` : o.type;   // parterre art lives in its own folder; the loading screen asks the same question
     function drawLivingObject(o, x, y, tw, th, palette) {
       // Sprite art answers with the rectangle it filled, which is what the isometric board needs to know what it covers.
       const plant = o.kind === "plant" && drawSpeciesPlant(o, x, y, tw, th); if (plant) return plant;
-      const spriteId = o.kind === "plant" ? (o.form === "tree" ? "tree" : o.form) : o.type === "house" ? o.sprite : o.type?.startsWith("parterre") ? `parterre/${o.type}` : o.type;   // parterre art lives in its own folder
+      const spriteId = objectSpriteId(o);
       const art = worldSprite("objects", spriteId);
       if (art) {
         // Keep the art's own proportions (Mala, 2026-10-27: "size and distortion issues"): a fixed 1.5 x 1.5 box stretched tall
@@ -4493,8 +4664,8 @@
       if (DB && (DB.book(U.s, t.id).owed > 0 || U.s.debtVisits?.[t.id])) { const b = DB.book(U.s, t.id); panel.insertAdjacentHTML("beforeend", `<div class="cc-muted cc-gear-line"><b>Debt</b> ${b.owed}${b.lender ? ` (${(DB.LENDERS.find((l) => l.id === b.lender) || {}).name || b.lender})` : ""}${U.s.debtVisits?.[t.id] ? " · visit due" : ""}${U.s.round <= b.frozenUntil ? " · frozen" : ""}</div>`); }
       { const downs = E.mysteryOwnView(U.s, t.side).filter((c) => c.unitId === t.id);   // Mystery tray: own side sees all, foe sees the side count only
         const foeCount = t.side === "player" ? 0 : E.mysteryFoeView(U.s, t.side).count;
-        if (downs.length || foeCount) panel.insertAdjacentHTML("beforeend", t.side === "player"
-          ? `<div class="cc-muted cc-gear-line"><b>Face-down</b> ${downs.map((c) => `${esc(C.abilities[c.ability]?.name || c.ability)} (${esc(c.trigger)}, age ${c.age})`).join(" · ")} <button type="button" data-myst-reveal="${esc(t.id)}">Reveal</button></div>`
+        if (t.side === "player" ? downs.length : foeCount) panel.insertAdjacentHTML("beforeend", t.side === "player"   // Battle Cards C2: a foe's face-down CARD sets are not in foeCount, so a foe holding only cards gets no "0 set plans" line
+          ? `<div class="cc-muted cc-gear-line"><b>Face-down</b> ${downs.map((c) => `${esc(c.kind === "card" ? root.ConceptCombatCards?.byId(c.cardId)?.name || "A card" : C.abilities[c.ability]?.name || c.ability)} (${esc(c.trigger)}, age ${c.age})`).join(" · ")} <button type="button" data-myst-reveal="${esc(t.id)}">Reveal</button></div>`
           : `<div class="cc-muted cc-gear-line"><b>Face-down</b> ${foeCount} set plan${foeCount === 1 ? "" : "s"} on their side</div>`);
         panel.querySelector("[data-myst-reveal]")?.addEventListener("click", () => { act({ type: "revealIntent", actor: t.id }); }); }
       panel.hidden = false;
@@ -4816,6 +4987,7 @@
         ...(Climate && s.weatherState ? [{ id: "place", label: `Observe the place · ${U.observeInvest} AP`, off: p.tempo < U.observeInvest, why: "Read the weather, forecast and microclimate here. Place familiarity makes a Dream Space easier to open and hold." }] : []),
         ...(typeof plantMenu === "function" ? plantMenu() : []),   // plants: study here; known ones answer from the Rituals tab
         ...(typeof structureMenu === "function" ? structureMenu() : []),   // structures: study here; known ones wake from the Rituals tab
+        ...(typeof summonMenu === "function" ? summonMenu() : []),   // summons: study their palace rooms here; call them from the Rituals tab
         ...Object.values(s.actors).filter((a) => a.id !== "player" && !a.defeated).map((a) => { const sees = E.geometry.hasSight(s, p.x, p.y, a.x, a.y); return { id: a.id, label: `${a.name}${a.side === "player" ? " · ally" : ""}${sees ? "" : " · unseen"}`, off: !sees, why: sees ? `Study ${a.name}: ${U.observeInvest} AP of effort, one insight point for each 10 AP.` : `${a.name} is out of your line of sight, so you cannot observe them.` }; }),
       ];
       if (U.menu === "insight") {
@@ -5005,16 +5177,16 @@
       scope.querySelectorAll("[data-run]").forEach((b) => b.onclick = () => runCommand(b.dataset.run));
       scope.querySelectorAll("[data-pin]").forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); togglePinKey(b.dataset.pin); });
     }
-    // Techniques, grouped under headers (contracts, primary, secondary, ultimates, stances) without changing the rows.
+    // Techniques, grouped under headers (contracts, primary, secondary, ultimates, stances, care, seals, presence, lens) without changing the rows.
     function techGroup(it, p) {
       if (it.contractAction || it.x?.contract) return [0, "Contracts"];   // speak, prepare, release, and the contract techniques themselves
       if (!it.x) {   // non-ability rows file under their own system, never the old catch-all (Grok Keystone, 2026-10-27)
-        if (/^(mend|tend|salv):/.test(it.id)) return [4, "Care"];
-        if (/^(seal|reaper|grant):/.test(it.id)) return [5, "Seals"];
-        if (it.id.startsWith("deathVision:")) return [6, "Presence"];
-        if (it.id === "vow") return [7, "Stances"];
+        if (it.id === "vow") return [4, "Stances"];   // vows ride the middle: sworn too often to sit at the foot (Mala, 2026-11-05)
+        if (/^(mend|tend|salv):/.test(it.id)) return [5, "Care"];
+        if (/^(seal|reaper|grant):/.test(it.id)) return [6, "Seals"];
+        if (it.id.startsWith("deathVision:")) return [7, "Presence"];
         if (it.id === "lens") return [8, "Lens"];
-        return [7, "Stances"];
+        return [4, "Stances"];   // an id nobody has filed yet files with the vow under the one Stances header (1.3.540 review note 2)
       }
       if (it.x.m.tier === "ultimate") return [3, "Ultimates"];
       const c = it.x.m.concept; return [c === p.primary ? 1 : c === p.secondary ? 2 : 2, C.concepts[c]?.name || "Techniques"];
@@ -5120,7 +5292,7 @@
         if (it.id?.startsWith("card:")) {   // a card: a target card enters target mode on the ringed tiles; a self card plays at once
           const row = E.cards.options(s, controlledId(s))[it.card];
           if (!row?.needsTarget) return act({ type: "playCard", actor: "player", card: it.card, target: null });
-          U.mode = "target"; U.menu = "root"; U.sel = { card: it.card, tg: { range: row.targets, legal: row.targets.map((at) => ({ at })) } }; U.cursor = row.targets[0]; return render();
+          U.mode = "target"; U.menu = "root"; U.sel = { card: it.card, tg: { range: row.targets, legal: row.targets.map((at) => ({ at })) } }; U.cursor = row.targets.find((p) => p[0] === s.actors[controlledId(s)].x && p[1] === s.actors[controlledId(s)].y) || row.targets[0]; return render();   // a zone or an equip starts on its owner's own tile (the nearest sensible centre), a foe card on the first ringed foe
         }
         if (it.id === "scramble" || it.id === "playDead" || it.id === "standUp") return act({ type: it.id, actor: "player" });
         if (["tech", "strike", "observe", "investigate", "lens", "swap", "items", "cook", "drop", "summons"].includes(it.id)) { U.menuFrom = U.afterActMenu || U.menu; U.menu = it.id; U.menuIndex = 0; return render(); }   // afterActMenu still holds the drawer: the reset above already flattened U.menu
@@ -5196,7 +5368,7 @@
             if (burn ? !(o.kind === "plant" && o.hp > 0) : !(o.kind === "ashes" && o.residue)) continue;
             legal.push({ at: [o.x, o.y], tiles: [[o.x, o.y]] });
           }
-          if (burn) for (const m of s.wild || []) if (m.kind === "creeper" && m.tiles) for (const k of Object.keys(m.tiles)) {   // creeper burns too (no ashes)
+          if (burn) for (const m of s.wild || []) if (isFieldKind(m, "creeper")) for (const k of Object.keys(m.tiles)) {   // creeper burns too (no ashes)
             const [x, y] = k.split(",").map(Number);
             if (E.geometry.dist(s, p.x, p.y, x, y) <= R.range && !legal.some((q) => q.at[0] === x && q.at[1] === y)) legal.push({ at: [x, y], tiles: [[x, y]] });
           }
@@ -5254,6 +5426,7 @@
         if (it.id === "place") { act({ type: "observePlace", actor: "player", invest: U.observeInvest }); return; }
         if (it.id === "observePlant") { act({ type: "observePlant", actor: "player", object: it.object, invest: it.invest }); return; }
         if (it.id === "observeStructure") { act({ type: "observeStructure", actor: "player", object: it.object, invest: it.invest }); return; }
+        if (it.id === "observeSummon") { act({ type: "observeSummon", actor: "player", summon: it.summon }); return; }
         if (it.id === "commune") return showCommuneQuestion(it.object);
         if (it.id === "communeStructure") return showAwakenQuestion(it.object);
         if (it.id === "nameDream") return showNameDreamQuestion(it.target);
@@ -5311,7 +5484,7 @@
       if (vow) U.audVow = vow;
       if (opts.length) mountSpeaker(ov, "audition", { roleId: opts[0], C });   // S6: the first answering villain (none answers: no strip)
     }
-    function oathRow(s, p) {   // technique stances: the oath row at the foot of Techniques shows what binds you
+    function oathRow(s, p) {   // technique stances: the oath row in the middle of Techniques shows what binds you
       const V = root.ConceptCombatVows, live = V.live(s, p).filter((v) => v.on === "technique");
       const names = live.map((v) => V.BOONS[v.boon]?.name || v.boon).join(" + "), short = live.length > 2 ? `${live.length} live` : names;
       return { id: "vow", label: live.length ? `Oath: ${short} · another ▸` : "Swear an oath ▸ (free)", off: false,
@@ -5562,6 +5735,14 @@
           why: `Know a structure well enough and it will answer you. As an ally: ${pr.name}, ${Math.max(1, o.hp * 2)} LF. It stands for 4 rounds, then settles back.${matDef ? ` Material: ${matDef.text}` : ""}` };
       });
     }
+    function summonMenu() {   // Observe teaches O2c: unlocked palace summons, studied from the Observe tab
+      const s = U.s, p = controlledFighter(s); if (!p || !SM) return [];
+      return SM.available({ unlocked: summonUnlocks() }).filter((x) => x.unlocked && SM.callsPalace(p)).map((x) => {
+        const def = SM.data.summons[x.id], studied = !!s.summonHints?.[p.id]?.[x.id];
+        return { id: "observeSummon", summon: x.id, label: `Study ${def.name}'s room · 20 AP${studied ? " · studied" : ""}`, off: studied || p.tempo < 20,
+          why: studied ? "Studied this battle: no new hint. Call it from Rituals ▸ Summon ally." : `Study ${def.name}'s palace room: one wrong choice on its calling question is struck this battle.` };
+      });
+    }
     function awakenMenu() {   // known structures, woken from the Rituals tab
       const ctx = nearbyStructures(); if (!ctx) return [];
       const { p, d, fam, active, list } = ctx;
@@ -5604,7 +5785,7 @@
     }
     function showSummonQuestion(id) {
       const p = controlledFighter(U.s), seed = `${U.s.seed}:${U.s.round}:${p.id}:${id}`;
-      const q = SQ.pickQuestion(id, seed, { hintCount: E.summonQuestionHints(U.s, p.id) });
+      const q = SQ.pickQuestion(id, seed, { hintCount: E.summonQuestionHints(U.s, p.id, id) });
       if (!q) return flashTip("No question is available for that summon.");
       U.pendingSummon = { id, q }; const ov = $("ccOverlay"); ov.hidden = false;
       const auto = U.s.summonQuestionBoost > 0;
@@ -5643,12 +5824,12 @@
     }
     function strikeTargeting(reach = E.strikeRange(U.s, controlledId(U.s))) {
       const s = U.s, p = controlledFighter(s), ox = p.x, oy = p.y;
-      const hostile = a => s.mode === "warfare" || s.mode === "melee" ? a.side !== p.side : a.side === "enemy";   // melee (SC05 Three Crews): every other crew is a target, as in warfare
+      const hostile = a => s.mode === "warfare" ? a.side !== p.side : s.mode === "melee" ? a.side !== p.side && a.side !== "civilian" : a.side === "enemy";   // melee (SC05 Three Crews): every other crew is a target, as in warfare
       const legal = Object.values(s.actors).filter((a) => hostile(a) && !a.defeated && E.geometry.dist(s, ox, oy, a.x, a.y) <= reach).map((a) => ({ at: [a.x, a.y], tiles: [[a.x, a.y]] }));
       if (s.mode === "warfare") for (const m of s.wild || []) if (m.form === "unit" && !m.fleeing && E.geometry.dist(s, ox, oy, m.x, m.y) <= reach) legal.push({ at: [m.x, m.y], tiles: [[m.x, m.y]] });
       const range = []; for (let dy = -reach; dy <= reach; dy++) for (let dx = -reach; dx <= reach; dx++) if ((dx || dy) && Math.abs(dx) + Math.abs(dy) <= reach) range.push([ox + dx, oy + dy]);
       // Creeper: any normal attack clears it, so a creeper tile in reach with nobody on it is a Strike target.
-      for (const m of s.wild || []) if (m.kind === "creeper" && m.tiles) for (const [x, y] of range) if (`${x},${y}` in m.tiles && !legal.some((q) => q.at[0] === x && q.at[1] === y)) legal.push({ at: [x, y], tiles: [[x, y]] });
+      for (const m of s.wild || []) if (isFieldKind(m, "creeper")) for (const [x, y] of range) if (`${x},${y}` in m.tiles && !legal.some((q) => q.at[0] === x && q.at[1] === y)) legal.push({ at: [x, y], tiles: [[x, y]] });
       // A data center that is not the player's side's: the one object a Strike can hit (docs/data-center.md).
       // Any object in reach can be struck (Mala, 2026-10-14), except a building your own side placed.
       for (const o of s.arena.objects || []) if (o.hp > 0 && !o.dead && !(s.actors[o.owner || o.tower?.owner]?.side === p.side) && range.some(([x, y]) => x === o.x && y === o.y) && !legal.some((q) => q.at[0] === o.x && q.at[1] === o.y)) legal.push({ at: [o.x, o.y], tiles: [[o.x, o.y]] });
@@ -5796,7 +5977,7 @@
       const reach = m.delivery === "routed" ? `route ≤ ${m.routeBudget}` : m.effect === "barrier" ? (m.range ? `place ≤ ${m.range}` : "self only") : m.range ? `range ${m.range}` : "self";
       const multi = ["radius", "plus", "line"].includes(m.area.shape);
       const pv = U.mode === "target" ? previewFor(U.sel.self ? null : U.hover) : null;
-      const foes = Object.values(s.actors).filter((a) => (s.mode === "warfare" || s.mode === "melee" ? a.side !== p.side : a.side === "enemy") && !a.defeated);
+      const foes = Object.values(s.actors).filter((a) => (s.mode === "warfare" ? a.side !== p.side : s.mode === "melee" ? a.side !== p.side && a.side !== "civilian" : a.side === "enemy") && !a.defeated);
       const responseFoes = pv?.ok && U.announce && m.timing !== "delayed" ? (pv.pending?.defenders || []).map(id => s.actors[id]).filter(Boolean) : foes;
       const techniqueKnown = Object.values(s.knowledge).some(k2 => k2[p.id]?.abilities[id]);
       const canDeceive = (p.primary === "deception" || p.secondary === "deception") && m.tier === "ultimate" && !d.timing && advertisedReach(m) > 1 && !x.revealed && !techniqueKnown;
@@ -6418,7 +6599,7 @@
       // sceneKinds: what the isometric scene models (ground and architecture; never the population). sprites: the art drawn for plants and objects.
       followAction: (a, before, logFrom) => followAction(a, before, logFrom),   // tests (tests/unit-follow.test.mjs): feeds a staged walk through the real Follow camera
       ritualRows: () => ritualMenu(),   // the Rituals rows as the player would see them (tests: tests/gaia-capture-browser.test.mjs)
-      get board() { return { iso: !!isoCam, cam: U.cam ? { ...U.cam } : null, mode: U.mode, tile: geo.tw, zoom: U.zoom, pan: [U.panX, U.panY], centre: (x, y) => centre(x, y), tileAt: (mx, my) => tileFromPoint(mx, my), sprites: spritesDrawn.slice(), dressing: dressingDrawn, shelfTexture, groundTiles: groundDrawn, astralFloors: astralFloorsDrawn, groundSet: MAPD && U.s ? MAPD.groundSet(U.s.arena) : null, sceneKinds: isoCam ? [...new Set(isoCam.faces.map((f) => f.kind))] : [] }; },
+      get board() { return { iso: !!isoCam, cam: U.cam ? { ...U.cam } : null, mode: U.mode, zoneTiles: U.zoneTilesShown || 0, tile: geo.tw, zoom: U.zoom, pan: [U.panX, U.panY], centre: (x, y) => centre(x, y), tileAt: (mx, my) => tileFromPoint(mx, my), sprites: spritesDrawn.slice(), dressing: dressingDrawn, shelfTexture, groundTiles: groundDrawn, astralFloors: astralFloorsDrawn, groundSet: MAPD && U.s ? MAPD.groundSet(U.s.arena) : null, sceneKinds: isoCam ? [...new Set(isoCam.faces.map((f) => f.kind))] : [] }; },
 
     };
   }
@@ -6446,5 +6627,5 @@
       <ol class="cc-rush-roll">${names.map((n) => `<li><span aria-hidden="true">✓</span> ${esc(n)}</li>`).join("")}</ol>
       ${orbs.length ? `<p class="cc-rush-orbs"><b>Kept:</b> ${orbs.map(esc).join(" · ")}</p>` : ""}</section>`;
   }
-  root.ConceptCombatUI = { rushVictoryHtml, FOLLOW, followTarget, framePair, followable, camAt, camAlong, easeInOut, sceneMs, setPace, readingGapMs, createInspectorEngine, portraitSource, portraitMarkup, mindDuelMarkup, conversationMarkup, conversationScenes, learningScenes, auraPlacement: UI_auraPlacement, AURA_STANDING, FACE_ART, faceFile, SKY, skyFor, LEXICON_ART, lexiconOrder, statusMarks, WEATHER_ART, weatherTiles, heldPrices, HAZARD_ART, hazardFrame, SCENE_MS, menuBrief, menuRollover, apGate, apHead, defensiveResponsePrices, TEXT_SCENE_MS, DREAM_TIMELINE, dreamScenes, closeupScenes, boonScenes, arrivalScenes, eventScenes, pepTalkScenes, missedCallScenes, beliefScenes, heldBeliefScenes, BELIEF_TIMELINE, dodgeScene, DODGE_TIMELINE, scenePose, mount, modeAfterEngineAction, graphLayout, pickupPresentation, shouldFlipSprite, SPRITE_DIR };   // SPRITE_DIR: tools/check-sprite-facing.mjs
+  root.ConceptCombatUI = { pickableConceptIds, lexiconSmall, lexiconText, lexiconMore, rushVictoryHtml, FOLLOW, followTarget, framePair, followable, camAt, camAlong, easeInOut, sceneMs, setPace, readingGapMs, createInspectorEngine, portraitSource, portraitMarkup, mindDuelMarkup, conversationMarkup, conversationScenes, learningScenes, auraPlacement: UI_auraPlacement, AURA_STANDING, FACE_ART, faceFile, SKY, skyFor, LEXICON_ART, lexiconOrder, statusMarks, WEATHER_ART, weatherTiles, heldPrices, HAZARD_ART, hazardFrame, SCENE_MS, menuBrief, menuRollover, apGate, apHead, defensiveResponsePrices, TEXT_SCENE_MS, DREAM_TIMELINE, dreamScenes, closeupScenes, boonScenes, arrivalScenes, eventScenes, pepTalkScenes, missedCallScenes, beliefScenes, heldBeliefScenes, BELIEF_TIMELINE, dodgeScene, DODGE_TIMELINE, scenePose, mount, modeAfterEngineAction, graphLayout, pickupPresentation, shouldFlipSprite, SPRITE_DIR };   // SPRITE_DIR: tools/check-sprite-facing.mjs
 })(typeof self !== "undefined" ? self : this);

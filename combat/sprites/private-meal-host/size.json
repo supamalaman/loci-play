@@ -1,0 +1,32 @@
+{
+  "size_class": "person",
+  "minimum_pixel_size_px": 96,
+  "idle_alpha_size_px": [
+    261,
+    190
+  ],
+  "idle_pixel_size": [
+    269,
+    198
+  ],
+  "foot_point_px": [
+    134.5,
+    194
+  ],
+  "world_height": 1.0,
+  "world_height_definition": "PROPOSED Kerf CU 2026-11-06: seated ritual host, person scale.",
+  "source": "Tea and Meal Ceremony Spritesheet.png",
+  "note": "Ritual pose set (not combat 10). Wiring TBD (tea-refinement / ceremony UI). Unused until wired.",
+  "poses": [
+    "admire",
+    "clean-up",
+    "complete",
+    "drink-tea",
+    "eat",
+    "first-bite",
+    "rest",
+    "savor",
+    "serve-dishes",
+    "set-table"
+  ]
+}

@@ -37,7 +37,7 @@
   // dependency and leverage (pull owed between anchors, prerequisites, gearing) → Owing; lyricism and harmony → Witnessed.
   const DOORS = {
     Sworn: ["truthsaying", "forecasting", "substitution", "expertise", "cooperative_principle", "complementarity", "focus", "enhancement", "conjunction", "delegation"],
-    Tried: ["laws_of_gods_of_men", "legitimacy", "damnation", "iatrogenesis", "indexing", "section", "selectivity", "threshold", "timing", "sightline", "boundary", "constraint", "inference"],
+    Tried: ["laws_of_gods_of_men", "legitimacy", "damnation", "iatrogenesis", "indexing", "section", "selectivity", "threshold", "timing", "sightline", "boundary", "constraint", "inference", "homology"],   // homology: the Field Botanist's comparative concept, beside indexing and inference (playable since 1.3.541)
     Quiet: ["ma", "bushido", "love", "friendship", "gratitude", "longtermism", "preservation", "austerity", "barrier", "inertia", "interposition", "compression_and_release"],
     Tended: ["craftsmanship", "discovery", "traditional_medicine", "herbal_medicine", "hardware", "mise_en_place", "software", "cybernetic_ecology", "synthetic_biomedical", "load_distribution", "fault_tolerance", "succession", "pruning", "aging", "desire_line", "borrowed_scenery", "edge_effect", "layers", "metis", "berm", "swale", "periodicity", "adaptation", "innovation", "settlement", "gradingDrainage", "pipeline", "plasticity"],
     Veiled: ["mystery", "deception", "stealth", "camouflage", "horror", "ritual", "flooded_operations_room", "pathway", "imagination", "cipher", "folding", "adjacency"],

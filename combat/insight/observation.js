@@ -98,6 +98,7 @@
     [(x) => x.kind === "unit" && x.imitable, () => ({ text: "Next: you can Imitate it from this menu.", path: "Observe ▸ Imitate" })],
     [(x) => x.kind === "place", (x) => ({ text: `Next: Gaia warns at ${x.warnAt} wounds. Commune with plants here, or keep wounds under ${x.warnAt}.`, path: null })],
     [(x) => x.kind === "dream", (x) => ({ text: `Next: name it from Rituals ▸ Dreams${x.cost != null ? ` · ${x.cost} AP` : ""}.`, path: "Rituals ▸ Dreams" })],
+    [(x) => x.kind === "summon", () => ({ text: "Next: call it from Rituals ▸ Summon ally — one wrong choice is struck.", path: "Rituals ▸ Summon ally" })],
     [(x) => (x.kind === "plant" || x.kind === "structure") && x.closed, () => ({ text: "It will not answer you again this battle.", path: null })],
     [(x) => (x.kind === "plant" || x.kind === "structure") && x.ready, (x) => ({ text: `Next: approach and ${x.deed}. ${x.dist <= x.range ? "You are beside it" : `Stand beside the ${x.common} (${x.dist} tiles away)`}, then Rituals ▸ ${x.ritual} · ${x.ap} AP + ${x.phi} ΦF. It will ask what you just learned.`, path: `Rituals ▸ ${x.ritual}` })],
     [(x) => x.kind === "plant" || x.kind === "structure", (x) => ({ text: `Next: observe again. ${x.need - x.fam} more familiarity (about ${Math.max(x.step, (x.need - x.fam - (x.bonus || 0)) * x.step)} AP).`, path: "Observe" })],
@@ -241,6 +242,7 @@
     if (act.type === "observePlant") return "plant";
     if (act.type === "observeStructure") return "structure";
     if (act.type === "observePlace") return "place";
+    if (act.type === "observeSummon") return "summon";
     if (act.type === "investigate" && (act.place || act.object)) {
       if (act.place) return "place";
       return (look?.objects || []).find((o) => o.id === act.object)?.kind === "plant" ? "plant" : "structure";

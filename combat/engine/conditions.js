@@ -110,6 +110,98 @@
       d.level=Math.max(0,Math.min(d.maxLevel??3,(d.level||0)+(d.risePerRound||0)));
       updateWater(s);
     }
+    // ── Living Water agenda, W1 (accumulate + flow on streams-only maps). Water takes a phase
+    // each round after weather (turns.js beginRound): rain pools in the low ground, water spreads
+    // downhill with a current vector per wet edge. Depth is volume: 0 dry, 1+ shallow; deep (3+)
+    // and its pushes belong to W2, so W1 clamps at 2 and never paints "~" (pre-mortem #1: no
+    // flooded battle before W3's AI reads). Only arena-flagged maps run it (s.arena.waterAgenda),
+    // so every existing battle is untouched. Perf (T13): the flow pass visits wet tiles and their
+    // neighbors only; the rain pass is skipped entirely when nothing falls. Deterministic: fixed
+    // neighbor order, no rolls.
+    const WATER_W1_MAX = 2, WATER_PAINTABLE = [".", ",", "m"];
+    function waterAgenda(s) {
+      if (!s?.arena?.waterAgenda || s.preview) return;
+      const W = (s.water ||= { depth: {}, flow: {}, highwater: {} });
+      W.painted ||= {}; W.flow = {};
+      let visited = 0;
+      const w = s.arena.w, h = s.arena.h, key = H.key;
+      const wetBefore = new Set(Object.keys(W.depth).filter((k) => W.depth[k] > 0));
+      if (!W.seeded) {   // streams always run: standing shallows open at depth 1
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
+          if (H.surfaceAt(s, x, y) === "w") W.depth[key(x, y)] = Math.max(W.depth[key(x, y)] || 0, 1);
+        W.seeded = true;
+      }
+      const sky = H.Climate?.data?.weather?.[s.weatherState?.id];
+      const rate = sky?.rain ? 1 + (sky.wind || 0) : 0;
+      const pooled = [];
+      if (rate > 0) {   // Accumulate. Rain falls everywhere open; low cells first is what flow does with it.
+        const mc = H.Climate.microclimate(H.moduleArena(s.arena), s.weatherState, { wetTiles: Object.keys(s.wildWet || {}).map((k) => k.split(",").map(Number)) });
+        const canopyHolds = H.Climate.data.rules.canopyHoldsRainRounds;
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+          visited++;
+          const ch = H.surfaceAt(s, x, y);
+          if (ch !== "w" && ch !== "~" && !WATER_PAINTABLE.includes(ch)) continue;
+          const m = mc.at(x, y);
+          if (m?.canopy && (s.weatherState.rainRounds || 0) <= canopyHolds) continue;   // canopy holds the rain off (existing rule)
+          const k = key(x, y), before = W.depth[k] || 0;
+          if (before >= WATER_W1_MAX) continue;
+          W.depth[k] = Math.min(WATER_W1_MAX, before + rate);
+          if (before < 1 && W.depth[k] >= 1) pooled.push([x, y]);
+        }
+      }
+      const arrivals = [];   // Flow. Each wet tile hands one volume to its lowest lower neighbor; the pooled stay.
+      const wetKeys = Object.keys(W.depth).filter((k) => W.depth[k] > 0).sort();
+      const region = new Set(wetKeys);
+      for (const k of wetKeys) {
+        const [x, y] = k.split(",").map(Number);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && ny >= 0 && nx < w && ny < h) region.add(key(nx, ny));
+        }
+      }
+      const moves = [];
+      for (const k of [...region].sort()) {
+        visited++;
+        if ((W.depth[k] || 0) <= 0) continue;
+        const [x, y] = k.split(",").map(Number), here = H.heightAt(s, x, y);
+        let best = null;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h || H.surfaceAt(s, nx, ny) === "#") continue;
+          const nh = H.heightAt(s, nx, ny);
+          if (nh < here && (!best || nh < best.h)) best = { h: nh, dx, dy, k: key(nx, ny) };
+        }
+        if (best) { W.flow[k] = [best.dx, best.dy]; moves.push([k, best.k]); }
+        else W.flow[k] = null;   // pooled: no lower neighbor, the low ground keeps it
+      }
+      for (const [from, to] of moves) {
+        W.depth[from] -= 1;
+        if (W.depth[from] <= 0) delete W.depth[from];
+        const had = W.depth[to] || 0;
+        W.depth[to] = Math.min(WATER_W1_MAX, had + 1);
+        if (had < 1 && !wetBefore.has(to)) { const [x, y] = to.split(",").map(Number); arrivals.push([x, y]); }
+      }
+      const wetNow = new Set(Object.keys(W.depth).filter((k) => W.depth[k] > 0));
+      const marks = {};   // high-water: one dry round of memory where depth just left
+      for (const k of wetBefore) if (!wetNow.has(k)) marks[k] = 1;
+      W.highwater = marks;
+      for (const k of Object.keys(W.depth)) {   // paint newly wet tiles shallow, restore newly dry ones
+        const [x, y] = k.split(",").map(Number), ch = H.surfaceAt(s, x, y);
+        if (W.depth[k] >= 1 && WATER_PAINTABLE.includes(ch)) {
+          W.painted[k] = ch;
+          s.arena.map[y] = s.arena.map[y].slice(0, x) + "w" + s.arena.map[y].slice(x + 1);
+        }
+      }
+      for (const k of Object.keys(W.painted)) {
+        if ((W.depth[k] || 0) >= 1) continue;
+        const [x, y] = k.split(",").map(Number);
+        if (s.arena.map[y]?.[x] === "w") s.arena.map[y] = s.arena.map[y].slice(0, x) + W.painted[k] + s.arena.map[y].slice(x + 1);
+        delete W.painted[k];
+      }
+      W.lastTickTiles = visited;
+      if (pooled.length) H.log(s, { kind: "flood", tiles: pooled.slice(0, 12), text: `Rain pools in the low ground${pooled.length > 12 ? ` (${pooled.length} tiles)` : ""}.` });
+      if (arrivals.length) H.log(s, { kind: "flood", tiles: arrivals.slice(0, 12), text: `Water spreads downhill${arrivals.length > 12 ? ` (${arrivals.length} tiles)` : ""}.` });
+    }
     function endRitual(s, a, how) {
       if (!a.ritual) return;
       const visitor = !!a.ritual.visitor;
@@ -618,8 +710,8 @@
       if (a.companion.turnsLeft == null) return;   // turns: null in the def: no clock (the Tech Billionaire's AGI)
       a.companion.turnsLeft -= 1; if (a.companion.turnsLeft > 0) return;
       const cdef = s.rules.companions?.[a.companion.key];
-      a.defeated = true; a.escaped = true; a.leaveReason = cdef?.leave || "went back to the corner"; a.tempo = 0; spiritGone(s, a);
-      log(s, { kind: "companion", actor: a.id, left: true, tiles: [[a.x, a.y]], text: `${a.name} ${cdef?.leave || "goes back to the corner"}.` }); checkOutcome(s);
+      a.defeated = true; a.escaped = true; a.leaveReason = a.companion.leaveReason || cdef?.leave || "went back to the corner"; a.tempo = 0; spiritGone(s, a);
+      log(s, { kind: "companion", actor: a.id, left: true, tiles: [[a.x, a.y]], text: `${a.name} ${a.companion.leave || cdef?.leave || "goes back to the corner"}.` }); checkOutcome(s);
     }
     // A released beast stays three of its own turns, then goes back to the wild.
     function beastTick(s, a) {   // called as its turn ends
@@ -1199,7 +1291,7 @@
       }
       return out;
     }
-    return { relicPassives, OWN_MOVE_ACTIONS, breakHoldsApart, settleHolds, pressSubmission, submissionRound, submitFoe, slipFree, canCommitSubmission, waterState, isSwimmer, refreshWaterDrowning, waterRecovery, updateWater, previewFlood, advanceWater, fishRound, fishNear, carryLegacy, carryBeasts, legacyPrice, journalOptions, nameRandomFoes, assignEnemyLoci, corpseSweep, corpseBeside, burialAp, lastRites, graveWard, formCtx, carryLearnedForms, spawnFormLarva, formsTurnStartFor, formsAfterAction, spreadIdea, spreadByTalk, adhdPrice, adhdPaid, heldCostMul, breakCost, callCompanion, cornerAdvice, adviceMul, companionTick, strikeRange, grappleCost, freeStrike, grappled, grappleChance, knownEnemyTraps, chanted, endRitual, ritualTick, finishRitualsOnWin, riteDiscount, endRite, riteTick, grantSacrifice, beadBeast, beastTick, applyPoison, poisonTick, fearless, fearCheck, visageGaze, heroFell, onEdge, adjustMoveCost, consumeMoveMods, refundMove, eatShock, staggerTurns, tangleCut, moveFloor, relocationHold, entangle,
+    return { relicPassives, OWN_MOVE_ACTIONS, breakHoldsApart, settleHolds, pressSubmission, submissionRound, submitFoe, slipFree, canCommitSubmission, waterState, isSwimmer, refreshWaterDrowning, waterRecovery, updateWater, previewFlood, advanceWater, waterAgenda, fishRound, fishNear, carryLegacy, carryBeasts, legacyPrice, journalOptions, nameRandomFoes, assignEnemyLoci, corpseSweep, corpseBeside, burialAp, lastRites, graveWard, formCtx, carryLearnedForms, spawnFormLarva, formsTurnStartFor, formsAfterAction, spreadIdea, spreadByTalk, adhdPrice, adhdPaid, heldCostMul, breakCost, callCompanion, cornerAdvice, adviceMul, companionTick, strikeRange, grappleCost, freeStrike, grappled, grappleChance, knownEnemyTraps, chanted, endRitual, ritualTick, finishRitualsOnWin, riteDiscount, endRite, riteTick, grantSacrifice, beadBeast, beastTick, applyPoison, poisonTick, fearless, fearCheck, visageGaze, heroFell, onEdge, adjustMoveCost, consumeMoveMods, refundMove, eatShock, staggerTurns, tangleCut, moveFloor, relocationHold, entangle,
       edgeDistance, fleeBattle, isMonster, monsterCtx, monsterApply, monsterOf, monsterPotency, monsterRider, monsterTurnStart, monsterTurnEnd, monsterRelease, mindlessAct, arrivalBlocked, hasTrait, deathDoorOdds, communeDiscount, tryDeathDoor, performerTestOptions,
       focusedDreamTestOptions, devPlaygroundOptions, themedBattleOptions, meleeTestOptions,
       directiveLive, directiveDestOpen, consumeDirective, tilesOccupiedIn, pairWithin,

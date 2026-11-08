@@ -1,0 +1,293 @@
+{
+ "size_class": "person",
+ "footprint_tiles": [
+  1,
+  1
+ ],
+ "world_height": 1.0,
+ "world_height_definition": "Proposed person class; a person is 1.0. Confirm at cut-in. Warden idle is the 183 cm / 1.0 reference.",
+ "foot_point_definition": "Bottom-center of opaque alpha bounds.",
+ "pad": "4px transparent (importer)",
+ "artist": "@ManavuArt",
+ "artist_tag": "@ManavuArt",
+ "credit": "@ManavuArt",
+ "source": "Manavu Space_Administrative_Security_Crimson_Horned_Unit_15_Sprites.png",
+ "cutter": "Keystone CU",
+ "date": "2026-11-04",
+ "runtime_consumed": false,
+ "poses": {
+  "idle.png": {
+   "pixel_size": [
+    202,
+    188
+   ],
+   "alpha_bounds": [
+    55,
+    4,
+    153,
+    184
+   ],
+   "foot_point_px": [
+    104.0,
+    184
+   ],
+   "sha256": "0553f32b187da41466fc9018b68fb98536076449fe8fd48cb0aca38507812830"
+  },
+  "walk.png": {
+   "pixel_size": [
+    189,
+    187
+   ],
+   "alpha_bounds": [
+    38,
+    4,
+    159,
+    183
+   ],
+   "foot_point_px": [
+    98.5,
+    183
+   ],
+   "sha256": "f95856021990b0548b663c8e8158c1d3af845ea3853c47578be054804d4505d7"
+  },
+  "dodge.png": {
+   "pixel_size": [
+    179,
+    188
+   ],
+   "alpha_bounds": [
+    22,
+    22,
+    157,
+    184
+   ],
+   "foot_point_px": [
+    89.5,
+    184
+   ],
+   "sha256": "480b9ea9ef85c2c06143981bb63268893c6e0b3a1789d328b6a9d1e9229decb2"
+  },
+  "knockback.png": {
+   "pixel_size": [
+    191,
+    188
+   ],
+   "alpha_bounds": [
+    26,
+    15,
+    170,
+    184
+   ],
+   "foot_point_px": [
+    98.0,
+    184
+   ],
+   "sha256": "99be454d7236b60f9483fb7725bcb5c8fcb797e2dd6ddab4ea69b56d083605c2"
+  },
+  "punch.png": {
+   "pixel_size": [
+    219,
+    188
+   ],
+   "alpha_bounds": [
+    20,
+    12,
+    215,
+    184
+   ],
+   "foot_point_px": [
+    117.5,
+    184
+   ],
+   "sha256": "9ead75232c349b7fe54499fd7e9240d8d0bb146884f79bf44f5371a18ebe3743"
+  },
+  "cast.png": {
+   "pixel_size": [
+    226,
+    177
+   ],
+   "alpha_bounds": [
+    24,
+    9,
+    222,
+    170
+   ],
+   "foot_point_px": [
+    123.0,
+    170
+   ],
+   "sha256": "79407c3376bb29ea64b0ab612f857fda9b9a710880bda9359431476bfe6b6a2b"
+  },
+  "cast-off.png": {
+   "pixel_size": [
+    226,
+    177
+   ],
+   "alpha_bounds": [
+    24,
+    9,
+    222,
+    170
+   ],
+   "foot_point_px": [
+    123.0,
+    170
+   ],
+   "sha256": "79407c3376bb29ea64b0ab612f857fda9b9a710880bda9359431476bfe6b6a2b"
+  },
+  "cast-def.png": {
+   "pixel_size": [
+    201,
+    177
+   ],
+   "alpha_bounds": [
+    10,
+    4,
+    180,
+    170
+   ],
+   "foot_point_px": [
+    95.0,
+    170
+   ],
+   "sha256": "2da94aa0273a53dc86b7710144097284f55760cd7ca0e0e2eb8ecfa8e9716666"
+  },
+  "block.png": {
+   "pixel_size": [
+    170,
+    160
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    166,
+    153
+   ],
+   "foot_point_px": [
+    85.0,
+    153
+   ],
+   "sha256": "4791c6f0c9d5f67eb462b550977343bde575aa2e5f989dabef75c3059b22a5c4"
+  },
+  "knocked-out.png": {
+   "pixel_size": [
+    185,
+    177
+   ],
+   "alpha_bounds": [
+    17,
+    82,
+    172,
+    170
+   ],
+   "foot_point_px": [
+    94.5,
+    170
+   ],
+   "sha256": "16dd6a55dc9161fe55de845420b6dfe309ca9de1a13a4aff71c85dd1b5909527"
+  },
+  "ultimate.png": {
+   "pixel_size": [
+    198,
+    177
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    194,
+    173
+   ],
+   "foot_point_px": [
+    99.0,
+    173
+   ],
+   "sha256": "1253ea5535eca3e06683e17c0284d19f641995737e10b41bed9ac3c9cfb905c0"
+  },
+  "portrait-neutral.png": {
+   "pixel_size": [
+    144,
+    208
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    140,
+    204
+   ],
+   "foot_point_px": [
+    72.0,
+    204
+   ],
+   "sha256": "4c2573b3905099f4119668b175906c06fa275aba1f9da86fc7a8ef0437d42bb0"
+  },
+  "portrait-happy.png": {
+   "pixel_size": [
+    148,
+    208
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    144,
+    204
+   ],
+   "foot_point_px": [
+    74.0,
+    204
+   ],
+   "sha256": "3ce5710026b2931d381b1b0fff89a856b74b56ca27d18ef9276b192eff46ac7e"
+  },
+  "portrait-angry.png": {
+   "pixel_size": [
+    148,
+    208
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    144,
+    204
+   ],
+   "foot_point_px": [
+    74.0,
+    204
+   ],
+   "sha256": "e1d6a6f86276dab953e32acf73787f86bcb193887f8746808b1558dbc2e5bce1"
+  },
+  "portrait-sad.png": {
+   "pixel_size": [
+    194,
+    206
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    190,
+    201
+   ],
+   "foot_point_px": [
+    97.0,
+    201
+   ],
+   "sha256": "9fedfcf45202b36e737eec470f15db86e76bfd720c8b5b80a78950b801368398"
+  },
+  "portrait-surprised.png": {
+   "pixel_size": [
+    201,
+    206
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    197,
+    200
+   ],
+   "foot_point_px": [
+    100.5,
+    200
+   ],
+   "sha256": "da6f745d67e48cd98c015e5c23b014d38800eae834092c0d5e7224b7fa92c1e4"
+  }
+ },
+ "cleanup": "2026-11-04 chrome strip (frame bars, caption lines, corner specks)"
+}

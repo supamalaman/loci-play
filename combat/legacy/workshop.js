@@ -129,6 +129,32 @@
     l.scribed.push(def);
     return {ok:true,account:{...account,seeds:account.seeds-q.inscription,legacy:l},technique:def};
   }
+  // Recopy (scribing desk A6): free, once, for a def priced under an older tariff. Reprices through priceOf over the
+  // stored effects and inputs under the CURRENT tariff (F, C refreshed; the parts are spent so compile cannot run again),
+  // then re-derives phi exactly the way compile does. The def keeps its id (a hash of the old ability): only prices,
+  // tariff and rev change. Refused when the new price is higher in phi or AP; the stamp marks it done.
+  function recopy(account,id){
+    const l=state(account),def=l.scribed.find(d=>d.id===id&&d.workshop);
+    if(!def)return {ok:false,error:"Choose an inscribed workshop blueprint.",account};
+    if((def.tariff??1)>=DM.table.tariff.defStamp)return {ok:false,error:"That work is already priced under the current tariff.",account};
+    if(!def.pricing||!def.pricing.effects||!def.pricing.inputs)return {ok:false,error:"That work predates stored pricing and cannot be recopied.",account};
+    // The stored ability carries the RESTRICTED range (compile sets range=1 for contact), but design() grants the range
+    // credit only on a pre-restriction ranged line: re-validate against the stored range and every contact work refuses.
+    // Restore the precondition (range 2+, delivery intact) for the design call only; every other validation still runs.
+    const wa=def.workshopAbility,forDesign=(def.recipe?.contract?.cast?.contact&&wa.delivery==="line"&&wa.range<=1)?{...wa,range:2}:wa;
+    const design=D.design(def.recipe?.contract||{},forDesign);
+    if(!design.ok)return {ok:false,error:design.errors.join(" "),account};
+    const inputs={...copy(def.pricing.inputs),F:DM.table.tariff.F,C:DM.table.tariff.C};
+    const {gross,ap}=priceOf(def.pricing.effects,inputs);
+    const efficiency=((def.recipe?.contract?.spend)||"efficiency")==="efficiency";
+    const responsibility=design.credits.reduce((n,c)=>n+c.points,0),reduction=efficiency?Math.min(.95,responsibility*.05):0;
+    let phi=Math.max(2,Math.ceil(gross*(1-reduction)))+(design.specialty.phi||0)+(design.contract.cast.extraPhi||0);
+    if(design.contract.cast.ultimate)phi=Math.max(14,phi);
+    if(phi>def.cost||ap>def.ap)return {ok:false,error:`Recopy would raise the price (now ${def.cost} ΦF ${def.ap} AP, repriced ${phi} ΦF ${ap} AP).`,account};
+    def.tariff=DM.table.tariff.defStamp;def.cost=phi;def.ap=ap;def.pricing={gross,effects:copy(def.pricing.effects),inputs};
+    def.workshopAbility.cost=phi;def.workshopAbility.tempoCost=ap;def.rev=(def.rev||0)+1;
+    return {ok:true,account:{...account,legacy:l},technique:def};
+  }
   function equip(account,id,replace=null){
     const l=state(account),m=l.memory;
     if(!l.scribed.some(d=>d.id===id&&d.workshop))return {ok:false,error:"Choose an inscribed workshop blueprint.",account};
@@ -184,5 +210,5 @@
     }catch(e){return {ok:false,errors:[e.message]};}
     finally{if(old)C.abilities[q.id]=old;else delete C.abilities[q.id];}
   }
-  return {state,training,materials,groups,components,describePart,compile,priceOf,migrateRecipe,saveDraft,inscribe,equip,unequip,prove};
+  return {state,training,materials,groups,components,describePart,compile,priceOf,migrateRecipe,saveDraft,inscribe,recopy,equip,unequip,prove};
 });

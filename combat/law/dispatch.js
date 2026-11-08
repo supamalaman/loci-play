@@ -194,7 +194,7 @@
     const trial = TR.openTrial({ form: "courtroom", accusedId, prosecutorId: officerId, seed: s.seed,
       units: H.Courtroom.fixtures(s), counts });
     s.trial = { t: trial, invokerId: officerId, accusedId, queued: null, queuedDefense: null,
-      contempt: [], over: false, revealedAtOpen: 0, arrestTrial: true };
+      contempt: [], over: false, foundAtOpen: H.Courtroom.foundIds(s, accusedId), arrestTrial: true };
     H.log(s, { kind: "trial", actor: accusedId, target: officerId,
       text: `${t.name} claims trial from their knees: the battle HOLDS while the court hears ${counts.length} count${counts.length === 1 ? "s" : "s"}. The cuffs stay on.` });
     return { ok: true };

@@ -12,7 +12,7 @@
   return (function () {
     const SOUL_KINDS = ["humble", "steadfast", "noble", "mythic"];
     const NUMERAL = [null, "I", "II", "III"];
-    const FRUIT_NAMES = { coil: "Coilfruit", hide: "Hidefruit", mist: "Mistfruit" };
+    const FRUIT_NAMES = { coil: "Coilfruit", hide: "Hidefruit", mist: "Mistfruit", locus: "Locusfruit" };
     const ORBIT_CHARACTERS = ["anime_protagonist"];   // who keeps the anime orbit; another anime-genre character joins here
     const pick = (list, r) => list[Math.min(list.length - 1, Math.floor(r * list.length))];
     // Weighted table (docs/anime-orbit.md §2; weights and Jinki tiers are the spec's provisional 50/25/25 and 60/30/10).
@@ -23,7 +23,7 @@
           return `carries an awakened charm (${kind} ${NUMERAL[tier]}: ${JK.GIFTS[kind].name})`;
         } },
       { id: "sinkerfruit", weight: 25, apply(s, u, roll) {
-          const all = Object.keys(H.fruitRules?.kits || FRUIT_NAMES), w = s.fruitWorld;   // respec (S4c): not the fruit the player holds, nor the one a rival eater carries (one copy of each in the world)
+          const all = Object.keys(H.fruitRules?.kits || FRUIT_NAMES).filter((x) => x !== "locus"), w = s.fruitWorld;   // R-20261103-15: the Locusfruit is Boss version only and stays out of the regular draw (joining would also move the seeded draws the S4c guard pins)   // respec (S4c): not the fruit the player holds, nor the one a rival eater carries (one copy of each in the world)
           const left = w ? all.filter((x) => x !== w.held && x !== s.actors.rival?.fruit?.id) : all, id = pick(left.length ? left : all, roll("fruit"));
           if (w && H.armAnimeFruit?.(s, u, id)) return `ate the ${FRUIT_NAMES[id] || id} and has made it his own, Awakened (he gives up the sea)`;
           u.fruit = { id, ripe: true };

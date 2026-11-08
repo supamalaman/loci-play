@@ -54,8 +54,20 @@ const Loci = (() => {
     return { total, visited, recalled: vals.filter(Boolean).length, tested: vals.length, recall: store.get(keyFor(w.slug) + ":recall", false) };
   }
 
+  // The Locusfruit (respec S6a): a walk with a perfect recall score (every question recalled, at least one asked) earns it, once; the walks half of Loci writes the combat account it
+  // already reads (homeAccount). account/fruit.js decides: it grants only with RULES.respec on, and only while the fruit rests in the palace.
+  function grantLocusfruit() {
+    try {
+      const F = window.ConceptCombatFruit, A = window.ConceptCombatAccount, raw = localStorage.getItem("loci:combat:account:v1");
+      if (!F || !A || !raw || !S.walks.some((w) => { const p = progressOf(w); return p.tested >= 1 && p.recalled === p.tested; })) return "";
+      const r = F.grantLocus(A.deserialize(JSON.parse(raw)));
+      if (!r.granted) return "";
+      localStorage.setItem("loci:combat:account:v1", JSON.stringify(A.serialize(r.account)));
+      return r.line;
+    } catch { return ""; }
+  }
   function renderLibrary() {
-    const host = $("walks");
+    const host = $("walks"), grown = grantLocusfruit();
     if (!S.walks.length) {
       host.innerHTML = `<div class="empty"><b>No walks yet.</b><br>Create one in the Explainer Library with
         <code>node scaffold.mjs "Walk with X" --kind walk</code>, then press ⌘R.</div>`;
@@ -82,6 +94,7 @@ const Loci = (() => {
     }).join("");
     host.querySelectorAll(".walk-card").forEach((b) => b.onclick = () => play(b.dataset.slug));
     host.querySelectorAll("canvas.thumb").forEach((cv) => drawThumb(cv, S.data[cv.dataset.slug]));
+    if (grown) host.insertAdjacentHTML("afterbegin", `<div class="empty" id="locusGrown" role="status"><b>${esc(grown)}</b><br>Eat it from the Field Kit, if you dare.</div>`);   // respec S6a: the walk-complete card, once per grant
     renderDuels();
   }
 
@@ -591,5 +604,5 @@ const Loci = (() => {
 
   refresh();
   async function open(o) { await play(o.slug); if (o.notes) openNotes(o.notes); }
-  return { exportEmissaryTrace: (name, json) => call("exportEmissaryTrace", name, json), _resolve(id, data) { const r = pending.get(id); if (r) { pending.delete(id); r(data); } }, library, refresh, open, duel, openEmergent };
+  return { exportEmissaryTrace: (name, json) => call("exportEmissaryTrace", name, json), _resolve(id, data) { const r = pending.get(id); if (r) { pending.delete(id); r(data); } else window.ConceptCombatSaveFile?._resolve?.(id, data); }, library, refresh, open, duel, openEmergent };
 })();

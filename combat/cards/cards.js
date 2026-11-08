@@ -33,7 +33,8 @@
     root: (e) => (e.turns >= 2 ? P.rootLong : P.rootShort), itemLock: () => P.itemLock, reveal: () => P.reveal, heal: (e) => ceil(e.lf / P.healPer),
     modTaken: (e) => ceil(round6((1 - e.mult) * P.modScale * e.turns / 2)), modDealt: (e) => ceil(round6(Math.abs(e.mult - 1) * P.modScale * e.turns / 2)),
     regen: (e) => ceil(round6(e.lf * e.turns / P.regenPer)), lethalSave: () => P.lethalSave, cardLock: () => P.cardLock,
-    familiar: (e) => ceil(round6(e.lf / P.familiarLfPer + e.potency * e.turns / P.familiarPotencyPer)) * (e.count || 1), apGain: (e) => ceil(e.n / P.apGainPer),
+    // familiar: `bodies` = ONE familiar drawn with several bodies (the Pair of Lanterns): `lf` is the total, priced per body; `count` = separate familiars
+    familiar: (e) => ceil(round6(e.lf / (e.bodies || 1) / P.familiarLfPer + e.potency * e.turns / P.familiarPotencyPer)) * (e.bodies || e.count || 1), apGain: (e) => ceil(e.n / P.apGainPer),
   };
   const areaMul = (r) => (r >= 4 ? rules.areaMul.r4 : r === 3 ? rules.areaMul.r3 : rules.areaMul.base);
   function payload(card) {
@@ -66,9 +67,11 @@
     const eff = card.effects;
     if (card.kind === "summon") {
       const f = eff.find((e) => e.key === "familiar"), h = eff.find((e) => e.key === "heal"), each = f.count > 1 ? "each " : "";
-      const act = f.mode === "strike" ? `${each}strikes for ${f.potency} on its turns` : `${each}wards an ally (or you, if alone) for ${f.potency} on its turns`;
-      let t = `Call ${f.count > 1 ? f.count + " familiars" : "a familiar"}: ${f.lf} LF${f.count > 1 ? " each" : ""}, ${f.turns} turns, ${act}.`;
+      const twice = f.bodies > 1 ? " twice" : "";   // one familiar with two bodies acts once per body
+      const act = f.mode === "strike" ? `${each}strikes for ${f.potency}${twice} on its turns` : `${each}wards an ally (or you, if alone) for ${f.potency}${twice} on its turns`;
+      let t = f.bodies > 1 ? `Call a familiar with two bodies: ${f.lf} LF in all, ${f.turns} turns, ${act}.` : `Call ${f.count > 1 ? f.count + " familiars" : "a familiar"}: ${f.lf} LF${f.count > 1 ? " each" : ""}, ${f.turns} turns, ${act}.`;
       if (h) t += ` Heal ${h.lf} LF.`;
+      t += ` A Warden or a full believer calls it +${rules.familiar.thematicLf} LF and +${rules.familiar.thematicTurns} turn${rules.familiar.thematicTurns === 1 ? "" : "s"}.`;   // C3 re-cut: the text names the thematic bonus the engine adds (triage 2026-11-04)
       return t + needsTail(card);
     }
     if (card.kind === "field") {

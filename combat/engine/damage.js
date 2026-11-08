@@ -488,6 +488,7 @@
       }
       let dmg = Math.max(flatHolds ? 1 : 0, roundFn(s)(potency * mult) + (potency > 0 ? formFlat : 0)), warded = 0, wardBroke = false, wardHide = false;
       EmergentIdeas?.syncSummonWards(s);
+      if (dmg > 0 && src && src.id !== tgt.id && !opts.bleedOut) H.mysteryBeforeHit?.(s, tgt, src);   // Battle Cards C2: a "before" set card (a ward) springs ahead of the ward check below
       if (inst?.directHit && tgt.status.ward && dmg > 0) notes.push(`Direct hit: the ward cannot catch what it cannot read (${tgt.status.ward.protection} protection untouched).`);
       if (inst?.piercing && tgt.status.ward && dmg > 0) notes.push(`Piercing: the strike passes through the ward (${tgt.status.ward.protection} protection untouched).`);
       const willThroughHide = !!(inst?.carriesWill && tgt.status.ward?.hide && dmg > 0);   // Mala 2026-11-02: Steel will goes through a borrowed hide (Hidefruit counter)
@@ -658,7 +659,7 @@
         checkOutcome(s);
       }
       if (tgt.defeated && src) H.fruitKilled?.(s, src, tgt, inst);   // Sinkerfruit (respec S1b): a kill the engine let stand, with the borrowed move
-      if (src && tgt && src.id !== tgt.id && s.actors[src.id]) H.mysteryAttacked?.(s, tgt, src);   // MCR-02: springs only after the damage/survival/defeat decision is final (defeated victims don't spring)
+      if (src && tgt && src.id !== tgt.id && s.actors[src.id]) H.mysteryAttacked?.(s, tgt, src, before - tgt.lf);   // MCR-02: springs only after the damage/survival/defeat decision is final (defeated victims don't spring)
       for (const u of sharedVictims) if (u.lf <= 0 && !u.defeated) {
         u.defeated = true; H.pactLeave(s, u); delete u.status.playingDead; if (Parley && Parley.isImmortal(u)) u.knockedOut = true; log(s, { kind: "defeat", target: u.id, text: `${u.name} is ${u.knockedOut ? "knocked out" : "defeated"} through Shared Burden.` });
         { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onDeath?.(s, u, null, H); }   // group spirit: killerless death still shocks a leaderless side
@@ -952,16 +953,19 @@
       return { targets, why: friendlyFire ? ["This area damages terrain, so every unit in its footprint is vulnerable regardless of side."] : [] };
     }
 
-    // Creeper (wild/monsters.js): any normal attack clears it, a Strike aimed at a creeper tile or a damaging technique
-    // whose footprint covers one (Mala, 2026-10-11). Returns how many tiles were cleared.
-    const creeperAt = (s, x, y) => (s.wild || []).some((m) => m.kind === "creeper" && m.tiles && `${x},${y}` in m.tiles);
-    function clearCreeper(s, a, tiles) {
-      const on = (tiles || []).filter(([x, y]) => creeperAt(s, x, y)); if (!on.length || !wildRules?.clearTiles) return 0;
-      const r = wildRules.clearTiles(wildSnapshot(s), on, wildRules.data.monsters.creeper.clearedBy); saveWildWorld(s, r.world);
+    // Clearable fields (wild/monsters.js): any normal attack clears one, a Strike aimed at a field tile or a damaging
+    // technique whose footprint covers one (Mala, 2026-10-11). Kind defaults to creeper, the only clearable field today.
+    // Returns how many tiles were cleared.
+    const fieldAt = (s, x, y, kind = "creeper") => (s.wild || []).some((m) => m.kind === kind && m.tiles && `${x},${y}` in m.tiles);
+    function clearField(s, a, tiles, kind = "creeper") {
+      const on = (tiles || []).filter(([x, y]) => fieldAt(s, x, y, kind)); if (!on.length || !wildRules?.clearTiles) return 0;
+      const row = ((wildRules.data.fields || {})[kind] || {}).clear || {};
+      const clearedBy = row.clearedBy ?? wildRules.data.monsters[kind].clearedBy;
+      const r = wildRules.clearTiles(wildSnapshot(s), on, clearedBy, kind); saveWildWorld(s, r.world);
       for (const ev of r.events) log(s, { kind: ev.kind, actor: a?.id || null, tiles: ev.at ? [ev.at] : [], text: ev.text });
       return on.length;
     }
-    return { shooterCover, creeperAt, clearCreeper, roundFn, findOpp, hit, soulFrac, soulMaxFor, woundSoul, concentrationProfile, concentrationCheck, applyFall, applyEntryEffects, lineStop, negateAtBarrier, targetInteractions, strikeTarget, schedule, pactLeave,
+    return { shooterCover, fieldAt, clearField, roundFn, findOpp, hit, soulFrac, soulMaxFor, woundSoul, concentrationProfile, concentrationCheck, applyFall, applyEntryEffects, lineStop, negateAtBarrier, targetInteractions, strikeTarget, schedule, pactLeave,
       resolveScheduled, resolveDelayed, opponentsOn, unitsOn, terrainDamagingArea, areaRecipients, settleDeferredCharge, borrowedCharges };
   })();
 });

@@ -912,11 +912,11 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       // summon question correctly, exactly as observation.js answers commune questions: the gate teaches humans, not the foe.
       // Commune first (Mala, 2026-10-20): with distance or a big tree, the cheap body comes before the palace.
       const communeFirst = out.some((c) => (c.type === "commune" && communeFirstFor(s, a, c.object)) || (c.type === "communeStructure" && awakenFirstFor(s, a, c.object)));
-      if (summonQuestions && summonRules && a.side === "player" && a.character === "warden" && !communeFirst && !a.summon && !a.communed && !a.beast && !a.dream && !a.aggressive) {   // summon-owner: palace summons are Warden-only (Mala, 2026-10-22)
+      if (summonQuestions && summonRules && summonRules.callsPalace(a) && !communeFirst && !a.communed && !a.dream && !a.aggressive) {   // summon-owner: the player's side calls (Mala, 2026-11-05, decision b); commune bodies, dreams and aggressive units still don't consider it
         const unlocked = s.unlockedSummons || [];
         for (const key of unlocked) {
           if (!summonReadiness || !summonReadiness(s, id, key, unlocked).ok) continue;
-          const q = summonQuestions.pickQuestion(key, `${s.seed}:${s.round}:${id}:${key}`, { hintCount: summonQuestionHints ? summonQuestionHints(s, id) : 0 });
+          const q = summonQuestions.pickQuestion(key, `${s.seed}:${s.round}:${id}:${key}`, { hintCount: summonQuestionHints ? summonQuestionHints(s, id, key) : 0 });
           if (!q) continue;
           const act = { type: "summon", actor: id, summon: key, unlocked: unlocked.slice(), questionId: q.id, answer: q.answer };
           if (apply(s, act, { preview: true }).ok) out.push(act);

@@ -8,7 +8,7 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).queries = install;
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
-    const { EnemySummons, C, ClassRuntime, DIRS, EM, Parley, Vows, ab, abilitiesOf, actorAt, apply, barrierAt, classH, clone, currentId, dist, dreamSame, dreamSpaceRules,
+    const { EnemySummons, C, ClassRuntime, DIRS, EM, EmergentIdeas, Parley, Vows, ab, abilitiesOf, actorAt, apply, barrierAt, classH, clone, currentId, dist, dreamSame, dreamSpaceRules,
       effectiveRange, heightAt, inside, isMonster, key, manifest, monsterCtx, moveBudgetFor, movementTempoCost, ownerOfConcept, paths, target, tileAt,
       unitAt, usableRamp, wildRules, grappled } = H;
     // defined by parts installed after this one: reached through H when called
@@ -123,15 +123,17 @@
     }
     function jumpOptions(s, id) {
       const a = s.actors[id]; if (a.tempo < H.jumpCost(s, a) || grappled(s, a) || H.relocationHold(s, a) || H.States?.refusesKind(s, a, "move") || (H.Injury?.gradeOf(a, "legs") || 0) === 2) return [];
+      const kraken = a.kind === "kraken" || a.beast?.kind === "kraken";
       return DIRS.map(([dx, dy]) => [a.x + dx, a.y + dy]).filter(([x, y]) => inside(s, x, y) && dreamSame(s,a.x,a.y,x,y)
-        && heightAt(s, a.x, a.y) - heightAt(s, x, y) >= 2 && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!a.awakened || H.footOpen(s, a, x, y, "move")))   // TS-01: offer only landings the whole body fits
+        && heightAt(s, a.x, a.y) - heightAt(s, x, y) >= 2 && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!a.awakened || H.footOpen(s, a, x, y, "move")) && (!kraken || tileAt(s, x, y).tags?.includes("water")))   // TS-01: offer only landings the whole body fits; krakens only wet ones
         .map((to) => ({ to, drop: heightAt(s, a.x, a.y) - heightAt(s, to[0], to[1]), damage: (heightAt(s, a.x, a.y) - heightAt(s, to[0], to[1]) - 1) * s.rules.fallDamagePerLevel / 2 }));
     }
     function climbOptions(s, id) {
       const a = s.actors[id]; if (grappled(s, a) || H.relocationHold(s, a) || a.tempo < H.climbCost(s, a) || H.States?.refusesKind(s, a, "move") || (H.Injury?.gradeOf(a, "legs") || 0) === 2) return [];
+      const kraken = a.kind === "kraken" || a.beast?.kind === "kraken";
       return DIRS.map(([dx, dy]) => [a.x + dx, a.y + dy]).filter(([x, y]) => inside(s, x, y) && dreamSame(s,a.x,a.y,x,y)
         && heightAt(s, x, y) - heightAt(s, a.x, a.y) >= 2 && !usableRamp(s, a.x, a.y, x, y)
-        && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!a.awakened || H.footOpen(s, a, x, y, "move")))
+        && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!a.awakened || H.footOpen(s, a, x, y, "move")) && (!kraken || tileAt(s, x, y).tags?.includes("water")))
         .map((to) => ({ to, rise: heightAt(s, to[0], to[1]) - heightAt(s, a.x, a.y) }));
     }
     // For the UI: every tile's legality for an ability, plus area/route for legal tiles.
@@ -262,6 +264,11 @@
       if (H.Injury) a.injuries = H.Injury.fresh();   // clones arrive at all-zero
       return a;
     }
-    return { decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay };
+    // Moved whole from engine.js for O2c (engine cap): +1 hint per observed palace room, per actor and summon.
+    function summonQuestionHints(s, id, key) {
+      const a = s.actors[id];
+      return (a?.passives?.questionHint || 0) + (s.summonHintCount || 0) + (EmergentIdeas?.rehearsalHints(a) || 0) + (key ? s.summonHints?.[id]?.[key] || 0 : 0);
+    }
+    return { decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints };
   })();
 });

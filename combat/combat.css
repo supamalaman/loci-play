@@ -263,6 +263,8 @@
 .cc-kit-n { position:absolute; right:2px; bottom:1px; font: 700 10px ui-monospace, Menlo, monospace; color:#fff; text-shadow:0 1px 2px #000; }
 .cc-kit-empty { width:46px; height:46px; display:grid; place-items:center; border:1px dashed #3c4a85; border-radius:6px; color:#6f78a8; font-size:10px; }
 .cc-kit-gear { gap:8px; }
+.cc-kit-salvage { grid-column: 1 / -1; display:flex; gap:16px; }
+.cc-kit-salvage > div { flex:1; }
 .cc-kit-slot { display:grid; justify-items:center; gap:2px; }
 .cc-kit-slot small { color:#aeb3d6; font-size:10px; }
 .cc-kit-cook { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:6px 0; }
@@ -457,6 +459,16 @@
 .cc-narrator-copy p { margin: 0 0 10px; color: #f3eee2; font-size: 15px; line-height: 1.45; }
 .cc-narrator-copy .cc-primary { margin-top: 4px; }
 .cc-narrator-copy kbd { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid #1c1a21; border-radius: 4px; background: #fff4; color: #1c1a21; font: 700 11px ui-monospace, Menlo, monospace; }
+/* The Redux loading screen (web/combat/loading.js): the art over the whole window, a dark scrim, the title line and a thin gold bar. Fixed, because the battle host has no positioned ancestor on the Redux page; z 13 sits above the narrator (12). */
+.cc-loading { position: fixed; inset: 0; z-index: 7; display: grid; align-items: end; background: #0d0c10; overflow: hidden; }   /* z 7: above the field chrome (6 and below), below the setup overlay (8), so backing out is usable at once (triage 2026-11-04) */
+.cc-loading-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; animation: cc-loading-drift 14s ease-in-out infinite alternate; }
+.cc-loading.is-calm .cc-loading-art { animation: none; }
+.cc-loading-body { position: relative; padding: 56px 8% 34px; background: linear-gradient(to top, #0d0c10f2 0%, #0d0c10cc 55%, #0d0c1000 100%); }
+.cc-loading-title { margin: 0 0 12px; font: 900 22px ui-monospace, Menlo, monospace; letter-spacing: .08em; color: #e9c46a; text-shadow: 0 2px 8px #000; }
+.cc-loading-bar { height: 5px; border-radius: 3px; background: #ffffff22; overflow: hidden; }
+.cc-loading-fill { height: 100%; width: 0; background: linear-gradient(90deg, #b8862e, #f4d27a); transition: width .18s ease-out; }
+.cc-loading.is-calm .cc-loading-fill { transition: none; }
+@keyframes cc-loading-drift { from { transform: scale(1); } to { transform: scale(1.04); } }
 @media (max-width: 700px) {
   .cc-narrator { padding: 10px; }
   .cc-narrator-card { grid-template-columns: 1fr; gap: 10px; padding: 12px; }

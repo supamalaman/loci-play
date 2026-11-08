@@ -65,7 +65,7 @@
     for (const side of [c.a, c.b]) {
       const u = s.actors[side.user];
       if (!u || u.defeated || u.side === a.side) return "Both subjects must be living enemies.";
-      if (H.dist(s, a.x, a.y, u.x, u.y) > k.range) return `${u.name} is out of range: ${k.range} to each enemy.`;
+      if (H.dist(s, a.x, a.y, u.x, u.y) > reachOf(a, k, H)) return `${u.name} is out of range: ${reachOf(a, k, H)} to each enemy.`;
       if (!H.hasSight(s, a.x, a.y, u.x, u.y)) return `${u.name} is out of sight: both subjects must be visible.`;
     }
     if (c.recipient !== c.a.user && c.recipient !== c.b.user) return "Name which of the two enemies receives the mark if the comparison is CONSERVED.";
@@ -119,7 +119,7 @@
     const pair = pairOf(s, a); if (!pair) return "Conserved Joint needs an active CONSERVED pair: verify one with Comparative Anatomy first.";
     const n = j.nominated; if (!pair.members.some((x) => x.user === n.user && x.ability === n.ability)) return "Nominate one member of the active pair: an enemy and the technique that was verified.";
     const foe = s.actors[n.user]; if (!foe || foe.defeated || foe.side === a.side) return "The nominated enemy is gone.";
-    if (H.dist(s, a.x, a.y, foe.x, foe.y) > k.range) return `${foe.name} is out of range: ${k.range} to the nominated enemy.`;
+    if (H.dist(s, a.x, a.y, foe.x, foe.y) > reachOf(a, k, H)) return `${foe.name} is out of range: ${reachOf(a, k, H)} to the nominated enemy.`;
     if (!H.hasSight(s, a.x, a.y, foe.x, foe.y)) return `${foe.name} is out of sight.`;
     const ally = s.actors[j.ally]; if (!ally || ally.defeated || ally.side !== a.side) return "Choose a living allied fighter to protect.";
     if (H.dist(s, a.x, a.y, ally.x, ally.y) > ALLY_RANGE) return `${ally.name} is out of range: ${ALLY_RANGE} to the protected ally.`;
@@ -158,7 +158,7 @@
     for (const side of all) {
       const u = s.actors[side.user];
       if (!u || u.defeated || u.side === a.side) return "Every subject must be a living enemy.";
-      if (H.dist(s, a.x, a.y, u.x, u.y) > k.range) return `${u.name} is out of range: ${k.range} to each enemy.`;
+      if (H.dist(s, a.x, a.y, u.x, u.y) > reachOf(a, k, H)) return `${u.name} is out of range: ${reachOf(a, k, H)} to each enemy.`;
       if (!H.hasSight(s, a.x, a.y, u.x, u.y)) return `${u.name} is out of sight: every subject must be visible.`;
       const o = L.observedWithin(s, a.id, side.user, side.ability); if (!o.ok) return `${o.reason.charAt(0).toUpperCase()}${o.reason.slice(1)}.`;
     }
@@ -260,7 +260,7 @@
     }
     if (caster(s, a.id)) return null;
     const seen = []; for (const f of foes) for (const [ability, st] of Object.entries(((s.observedAt || {})[a.id] || {})[f.id] || {})) if (L.observedWithin(s, a.id, f.id, ability).ok) seen.push({ user: f.id, ability });
-    const done = (a.status && a.status.comparedPairs) || [], reach = KINDS.comparativeAnatomy.range;
+    const done = (a.status && a.status.comparedPairs) || [], reach = reachOf(a, KINDS.comparativeAnatomy, H);
     const inReach = (u) => H.dist(s, a.x, a.y, u.x, u.y) <= reach && H.hasSight(s, a.x, a.y, u.x, u.y);
     for (let i = 0; i < seen.length; i++) for (let j = i + 1; j < seen.length; j++) {
       const x = seen[i], y = seen[j]; if (x.user === y.user || done.includes(pairKey(`${x.user}:${x.ability}`, `${y.user}:${y.ability}`)) || !inReach(s.actors[x.user]) || !inReach(s.actors[y.user])) continue;
@@ -271,6 +271,10 @@
     return null;
   }
 
+  // Reach of a Homology technique for this caster: the KINDS/wire range plus the lens's rangeAdd (Far Sight +1). Every range
+  // check (target(), the three validate*() and the AI) reads it, so the lens text holds (1.3.543; the 1.3.542 review found
+  // validate*() still on the static range, refusing the cast target() had allowed).
+  const reachOf = (a, k, H) => (k.range || 0) + (H.lensOf?.(a, "homology")?.rangeAdd || 0);
   // The hooks class-runtime.js calls (and, for the cast check, engine/actions.js).
   function validate(s, a, act, m, H) {
     const k = kindOf(m); if (!k) return null;
@@ -281,7 +285,8 @@
     if (!Object.values(WIRE).includes(w.kind)) return null;
     const u = H.actorAt(s, tx, ty);
     if (!u || u.defeated || u.side === a.side) return { ok: false, error: w.kind === WIRE.joint ? "Aim Conserved Joint at the nominated enemy." : w.kind === WIRE.reconstruct ? "Aim Ancestral Reconstruction at the reference enemy." : "Aim Comparative Anatomy at one of the two enemies." };
-    if (H.dist(s, a.x, a.y, tx, ty) > w.range) return { ok: false, error: `Out of range: ${w.range} to ${w.kind === WIRE.joint ? "the nominated enemy" : "each enemy"}.` };
+    const reach = reachOf(a, w, H);   // the Far Sight lens: +1 reach on every Homology technique (kits-data lens profile; 1.3.542, the 1.3.541 review found the text unbacked)
+    if (H.dist(s, a.x, a.y, tx, ty) > reach) return { ok: false, error: `Out of range: ${reach} to ${w.kind === WIRE.joint ? "the nominated enemy" : "each enemy"}.` };
     return { ok: true, tiles: [[tx, ty]], targets: [u.id] };
   }
   function resolve(s, a, inst, H) {
@@ -297,5 +302,5 @@
     return mark.bonus;
   }
 
-  return Object.freeze({ KINDS, playable, validate, target, resolve, strikeBonus, markOf, pairOf, turnStart, guard, guardsOf, cast, indexed, reverse, aiAct, TRAIT });
+  return Object.freeze({ KINDS, playable, validate, target, resolve, strikeBonus, markOf, pairOf, turnStart, guard, guardsOf, cast, indexed, reverse, aiAct, TRAIT, VOW_ID });
 });

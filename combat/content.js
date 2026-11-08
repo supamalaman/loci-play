@@ -924,6 +924,17 @@
       announce: "The weather turns.",
       mechanism: "Mistfruit, Awakened: a ring of fog on your tile grows from radius 1 to 2 to 3 over your next two turns, then clears all at once (3 turns in all). Allies standing in it Drift, as in your fog; foes standing in it lose 10 AP as their turn starts. Not recast while it stands.",
       reveal: "Weather does not choose a side, only a place: whoever stands in it is held by it.", counter: "Water takes the power and the ring with it; a blow carrying Steel will parts it; leave the ring.", teaches: "A field is a clock: it grows, it costs, it ends." },
+    // The Locusfruit (respec S6b; Mala, 2026-10-31: the method of loci as a power; spec claude-sinkerfruit-respec-spec section 6). Original Loci designs, not source claims.
+    commitToMemory: { name: "Commit to Memory", tier: "basic", fruitOnly: true, concepts: ["indexing"], delivery: "self", target: "self", area: { shape: "single" }, cost: 5, tempoCost: 20, range: 0, potency: 0, effect: "fruit", effectCategory: "conditional",
+      mechanism: "Locusfruit: store a technique you watched a foe use this battle in one of your rooms (1 room, 2 at Ripe, 3 at Awakened). Later you may cast it once, at its own cost plus 2 ΦF, and the room empties. Boss, signature, form, merge, identity, fruit-own and class-pair arts and ultimates cannot be stored, nor can one you already know.",
+      reveal: "You were watching, so you can keep it.", counter: "Water washes the palace clean; never let it watch (it stores only what it saw); a technique it never saw is not in its rooms.", teaches: "A memory palace stores what you attended to, one room at a time." },
+    walkTheRooms: { name: "Walk the Rooms", tier: "refined", fruitOnly: true, concepts: ["indexing"], delivery: "placed", target: "tile", area: { shape: "single" }, cost: 4, range: 99, tempoCost: 15, potency: 0, effect: "fruit", effectCategory: "conditional",
+      mechanism: "Locusfruit, Ripe: each of your turns leaves a memory mark on the tile you end on (up to 3, the oldest dropped). Step to any marked tile, no line needed. A step: it provokes nothing, but what is on the tile you land on still happens.",
+      reveal: "A body that remembers where it has been.", counter: "Water takes the power; stand on or block a marked tile; the marks are only where it ended a turn.", teaches: "A route is a sequence of places you can return to." },
+    memoryPalace: { name: "Memory Palace", tier: "refined", fruitOnly: true, concepts: ["indexing"], delivery: "self", target: "self", area: { shape: "single" }, cost: 15, tempoCost: 35, range: 0, potency: 0, effect: "fruit", effectCategory: "conditional",
+      announce: "Every room, open at once.",
+      mechanism: "Locusfruit, Awakened: for 2 of your turns, radius 3 around you is your palace: each ally inside may cast its last used technique once more with the palace returning the action points it pays, and a foe inside who uses a technique you have stored loses 10 AP. Not recast while it stands.",
+      reveal: "A place where everything that has happened can happen again.", counter: "Water ends it; fight outside radius 3; use techniques it never stored.", teaches: "A palace is a place, and a place can be left." },
     vapourStep: { name: "Vapour Step", tier: "refined", fruitOnly: true, concepts: ["stealth"], delivery: "placed", target: "tile", area: { shape: "single" }, cost: 5, range: 4, tempoCost: 15, potency: 0, effect: "fruit", effectCategory: "conditional",
       mechanism: "Mistfruit, Ripe: standing in fog, step to any empty fog tile within 4 tiles, no line needed. A step, not a leap: it provokes nothing, but what is on the tile you land on still happens.",
       reveal: "Weather you can walk through.", counter: "Water takes the power; with no fog to land in the step is refused; Steel will lands through the Drift you keep.", teaches: "You can be where the weather is." },
@@ -1770,6 +1781,30 @@
     spoken: { name: "Already spoken to", hidden: true, text: "One suggestion or one order a battle: this one has had theirs.", why: "Marks a subject that has taken its one suggestion or latent order this battle." },
     heard: { name: "Already steadied", hidden: true, text: "One calming word each, a battle.", why: "Marks a unit that has had its one steadying word this battle." },
     calm: { name: "Calm", text: "A calm voice: they will not break.", why: "A steady word: for a little while, fear does not take them.", clock: { counts: "ownerTurns", n: 2 } },
+    // Battle Cards C4 (CARDS.md 4.4 and 4.5; docs/cards-art.md): the four equips and four zones of the starter set, data only. All hidden: the card's name must not reach a public
+    // log line (the damage note "<name> x0.8" would), so a unit shows them only to a side that has Observed it. An equip's clock counts the holder's own turns; a zone row's count is
+    // set by the zone's sweep (Cards.sweep) to the zone's rounds left, and the row's own clock is the backstop. Numbers live in cards-data.js; these rows carry the same ones.
+    "equip:thornguardWrap": { name: "Thornguard Wrap", hidden: true, group: "cardEquip", cardMod: "taken", text: "Takes 20% less damage for 3 turns; ends after 30 damage.", why: "A battle card: an equip, one a unit at a time.",
+      mods: [{ on: "taken", mult: 0.8 }], clock: { counts: "ownerTurns", n: 3 }, breakers: [{ hurt: 30 }] },
+    "equip:swiftGloves": { name: "Swift Gloves", hidden: true, group: "cardEquip", cardMod: "dealt", text: "Deals 20% more damage for 3 turns.", why: "A battle card: an equip, one a unit at a time.",
+      mods: [{ on: "dealt", mult: 1.2 }], clock: { counts: "ownerTurns", n: 3 } },
+    "equip:mendersBand": { name: "Mender's Band", hidden: true, group: "cardEquip", text: "Heals 4 LF at the start of each of its turns for 3 turns.", why: "A battle card: an equip, one a unit at a time.",
+      clock: { counts: "ownerTurns", n: 3 }, triggers: [{ on: "turnStart", do: [{ healLF: 4 }] }] },
+    "equip:ironbarkCoat": { name: "Ironbark Coat", hidden: true, group: "cardEquip", cardMod: "taken", text: "Takes 25% less damage for 3 turns; while it lasts, one lethal blow leaves it at 1 LF.", why: "A battle card: an equip, one a unit at a time.",
+      mods: [{ on: "taken", mult: 0.75 }], clock: { counts: "ownerTurns", n: 3 } },
+    // One save a battle across every lethal-save equip (CARDS.md section 17): each such equip grants this beside its own row, so the survive.js record `state:cardLethal:0`
+    // is shared. The def clock never binds: every grant passes the equip's own turns as count, and both count the holder's turns from the same grant, so the save ends
+    // exactly when the equip does; a replacing equip without a save removes it (engine/cards.js). The log line names no card.
+    cardLethal: { name: "Card Lethal Save", hidden: true, text: "Once, a blow that would defeat it leaves it at 1 LF.", why: "A battle card: the one lethal save, shared by every lethal-save equip.",
+      clock: { counts: "ownerTurns", n: 99 }, triggers: [{ on: "lethal", limit: 1, do: [{ log: "The charm holds: 1 LF left." }] }] },
+    "zone:windbreakRow": { name: "Windbreak Row", hidden: true, cardMod: "taken", text: "Inside the zone: takes 15% less damage.", why: "A battle card: a field zone, one a side.",
+      mods: [{ on: "taken", mult: 0.85 }], clock: { counts: "rounds", n: 3 } },
+    "zone:thinAir": { name: "Thin Air", hidden: true, cardMod: "dealt", text: "Inside the zone: deals 15% less damage.", why: "A battle card: a field zone, one a side.",
+      mods: [{ on: "dealt", mult: 0.85 }], clock: { counts: "rounds", n: 3 } },
+    "zone:openSeason": { name: "Open Season", hidden: true, cardMod: "dealt", text: "Inside the zone: deals 20% more damage.", why: "A battle card: a field zone, one a side.",
+      mods: [{ on: "dealt", mult: 1.2 }], clock: { counts: "rounds", n: 3 } },
+    "zone:quietHour": { name: "Quiet Hour", hidden: true, text: "Inside the zone: cannot play cards.", why: "A battle card: a field zone, one a side.",
+      gate: { blocks: ["card"], reason: "a hush lies over the ground" }, clock: { counts: "rounds", n: 3 } },
   };
   // Hanuman's free acts: the three switches (one a turn between them), and Remind, which his allies are offered while he is Forgotten.
   Object.assign(abilities, {
@@ -1915,12 +1950,14 @@
   // grows and keys out (Succession + Indexing), tends (Preservation + Succession), collects (Pruning + Indexing).
   // The plant tie-ins are traits, not concepts: hiker and Field Botany (insight-data.js profile `fieldBotanist`).
   characters.fieldBotanist = { name: "Field Botanist", side: "enemy", sprite: "field-botanist", level: 1, xp: 0, ai: "field-botanist",
-    conceptPool: ["succession", "indexing", "preservation", "pruning"], configs: [
+    conceptPool: ["succession", "indexing", "preservation", "pruning", "homology"], configs: [
       { id: "field-botanist-survey", label: "Succession + Indexing", primary: "succession", secondary: "indexing", reserve: ["pruning"], lens: {} },
+      { id: "field-botanist-ledger", label: "Indexing + Homology", primary: "indexing", secondary: "homology", reserve: ["succession"], lens: {} },
+      { id: "field-botanist-compare", label: "Homology + Succession", primary: "homology", secondary: "succession", reserve: ["pruning"], lens: {} },
       { id: "field-botanist-tend", label: "Preservation + Succession", primary: "preservation", secondary: "succession", reserve: ["pruning"], lens: {} },
       { id: "field-botanist-collect", label: "Pruning + Indexing", primary: "pruning", secondary: "indexing", reserve: ["succession"], lens: {} },
     ] };
-  characters.fieldBotanist.stagedWheelhouse = ["homology"];   // Mala, 2026-11-02: "put it in the field botanist's wheelhouse". Homology is staged, not playable, so it stays OUT of conceptPool (the story picker lists the pool and every entry must be a playable concept); it moves there when the Homology kit is registered (docs/homology.md "Left for a holder"). Same shape as the Forest Spirit's Fae.
+  // Homology joined the Field Botanist's conceptPool above (Mala, 2026-11-04: "give it to Field Botanist"; it had sat in stagedWheelhouse since 2026-11-02 until its kit was registered).
 
   // Succession joins the Gardener's seeded configuration pool; it remains a distinct roster draw.
   characters.gardener.conceptPool.push("succession");
@@ -2084,7 +2121,7 @@
         if (!concepts.periodicity.abilities.includes(id)) concepts.periodicity.abilities.push(id);
       }
     }
-    for (const c of ["mise_en_place"]) if (!concepts[c] && Kits.stagedConcepts[c]) {   // playable (Mala, 2026-10-28): whoever equips it gets its kit; Rack and Label and Parallel Prep carry no class pair (the Chef, 2026-10-30, holds it but leaves them open)
+    for (const c of ["mise_en_place", "homology"]) if (!concepts[c] && Kits.stagedConcepts[c]) {   // playable (Mala, 2026-10-28): whoever equips it gets its kit; Rack and Label and Parallel Prep carry no class pair (the Chef, 2026-10-30, holds it but leaves them open)
       const { channel, ...def } = Kits.stagedConcepts[c];
       concepts[c] = { ...def, abilities: [] }; conceptDamageTypes[c] = channel;
     }
@@ -2095,6 +2132,13 @@
         pairs: ClassRuntime.pairsFor(id), classKind: kind || null, classNeeds: needs || null, classBuff: buff || null, effectCategory: def.effectCategory || "conditional" };
       const home = concepts[def.concepts[0]]; if (home && !home.abilities.includes(id)) home.abilities.push(id);
     }
+    // Homology (Mala, 2026-11-04): the four staged entries become castable through graph/homology-rules.js `playable()`, the one definition of their cost, timing and effect (the W loop above only
+    // gave them the generic shape; tempo and the LF price live on `playable()`). The two named technique vows are nested in their staged entries and are built there too.
+    if (ClassRuntime.homology && concepts.homology) for (const id of ["comparativeAnatomy", "conservedJoint", "ancestralReconstruction"]) {
+      const made = ClassRuntime.homology.playable(id, Kits.staged[id]), put = (aid, def) => { abilities[aid] = { ...def, pairs: ClassRuntime.pairsFor(aid), classKind: W[aid].kind, classNeeds: null, classBuff: null, effectCategory: "conditional" }; if (!concepts.homology.abilities.includes(aid)) concepts.homology.abilities.push(aid); };
+      put(id, made.ability); if (made.vow) put(ClassRuntime.homology.VOW_ID[id], made.vow);
+    }
+    if (concepts.homology) concepts.homology.aiOnly = true;   // no human picks it until the casting picker (L3) exists: see ui.js pickableConceptIds
     for (const id of ["chargeWave", "hurlFeast", "vowOpenHand", "vowNeverQuench", "vowSharedBowl"]) { const home = concepts.bird_mountain; if (home && abilities[id] && !home.abilities.includes(id)) home.abilities.push(id); }
     for (const [cls, [p, sec]] of Object.entries(ClassRuntime.CLASS_PAIRS)) {
       if (characters[cls] || !concepts[p] || !concepts[sec]) continue;

@@ -43,7 +43,7 @@
   }
   // One ward slot. A stronger external ward is retained; protection is never added
   // to it. Once this ward is depleted it stays depleted until the summon's own turn.
-  const summonerOf = actor => actor?.summon?.owner || actor?.summonBinding?.owner || null;
+  const summonerOf = actor => actor?.summon?.owner || actor?.summonBinding?.owner || (actor?.companion?.card ? actor.companion.owner : null) || null;   // a card familiar (Battle Cards C3) holds its owner's summon slot
   function summonPresent(actor) {
     if (!actor || actor.notArrived || actor.summonBinding?.expired) return false;
     return (!actor.defeated && actor.lf > 0) || !!(actor.summonBinding && actor.passive === "reassemble" &&

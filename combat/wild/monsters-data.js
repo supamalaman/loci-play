@@ -137,6 +137,20 @@
       lf: 12, move: 3, nip: 3, seekUnits: 4, waterOnly: true, skittish: 0,
       appear: [{ when: "inWater", round: 2, chance: 0.15 }], ends: ["LF 0"],
     },
+    // Kraken (Mala, 2026-11-05: "a wild type that can only spawn and move in water tiles, but it can
+    // move at twice the normal speed for the normal AP cost"). The porgy's apex shadow: water-only
+    // like the porgy, but a deep swimmer (shallows AND pools) at twice the move budget. ready: false
+    // until its art lands (shelf muse-kraken-cut); direct spawns and tests are unaffected.
+    kraken: {
+      name: "Kraken", form: "unit", wave: false, concept: "swale", channel: "nigredo", sprite: "kraken",
+      sci: "Architeuthis dux, impossibly alive",
+      basis: "Giant squid live a kilometre down and surface only as corpses and fishermen's stories; every rope, spar and sailor the sea gives back chewed is laid at the kraken's door.",
+      teaches: "Deep water hides big teeth. It cannot follow you ashore: the sand is the wall.",
+      counters: ["movement", "selectivity"],
+      lf: 70, move: 6, slam: 10, knockback: 1, seekUnits: 6, waterOnly: true, deepWater: true,
+      traits: ["swimmer"], skittish: 0, ready: true,   // art landed with muse-kraken-cut (1.3.541, Bollard IN): ambient appear and summons are live
+      appear: [{ when: "inWater", round: 3, chance: 0.10 }], ends: ["LF 0"],
+    },
     wolf: {
       name: "Feral dog", form: "unit", wave: false, concept: "inertia", channel: "nigredo", sprite: "wolf",
       sci: "Canis familiaris, gone wild",
@@ -199,5 +213,24 @@
     default: ["drawn by the sudden disturbance"],
   };
 
-  return { rules, monsters, items, waveWeights, arrivalVoice };
+  // L0 (bryophyte): field kinds as data. frontier, environmentPhase and
+  // clearTiles read these rows instead of branching on kind names. Same
+  // numbers, same texts. Rows reference the monsters table above where the
+  // value already lives there, so each number still has one source.
+  const fields = {
+    creeper: {
+      label: "Creeper", act: "creeper",
+      spread: { mode: "chars", onto: [",", "m"], shadeSkip: true, edgeChance: 1, openChance: 0.6 },
+      clear: { clearedBy: monsters.creeper.clearedBy, eventKind: "creeperCleared" },
+      effects: { entangle: monsters.creeper.entangle },
+    },
+    brushfire: {
+      label: "Brushfire", act: "fire",
+      spread: { mode: "fuel" },
+      clear: {},
+      effects: {},
+    },
+  };
+
+  return { rules, monsters, items, waveWeights, arrivalVoice, fields };
 });
