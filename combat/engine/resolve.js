@@ -115,7 +115,7 @@
           (u.id === a.id || (EmergentIdeas?.summonerOf(u) === a.id && inst.tiles.some(([x,y]) => u.x === x && u.y === y))));
         for (const u of recipients) {
           const protection = Math.round(inst.potency);
-          if ((u.status.ward?.protection || 0) <= protection) u.status.ward = { label: "Imagined shelter", owner: u.id, protection, expiresAt: u.ownerTurns + 1 };
+          if ((u.status.ward?.protection || 0) <= protection) u.status.ward = { label: "Imagined shelter", owner: u.id, ...(company ? {} : { image: true }), protection, expiresAt: u.ownerTurns + 1 };   // image: the Hold the Image ward Fixed Gaze fires (not the ultimate's)
           const stay = u.summon || u.summonBinding;
           const extend = company && stay && !stay.imaginedExtension;
           if (extend) { stay.turnsLeft += R.summonTurnAdd; stay.imaginedExtension = true; }
@@ -387,6 +387,13 @@
         log(s,{kind:"focus",actor:a.id,target:targetId,tiles:[[targetActor.x,targetActor.y]],text:`${a.name} focuses on ${targetActor.name} for ${inst.duration||1} owner turn${(inst.duration||1)===1?"":"s"}.`,why:["If the next Sightline shot has an adjacent partial-cover source, one source can be ignored. Focus is your latest technique, so reactions against other enemies are unavailable until you use a different concept."]});
         return;
       }
+      if(inst.effect==="secondGaze"){
+        const targetId=inst.targets[0],targetActor=s.actors[targetId];
+        if(!targetActor){log(s,{kind:"miss",actor:a.id,text:`${inst.name} has no living target.`});return;}
+        a.focusSecond={target:targetId,expiresAt:a.ownerTurns+(inst.duration||1)};
+        log(s,{kind:"focus",actor:a.id,target:targetId,tiles:[[targetActor.x,targetActor.y]],text:`${a.name} fixes a second foe: ${targetActor.name} is marked through the turn.`,why:["Second Gaze holds two marks at once; either primes Fixed Gaze."]});
+        return;
+      }
       if(inst.effect==="annotate"||inst.effect==="redact"||inst.effect==="plaintext"){
         // Cipher: marks ride the generic owner-clock expiry (label + owner + expiresAt); seals reuse the Typed Channel silence shape.
         const cipherMembrane=(t)=>{
@@ -654,6 +661,11 @@
         const detailMul = hasTrait(a, "attentionToDetail") ? 1.25 : 1;   // Attention to Detail: sturdier craft
         const dur = inst.duration + (hasTrait(a, "markedGround") && (ab(inst.ability)?.concepts || []).includes("boundary") ? 1 : 0);   // Marked Ground: her Boundary lines hold +1 turn
         if (inst.range === 0) {
+          if (inst.ability === "fixedGaze") {   // the gaze fires the held image; it never mints a ward (window.js halves it when rushed)
+            if (a.status.ward?.image) log(s, { kind: "effect", actor: a.id, text: `${a.name}'s Fixed Gaze fires through the held image (${a.status.ward.protection} protection).`, why: ["Fixed Gaze rides on Hold the Image: the held ward does the catching."] });
+            else log(s, { kind: "effect", actor: a.id, text: `${a.name}'s gaze finds no held image to fire.` });
+            return;
+          }
           a.status.ward = { label: "Fortress ward", owner: a.id, protection: Math.round(inst.protection * detailMul), expiresAt: a.ownerTurns + dur };
           log(s, { kind: "effect", actor: a.id, text: `${a.name} is warded: absorbs ${a.status.ward.protection} LF damage for ${dur} owner turns.`, why: [`Fortress lens: +protection, no placement range.${detailMul > 1 ? " Attention to Detail ×1.25." : ""}`] });
         } else {

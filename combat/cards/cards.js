@@ -24,7 +24,7 @@
     "contracts-bingo", "codex-library", "lab-crafting-cooking", "ui-patterns", "secret-fights", "kaiba", "widened-perks", "shop-keeper", "belief-awakening", "vows",
     "dream-space", "auras", "true-forms", "stealth", "wild-creatures", "classes", "landscape-lexicon", "ap-tempo", "civilians", "companions"];
   // A card with this effect must name this contact (section 15 item 3).
-  const REQUIRED = { push: "grapple", root: "grapple", familiar: "summons", reveal: "observe-insight" };
+  const REQUIRED = { push: "grapple", root: "grapple", familiar: "summons", reveal: "observe-insight", pullTowardWater: "grapple", spawnFish: "terrain-climate-dream" };
 
   // Effect points (section 1.3). The ratios are the `rules.points` data; the shapes are the scribing component table.
   const P = rules.points;
@@ -34,7 +34,7 @@
     modTaken: (e) => ceil(round6((1 - e.mult) * P.modScale * e.turns / 2)), modDealt: (e) => ceil(round6(Math.abs(e.mult - 1) * P.modScale * e.turns / 2)),
     regen: (e) => ceil(round6(e.lf * e.turns / P.regenPer)), lethalSave: () => P.lethalSave, cardLock: () => P.cardLock,
     // familiar: `bodies` = ONE familiar drawn with several bodies (the Pair of Lanterns): `lf` is the total, priced per body; `count` = separate familiars
-    familiar: (e) => ceil(round6(e.lf / (e.bodies || 1) / P.familiarLfPer + e.potency * e.turns / P.familiarPotencyPer)) * (e.bodies || e.count || 1), apGain: (e) => ceil(e.n / P.apGainPer),
+    familiar: (e) => ceil(round6(e.lf / (e.bodies || 1) / P.familiarLfPer + e.potency * e.turns / P.familiarPotencyPer)) * (e.bodies || e.count || 1), apGain: (e) => ceil(e.n / P.apGainPer), pullTowardWater: () => P.pull, spawnFish: () => P.spawnFish,
   };
   const areaMul = (r) => (r >= 4 ? rules.areaMul.r4 : r === 3 ? rules.areaMul.r3 : rules.areaMul.base);
   function payload(card) {
@@ -91,13 +91,15 @@
     let first = !(card.kind === "set" && card.trigger[0] === "onAttacked");
     const foe = [], self = [];
     for (const e of eff) {
-      const lead = first; if (["damage", "push", "stagger", "root", "reveal"].includes(e.key) || e.key === "itemLock") first = false;
+      const lead = first; if (["damage", "push", "stagger", "root", "reveal", "pullTowardWater", "spawnFish"].includes(e.key) || e.key === "itemLock") first = false;
       if (e.key === "damage") foe.push(lead ? `Deal ${e.potency} ${e.type} damage to a foe within ${range}` : `deal ${e.potency} ${e.type} damage to it`);
       else if (e.key === "push") foe.push(lead ? `Push a foe within ${range} away ${e.tiles} tiles` : `push it away ${e.tiles} tiles`);
+      else if (e.key === "pullTowardWater") foe.push(lead ? `Pull a foe within ${range} ${e.tiles} tile${e.tiles === 1 ? "" : "s"} toward you` : `pull it ${e.tiles} tile${e.tiles === 1 ? "" : "s"} toward you`);
       else if (e.key === "stagger") foe.push(lead ? `Stagger a foe within ${range} ${e.ap} AP` : `stagger it ${e.ap} AP`);
       else if (e.key === "root") foe.push(lead ? `Root a foe within ${range} for ${plural(e.turns, "turn")}` : `root it for ${plural(e.turns, "turn")}`);
       else if (e.key === "itemLock") foe.push(`Lock a foe within ${range} out of items for ${plural(e.turns, "turn")}`);
       else if (e.key === "reveal") foe.push(lead ? `Reveal a concealed unit within ${range}` : "reveal it");
+      else if (e.key === "spawnFish") foe.push(lead ? `Lure a dream fish onto open water within ${range}` : "lure one there");
       else if (e.key === "ward") self.push(`gain a ward of ${e.protection} for 1 turn`);
       else if (e.key === "heal") self.push(`heal ${e.lf} LF`);
       else if (e.key === "apGain") self.push(`gain ${e.n} AP (up to your maximum)`);
@@ -119,7 +121,7 @@
   // ── Contacts (sections 15 and 17): a card's own rows plus the auto rows its kind and effects carry ──
   function contactsOf(card) {
     const r = [], has = (k) => card.effects.some((e) => e.key === k), add = (system, how, auto = true) => { if (!r.some((x) => x.system === system && x.how === how)) r.push({ system, how, auto }); };
-    if (has("push") || has("root")) add("grapple", "forced movement of a holder or held unit follows the live rule (a push of the holder breaks the hold); the card never starts a hold");
+    if (has("push") || has("root") || has("pullTowardWater")) add("grapple", "forced movement of a holder or held unit follows the live rule (a push of the holder breaks the hold); the card never starts a hold");
     if (has("familiar")) add("summons", "shares the palace summon slot; leaves with the text \"fades\"; a Warden or a summon-trait unit gets +4 LF and +1 turn");
     if (has("reveal")) add("observe-insight", "reveals concealment only (not card knowledge: that is the awareness gate, CARDS.md section 18); the card name never enters s.insight");
     if (has("itemLock")) add("consumables-pack", "itemLock is the held-items gate: pack items stop, cards are not items and still play");
@@ -173,6 +175,7 @@
     if (card.kind === "equip" && card.effects.some((e) => e.turns !== undefined && e.turns !== card.equip.turns)) why.push(`${id}: an equip effect lasts as long as the equip`);
     if (card.kind === "set" && card.trigger[0] === "onAttacked" && !card.phase) why.push(`${id}: an on-attacked set needs a phase`);
     if (card.effects.some((e) => e.key === "push" && e.tiles > rules.maxPush)) why.push(`${id}: push over ${rules.maxPush} tiles`);
+    if (card.effects.some((e) => e.key === "pullTowardWater" && e.tiles > rules.maxPush)) why.push(`${id}: pull over ${rules.maxPush} tiles`);
     if (card.effects.some((e) => e.key === "familiar") && card.condition.tier === "none" && card.rarity !== "common") why.push(`${id}: a non-common familiar needs a condition`);
     if (card.cost !== price(card)) why.push(`${id}: stored cost ${card.cost} is not the price ${price(card)}`);
     if (card.copies !== copiesFor(card)) why.push(`${id}: stored copies ${card.copies} is not ${copiesFor(card)}`);
@@ -198,10 +201,10 @@
 
   // ── Deck validation (section 2.4). `owned` is { cardId: n } (omit it to ignore ownership). Returns the errors for the whole deck
   // and `legal`, the longest legal prefix: a battle starts with that and never repairs the deck silently. ──
-  function validate(deck, { owned = null, cap = capFor() } = {}) {
+  function validate(deck, { owned = null, cap = capFor(), proto = false } = {}) {
     const ids = Array.isArray(deck) ? deck : [], errors = [], err = (code, text, id = null) => errors.push({ code, text, id });
     const count = {}, seen = new Set(); let points = 0, legendary = 0, rare = 0;
-    const bad = (id) => { const c = byId(id); if (!c) return `${id} is not a card`; if (c.status !== "live") return `${c.name} is not available yet`; if (!kindLive(c.kind)) return `${c.name} (${D.kinds[c.kind].label}) is not available yet`; return problems(c).length ? `${c.name} cannot be used` : null; };
+    const bad = (id) => { const c = byId(id); if (!c) return `${id} is not a card`; if (c.status === "prototype" && !proto) return `${c.name} is a prototype: player decks and the lab deck only`; if (c.status !== "live" && c.status !== "prototype") return `${c.name} is not available yet`; if (!kindLive(c.kind)) return `${c.name} (${D.kinds[c.kind].label}) is not available yet`; return problems(c).length ? `${c.name} cannot be used` : null; };
     for (const id of ids) {
       if (seen.has(id)) continue; seen.add(id);
       const why = bad(id); if (why) err("unavailable", why, id);

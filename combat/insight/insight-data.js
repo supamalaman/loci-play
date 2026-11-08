@@ -226,6 +226,9 @@
     // The Actor's three (Mala, 2026-10-16; docs/actor-respec-rulings.md). Native to the class, never dealt at random.
     methodActing: { name: "Method Acting", text: "Steps out of a role when the run ends and keeps one trait from the part (single slot: the new keep replaces). Charge carries; role summons and buffs persist.", difficulty: 3 },
     theLook: { name: "The Look", text: "10% per damaging move to stagger an enemy, at most once per enemy per turn. A stagger eats the enemy's reaction.", difficulty: 2 },
+    // Hotbuilds wave 1 (The Hypnotist): Entrainer carries his AI table and names his subject; Gentle Hand stays itself once per foe.
+    entrainer: { name: "Entrainer", category: "psychology", text: "Sets one subject and keeps it: his attention sits on a single foe (the Focus mark).", difficulty: 2 },
+    gentleHand: { name: "Gentle Hand", category: "values", text: "The first lethal blow he lands on each foe leaves that foe at 1 LF, once per foe per battle.", difficulty: 2 },
     arcaneMastery: { name: "Arcane Mastery", category: "psychology", text: "Every spell carries a rider: offensive techniques curse each enemy they reach (exposed, entangled, or bleeding); support techniques bless each ally they reach (warded, membraned, or recharged).", difficulty: 3 },
     humanExperience: { name: "The Human Experience", text: "14 willpower instead of 10, and parlays land 20% better. Has lived enough to argue anything.", difficulty: 3 },
     courageous:     { name: "Courageous", text: "Fear does not decide for them: Frighten lands on them far less often, and they hold when an ally falls.", difficulty: 3, fearResist: 0.15 },
@@ -339,9 +342,11 @@
       "attentionToDetail", "culinaryTraining", "directorsVision", "knowsPeople", "methodActing", "focused", "scattered", "sampler", "adrenalineJunkie", "artist", "unendingChant", "shipsEngineer", "arcaneMastery",
       /* tsukumogami self-trait, 2026-10-29 */ "animist",
       /* the Paladin, 2026-10-31 (PALADIN.md) */ "consecrated", "faithful", "compassionate",
-      /* the respec fruit, 2026-11-01 */ "fruitbound"],
+      /* the respec fruit, 2026-11-01 */ "fruitbound",
+      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer"],
     values: ["believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
-      "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective"],
+      "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective",
+      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand"],
     state: ["complex", "unexplainedEvent"],
     spiritual: ["astralPresence"],   // soul traits (Mala, 2026-10-24): invisible unless the observer is a seer (seesSpirits, planned); rolled like anything else but far rarer for the average person
   };
@@ -374,6 +379,7 @@
     protective: { counters: ["rivalrous", "vengeful"], synergies: ["loyal", "empathic"] },
     neverGiveUp: { counters: ["fearful", "skittish"], synergies: ["loyal", "brave", "courageous"] },
     merciful: { counters: ["rivalrous", "vengeful", "greedy"], synergies: ["empathic", "agreeable", "pacifist"] },
+    gentleHand: { counters: ["vengeful", "rivalrous"], synergies: ["merciful", "protective", "empathic"] },   // the Hypnotist (hotbuilds W1a): leaves the first kill at 1 LF; row added at landing 1.3.546 (Capstan IN) for the trait registry rule
     honorable: { counters: ["greedy", "fool"], synergies: ["proud", "loyal", "honest", "courageous"] },
     dutiful: { counters: ["impatient", "curious"], synergies: ["loyal", "stubborn", "traditionalist"] },
     byTheBook: { counters: ["fool", "impatient"], synergies: ["dutiful", "honest"] },
@@ -765,6 +771,11 @@
       { kind: "tell", text: "He never looks behind him, and never listens when warned.", difficulty: 1 },
       { kind: "weakness", channel: "albedo", text: "He asked Brahma for protection from gods and spirits, and scorned to ask it of men: a mortal's arrow hits him fully.", difficulty: 2 },
       { kind: "realization", text: "Vibhishana's secret: the nectar is in his navel. The Brahmastra stops the heads and breaks the boon at once.", difficulty: 2, deep: true } ] },
+    hypnotist: { traits: ["theLook", "entrainer", "gentleHand"], obs: [
+      { kind: "tell", text: "He never takes his eyes off one of you.", difficulty: 1 },
+      { kind: "weakness", channel: "albedo", text: "Break the gaze: cut the pendulum's cord and the hold slips.", difficulty: 2 },
+      { kind: "realization", text: "He watches one foe and one foe only: everything he does answers the marked one. Send someone else.", difficulty: 2, deep: true },
+      { kind: "state", id: "fixed", text: "His attention sits on one foe: the marked one.", difficulty: 1 } ] },
     sita: { traits: ["devoutBeliever", "loyal"], obs: [
       { kind: "tell", text: "She looks toward the edge of the field, as if someone is about to arrive.", difficulty: 1 },
       { kind: "tell", text: "Her eyes go far away before the world around her turns to dream.", difficulty: 1 },
@@ -860,6 +871,30 @@
       { kind: "tell", text: "Tests the water with one finger before every descent.", difficulty: 1 },
       { kind: "tell", text: "Never takes the same way out of the water twice.", difficulty: 1 },
     ] },
+    orgonite_trooper: { traits: ["heavyArmor", "dutiful", "steward"], obs: [
+      { kind: "tell", text: "Taps the chest plate once before the first shot: the suit is already the tool.", difficulty: 1 },
+      { kind: "weakness", channel: "nigredo", text: "Break the woven site on their body. Without it the lance refuses.", difficulty: 1 },
+      { kind: "realization", text: "The first setup is free. After that, destroy the workstation and stay off adjacent tiles so the call has no door.", difficulty: 2 } ] },
+    leviathan_suit: { traits: ["hardy", "restless", "dreamer"], obs: [
+      { kind: "tell", text: "The suit hums like a plant under glass before they steal a breath of the present.", difficulty: 1 },
+      { kind: "weakness", channel: "citrinitas", text: "Kill the plant. Pulse has nothing to restore; the merge only mends and knocks.", difficulty: 1 },
+      { kind: "realization", text: "Seal every tile beside them before the bar fills. The circuit still heals; nobody steps through.", difficulty: 2 } ] },
+    scale_firmware: { traits: ["heavyArmor", "imaginative", "ambitious"], obs: [
+      { kind: "tell", text: "Looks past you at a shape that is not there yet, then aims the suit at it.", difficulty: 1 },
+      { kind: "weakness", channel: "albedo", text: "No traveler. Break the workstation and the forge has nowhere to run.", difficulty: 1 },
+      { kind: "realization", text: "The picture is the weapon. Cover and a dead tool stop it; there is no Child behind the hit.", difficulty: 2 } ] },
+    white_jacket_gunner: { traits: ["hardy", "tinkerer", "ambitious"], obs: [
+      { kind: "tell", text: "Runs a test print in the air before the real shot. The buffer is the invitation.", difficulty: 1 },
+      { kind: "weakness", channel: "nigredo", text: "Layer Mask only cuts albedo. A nigredo hit walks through the print.", difficulty: 1 },
+      { kind: "realization", text: "Spend or wait out the raster, then take a non-albedo line. Seal the tiles if the bar is full.", difficulty: 2 } ] },
+    bronze_admin: { traits: ["hardy", "dutiful", "steward"], obs: [
+      { kind: "tell", text: "Files the order on you before anyone else has moved. The brief is already dated.", difficulty: 1 },
+      { kind: "weakness", channel: "citrinitas", text: "Alone, the order has no carrier until a Child steps through.", difficulty: 1 },
+      { kind: "realization", text: "Cut the carrier. Isolate the admin. A sealed ring still means the call lands on nobody.", difficulty: 2 } ] },
+    horned_suit: { traits: ["heavyArmor", "imaginative", "dreamer"], obs: [
+      { kind: "tell", text: "Looks at an ally as if they were already holding the brief.", difficulty: 1 },
+      { kind: "weakness", channel: "albedo", text: "No traveler. Nobody to carry means the mandate is only a picture.", difficulty: 1 },
+      { kind: "realization", text: "Isolate them and strip the ward. The picture does not walk through walls.", difficulty: 2 } ] },
     // Fighter hot-builds (Muse Berry BD, 2026-10-29)
     bard_artificer: { traits: ["tinkerer", "artist"], chanceTraits: [["methodActing", 0.5]], obs: [
       { kind: "tell", text: "Tunes something small and fiddly before every big number.", difficulty: 1 },

@@ -1517,6 +1517,54 @@
         const beast = beadBeast(s, a, learned, [tx, ty]);
         log(s, { kind: "summon", actor: beast.id, target: a.id, tiles: [[tx, ty]], bead: true, text: `${a.name} calls ${beast.name}, learned from swallowed beads: it answers at (${tx},${ty}) with ${beast.lf} LF${beast.tamed ? " and fights for the rest of the battle" : ` for ${RITUAL.beadTurns} turns`}.` });
       },
+      callDream(s, a, act) {   // D2: a player-side caller spends an unlocked dream (no question; the enemy 50/6/3 price)
+        if (a.form?.golden) return "The Integrated Self has no need to summon.";
+        if (!summonRules || !dreamSpaceRules?.makeEnemyDreamActor) return "Summoning is unavailable.";
+        if (!summonRules.callsPalace(a)) return "Only the player's side calls dreams.";
+        const bare = typeof act.key === "string" && act.key.startsWith("enemyDream:") ? act.key.slice(11) : null;
+        const def = bare ? dreamSpaceRules.enemyMonsterPool(99, [bare])[bare] : null;
+        if (!def || def.broodOnly) return "No such dream.";
+        if (!(act.unlocked || []).includes(act.key)) return `${def.name} has not joined you: unlock it first.`;
+        const once = `${a.id}:${bare}`; if ((s.dreamUsed ||= {})[once]) return `${def.name} has answered once this battle already.`;
+        const profile = summonProfile(s, a.id);
+        if (profile.active.length >= profile.maxActive) return profile.maxActive === 1 ? "Another summon is already on the field." : `Your ${profile.maxActive} summon slots are already occupied.`;
+        const cost = s.rules.enemySummons;
+        if (a.tempo < cost.apCost) return `Calling needs ${cost.apCost} action points.`;
+        if (a.pf < cost.phiCost) return `Calling needs ${cost.phiCost} ΦF.`;
+        const tileH = { inside, dist, barrierAt, dreamSame, actorAt, tileAt };
+        if (act.at && !EnemySummons.openTile(s, a, act.at, tileH)) return "Choose an open tile 2–4 spaces away, inside the caller's Dream Space region.";
+        let at = act.at || null;
+        if (!at) for (let y = 0; y < s.arena.h && !at; y++) for (let x = 0; x < s.arena.w && !at; x++)
+          if (EnemySummons.openTile(s, a, [x, y], tileH)) at = [x, y];
+        if (!at) return "The veil yields no foothold.";
+        const spend = spendTempo(s, a, cost.apCost, `Call ${def.name}`); if (spend) return spend;
+        a.pf -= cost.phiCost; s.dreamUsed[once] = true;
+        const raw = dreamSpaceRules.makeEnemyDreamActor(bare, { at, round: s.round, summoner: a.id, id: `dream-${bare}-call-${a.id}` });
+        const actor = { ...raw, side: a.side, sprite: `dream-${bare}`, ai: "dream", controller: "ai", traits: [],   // uncontrolled familiars (Mala 2026-11-05): every called dream is monster-driven, never human-driven; the zombie's mindlessness is its drawback, not its controller
+          pf: s.rules.maxPF, maxPF: s.rules.maxPF, ultimateCharge: 0, level: 1, xp: 0, proficiency: 1,
+          reserve: [], reserveSlots: 0, pendingSwap: null, lens: {}, reaction: s.rules.reactionsPerRound,
+          moved: false, acted: false, tempo: 0, tempoCapacity: 0, bankedTempo: 0, tempoDebt: 0,
+          tempoSpent: 0, actionsThisTurn: 0, guardUsedThisTurn: false, ownerTurns: 0, lastRecoverTurn: -99,
+          status: { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null },
+          inventory: [], inventoryCapacity: 0, passives: {}, lanyardUsed: false, bristleconeUsed: false,
+          beliefSummonUsed: false, defeated: false,
+          summonBinding: { owner: a.id, groupKey: bare, turnsLeft: cost.turns, lastTickTurn: -1, expired: false, solo: true } };
+        s.actors[actor.id] = actor;
+        s.disclosures[actor.id] = {}; s.knowledge[actor.id] = {}; s.observedAbilities[actor.id] = [];
+        if (insightRules) {
+          const deck = insightRules.buildDeck({ key: bare, kind: "dream" }, { seed: s.seed });
+          s.insight.decks[actor.id] = deck; s.insight.knowledge[actor.id] = insightRules.spawnKnowledge(deck);
+        }
+        for (const other of Object.values(s.actors)) if (other.id !== actor.id && other.side !== actor.side) {
+          (s.knowledge[other.id] ||= {})[actor.id] = { secondary: false, lens: false, abilities: {} };
+          s.knowledge[actor.id][other.id] = { secondary: false, lens: false, abilities: {} };
+        }
+        s.order.push(actor.id);
+        EmergentIdeas?.refreshSummonWard(s, actor);
+        log(s, { kind: "dreamAppear", actor: actor.id, target: a.id, tiles: [at],
+          text: `${a.name} calls ${actor.name} from their unlocked dreams: ${cost.apCost} AP, ${cost.phiCost} ΦF, ${cost.turns} turns.`,
+          why: [`${def.name} answers once a battle.`, "Fights for the caller's side, retaining its monster rules and drawbacks, including the zombie's mindless targeting."] });
+      },
       imitate(s, a, act) {   // C11: take on a psychology or values trait you have found (or, for the AI, seen demonstrated)
         if (!Imitation || !insightRules?.imitable) return "Imitation is unavailable.";
         const t = s.actors[act.target]; if (!t || t.defeated || t.id === a.id) return "There is no one there to imitate.";
@@ -1704,7 +1752,8 @@
           if (detail) { a.focus.detail = false; log(s, { kind: "observe", actor: a.id, target: t.id, text: `${a.name}'s retained detail on ${t.name} adds +1 point to the study.` }); }
           observeTail(s, a, t, result, { bySubject, invest: invest + (detail ? 10 : 0), free });
           { const wheelNote = H.wheelhouseName?.(s, t); if (wheelNote) log(s, { kind: "observe", actor: a.id, target: t.id, text: wheelNote }); }
-          if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe", { invest: invest + (detail ? 10 : 0), observer: a.id });   // Mystery: an Eye-read rips a foe's oldest set plan (a card set needs study AP by its power); allies' cards are left alone (Harbor round-2 item 7 ruling)
+          if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe", { invest: invest + (detail ? 10 : 0), observer: a.id });
+          if (t.side !== a.side) H.Cards?.glimpse(s, a, t, invest + (detail ? 10 : 0));   // Battle Cards C7: an aware Observer glimpses the unused cards of a foe that carries a deck (private; cards.js)   // Mystery: an Eye-read rips a foe's oldest set plan (a card set needs study AP by its power); allies' cards are left alone (Harbor round-2 item 7 ruling)
           return;
         }
         const k = s.knowledge[a.id][t.id];
@@ -2381,6 +2430,7 @@
         const songError=Performers?.beforeAbility(s,a,{...ab(act.ability),ability:act.ability});if(songError)return songError;
         if (Courtroom) { const no = Courtroom.violenceGate(s, H, a); if (no) return no; }   // W1.3: no brawling in court
         if ((a.sealedTechs || []).includes(act.ability)) return `${ab(act.ability)?.name || act.ability} is sealed by the court: cast nothing sealed.`
+        if (a.status?.offTempo && act.ability === a.status.offTempo.banned && (a.status.offTempo.expiresAt ?? 99) > (a.ownerTurns ?? 0)) return `${ab(act.ability)?.name || act.ability} is off-tempo: Fixed Gaze forbids the last technique for a round.`;   // hotbuilds W1b: the primed answer's price
         if (a.status?.sealed && ab(act.ability)?.tier !== "basic") return `${ab(act.ability)?.name || act.ability} is sealed (${a.status.sealed.by || "debt"}): techniques and ults are closed; basics remain.`;   // W1.3: confiscation binds
         if (!abilitiesOf(a).includes(act.ability)) return "That ability isn't available with this loadout.";
         { const sea = H.fruitBlocked?.(s, a, act.ability, act); if (sea) return sea; }   // Sinkerfruit: damped by water, soaking or cuffs
@@ -2388,6 +2438,10 @@
         if (Vows) { const no = Vows.refuses(s, a, "ability", ab(act.ability)); if (no) return no; }   // Vows: Single Mind, Burned Bridge
         if (Vows && act.ability === "audition") { const no = Vows.validate("role", act.vow, a, s.rules.inspiration, s); if (no) return no; }   // role vows ride the audition
         const m = manifest(s, a, act.ability, act);
+        if (ab(act.ability)?.answerOnly) return `${m.name} answers; it cannot be cast.`;   // answer-only techniques (Fixed Gaze) never commit own-turn (triage 2026-11-04)
+        { const cres = ab(act.ability)?.crescendo; if (cres) m.crescendo = cres; }   // the manifest is fresh: carry the def's Crescendo bend on it (engine.js is at its size cap)
+        { const no = H.Inspiration.crescendoRefuses(s, a, m); if (no) return no; }   // a Crescendo technique needs its Inspiration and only one is in force (ledgers.js)
+        const crescendoFree = H.Inspiration.crescendoFree(s, a, act.ability, m); if (crescendoFree) Object.assign(m, { tempoCost: 0, cost: 0, lfPrice: 0 });   // the bend: this cast is free (stamped at commit)
         const sigFrom = act.from ? H.validSignalOrigin(s, a, m, act.from) : null;
         if (act.from && !sigFrom.ok) return sigFrom.error;
         const src = sigFrom?.ok ? { ...a, x: act.from[0], y: act.from[1] } : a;   // signal origin (machine P3): geometry reads the marker tile; costs stay on the caster
@@ -2398,11 +2452,12 @@
         if (quickened === "lastWord" && m.tier !== "ultimate") return "Last Word can only spend an ultimate.";
         if (quickened === "snap" && !["basic", "refined", "ultimate"].includes(m.tier)) return "Snap requires a damaging technique.";
         const extraTempo = Math.max(0, Math.floor(act.overclock || 0));
-        const detailTax = hasTrait(a, "attentionToDetail") && m.effect === "barrier" ? 5 : 0;   // Attention to Detail: sturdier craft costs slightly
+        const freeFirst = H.freeFirstFree?.(a, m);   // hotbuild free first use (W0b): hoisted — the early tempo gate must agree with the menu (triage 2026-11-04)
+        const detailTax = !crescendoFree && hasTrait(a, "attentionToDetail") && m.effect === "barrier" ? 5 : 0;   // Attention to Detail: sturdier craft costs slightly
         if (extraTempo && H.mindset(a)?.noOverclock) return "Craftsman's Mindset: no overclocking.";
         if (extraTempo > s.rules.maxOverclockPerAction || extraTempo % 5) return `Overclock must be in 5-point steps up to ${s.rules.maxOverclockPerAction} AP.`;
         if (extraTempo && !["damage", "field"].includes(m.effect)) return "Only attacks can be overclocked.";
-        if (!internal?.prepaid && a.tempo < m.tempoCost + detailTax && !extraTempo) return `${m.name} needs ${m.tempoCost + detailTax} action points (have ${a.tempo}); choose overclock to borrow against a future turn.`;
+        if (!internal?.prepaid && !freeFirst && a.tempo < m.tempoCost + detailTax && !extraTempo) return `${m.name} needs ${m.tempoCost + detailTax} action points (have ${a.tempo}); choose overclock to borrow against a future turn.`;
         if (m.scribedEffects?.some(e=>e.requires?.includes("observedIncomingChannel")) && !a.lastDamageType) return "This effect needs an observed incoming harm channel before casting.";
         if (act.ability === "adaptiveBrace" && !a.lastDamageType) return "Adaptive Brace needs an observed incoming attack before it can attune.";
         if (act.ability === "measureTwice" && (a.tempoDebt || 0) > 0) return "Care cannot be taken in haste: pay off your tempo debt first.";
@@ -2450,19 +2505,23 @@
         if (m.timing === "delayed" && !(t.targets || []).some(id=>s.actors[id] && !s.actors[id].defeated && !s.actors[id].notArrived))
           return "A delayed technique needs a living character whose next turn can trigger it; wild creatures have no character turn.";
         const inspired = H.inspiredPay?.(s, a, m);   // a full bar and 1 Inspiration pay an ultimate's whole ΦF
-        if (!internal?.prepaid && a.pf < m.cost && !inspired) return `Needs ${m.cost} ΦF (have ${a.pf}).`;
+        if (!internal?.prepaid && !freeFirst && a.pf < m.cost && !inspired) return `Needs ${m.cost} ΦF (have ${a.pf}).`;
+        const inspirationPrice = ab(act.ability)?.inspirationPrice || 0;   // a Crescendo's price (hotbuilds W1c): Inspiration, read off the def (no manifest carry)
+        if (!internal?.prepaid && inspirationPrice > 0 && (a.inspiration || 0) < inspirationPrice) return `Needs ${inspirationPrice} Inspiration (have ${a.inspiration || 0}).`;
         if (!internal?.prepaid && m.lfPrice && a.lf <= m.lfPrice) return `${m.name} costs ${m.lfPrice} LF: you need more than that left (have ${a.lf}).`;   // an ability's LF price (Ajin L1; the pattern of the rite cut at ~1334): the caster must stay above 0 LF
         if(presidentRules){for(const h of Object.values(s.actors)){if(!h.law||h.law.until<s.round)continue;const hu=presidentUnits(s).find(u=>u.id===h.id),au=presidentUnits(s).find(u=>u.id===a.id),r=presidentRules.breaksLaw(hu,au,{delivery:m.delivery},{...presidentContext(s),round:s.round});if(r.broke){syncPresidentUnit(s,r.actor);log(s,{kind:"law",actor:a.id,target:h.id,text:`${a.name} breaks ${h.name}'s Due Process rule (${m.delivery}) and becomes an outlaw.`,why:["The rule applies to its maker and units in jurisdiction."]});}}}
         // committed: pay once, snapshot (spec §7)
         const starTax = ClassRuntime?.actor ? ClassRuntime.actor.taxFor(s, a, t.targets || []) : 1;   // GDP: the star's tax lands once per technique, overclock unmultiplied
         const taxedBase = (m.tempoCost + detailTax) * starTax;
-        if (!internal?.prepaid && a.tempo < taxedBase && !extraTempo) return `${m.name} needs ${taxedBase} action points (have ${a.tempo}): ×${starTax} to target the star; choose overclock to borrow against a future turn.`;
-        if (!internal?.prepaid) { const tempoError = spendTempo(s, a, taxedBase + extraTempo, m.name, true); if (tempoError) return tempoError; H.adhdPaid?.(s, a, act.ability); }   // prepaid set intents (Muse W2.5, MY-02 internal): paid at set time
+        if (!internal?.prepaid && !freeFirst && a.tempo < taxedBase && !extraTempo) return `${m.name} needs ${taxedBase} action points (have ${a.tempo}): ×${starTax} to target the star; choose overclock to borrow against a future turn.`;
+        if (!internal?.prepaid && !freeFirst) { const tempoError = spendTempo(s, a, taxedBase + extraTempo, m.name, true); if (tempoError) return tempoError; H.adhdPaid?.(s, a, act.ability); }   // prepaid set intents (Muse W2.5, MY-02 internal): paid at set time
+        else if (!internal?.prepaid && freeFirst && extraTempo) { const tempoError = spendTempo(s, a, extraTempo, m.name, true); if (tempoError) return tempoError; }   // free-first covers the ability's own cost, never an overclock chosen on top: the debt still lands (triage 2026-11-04)
         if (Vows && act.ability === "audition" && act.vow?.boon) Vows.swear(s, a, "role", act.vow, { log });   // sworn before the part is taken, read at play
         if (barsTooFast(s, a, act.ability)) { log(s, { kind: "act", actor: a.id, fizzled: true, text: `${a.name} spits ${m.name} too fast and it goes past everyone.`, why: ["Speed-Talker: his attacks are talk, at half the action points, and they land 85% as often."] }); return; }
         if (quickened === "lastWord") { a.quickenedSpent ||= {}; a.quickenedSpent[act.ability] = true; }
         if (inspired && !internal?.prepaid) { const n = s.rules.inspiration?.ultimatePoint ?? 1; H.Inspiration.spend(s, a, n, "perform"); log(s, { kind: "inspiration", actor: a.id, spent: n, text: `${a.name} spends ${n} Inspiration: it pays ${m.name}'s ${m.cost} ΦF.`, why: [`Inspired ultimate: with a full bar, one Inspiration pays the whole ΦF cost.${mastered ? " Mastery: the bar is not spent." : " The bar and the AP are still spent."}`] }); }   // MCR-04: prepaid ΦF is never paid again with Inspiration
-        else if (!internal?.prepaid) a.pf -= m.cost;   // prepaid at set time
+        else if (!internal?.prepaid && !freeFirst) a.pf -= m.cost;   // prepaid at set time
+        if (inspirationPrice > 0 && !internal?.prepaid) { H.Inspiration.spend(s, a, inspirationPrice); log(s, { kind: "inspiration", actor: a.id, spent: inspirationPrice, text: `${a.name} spends ${inspirationPrice} Inspiration on ${m.name}.`, why: ["A Crescendo's price is paid on cast, beside AP and ΦF (never a perform)."] }); }
         if (m.lfPrice && !internal?.prepaid) { a.lf -= m.lfPrice; log(s, { kind: "act", actor: a.id, text: `${a.name} pays ${m.lfPrice} LF for ${m.name} (${a.lf}/${a.maxLF}).`, why: ["A technique's LF price is paid on cast, after the cast is legal and before anything resolves; it can never leave the caster below 1 LF."] }); }
         if (m.miseStation) ClassRuntime.mise.redeem(s, a, m, classH());   // Mise en Place: the prepared station is spent with the cast
         if(m.freeFocus)H.FocusPlans?.commit(s,a,act,t);
@@ -2470,8 +2529,12 @@
         else if (m.tier === "ultimate" && sequelFilm && !internal?.prepaid) { H.Inspiration.spend(s, a, Director.rules.sequelCost, "perform"); log(s, { kind: "charge", actor: a.id, text: `${a.name} films a sequel on prestige, unannounced: ${Director.rules.sequelCost} Inspiration.` }); }
         else if (m.tier === "ultimate" && !internal?.prepaid) { a.ultimateCharge -= s.rules.ultimateChargeMax; if (a.status.ward?.flow) a.status.ward = null; a.flowOn = false; log(s, { kind: "charge", actor: a.id, text: `${a.name} spends ${s.rules.ultimateChargeMax} ultimate charge on ${m.name}.` }); }   // spending the bar ends the flow state (ward included)   // MCR-04: prepaid reveals spend no bar or Inspiration beyond the set payment
         s.stats.abilityUses[act.ability] = (s.stats.abilityUses[act.ability] || 0) + 1; H.Exposure.used(s, a, act.ability, m);
+        if (crescendoFree) H.Inspiration.crescendoFreeUsed(a, act.ability);   // the free cast is spent at commit
+        if (m.crescendo) H.Inspiration.crescendoArm(s, a, m);   // the Crescendo spends its Inspiration and bends the rule once the cast is committed
         if (m.oncePerTurn) (a.onceTurns ||= {})[act.ability] = a.ownerTurns;   // once-per-turn stamp at commit (previews run on a clone, so this never leaks)
         if (m.oncePerBattle) (a.onceBattle ||= {})[act.ability] = true;   // J6: once-per-battle stamp at commit
+        if (freeFirst === "turn") (a.freeTurns ||= {})[act.ability] = a.ownerTurns;   // free-first stamp at commit (previews run on a clone, so this never leaks)
+        if (freeFirst === "battle") (a.freeBattle ||= {})[act.ability] = true;
         if (CRAFT) {   // practice and care bookkeeping (the manifest above already read the stacks this use benefits from)
           if (a.status?.care && !CRAFT_OWN.has(act.ability)) a.status.care = null;                       // the care is spent on this technique
           if (act.ability === "masterwork") { if (a.practice) a.practice.stacks = 0; }

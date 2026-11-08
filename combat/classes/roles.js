@@ -46,6 +46,12 @@
       seedkeeper: { role: "support", mix: { attack: 0.1, support: 0.5, specialist: 0.4 }, reason: "Buries tempo where allies will stand; blooms pay the ground twice. The count calls prepaid tempo support." },
       ferryman: { role: "support", mix: { attack: 0.1, support: 0.7, specialist: 0.2 }, reason: "Trades places to rescue or advance allies; the Crossing gathers the whole side. Pure team motion." },
       pearl_diver: { role: "attack", mix: { attack: 0.5, support: 0.1, specialist: 0.4 }, reason: "Shapes water early, drags foes into it, bursts a basin for the kill. Setup pays the strike." },
+      orgonite_trooper: { role: "attack", mix: { attack: 0.5, support: 0.1, specialist: 0.4 }, reason: "Steals present life through the suit and fires it as an orgonite lance. Setup pays the shot." },
+      leviathan_suit: { role: "specialist", mix: { attack: 0.2, support: 0.3, specialist: 0.5 }, reason: "Mends the present body and knocks for a later one. The circuit is the invitation." },
+      scale_firmware: { role: "attack", mix: { attack: 0.6, support: 0.1, specialist: 0.3 }, reason: "Compiles a pictured arrival through the suit. The image is the weapon." },
+      white_jacket_gunner: { role: "attack", mix: { attack: 0.5, support: 0.2, specialist: 0.3 }, reason: "Prints a raster then spends it into a certain call. The buffer is the invitation." },
+      bronze_admin: { role: "support", mix: { attack: 0.1, support: 0.5, specialist: 0.4 }, reason: "Files an order the nearest ally, or a later traveler, already holds." },
+      horned_suit: { role: "support", mix: { attack: 0.1, support: 0.5, specialist: 0.4 }, reason: "Pictures an ally already carrying the brief and wards them for it." },
     },
   };
   const ROLES = Object.keys(rules.roles);

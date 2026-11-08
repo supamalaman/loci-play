@@ -23,7 +23,7 @@
     contemplative: { prepare: 1.2, understand: 0.4 }, restless: { position: 0.8, prepare: -0.6 },   // C15: the meditate gates themselves are in engine.js
     // T1 traits (insight-data.js registry). Biology that moves the AI, then values.
     keenSenses: { understand: 1.0 }, hardy: { position: 0.6 }, fleetFooted: { position: 0.8 }, frail: { survive: 0.8, position: 0.5 },
-    courageous: { protect: 1.2, pressure: 0.6, survive: -1.0 }, brave: { persistence: 1.4, protect: 0.8, survive: -0.8 }, merciful: { pressure: -0.8, support: 0.8 }, honorable: { pressure: 0.8, exploit: -1.2 },
+    courageous: { protect: 1.2, pressure: 0.6, survive: -1.0 }, brave: { persistence: 1.4, protect: 0.8, survive: -0.8 }, merciful: { pressure: -0.8, support: 0.8 }, gentleHand: { protect: 0.6, support: 0.6 }, honorable: { pressure: 0.8, exploit: -1.2 },
     dutiful: { persistence: 1.6, protect: 0.8 }, zealous: { persistence: 1.4, pressure: 0.4 }, byTheBook: { persistence: 1.2, protect: 0.6 }, thrifty: { prepare: 1.2, hoard: 0.6, pressure: -0.3 }, pacifist: { support: 1.6, protect: 1.2, pressure: -2.0 },
     steward: { protect: 1.0, prepare: 0.6 }, dreamer: { summon: 1.2, prepare: 0.8 }, truthSeeker: { understand: 1.8, exploit: 0.6 }, charitable: { support: 1.8, hoard: -1.5 },
     traditionalist: { persistence: 1.0, prepare: 0.5, understand: -0.5 }, craftsmansMindset: { prepare: 1.4, persistence: 1.2, pressure: -0.3 }, robotSympathizer: { understand: 0.8, pressure: -0.2 }, robotHater: { pressure: 0.8, understand: -0.4 }, ambitious: { pressure: 1.2, exploit: 0.8, support: -0.5 },

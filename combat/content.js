@@ -331,7 +331,44 @@
         fullShape: { bonus: 16, when: ["noShape", "hasBeast"] },
         vapourStep: { bonus: 12, when: [["foeNear", 3]] },
         scent: { bonus: 12 },
-        takeTheShape: { bonus: 12, when: ["noShape"] } } },
+        takeTheShape: { bonus: 12, when: ["noShape"] } },
+        // Entrainer (hotbuilds W1b; the Hypnotist's AI table, HOTBUILDS.md section 2): fix the open foe, image the
+        // watched one, gaze a second when two show themselves (W1c: the Crescendo is on the shelf now).
+        entrainer: { focus: { bonus: 6, when: [["foeNear", 6], "noneFixed"] },
+          holdTheImage: { bonus: 8, when: ["fixedFoeRanged", "noWard"] },
+          secondGaze: { bonus: 4, when: [["foesInSight", 2]] } },
+        // Posterity suits (grok-manavu-hotbuilds, 2026-11-04): seven suit traits; merged behind the Entrainer at landing (Capstan IN, 1.3.546).
+        dutiful: {
+          stealPresent: { bonus: 6, when: [["foeNear", 1]] },
+          assignTheTask: { bonus: 8 },
+          orgoniteLance: { bonus: 16, when: [["foeNear", 4]] },
+          farOrder: { bonus: 16, when: [["foeNear", 6]] } },
+        restless: {
+          stealPresent: { bonus: 8, when: [["foeNear", 1]] },
+          readLivingCircuit: { bonus: 10 },
+          dreamCircuit: { bonus: 16 } },
+        imaginative: {
+          pictureTheArrival: { bonus: 10 },
+          holdTheImage: { bonus: 8 },
+          dreamForge: { bonus: 16, when: [["foeNear", 5]] },
+          summonedMandate: { bonus: 14 } },
+        ambitious: {
+          rasterPass: { bonus: 8, when: [["foeNear", 5]] },
+          posterityRaster: { bonus: 16, when: [["foeNear", 5]] },
+          dreamForge: { bonus: 14, when: [["foeNear", 5]] } },
+        tinkerer: {
+          rasterPass: { bonus: 10 },
+          calibrateTool: { bonus: 6 },
+          posterityRaster: { bonus: 16, when: [["foeNear", 5]] } },
+        steward: {
+          stealPresent: { bonus: 6, when: [["foeNear", 1]] },
+          investFuture: { bonus: 10 },
+          orgoniteLance: { bonus: 14, when: [["foeNear", 4]] },
+          farOrder: { bonus: 12 } },
+        dreamer: {
+          pictureTheArrival: { bonus: 8 },
+          dreamCircuit: { bonus: 16 },
+          summonedMandate: { bonus: 12 } } },
       traitActs: { on: false, robotHarm: { robotSympathizer: 0.6, robotHater: 1.4 }, preach: ["fullBeliever", "devoutBeliever", "convertedBeliever", "convertedDevout"],
         ritualStart: { perfectConcentration: 1.5, focused: 1.25, scattered: 0.6, adhd: 0.5 }, variety: { adhd: 1 } }, foeMemory: false, regretProbe: false, setupBonus: 0, readyUltimate: 8, animeKitFloor: 6,   // anime kit options (soul verbs/arts, fruit, Bird Mountain) score at least Observe here, or this when Observe is not offered (docs/anime-orbit.md §5a)
           // a full bar means it is time to use it (Mala, 2026-10-27): a ready damage ultimate scores this much more (simmed on/off)
@@ -860,7 +897,7 @@
     diffuseWave: { name: "Diffuse Wave", tier: "basic", concepts: ["diffusion"], delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, mechanism: "Spread a low-intensity wave through nearby open space and push bodies outward.", cost: 5, range: 0, potency: 7, effect: "damage", knockback: 1, reveal: "Diffuse Wave reaches every opponent within 2 tiles and shoves each one tile away." },
     prune: { name: "Prune", tier: "basic", concepts: ["pruning"], delivery: "placed", target: "tile", mechanism: "Remove one named part from a reachable plant or eligible plant hazard.", cost: 3, range: 1, potency: 0, effect: "prune", reveal: "Prune removes one eligible plant or hazard part. An invalid target consumes the action and ΦF without changing the board; it cannot affect Life Force, paving, or pillars.", prompt: "Which local part was removed, and what changed around it?" },
     carefulPrune: { name: "Careful Prune", tier: "refined", concepts: ["pruning"], delivery: "placed", target: "tile", mechanism: "Make a deliberate cut at greater reach, using the same one-part removal rule.", cost: 5, range: 2, potency: 0, effect: "prune", reveal: "Careful Prune removes one eligible part. Greater reach does not add another cut or bypass a Barrier." },
-    focus: { name: "Fix Attention", tier: "basic", concepts: ["focus"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Attend to one visible target and retain one useful detail about their cover.", cost: 3, range: 5, potency: 0, effect: "focus", duration: 1, retainedDetail: 1, reveal: "Focus marks one target through your next owner turn. Your reactions are limited to that target until another concept is used; a later Sightline shot can ignore one adjacent partial-cover source. You retain one detail: your next Observe on them gains +1 point." },
+    focus: { name: "Fix Attention", tier: "basic", concepts: ["focus"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Attend to one visible target and retain one useful detail about their cover.", cost: 3, range: 5, potency: 0, effect: "focus", duration: 1, retainedDetail: 1, freeFirst: "turn", freeFirstFor: ["hypnotist"], reveal: "Focus marks one target through your next owner turn. Your reactions are limited to that target until another concept is used; a later Sightline shot can ignore one adjacent partial-cover source. You retain one detail: your next Observe on them gains +1 point." },
     deepFocus: { name: "Deep Focus", tier: "refined", concepts: ["focus"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Sustain attention on one visible target across a longer observation window.", cost: 5, range: 4, potency: 0, effect: "focus", duration: 2, retainedDetail: 1, reveal: "Deep Focus marks one target for two owner turns. It grants no extra cover ignores; the reaction restriction lasts only while Focus is your latest technique. You retain one detail: your next Observe on them gains +1 point." },
     annotate: { name: "Annotate", tier: "basic", concepts: ["cipher"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Mark one visible target and write down what is hidden: their soul force and traits are revealed to your side.", cost: 3, range: 5, potency: 0, effect: "annotate", duration: 2, damageType: "albedo", reveal: "Annotate marks one target for two owner turns and reveals their hidden stats. A record outlasts attention: the mark survives to your turn after next, enabling Redact and Plaintext riders." },
     redact: { name: "Redact", tier: "refined", concepts: ["cipher"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Seal the victim's latest damage channel until their next turn start; an annotated victim also takes 8 spiritual damage.", cost: 5, range: 4, potency: 8, effect: "redact", damageType: "albedo", reveal: "Redact seals one damage channel (the victim's latest). Annotated victims take spiritual damage: the soul, not the body." },
@@ -1467,6 +1504,20 @@
     reveal: "Only the caster and their own summons inside the unsealed area receive protection.",
     price: "35 AP and 6 ΦF; the image must be rebuilt after it expires or breaks.",
     counter: "Separate the summons from the caster, seal the dream edge, strip the ward or overwhelm its finite protection.", teaches: "Sustaining an image takes effort and has a limited reach." };
+  // Fixed Gaze (hotbuilds W1b; the Hypnotist's reactive answer, HOTBUILDS.md section 2): fires the held Hold the
+  // Image ward as the answer. Pair-gated to focus+imagination (his pair; nobody holds it until W1c). Primed whole
+  // against the Fixed foe (Off-tempo), an ordinary rushed answer otherwise (engine/window.js). Covering an ally
+  // within 2 waits for W1c: the window only seats defenders the attack selects. W1c (Mala's ruling): the image is
+  // prepaid (Hold the Image), so firing it is the aim — tempoCost 10 (≈5 AP reaction), no ΦF.
+  abilities.fixedGaze = { name: "Fixed Gaze", tier: "refined", concepts: ["focus", "imagination"], pairOnly: true, pairs: [["focus", "imagination"]],
+    delivery: "self", target: "self", mechanism: "Fire the held image at the shot you see coming: the ward meets it whole if the shooter is the foe you have Fixed (and the shooter loses its rhythm for a round), half if it is anyone else.",
+    cost: 0, tempoCost: 10, range: 0, potency: 0, protection: 8, effect: "barrier", effectCategory: "conditional", reactive: true, answerOnly: true, expiry: "ownerNextTurnStart",
+    reveal: "Fixed Gaze answers only while the Hold the Image ward is held. Primed against the Fixed foe (whole ward, Off-tempo: the attacker's last technique is forbidden for a round); rushed against anyone else. It also covers an unwarded ally within 2.",
+    prompt: "Who is the gaze fixed on when the shot comes?" };
+  abilities.secondGaze = { name: "Second Gaze", tier: "basic", concepts: ["focus"],
+    delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Fix a second foe this turn with no action: hold two marks at once (either primes Fixed Gaze).",
+    cost: 0, tempoCost: 0, inspirationPrice: 1, range: 5, potency: 0, effect: "secondGaze", effectCategory: "conditional", duration: 1,
+    reveal: "Second Gaze fixes a second foe this turn. No action, 1 Inspiration." };
   abilities.makeRoomForPossibility = { ...imagineCommon, name: "Make Room for Possibility", tier: "ultimate", cost: 16, potency: rules.imagination.possibilityWard, delivery: "field", area: { shape: "radius", radius: 3 }, effect: "imaginedCompany", timing: "announced",
     announce: "There is room for what we have not yet become.",
     mechanism: "Give yourself and your own living summons within 3 a 10-point ward; those summons gain one remaining turn, once per incarnation.",
@@ -1906,7 +1957,7 @@
     agi: "lab", agent_swarm: "lab", android_maker: "lab", clockwork: "lab", defective_machine: "lab", hacker: "lab", ornithopter: "lab", robot_mechanic: "lab", scientist: "lab", sieve: "lab", steam_walker: "lab",
     animalTamer: "wilds", boarman: "wilds", ecologist: "wilds", esker: "wilds", hedge_witch: "wilds", monkey_king: "wilds", mutant_boar: "wilds", mycologist: "wilds", ranger: "wilds", shaman: "wilds",
     black_armor: "court", daedalus: "court", general: "court", knight: "court", magistrate: "court", mao_zedong: "court", odysseus: "court", oni_yokozuna: "court", paladin: "court", pharaoh: "court", president: "court", samurai: "court", soldier: "court",
-    artemesia: "arcane", bastet: "arcane", celestial_priestess: "arcane", devouring_mother: "arcane", ember_judge: "arcane", forest_spirit: "spirit", frogan: "arcane", jujutsu_sorcerer: "arcane", medusa: "arcane", new_oni: "arcane", ritual_chanter: "arcane", tofu_archer: "arcane", tofu_warden: "arcane", tofu_yokai: "arcane", wizard: "arcane",
+    artemesia: "arcane", bastet: "arcane", celestial_priestess: "arcane", devouring_mother: "arcane", ember_judge: "arcane", forest_spirit: "spirit", frogan: "arcane", hypnotist: "arcane", jujutsu_sorcerer: "arcane", medusa: "arcane", new_oni: "arcane", ritual_chanter: "arcane", tofu_archer: "arcane", tofu_warden: "arcane", tofu_yokai: "arcane", wizard: "arcane",
     moonflower: "arcane", archivist_elf: "arcane", bard_elf: "arcane", astral_security: "arcane", celestial_astral: "arcane",
     architect: "civic", cleric: "civic", doctor: "civic", engineer: "civic", fbi_agent: "civic", mason: "civic", pioneer: "civic", planner: "civic", police_officer: "civic", policeOfficer: "civic", surveyor: "civic", tactical_operative: "civic", yogaInstructor: "civic",
     arborist: "green", fieldBotanist: "green", gardener: "green", pathfinder: "green", rainkeeper: "green",
@@ -1921,6 +1972,12 @@
     hooded_cyber_rogue: "posterity",
     memorialist: "posterity",
     seedkeeper: "posterity",
+    orgonite_trooper: "posterity",
+    leviathan_suit: "posterity",
+    scale_firmware: "posterity",
+    white_jacket_gunner: "posterity",
+    bronze_admin: "posterity",
+    horned_suit: "posterity",
     archivist: "rogues", aviator_hero: "rogues", black_swan_warrior: "rogues", control: "rogues", gemini: "rogues", warden: "rogues",
     bard_artificer: "stage", burlesque_dancer: "stage", clown: "stage", big_game_hunter: "wilds", mma_fighter_alternate: "street", hermes: "cosmic", kaikeyi: "court",
     cactusguard: "civic", cactuswar: "street", pixel_treant: "cosmic",
@@ -2188,6 +2245,13 @@
     if (characters.seedkeeper) characters.seedkeeper.traits = ["cacheMinded", "hardy", "posterity"];   // Seedkeeper (Codex, 2026-10-24): 4 caches, Hardy vs field, first bury cheap
     if (characters.ferryman) characters.ferryman.traits = ["strongBack", "tollkeeper", "theFare"];   // Ferryman (Codex, 2026-10-24): range 5 + holds first shove, 12-AP tolls, first Ferry free
     if (characters.pearl_diver) characters.pearl_diver.traits = ["breathHolder", "tideReader", "theDeep"];   // Pearl Diver (Codex, 2026-10-24): long conceal + holds first shove, +1 swale range, cheap Drown per basin
+    // Posterity suit warriors (Mala, 2026-11-04): three traits each (physio / psych / value). No touchedByMagic: technology is not magic. Artist credit follows the cut.
+    if (characters.orgonite_trooper) Object.assign(characters.orgonite_trooper, { traits: ["heavyArmor", "dutiful", "steward"], artist: "@ManavuArt" });
+    if (characters.leviathan_suit) Object.assign(characters.leviathan_suit, { traits: ["hardy", "restless", "dreamer"], artist: "@ManavuArt" });
+    if (characters.scale_firmware) Object.assign(characters.scale_firmware, { traits: ["heavyArmor", "imaginative", "ambitious"], artist: "@ManavuArt" });
+    if (characters.white_jacket_gunner) Object.assign(characters.white_jacket_gunner, { traits: ["hardy", "tinkerer", "ambitious"], artist: "@ManavuArt" });
+    if (characters.bronze_admin) Object.assign(characters.bronze_admin, { traits: ["hardy", "dutiful", "steward"], artist: "@ManavuArt" });
+    if (characters.horned_suit) Object.assign(characters.horned_suit, { traits: ["heavyArmor", "imaginative", "dreamer"], artist: "@ManavuArt" });
     if (characters.martial_artist) characters.martial_artist.variants = ["martial-artist", "martial-artist-ascended"];   // R5: the gold head is her voice, not a new speaker
     // The Animal Tamer is an older NPC (npc(), above), so the class-pack loop leaves him alone: his Resonance +
     // Transmigration loadout is added here, once Transmigration is live (2026-10-15). Swale + Resonance stays.

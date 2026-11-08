@@ -31,6 +31,7 @@
   const MK = root.ConceptCombatMarket || null;   // vessel economy: stall marketing (account/market.js)
   const PY = root.ConceptCombatParley || null;   // haggle chance rides persuasion (ruling 3)
   const WS = root.ConceptCombatWorkshopTraversal || null, GD = root.ConceptCombatGraphData || null;   // W6.1: Workshop tree
+  const CardsLoot = root.ConceptCombatCardsLoot;   // Battle Cards (C6a): battle drops, the Card Table, board rewards (declared here, not beside CardsUI, so muse-save-file-build's SF line at that anchor applies cleanly in either order)
   const SCR = root.ConceptCombatWorkshopScreen || null;   // W7.1: rings + readings
   const VV = root.ConceptCombatWorkshopValence || null;   // W6.4: distance prices
   const SCH = root.ConceptCombatWorkshopSchools || null;   // W8.1/8.4/8.5: schools, doors, gates (workshop/schools.js)
@@ -95,13 +96,15 @@
       const tech = it.x?.m && !["damage", "field"].includes(it.x.m.effect);
       const base = Number.isFinite(it.ap) ? it.ap : tech ? it.x.m.tempoCost : null;
       if (it.opensIfShort && it.off) return { ...it, off: false, dim: true };
-      if (it.off || !(base > 0)) return it;
+      if (it.off || !(base > 0) || it.x?.freeFirst) return it;   // a free first use stays open at any AP
       const price = Math.round(base * m);
       if (price <= tempo) return it;
       const why = `Needs ${price} AP; you have ${tempo}.${m !== 1 ? ` Held: costs ×${m}.` : ""}`;
       return { ...it, off: !it.opensIfShort, dim: !!it.opensIfShort, apShort: price, why, help: `${why} ${it.help || ""}`.trim() };
     });
   }
+  // Free first use (HOTBUILDS.md 1b; W0b): what the menu row says when this use is free.
+  function freeFirstTag(x) { const f = x?.freeFirst; if (f === "battle") return "Free this battle"; return f ? "Free this turn" : null; }
   // The command panel's own AP readout, beside the commands (the status strip keeps its chip). Pips only when they apply.
   function apHead(p, mul) {
     if (!p) return "";
@@ -217,7 +220,9 @@
     storm_mage: "storm_mage", tree_spirit: "tree_spirit", disheveled_politician: "disheveled_politician", astral_security: "astral_security", mesoamerican_priestess: "mesoamerican_priestess",
     celestial_astral: "celestial_astral", moonflower: "moonflower", archivist_elf: "archivist_elf", bard_elf: "bard_elf", lying_lawyer: "lying_lawyer",   // hot builds wave 4 (2026-10-23)
     "hot-pot-berserker": "hot-pot-berserker", chef: "chef", seedkeeper: "seedkeeper", memorialist: "memorialist", pearl_diver: "pearl_diver", ferryman: "ferryman",   // hot builds wave 5 (2026-10-24): Posterity + Wake 3v3 buildup
-    hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
+    orgonite_trooper: "manavu-anti-gravity-soldier", leviathan_suit: "manavu-anti-gravity-blue", scale_firmware: "manavu-future-warrior-crimson-reptilian", white_jacket_gunner: "manavu-future-warrior-white-jacket-gunner", bronze_admin: "manavu-space-admin-bronze-hooded", horned_suit: "manavu-space-admin-crimson-horned",
+    "manavu-anti-gravity-soldier": "manavu-anti-gravity-soldier", "manavu-anti-gravity-blue": "manavu-anti-gravity-blue", "manavu-future-warrior-crimson-reptilian": "manavu-future-warrior-crimson-reptilian", "manavu-future-warrior-white-jacket-gunner": "manavu-future-warrior-white-jacket-gunner", "manavu-space-admin-bronze-hooded": "manavu-space-admin-bronze-hooded", "manavu-space-admin-crimson-horned": "manavu-space-admin-crimson-horned",
+    hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", hypnotist: "hypnotist", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
     bard_artificer: "bard-artificer", big_game_hunter: "big-game-hunter", burlesque_dancer: "burlesque-dancer", clown: "clown", mma_fighter_alternate: "mma-fighter-alternate", hermes: "hermes", kaikeyi: "kaikeyi",
     cactusguard: "cactusguard", cactuswar: "cactuswar", pixel_treant: "pixel-treant",   // warrior hot-builds wave 6 (Muse Berry BD, 2026-10-29); facing reviewed 2026-11-07 (claude-sprite-facing-fix-build): these keys are set right-facing in SPRITE_FACES_RIGHT below
     "bard-artificer": "bard-artificer", "big-game-hunter": "big-game-hunter", "burlesque-dancer": "burlesque-dancer", "mma-fighter-alternate": "mma-fighter-alternate", chef: "chef" };   // fighter hot-builds wave 6 (Muse Berry BD, 2026-10-29): facing unreviewed, default left; kebab keys added RETURN-2 T-1 (renderer queries unit.sprite, the kebab art id — fighting_coach precedent); chef cut-in (Berry CU, 2026-10-30)
@@ -281,6 +286,7 @@
   for (const sprite of ["knight", "pharaoh", "daedalus", "samurai", "gemini", "wizard", "jujutsu-sorcerer", "super-hero", "super-heroine", "super-villain", "teleporter", "mutant-boar", "boarman", "anime-protagonist", "mma-fighter", "kickboxer", "fighting-coach", "detective", "maid"]) SPRITE_FACES_RIGHT[sprite] = true;
   for (const sprite of ["general", "bastet", "cyph", "barbarian", "paladin", "clockwork", "rogue", "medusa", "cleric", "steam_walker", "ornithopter", "engineer"]) SPRITE_FACES_RIGHT[sprite] = true;   // Grok sheets: face right
   SPRITE.paladin = "#e3d5a8";   // oath-gold silhouette until the sheet loads
+  for (const sprite of ["manavu-anti-gravity-soldier", "manavu-anti-gravity-blue", "manavu-future-warrior-crimson-reptilian", "manavu-future-warrior-white-jacket-gunner", "manavu-space-admin-bronze-hooded", "manavu-space-admin-crimson-horned", "orgonite_trooper", "leviathan_suit", "scale_firmware", "white_jacket_gunner", "bronze_admin", "horned_suit"]) SPRITE_FACES_RIGHT[sprite] = true;   // Manavu Posterity suits: eye-checked at landing (Capstan IN, 2026-11-08, 1.3.546): idle and punch of all six face right, the leviathan too though the checker guesses it left; tools/check-sprite-facing.mjs VERIFIED
   // The Paladin's default art is the Crusader cut (Mala, 2026-11-01: "the paladin sprite default is the newer one"); the October art stays as the Oathbound outfit.
   SPRITE["paladin-crusader"] = SPRITE.paladin; SPRITE_FACES_RIGHT["paladin-crusader"] = true;
   SPRITE.clockwork = "#c9a86a";   // brass silhouette until the sheet loads
@@ -305,7 +311,7 @@
   Object.assign(SPRITE, { frogan: "#6ab86a", shaman: "#7a6fd0", hedge_witch: "#4f8f4f", robot_mechanic: "#d08a3e" });
   for (const sprite of ["storm_mage", "tree_spirit", "disheveled_politician", "astral_security", "mesoamerican_priestess", "celestial_astral", "moonflower", "archivist_elf", "bard_elf", "lying_lawyer"]) SPRITE_FACES_RIGHT[sprite] = true;   // hot builds wave 4 (2026-10-23): all strike right; left-facing idles/walks/dodges mirrored at import
   for (const sprite of ["hanuman", "hanuman-chibi", "hanuman-giant", "jambavan", "rama", "lakshmana", "sita", "ravana", "kumbhakarna", "shadow-archer", "mandodari", "surpanakha", "jatayu"]) SPRITE_FACES_RIGHT[sprite] = true;   // Kumbhakarna: the attack faces right at full size (qa/repeats.md #18)   // Jambavan: checked at full size, all strike right   // Hanuman: all three cuts strike right (Codex's cut notes)
-  Object.assign(SPRITE, { hanuman: "#e0a23a", "hanuman-chibi": "#e0a23a", "hanuman-giant": "#e0a23a", jambavan: "#8a5a3a", rama: "#3e6fb0", lakshmana: "#c08a2e", sita: "#d4607a", ravana: "#7a2e3a", kumbhakarna: "#5a3a2a", "shadow-archer": "#5a2a6a", mandodari: "#7a4ab0", surpanakha: "#b04a6a", jatayu: "#a8743a" });
+  Object.assign(SPRITE, { hanuman: "#e0a23a", "hanuman-chibi": "#e0a23a", "hanuman-giant": "#e0a23a", jambavan: "#8a5a3a", rama: "#3e6fb0", lakshmana: "#c08a2e", sita: "#d4607a", hypnotist: "#6a3aa0", ravana: "#7a2e3a", kumbhakarna: "#5a3a2a", "shadow-archer": "#5a2a6a", mandodari: "#7a4ab0", surpanakha: "#b04a6a", jatayu: "#a8743a" });
   Object.assign(SPRITE, { storm_mage: "#8a7ae0", tree_spirit: "#5d8a48", disheveled_politician: "#5a6e8a", astral_security: "#8676f2", mesoamerican_priestess: "#c9753a", celestial_astral: "#b9a7e8", moonflower: "#e8e4f0", archivist_elf: "#6a5a9e", bard_elf: "#9d7bd8", lying_lawyer: "#3e5a8a" });
   Object.assign(SPRITE, { bard_artificer: "#c9a227", big_game_hunter: "#6b7f4e", burlesque_dancer: "#d44d7a", clown: "#e05a3a", mma_fighter_alternate: "#4a4a52", hermes: "#7ab8e0", kaikeyi: "#8e3b5c",
     "bard-artificer": "#c9a227", "big-game-hunter": "#6b7f4e", "burlesque-dancer": "#d44d7a", "mma-fighter-alternate": "#4a4a52" });   // fighter hot-builds wave 6 (Muse Berry BD, 2026-10-29); kebab keys RETURN-2 T-1
@@ -314,6 +320,8 @@
   for (const sprite of ["seedkeeper", "memorialist", "pearl_diver", "ferryman"]) SPRITE_FACES_RIGHT[sprite] = true;   // hot builds wave 5 (2026-10-24): eye-checked right on live files, zero mirrors; politician punch re-mirrored (wave 4 shipped it left)
   SPRITE_FACES_RIGHT["hot-pot-berserker"] = SPRITE_FACES_RIGHT.hot_pot_berserker = true;   // cut 2026-10-25 (staged-art/hot-pot-berserker-review): every pose faces right
   Object.assign(SPRITE, { "hot-pot-berserker": "#b5482f", chef: "#e4ded2", seedkeeper: "#d98a3a", memorialist: "#5a7a5a", pearl_diver: "#bfe3dd", ferryman: "#c9a959" });
+  Object.assign(SPRITE, { orgonite_trooper: "#c4a35a", leviathan_suit: "#3a6ea8", scale_firmware: "#a33a3a", white_jacket_gunner: "#e8e4dc", bronze_admin: "#b07a3a", horned_suit: "#8a2e3a",
+    "manavu-anti-gravity-soldier": "#c4a35a", "manavu-anti-gravity-blue": "#3a6ea8", "manavu-future-warrior-crimson-reptilian": "#a33a3a", "manavu-future-warrior-white-jacket-gunner": "#e8e4dc", "manavu-space-admin-bronze-hooded": "#b07a3a", "manavu-space-admin-crimson-horned": "#8a2e3a" });   // Posterity suits (Mala, 2026-11-04); facing unreviewed, default left until eye-checked
   // Dream monsters render under their full-path sprite key ("combat/sprites/dream-<key>"), which never hit the registry, so the ?? true default drew the left-facing art unflipped. Verified pose by pose; cast x7 + skeleton/vampire punch flipped left to match (Mala's screenshot via Muse-2, 2026-10-15).
   for (const m of ["frankenstein", "ghost", "mummy", "skeleton", "vampire", "werewolf", "zombie"]) SPRITE_FACES_RIGHT[`combat/sprites/dream-${m}`] = false;
   // Right-facing art that fell through to the left-facing default (Mala, 2026-10-17: Special Agent Grey shot away from
@@ -529,7 +537,7 @@
   // Face portraits for whoever is speaking (sprites/<folder>/face-<expression>.png; docs/conversational-cast.md).
   // faceFile falls back from the asked expression to neutral, then to null: the caller shows the battle sprite instead,
   // never someone else's face.
-  const FACE_ART = { "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"] };   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
+  const FACE_ART = { "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
   const faceFile = (sprite, expression = "neutral") => {
     if (sprite && sprite.startsWith("tsukumogami")) {   // Tsukumogami: every type shares the house mecha's five faces
       const has = ["neutral", "happy", "angry", "sad", "surprised"];
@@ -1938,6 +1946,35 @@
       };
       drawHome();
     }
+    function showCardTable(returnMode = "town", note = "") {   // Battle Cards (C6a): the Gambler's Card Table, off the square
+      stopAi(); U.mode = "cardtable";
+      const ov = $("ccOverlay"); ov.hidden = false;
+      const back = () => { if (returnMode === "busk") showBusk("town"); else showTown(); };
+      if (!CardsLoot || !CardsUI) { ov.innerHTML = `<div class="cc-card"><p>The table is bare.</p><button type="button" id="ccTableBack">Back</button></div>`; $("ccTableBack").onclick = back; return; }
+      const seed = U.account.battles || 0, stock = CardsLoot.tableStock(U.account, { seed });
+      const have = Object.entries(U.account.cardbook?.owned || {}).filter(([id, n]) => n > 0 && CardsLoot.byId(id)).sort((a, b) => CardsLoot.cardName(a[0]).localeCompare(CardsLoot.cardName(b[0])));
+      const KU = root.ConceptCombatKeeperUI, KM = root.ConceptCombatKeeperMemory;
+      const faces = stock.map((s) => { const c = CardsLoot.byId(s.id); return c ? CardsUI.face(c, { attr: `data-table-buy="${esc(s.id)}"`, disabled: !!s.sold, note: s.sold ? "SOLD." : `${s.price} Seeds · click to buy.` }) : ""; }).join("");
+      const sells = have.map(([id, n]) => { const c = CardsLoot.byId(id), v = CardsLoot.sell(U.account, id); return CardsUI.face(c, { attr: `data-table-sell="${esc(id)}"`, count: n, note: v.ok ? `Sell for ${CardsLoot.sellPrice(c)} · click to sell.` : v.reason }); }).join("");   // the face says what sell() will say: a decked or staged copy reads its refusal, not "click to sell" (Fathom AD pass 4; merge fix, 1.3.547)
+      ov.innerHTML = `<div class="cc-card cc-school"><header><div><h2>Card Table</h2><p class="cc-muted">${U.account.seeds || 0} Seeds · stock turns after each battle · duplicates sell at 40%</p></div><button type="button" id="ccTableBack">Back</button></header>
+        ${stock.length ? `<div class="cc-deck-grid">${faces}</div>` : `<p class="cc-muted">Come back after the next fight. Fresh ones turn up.</p>`}
+        ${have.length ? `<h3>Your collection</h3><div class="cc-deck-grid">${sells}</div>` : ""}
+        ${note ? `<p class="cc-hall-note" role="status">${esc(note)}</p>` : ""}</div>`;
+      $("ccTableBack").onclick = back;
+      ov.querySelectorAll("[data-table-buy]").forEach((x) => x.onclick = () => {
+        const r = CardsLoot.buy(U.account, x.dataset.tableBuy, stock, { seed });
+        if (!r.ok) { if (r.overCap) { KU?.say("err"); showCardTable(returnMode, r.reason); } else flashTip(r.reason); return; }   // no say("refuse") here: the Gambler's bank shares one refuse line with busking, and a shared line would speak out of turn
+        U.account = r.account; if (KM?.noteSpend) { U.account = KM.noteSpend(U.account, "gambler", r.price); } saveAccount();
+        KU?.say("buy", { item: CardsLoot.cardName(x.dataset.tableBuy) }); showCardTable(returnMode, `Bought: ${CardsLoot.cardName(x.dataset.tableBuy)}.`);
+      });
+      ov.querySelectorAll("[data-table-sell]").forEach((x) => x.onclick = () => {
+        const r = CardsLoot.sell(U.account, x.dataset.tableSell);
+        if (!r.ok) { flashTip(r.reason); return; }
+        U.account = r.account; saveAccount();
+        KU?.say("buy", { price: `${r.price} Seeds` }); showCardTable(returnMode, `Sold: ${CardsLoot.cardName(x.dataset.tableSell)}.`);
+      });
+      mountKeeper(ov, "cardtable", { counter: "cardtable" });   // the fold line answers the Talk button; the greeting speaks on entry
+    }
     function showBusk(returnMode = U.mode) {   // W6.5: the hat on the ground
       if (!BK) { flashTip("The square is empty."); return; }
       stopAi(); U.mode = "busk";
@@ -1948,9 +1985,10 @@
       const fame = Math.min(BK.RULES.fameMax, U.account.fame || 0);
       const bc = U.account.buskCycle, spent = bc && bc.cycle === (U.account.battles || 0) && bc.busked >= BK.RULES.perCycle;
       const diff = BK.crowdDiff(U.account.battles || 0, fame);
-      ov.innerHTML = `<div class="cc-card cc-school"><header><div><h2>Town square</h2><p class="cc-muted">Glamour ${glamour} · fame ${fame}${FM ? ` (${FM.tierName(fame)})` : ""} · room difficulty ${diff} · once a cycle · pays to ${BK.RULES.capTotal}</p></div><button type="button" id="ccBuskClose">Back</button></header>
+      ov.innerHTML = `<div class="cc-card cc-school"><header><div><h2>Town square</h2><p class="cc-muted">Glamour ${glamour} · fame ${fame}${FM ? ` (${FM.tierName(fame)})` : ""} · room difficulty ${diff} · once a cycle · pays to ${BK.RULES.capTotal}</p></div><span><button type="button" id="ccBuskTable">Card Table</button> <button type="button" id="ccBuskClose">Back</button></span></header>
         ${spent ? `<p class="cc-muted">The hat is full this cycle. Battle on.</p>` : `<button type="button" class="cc-primary" id="ccBuskGo">Busk</button> <span class="cc-muted">Tiers ${[2, 4, 6, 8].map((t) => `${t}→${BK.tiers(t)}`).join(" · ")}</span>`}<div id="ccBuskOut"></div></div>`;
       $("ccBuskClose").onclick = back;
+      $("ccBuskTable").onclick = () => showCardTable("busk");   // Battle Cards (C6a): the Gambler's table sits in his square
       const go = $("ccBuskGo"), power = glamour + fame, losing = power < diff;   // the comparison busking.js makes: below the room is a tomatoed busk
       mountKeeper(ov, "square", { busk: { power, diff } });   // the Gambler (S2)
       if (spent) root.ConceptCombatKeeperUI?.say("refuse");
@@ -4965,6 +5003,13 @@
           const no = s.pactActive ? `${SM.data.summons[s.pactActive.line]?.name || "A summon"} already answers.` : (s.summonUsed || []).includes(id) ? "It has answered once this battle." : !at ? "No open tile beside you." : p.tempo < cost.apCost + tax ? `Needs ${cost.apCost + tax} action points.` : p.pf < pf ? `Needs ${pf} ΦF.` : (s.seeds || 0) < seeds ? `Needs ${seeds} Seeds.` : "";
           return { id: `pact:${id}`, pactLine: id, at, label: `Call: ${def.name} · ${cost.apCost + tax} AP · ${pf} ΦF · ${seeds} S`, why: no || `Pacted: no question, full bond, ${t.duration + (SM.data.rules.bondBonusDuration || 0) + (p.passives?.summonDurationAdd || 0)} turns.${rate ? ` Standing rate −${Math.round(rate * 100)}%.` : ""}`, off: !!no };
         }) : []),
+        ...((root.ConceptCombatEnemyDreams?.monsters && SM.callsPalace(p)) ? summonUnlocks().filter((id) => id.startsWith("enemyDream:")).map((id) => {
+          const def = root.ConceptCombatEnemyDreams.monsters[id.slice(11)];
+          if (!def || def.status !== "ready" || def.broodOnly) return null;
+          const cost = s.rules.enemySummons, can = E.dreamReadiness(s, p.id, id, summonUnlocks());
+          return { id: `dreamCall:${id.slice(11)}`, dreamKey: id, label: `Dream: ${def.name} · ${cost.apCost} AP · ${cost.phiCost} ΦF · ${cost.turns} turns`,
+            why: can.ok ? `${C.concepts[def.concept]?.name || def.concept} · ${def.drawback?.text || ""} Answers once a battle.` : can.reason, off: !can.ok };
+        }).filter(Boolean) : []),
         ...(PC && SM && s.pactActive && !s.actors[s.pactActive.summonId]?.defeated ? [{ id: "dismissPact", label: `Dismiss ${SM.data.summons[s.pactActive.line]?.name || "summon"} · free`, off: controlledId(s) !== s.pactActive.owner, why: controlledId(s) !== s.pactActive.owner ? "Only the caller dismisses the call." : "Send them home cleanly: builds standing toward the rate. Free, and keeps your turn." }] : [])];
       if (U.menu === "strike") return [...["head", "arms", "legs"].map((z) => ({ id: `aim:${z}`, aim: z, label: `Aim ▸ ${z} (+${s.rules.injury.aimAp} AP, −${Math.round(s.rules.injury.aimMiss * 100)}%)${U.strikeAim === z ? " · SET" : ""}`, why: "A called shot: a landed blow wounds that zone whatever the damage. Pick an effort below to throw it." })),
         { id: "aim:none", aimClear: true, label: `Aim ▸ none${!U.strikeAim ? " · SET" : ""}`, why: "Strike without a called shot: no extra AP and no added miss chance." },
@@ -5087,7 +5132,7 @@
         (U.menu === "root" && U.mode === "menu" && CS ? `<div class="cc-search"><input id="ccSearch" type="search" placeholder="Search commands  /" autocomplete="off" spellcheck="false" aria-label="Search commands" value="${esc(U.search || "")}"></div>${quickBarMarkup()}<div id="ccSearchResults" ${U.search ? "" : "hidden"}>${U.search ? searchResultsMarkup() : ""}</div>` : "") +
         `<div id="ccMenuRows" ${U.menu === "root" && U.search ? "hidden" : ""}>` +
         items.map((it, i) => it.fold ? foldMarkup(it, i) : `${it.group && it.group !== items[i - 1]?.group ? `<div class="cc-group">${esc(it.group)}</div>` : ""}<div class="cc-command-row${it.inFold ? " cc-in-fold" : ""}" data-help-i="${i}"><button type="button" title="${esc(menuHelp(it))}" class="cc-item ${i === U.menuIndex ? "on" : ""} ${it.cur ? "cur" : ""}${it.dim ? " cc-dim" : ""}" data-i="${i}" ${it.off ? "disabled" : ""}${it.dim ? " aria-disabled=\"true\"" : ""}>
-          ${it.x ? `<span class="cc-tier t-${it.x.m.tier}">${TIER[it.x.m.tier]}</span>` : ""}${esc(it.label)}${it.x ? `<span class="cc-cost">${it.x.m.tempoCost} AP · ${it.x.m.tier === "ultimate" && it.x.affordable && (controlledFighter(U.s)?.pf || 0) < it.x.m.cost ? "1 Inspiration for the ΦF" : `${it.x.m.cost} ΦF`}${lfLabel(it.x.m)}${it.x.m.tier === "ultimate" ? ` · ${U.s.rules.ultimateChargeMax} ULT` : ""}</span>` : ""}</button>${(() => { const key = U.mode === "menu" ? rowKey(it) : null; if (!key) return ""; const on = pins().includes(key); return `<button type="button" class="cc-pin ${on ? "on" : ""}" data-pin="${esc(key)}" title="${on ? "Unpin from" : "Pin to"} the quick bar" aria-label="${on ? "Unpin" : "Pin"} ${esc(cleanLabel(it.label))}">${on ? "★" : "☆"}</button>`; })()}</div>`).join("") + `</div>` +
+          ${it.x ? `<span class="cc-tier t-${it.x.m.tier}">${TIER[it.x.m.tier]}</span>` : ""}${esc(it.label)}${it.x ? `<span class="cc-cost">${freeFirstTag(it.x) ? `${freeFirstTag(it.x)}${lfLabel(it.x.m)}` : `${it.x.m.tempoCost} AP · ${it.x.m.tier === "ultimate" && it.x.affordable && (controlledFighter(U.s)?.pf || 0) < it.x.m.cost ? "1 Inspiration for the ΦF" : `${it.x.m.cost} ΦF`}${lfLabel(it.x.m)}${it.x.m.tier === "ultimate" ? ` · ${U.s.rules.ultimateChargeMax} ULT` : ""}`}</span>` : ""}</button>${(() => { const key = U.mode === "menu" ? rowKey(it) : null; if (!key) return ""; const on = pins().includes(key); return `<button type="button" class="cc-pin ${on ? "on" : ""}" data-pin="${esc(key)}" title="${on ? "Unpin from" : "Pin to"} the quick bar" aria-label="${on ? "Unpin" : "Pin"} ${esc(cleanLabel(it.label))}">${on ? "★" : "☆"}</button>`; })()}</div>`).join("") + `</div>` +
         (["move", "press", "jump", "climb", "target"].includes(U.mode) ? `<div class="cc-muted cc-hint">${U.mode === "move" ? "Click a blue tile; terrain and slope change the move cost." : U.mode === "jump" ? "Choose an amber landing tile; fall damage is halved." : U.mode === "climb" ? "Choose a purple ledge; climbing uses the main action." : U.sel && U.sel.self ? "Enter / click yourself to commit." : "Click a ringed tile to commit."} Esc cancels.</div>` : "");
       el.querySelectorAll(".cc-item[data-i]").forEach((b) => {
         b.onfocus = () => { U.menuIndex = +b.dataset.i; if (U.mode === "menu") { renderDetail(); draw(); } };
@@ -5415,6 +5460,7 @@
       if (U.menu === "drop") return act({ type: "dropItem", actor: "player", item: it.drop });
       if (U.menu === "cook") { const ok = act({ type: "cook", actor: "player", recipe: it.recipe }); if (ok) U.menu = "root"; return; }
       if (U.menu === "summons" && it.beastKey) return act({ type: "callBeast", actor: "player", key: it.beastKey, at: it.at });   // a learned beast: no summon question
+      if (U.menu === "summons" && it.dreamKey) return act({ type: "callDream", actor: "player", key: it.dreamKey, unlocked: summonUnlocks() });   // an unlocked dream: no question either (the engine reads costs + once-only off battle state, not the act)
       if (U.menu === "summons" && it.pactLine) return act({ type: "callPact", actor: "player", line: it.pactLine, at: it.at });   // a pacted line: no question either (the engine reads the sign + standing off its battle-start book, not the act)
       if (U.menu === "summons" && it.id === "dismissPact") return act({ type: "dismissPact", actor: "player" });
       if (U.menu === "summons") return showSummonQuestion(it.summon);
@@ -6081,8 +6127,8 @@
       const all = Array.isArray(s.log) ? s.log : [], entries = U.reading && Number.isFinite(U.logCap) ? all.slice(0, U.logCap) : all;   // Slow pace: an AI action's lines show one at a time
       el.innerHTML = entries.length ? entries.map((e) => {
         const why = Array.isArray(e.why) ? e.why : [];
-        const priv = (e.kind === "cardPlay" || e.kind === "handShown" || e.kind === "cardDeck") && E.cards ? E.cards.logFor(s, e, controlledId(s)) : null;   // Battle Cards: the private line only for who may read it
-        if (e.kind === "cardDeck" && !priv) return "";
+        const priv = (e.kind === "cardPlay" || e.kind === "handShown" || e.kind === "cardDeck" || e.kind === "cardGlimpse") && E.cards ? E.cards.logFor(s, e, controlledId(s)) : null;   // Battle Cards: the private line only for who may read it
+        if ((e.kind === "cardDeck" || e.kind === "cardGlimpse") && !priv) return "";
         return `<li class="k-${esc(e.kind || "event")}">${esc(priv ? priv.text : (e.text || e.kind || "Combat event"))}${why.length ? `<div class="cc-why">${why.map((w) => esc(w).replace(/\[([a-z-]+)\]/g, (_, id) => `<a href="#" data-edge="${id}">${id}</a>`)).join("<br>")}</div>` : ""}</li>`;
       }).join("") : `<li class="cc-log-empty">Waiting for the first combat event…</li>`;
       el.querySelectorAll("[data-edge]").forEach((a) => a.onclick = (ev) => { ev.preventDefault(); openGraph(a.dataset.edge); });
@@ -6169,6 +6215,7 @@
                 ...(A.deedsFrom ? A.deedsFrom(U.s) : {}) };   // interaction perks S0: the deed fields (persuaded, sealed, weather, verbs, cook, commune, boss)
                 const boardJob = Board && U.account.board?.accepted ? (U.account.board.postings || []).find((m) => m.id === U.account.board.accepted) : null;
                 const boardSeeds = boardJob ? Board.settle(boardJob, boardRecord) : 0;
+                const boardCard = !testBattle() && boardJob?.card && Board.verify(boardJob, boardRecord).ok ? boardJob.card : null;   // Battle Cards (C6a): a constrained job pays its card in kind (test battles pay nothing)
                 const boardRoster = () => Object.entries(C.characters).filter(([id, ch]) => id !== "warden" && id !== "police_officer" && !ch.permanentAlly && !ch.randomEventOnly && Array.isArray(ch.configs)).map(([id]) => id);
                 const preNodes = (U.account.ownedNodes || []).length;
                 const result = Loot.finishBattle(U.account, { winner: U.s.outcome.winner, mode: U.s.mode, scenario: SCN?.tagOf(U.s) ?? null, random: !!SCN?.isRandomBattle(U.s), arena: SCN?.arenaOf(U.s) ?? null, jackpotSeeds: E.jackpotMeter ? E.jackpotMeter(U.s) : 0, vowsKept, showboat: dopeVoid > 0 ? 0 : showboat, enemiesDefeated: defeated.filter(a => !a.monster).length, foes: defeated.filter((a) => !a.mirrorOf && !a.soulOf && !a.clone && !a.summon).map((a) => a.character).filter(Boolean),   // copies drop no relics
@@ -6176,6 +6223,12 @@
           pvSeeds: pv.seeds, pvXp: pv.xp, pvCredits: pv.credits, pvMarks: pv.marks, pvLines: pv.lines, boardSeeds, titleTransfer, weighing, dopeLines, convertMarks: U.s.convertMarks || [], fragments: U.s.fragments || [] },
           { seed: U.s.seed, biome: U.s.arena?.biome || null, stakes: U.s.stakes?.state === "agreed" ? { ...U.s.stakes, held: U.stakeHeld } : null });
         U.account = { ...result.account, stakeEscrow: null }; U.reward = result; U.stakeHeld = null;   // the escrow is settled by finishBattle
+        if (CardsLoot && Cardbook && !testBattle()) {   // Battle Cards (C6a): a battle can leave a card; a constrained board job pays its card in kind (test battles: neither)
+          const cs = CardsLoot.settleCard(U.account, { winner: U.s.outcome.winner, foes: defeated.filter((a) => !a.mirrorOf && !a.soulOf && !a.clone && !a.summon).map((a) => a.character).filter(Boolean) }, { seed: U.s.seed });
+          for (const id of [cs.card, cs.relic, boardCard]) if (id) U.account = Cardbook.grant(U.account, id, 1);
+          U.reward.lines.push(...cs.lines);
+          if (boardCard) U.reward.lines.push(`Contract paid in kind: ${CardsLoot.cardName(boardCard)}.`);
+        }
         if (!testBattle()) U.account = root.ConceptCombatKeeperMemory?.noteBattle(U.account, { encounter: U.s.encounter, winner: U.s.outcome.winner }) || U.account;   // Rama remembers the Town Hall encounter you lost (npc/keepers.js rematch)
         if (U.packedVessels && SL && U.s.vessels) { SL.returnPouch(U.account.vessels || (U.account.vessels = { shard: 0, bead: 0, orb: 0 }), U.s.vessels); U.packedVessels = false; }   // vessel economy: unspent pouch vessels go home (packed battles only; thin-air pouches dissolve)
         if (root.ConceptCombatFruit && !testBattle() && !U.practiceBattle) { const hp = U.s.actors[U.s.modeSetup?.hero || "player"], ff = root.ConceptCombatFruit.settleFeats(U.account, { feats: U.s.fruitFeats || [], shapes: U.s.fruitShapes || [], won: U.s.outcome.winner === "player", shaped: !!(hp?.status?.hideShape && hp.status.hideShape.expiresAt > hp.ownerTurns), drained: !!U.s.fruitDrained, struck: !!U.s.fruitStruck }); U.account = ff.account; U.reward.lines.push(...ff.lines); }   // Sinkerfruit respec S1a: feats count in real battles only (off unless FR.RULES.respec)
@@ -6627,5 +6680,5 @@
       <ol class="cc-rush-roll">${names.map((n) => `<li><span aria-hidden="true">✓</span> ${esc(n)}</li>`).join("")}</ol>
       ${orbs.length ? `<p class="cc-rush-orbs"><b>Kept:</b> ${orbs.map(esc).join(" · ")}</p>` : ""}</section>`;
   }
-  root.ConceptCombatUI = { pickableConceptIds, lexiconSmall, lexiconText, lexiconMore, rushVictoryHtml, FOLLOW, followTarget, framePair, followable, camAt, camAlong, easeInOut, sceneMs, setPace, readingGapMs, createInspectorEngine, portraitSource, portraitMarkup, mindDuelMarkup, conversationMarkup, conversationScenes, learningScenes, auraPlacement: UI_auraPlacement, AURA_STANDING, FACE_ART, faceFile, SKY, skyFor, LEXICON_ART, lexiconOrder, statusMarks, WEATHER_ART, weatherTiles, heldPrices, HAZARD_ART, hazardFrame, SCENE_MS, menuBrief, menuRollover, apGate, apHead, defensiveResponsePrices, TEXT_SCENE_MS, DREAM_TIMELINE, dreamScenes, closeupScenes, boonScenes, arrivalScenes, eventScenes, pepTalkScenes, missedCallScenes, beliefScenes, heldBeliefScenes, BELIEF_TIMELINE, dodgeScene, DODGE_TIMELINE, scenePose, mount, modeAfterEngineAction, graphLayout, pickupPresentation, shouldFlipSprite, SPRITE_DIR };   // SPRITE_DIR: tools/check-sprite-facing.mjs
+  root.ConceptCombatUI = { pickableConceptIds, lexiconSmall, lexiconText, lexiconMore, rushVictoryHtml, FOLLOW, followTarget, framePair, followable, camAt, camAlong, easeInOut, sceneMs, setPace, readingGapMs, createInspectorEngine, portraitSource, portraitMarkup, mindDuelMarkup, conversationMarkup, conversationScenes, learningScenes, auraPlacement: UI_auraPlacement, AURA_STANDING, FACE_ART, faceFile, SKY, skyFor, LEXICON_ART, lexiconOrder, statusMarks, WEATHER_ART, weatherTiles, heldPrices, HAZARD_ART, hazardFrame, SCENE_MS, menuBrief, menuRollover, apGate, apHead, freeFirstTag, defensiveResponsePrices, TEXT_SCENE_MS, DREAM_TIMELINE, dreamScenes, closeupScenes, boonScenes, arrivalScenes, eventScenes, pepTalkScenes, missedCallScenes, beliefScenes, heldBeliefScenes, BELIEF_TIMELINE, dodgeScene, DODGE_TIMELINE, scenePose, mount, modeAfterEngineAction, graphLayout, pickupPresentation, shouldFlipSprite, SPRITE_DIR };   // SPRITE_DIR: tools/check-sprite-facing.mjs
 })(typeof self !== "undefined" ? self : this);

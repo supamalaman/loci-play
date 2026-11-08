@@ -101,6 +101,45 @@
       // `kind === "perform"` (an inspired ultimate, a sequel on prestige, an answer paid in Inspiration) is tallied per actor for Fame (FAME.md section 15,
       // Mala 2026-11-02): the AI's previews never count, and a vow or a Warden's embodiment is not a performance.
       spend(s, a, n, kind) { if (n <= 0) return true; if (this.of(a) < n) return false; a.inspiration = this.of(a) - n; if (kind === "perform" && !s.preview) { const t = (s.inspirationPerformed ||= {}); t[a.id] = (t[a.id] || 0) + n; } return true; },
+      // Hotbuild cash events (HOTBUILDS.md 1c; W0c): a cash earns +1 Inspiration, at most once a round,
+      // never over the cap, announced with the character's own line. Stamps only on an actual gain: cashing
+      // at the cap fizzles and the round stays unspent. No hotbuild character exists yet, so only tests call
+      // it; a Crescendo spends through spend() above, which already exists. Previews run on a clone, so the
+      // stamp never leaks (no s.preview check: the gain must show in preview deltas like every other gain).
+      cash(s, a, line) {
+        if (!a || a.defeated || !s.rules.inspiration) return 0;
+        if (this.of(a) >= this.cap(s)) return 0;
+        if ((a.cashRound || 0) >= (s.round || 1)) return 0;
+        if (!this.gain(s, a, 1, `${a.name} cashes in.`)) return 0;
+        a.cashRound = s.round || 1;
+        if (line) log(s, { kind: "quote", actor: a.id, quote: line, text: `${a.name}: “${line}”` });
+        return 1;
+      },
+      // Crescendo (HOTBUILDS.md 1c; Mala, 2026-11-04: "build the Crescendo bend now"): a technique that carries `crescendo: { free: [abilityIds], answer: bool }` spends 1 Inspiration when it is
+      // cast and BENDS one rule of its kit: `free` = the first cast of each listed technique this turn costs 0 AP, 0 ΦF and no LF price (never an ultimate, never another Crescendo); `answer` =
+      // the next reactive answer, until the end of next round, is not rushed (it catches all, as if prepared) and spends no reaction. One Crescendo at a time. The part is mechanism: no hotbuild
+      // character carries the flag yet (W1+), and the AI's price term for a freed cast is not built (it scores a freed cast at full price, so it never over-values the bend).
+      crescendoCost: (s) => s.rules.inspiration?.crescendoCost ?? 1,
+      crescendoLive(s, a) { const c = a?.status?.crescendo; if (!c) return false; return ((c.free || []).some((id) => !c.freeUsed?.[id]) && (a.ownerTurns || 0) === c.turn) || (!!c.answer && !c.answerUsed && (s.round || 1) <= c.round + 1); },
+      crescendoRefuses(s, a, m) {
+        if (!m?.crescendo) return null;
+        if (m.tier === "ultimate") return `${m.name} is an ultimate: a Crescendo is never an ultimate (its Inspiration is the price, not the ultimate's ΦF).`;
+        const need = this.crescendoCost(s);
+        if (this.of(a) < need) return `${m.name} takes ${need} Inspiration; you have ${this.of(a)}.`;
+        if (this.crescendoLive(s, a)) return "Your Crescendo is already in force.";
+        return null;
+      },
+      crescendoArm(s, a, m) {
+        const need = this.crescendoCost(s); if (!this.spend(s, a, need, "crescendo")) return;
+        const bend = m.crescendo; (a.status ||= {}).crescendo = { id: m.ability, name: m.name, turn: a.ownerTurns || 0, round: s.round || 1, free: [...(bend.free || [])], freeUsed: {}, answer: !!bend.answer, answerUsed: false };
+        log(s, { kind: "inspiration", actor: a.id, spent: need, crescendo: m.ability, text: `${a.name} spends ${need} Inspiration on a Crescendo: ${m.name}.`,
+          why: [bend.free?.length ? `The first cast of each of ${bend.free.join(", ")} this turn is free (no AP, ΦF or LF price).` : null, bend.answer ? "The next reactive answer, until the end of next round, is not rushed and spends no reaction." : null].filter(Boolean) });
+      },
+      // A free cast: true once per listed technique per turn while the bend is in force. `m` is the fresh manifest; the commit stamps it spent (previews run on a clone, so nothing leaks).
+      crescendoFree(s, a, abilityId, m) { const c = a?.status?.crescendo; return !!c && (a.ownerTurns || 0) === c.turn && (c.free || []).includes(abilityId) && !c.freeUsed?.[abilityId] && m.tier !== "ultimate" && !m.crescendo; },
+      crescendoFreeUsed(a, abilityId) { const c = a?.status?.crescendo; if (c) (c.freeUsed ||= {})[abilityId] = true; },
+      crescendoAnswer(s, d) { const c = d?.status?.crescendo; return !!c && c.answer && !c.answerUsed && (s.round || 1) <= c.round + 1; },
+      crescendoAnswerUsed(d) { const c = d?.status?.crescendo; if (c) c.answerUsed = true; },
       // Never Give Up (docs/inspired-ultimates.md §3): one seeded roll each turn start, likelier with hardship (LF lost, allies
       // fallen, a long battle), capped. A gain comes with one line of his; "avenge" once an ally has fallen, no line twice in a row.
       fallenAllies: (s, a) => Object.values(s.actors).filter((u) => u.id !== a.id && u.side === a.side && u.defeated && !u.wild && !u.dream && u.ai !== "summon").length,

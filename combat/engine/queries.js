@@ -10,7 +10,7 @@
   return (function () {
     const { EnemySummons, C, ClassRuntime, DIRS, EM, EmergentIdeas, Parley, Vows, ab, abilitiesOf, actorAt, apply, barrierAt, classH, clone, currentId, dist, dreamSame, dreamSpaceRules,
       effectiveRange, heightAt, inside, isMonster, key, manifest, monsterCtx, moveBudgetFor, movementTempoCost, ownerOfConcept, paths, target, tileAt,
-      unitAt, usableRamp, wildRules, grappled } = H;
+      unitAt, usableRamp, wildRules, grappled, summonRules, summonProfile } = H;
     // defined by parts installed after this one: reached through H when called
     const candidates = (...args) => H.candidates(...args);
 
@@ -183,7 +183,19 @@
       const n = s.rules.inspiration?.ultimatePoint; if (!n) return false;   // 0/false switches the rule off (sims)
       return m?.tier === "ultimate" && (a.pf || 0) < m.cost && (a.inspiration || 0) >= n && (a.ultimateCharge || 0) >= s.rules.ultimateChargeMax;
     }
-    function availableAbilities(s, id) {
+    // Free first use (HOTBUILDS.md 1b; W0b): the first use in the span costs 0 action points and 0 ΦF.
+    // Returns the span when this use is free, falsy otherwise. Ultimates never ride, whatever the def says.
+    // The flag reads off the def (engine.js is at its char cap, so no manifest carry).
+    function freeFirstFree(a, m) {
+      if (!a || !m || m.tier === "ultimate") return false;
+      const def = ab(m.ability), flag = def?.freeFirst;
+      // freeFirstFor: a shared def (focus is Bastet's too) names the characters the free use belongs to (HOTBUILDS.md section 2: the Hypnotist's). Merge fix, 1.3.546.
+      if (Array.isArray(def?.freeFirstFor) && !def.freeFirstFor.includes(a.character)) return false;
+      if (flag === "turn") return (a.freeTurns || {})[m.ability] === a.ownerTurns ? false : "turn";
+      if (flag === "battle") return (a.freeBattle || {})[m.ability] ? false : "battle";
+      return false;
+    }
+    function availableAbilities(s, id, opts = {}) {
       const a = s.actors[id];
       const ids = abilitiesOf(a);   // includes anything learned by watching, for every class (tests/learned.test.mjs)
       return ids.map((abId) => {
@@ -193,8 +205,24 @@
         const contract=H.Contracts?.status(s,a,abId);
         const collateral = !!H.Tally && H.Tally.held(s, a) === abId;   // the ledger boss holds it (engine/tally.js)
         const blocked = H.fruitBlocked?.(s, a, abId) || null;   // Sinkerfruit: the sea takes it (engine/fruit.js)
-        return { id: abId, m, contract, source: ownerOfConcept(a, m.concept), ...(collateral ? { collateral: true } : {}), ...(blocked ? { blocked } : {}), affordable: !blocked && (!contract||contract.ready) && !collateral && !a.quickenedSpent?.[abId] && !(m.lfPrice && a.lf <= m.lfPrice) && (a.pf >= m.cost || inspiredPay(s, a, m)) && (a.tempo >= m.tempoCost || ["damage", "field"].includes(m.effect)) && ultimateReady, revealed: !!s.disclosures[id][abId] };
-      });
+        const ff = freeFirstFree(a, m), ffOn = !!ff;
+        return { id: abId, m, contract, source: ownerOfConcept(a, m.concept), ...(collateral ? { collateral: true } : {}), ...(blocked ? { blocked } : {}), ...(ff ? { freeFirst: ff } : {}), affordable: !blocked && (!contract||contract.ready) && !collateral && !a.quickenedSpent?.[abId] && !(m.lfPrice && a.lf <= m.lfPrice) && !((ab(abId)?.inspirationPrice || 0) > (a.inspiration || 0)) && (a.pf >= m.cost || inspiredPay(s, a, m) || ffOn) && (a.tempo >= m.tempoCost || ["damage", "field"].includes(m.effect) || ffOn) && ultimateReady, revealed: !!s.disclosures[id][abId] };
+      }).filter((x) => opts.answers || !ab(x.id)?.answerOnly);   // answer-only techniques (Fixed Gaze) are not own-turn casts: the menu never offers them, the window asks with { answers: true } (triage 2026-11-04)
+    }
+
+    // The live Fixed foe (hotbuilds W1b): the Focus mark's target while it holds (cast or earned; the mark is
+    // never cleared, so expiry is read, not swept — ledgers.js hit()). A dead mark is no mark. Fixed Gaze (primed)
+    // and the Entrainer AI checks read this one helper.
+    function fixedFoe(s, a) {
+      const f = a?.focus, t = f && s.actors?.[f.target];
+      if (!t || t.defeated) return null;
+      if (!((f.expiresAt ?? 99) > (a.ownerTurns ?? 0))) return null;
+      return t.id;
+    }
+    // Both marks (hotbuilds W1c): Second Gaze holds a second foe beside the first; either primes.
+    function fixedFoes(s, a) {
+      const live = (f) => { const t = f && s.actors?.[f.target]; return t && !t.defeated && (f.expiresAt ?? 99) > (a.ownerTurns ?? 0) ? t.id : null; };
+      return [live(a?.focus), live(a?.focusSecond)].filter(Boolean);
     }
 
     // Belief is a rare, seed-stable opportunity: repeated AI evaluation during one turn
@@ -269,6 +297,30 @@
       const a = s.actors[id];
       return (a?.passives?.questionHint || 0) + (s.summonHintCount || 0) + (EmergentIdeas?.rehearsalHints(a) || 0) + (key ? s.summonHints?.[id]?.[key] || 0 : 0);
     }
-    return { decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints };
+    function dreamReadiness(s, id, key, unlocked = s.unlockedSummons || []) {
+      const actor = s.actors[id];
+      if (!actor || actor.defeated || actor.lf <= 0) return { ok: false, reason: "Choose a living summoner." };
+      if (actor.form?.golden) return { ok: false, reason: "The Integrated Self has no need to summon." };
+      if (!summonRules || !dreamSpaceRules?.makeEnemyDreamActor) return { ok: false, reason: "Summoning is unavailable." };
+      if (!summonRules.callsPalace(actor)) return { ok: false, reason: "Only the player's side calls dreams." };
+      const bare = typeof key === "string" && key.startsWith("enemyDream:") ? key.slice(11) : null;
+      const def = bare ? dreamSpaceRules.enemyMonsterPool(99, [bare])[bare] : null;
+      if (!def || def.broodOnly) return { ok: false, reason: "No such dream." };
+      if (!unlocked.includes(key)) return { ok: false, reason: `${def.name} has not joined you: unlock it first.` };
+      if ((s.dreamUsed || {})[`${id}:${bare}`]) return { ok: false, reason: `${def.name} has answered once this battle already.` };
+      const profile = summonProfile(s, id);
+      if (profile.active.length >= profile.maxActive) return { ok: false, reason: profile.maxActive === 1 ? "Another summon is already on the field." : `Your ${profile.maxActive} summon slots are already occupied.` };
+      const cost = s.rules.enemySummons;
+      if (actor.tempo < cost.apCost) return { ok: false, reason: `Calling needs ${cost.apCost} action points.` };
+      if (actor.pf < cost.phiCost) return { ok: false, reason: `Calling needs ${cost.phiCost} ΦF.` };
+      return { ok: true, duration: cost.turns };
+    }
+    function proficientSummonerTestOptions() {
+      return { encounter: "firstWall", focusedDreamTest: true, proficientSummonerTest: true, title: "Proficient Summoner · emergent idea test", seed: 43, startingActor: "player", initialSummons: [],
+        arenaData: { name: "Emergent Ideas test", map: Array(7).fill("..........."), objects: [] },
+        participants: [{ id: "player", character: "warden", side: "player", at: [3,3] }, { id: "student", character: "student", side: "enemy", at: [9,3] }],
+        loadouts: { player: { primary: "barrier", secondary: "imagination", reserve: ["elasticity"], traits: ["fullBeliever"] } } };
+    }
+    return { decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints, freeFirstFree, fixedFoe, fixedFoes, dreamReadiness, proficientSummonerTestOptions };
   })();
 });

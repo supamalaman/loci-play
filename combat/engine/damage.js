@@ -243,6 +243,18 @@
       }
     }
     // Final per-target resolution: multiply once, round once, then ward absorbs, then LF.
+    // Gentle Hand (hotbuilds W1a): the first lethal blow a carrier lands on each foe leaves that foe at
+    // 1 LF, once per foe per battle. Runs before beforeDefeat/transmigrate: mercy preempts survival drama.
+    function gentleSpare(s, src, tgt) {
+      if (!src || src.id === tgt.id || src.side === tgt.side || !H.hasTrait(src, "gentleHand") || tgt.gentled) return false;
+      tgt.lf = 1; tgt.gentled = true;
+      log(s, { kind: "spare", actor: src.id, target: tgt.id, text: `${src.name} stays his hand: ${tgt.name} is left at 1 LF.` });
+      return true;
+    }
+    // The Look needs no trigger here: actor.js afterHit already rolls it for every theLook carrier
+    // (10% per damaging move, once per enemy per turn, reaction eaten outright). A second roll here
+    // would double the rate for the Actor (triage 2026-11-04); the Hypnotist gets the Look by holding
+    // the trait, and the tests pin the shared trigger, not a new one.
     function hit(s, src, tgt, inst, potency, why, opts = {}) {
       if (tgt && inst?.answeredBy?.includes(tgt.id)) { log(s, { kind: "negate", actor: src?.id, target: tgt.id, answered: true, text: `${inst.name} meets ${tgt.name}'s answer and is gone.` }); return 0; }   // My Answer Has Changed (window.js castAnswer)
       if(src&&inst&&H.Contracts&&!H.Contracts.allowed(s,src,inst))return 0;
@@ -498,6 +510,7 @@
         w.protection -= absorbed; dmg -= absorbed;
         notes.push(`${w.label || "Fortress ward"} absorbs ${absorbed} (${w.protection} left).`);
         if (w.protection <= 0) { tgt.status.ward = null; notes.push("The ward breaks."); }
+        else if (w.gazeCover) { tgt.status.ward = null; notes.push("The projected gaze spends itself on the one shot."); }   // W1c cover: a projection stops one shot even when it has protection to spare
       }
       const collageWard=activeTerrainEffect(s,"pastedFragment",tgt.x,tgt.y);
       if(collageWard?.fragment?.kind==="wallProtection10"&&dmg>0){const absorbed=Math.min(collageWard.fragment.value?.protection||10,dmg);dmg-=absorbed;collageWard.fragment.value.protection=(collageWard.fragment.value.protection||10)-absorbed;notes.push(`Pasted wall fragment absorbs ${absorbed} damage (${collageWard.fragment.value.protection} protection remains).`);if(collageWard.fragment.value.protection<=0)s.terrainEffects=s.terrainEffects.filter(e=>e!==collageWard);}
@@ -624,7 +637,7 @@
         log(s, { kind: "summon", actor: tgt.id, text: `${tgt.name} storms home: struck by its own caller. The pact is BROKEN.` });
       }
       if (dmg > 0 || warded > 0) H.fruitAfterHit?.(s, src, tgt, damageType, inst, { dmg, warded, wardHide });   // Sinkerfruit (respec S2a, S1b): Ripe Coilfruit answers an impact hit; the hide and the borrowed move earn feats
-      if (tgt.lf <= 0 && !tgt.defeated && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt)) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
+      if (tgt.lf <= 0 && !tgt.defeated && !gentleSpare(s, src, tgt) && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt)) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
         tgt.defeated = true; delete tgt.status.playingDead; tgt.defeatedBy = src && src.id !== tgt.id ? src.id : null; for (const e of (H.Sealing?.onSealerDown?.(s, tgt) || [])) log(s, { kind: "seal", actor: e.foe, text: e.text });   // the killer, for the corpse (ritual burial; revenge later)   // W2.3: a dead sealer's binds drop
         H.pactLeave(s, tgt);   // a pact summon falls: downed, no standing; kill the caller: the call ends
         { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onDeath?.(s, tgt, src && src.id !== tgt.id ? src.id : null, H); }   // group spirit: a fallen leader shocks now (SPIRIT-ORDER SPEC)

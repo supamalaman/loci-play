@@ -32,14 +32,16 @@
       const mastered = !!s.rules.mastery && (a.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === s.rules.mastery.trait);
       if (m.tier === "ultimate" && !mastered && (a.ultimateCharge || 0) < s.rules.ultimateChargeMax) return `Setting ${m.name} needs a full ultimate bar (have ${a.ultimateCharge || 0}).`;   // MCR-04: the bar is validated (and paid) at set
       const detailTax = hasTrait(a, "attentionToDetail") && m.effect === "barrier" ? 5 : 0;
-      if (a.tempo < m.tempoCost + detailTax) return `${m.name} needs ${m.tempoCost + detailTax} action points to set (have ${a.tempo}).`;
-      if (a.pf < m.cost) return `Needs ${m.cost} ΦF to set (have ${a.pf}).`;
+      const freeFirst = H.freeFirstFree?.(a, m);   // W0b: the set IS the use (reveal spends nothing further), so a free first use sets free (triage 2026-11-04)
+      if (!freeFirst && a.tempo < m.tempoCost + detailTax) return `${m.name} needs ${m.tempoCost + detailTax} action points to set (have ${a.tempo}).`;
+      if (!freeFirst && a.pf < m.cost) return `Needs ${m.cost} ΦF to set (have ${a.pf}).`;
       const n0 = s.log.length;
-      const spend = spendTempo(s, a, m.tempoCost + detailTax, "Set face-down");
-      if (spend) return spend;
+      if (!freeFirst) { const spend = spendTempo(s, a, m.tempoCost + detailTax, "Set face-down"); if (spend) return spend; }
       for (const e of s.log.slice(n0)) if (e.kind === "tempo") e.text = `${a.name} spends action points on Set face-down.`;   // MCR-05: the set's spend prints no cost or remainder (redacted here; engine.js is at its size cap)
-      a.pf -= m.cost;
+      if (!freeFirst) a.pf -= m.cost;
       if (m.tier === "ultimate" && !mastered) a.ultimateCharge -= s.rules.ultimateChargeMax;   // MCR-04: bar paid at set, silently (the count-only set line covers it); reveal spends nothing further
+      if (freeFirst === "turn") (a.freeTurns ||= {})[ability] = a.ownerTurns;   // free-first stamps at set, like commit
+      if (freeFirst === "battle") (a.freeBattle ||= {})[ability] = true;
       spent[a.side] = (spent[a.side] || 0) + 1;
       mine.push({ unitId: a.id, side: a.side, ability, trigger, target: target ?? null, setRound: s.round || 1, age: 0 });
       log(s, { kind: "mystery", actor: a.id, text: `${a.name} sets a face-down card (${mine.length} down).`, why: ["Paid now, triggers later. The table sees a count, never contents."] });

@@ -71,7 +71,12 @@
 
   // Gates by id (FAMILIARS.md 12.1): nothing reads a position in `order` for a familiar's gate under the token model, so a twelfth id appended
   // by reconcileOrder cannot inherit the wrong level. The eleven values are today's positions in unlockLevels (a test pins that they agree).
-  const isFamiliar = (id) => typeof id === "string" && Object.prototype.hasOwnProperty.call(familiarGates, id);
+  // Dream gates (DREAM-FAMILIARS.md section 3, D1; decided 2026-11-05): the 7 ready enemy-dreams, keyed by bare key. Picks carry
+  // them prefixed (`enemyDream:<key>`) in the one interleaved list, so the T5 strip crosses palace and dream picks in choose order.
+  const dreamGates = { ghost: 4, skeleton: 6, zombie: 8, mummy: 12, vampire: 16, werewolf: 20, frankenstein: 24 };
+  const dreamKey = (id) => typeof id === "string" && id.startsWith("enemyDream:") ? id.slice(11) : null;
+  const gateOf = (id) => familiarGates[id] ?? dreamGates[dreamKey(id)];
+  const isFamiliar = (id) => typeof id === "string" && (Object.prototype.hasOwnProperty.call(familiarGates, id) || Object.prototype.hasOwnProperty.call(dreamGates, dreamKey(id)));
   const familiarGates = { mitsuko: 1, perimeter_guardian: 2, napoleon: 3, the_king: 5, genghis_khan: 7, zherm: 9, kobe: 11, aristotle: 13, little_king: 16, inner_child: 20, goethe: 22 };
 
   function hash(str) {
@@ -236,14 +241,17 @@ const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder,
     return { tokens, picks, lastPick, done: f.done !== false };
   }
   // T2 gate, T3 no double buy; the first pick of a new account (done false) may only be a level-1 familiar.
+  // Dreams (D1) buy through the same till with dream-worded reasons; the brood mite is bead-caught, never bought.
   function buyFamiliar(account, id) {
     const f = account.familiars;
     if (!f) return { error: "This account does not use familiar tokens." };
+    if (id === "enemyDream:broodMite") return { error: "The Brood Mite is taken into a bead, not bought with a token." };
     if (!isFamiliar(id)) return { error: "No such familiar." };
-    if (account.unlocked.includes(id) || f.picks.includes(id)) return { error: "That familiar is already in your palace." };
+    const dream = dreamKey(id) !== null;
+    if (account.unlocked.includes(id) || f.picks.includes(id)) return { error: dream ? "That dream is already yours." : "That familiar is already in your palace." };
     if (f.tokens < 1) return { error: "No familiar token to spend." };
-    const gate = familiarGates[id];
-    if (gate > (account.level || 1)) return { error: `That familiar opens at level ${gate}.` };
+    const gate = gateOf(id);
+    if (gate > (account.level || 1)) return { error: `That ${dream ? "dream" : "familiar"} opens at level ${gate}.` };
     if (!f.done && gate > 1) return { error: "Your first familiar is one of the level 1 offer." };
     const familiars = { tokens: f.tokens - 1, picks: [...f.picks, id], lastPick: { id, battles: account.battles }, done: true };
     const next = { ...account, familiars };

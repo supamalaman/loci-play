@@ -961,6 +961,13 @@
       ],
       "source": "boss:dragon"
     },
+    "fixedGaze": {
+      "riders": [
+        "barrier",
+        "reactive",
+        "ward"
+      ]
+    },
     "fixInPlace": {
       "riders": [
         "class:hold",
@@ -2208,6 +2215,11 @@
         "class:buff"
       ]
     },
+    "secondGaze": {
+      "riders": [
+        "focus"
+      ]
+    },
     "secondNature": {
       "riders": [
         "class:buff"
@@ -2924,6 +2936,12 @@
     investFuture: {riders:["class:ltInvest"]},
     theFutureArrives: {riders:["class:ltCall"]},
     farContract: {riders:["class:ltContract"]},
+    orgoniteLance: {riders:["class:suitLance","announced"]},
+    dreamCircuit: {riders:["class:suitCircuit","announced"]},
+    dreamForge: {riders:["class:suitForge","announced"]},
+    posterityRaster: {riders:["class:suitRaster","announced"]},
+    farOrder: {riders:["class:suitOrder","announced"]},
+    summonedMandate: {riders:["class:suitMandate","announced"]},
     courtCall: {riders:[],source:"boss:worldGoddess"},
     courtClose: {riders:[],source:"boss:worldGoddess"},
     theEarthSpeaks: {riders:[],source:"boss:worldGoddess"},

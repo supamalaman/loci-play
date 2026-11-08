@@ -10,16 +10,20 @@
 //   Cards.play(s, a, act)                the `playCard` act: stamp, log, resolve the closed effect menu. Costs NO AP, NO phi, NO reaction.
 //   Cards.showHand(s, a)                 the `showHand` act (section 18.4): tell the aware foes in sight what is left, for a small damage edge
 //   Cards.showOptions(s, id)             the Show your hand row, from what the viewer may know (a skeptic is public; a believer only if open/observed)
+//   Cards.aiPick(s, actor)               C5: the AI's card step ({ act, necessity, goal } or null); own options only, never a foe's hand
+//   Cards.buildEnemyDeck(a, { seed })   C5: a deterministic auto-built deck ({ deck, cap }) for an eligible human enemy
+//   Cards.eligible(a)                    C5: the auto-deck gate (enemy side, concept pair, no boss/monster/civilian/summon/familiar; a sealed fight is excluded by encounter)
 //   Cards.viewFor(s, observerId, ownerId)  what an observer may know of an owner's cards: null unless same side, or aware AND perceiving
 //   Cards.logFor(s, entry, viewerId)     a log entry's private text ({ text, id }) for a viewer who may read it, else null
 //   Cards.aware(unit)                    believer-class (section 18.3)
 //   Cards.zoneTiles(s)                   C4: every zone's tiles, for the ground highlight
 //   Cards.sweep(s) / Cards.zoneTick(s)   C4: grant and take back every zone's hidden rows (States calls it at turn start and after every action) / tick the zones down at round end
 //   Cards.familiarTurn(s, a)             C3: a card familiar's whole turn (scripted: strike or ward by its card, then it ends); turns.js calls it, no act reaches it
+//   Cards.glimpse(s, obs, owner, studyAp) C7: an aware Observer's study of a deck holder learns the kinds (kindsAp), one name (that card's rip price) or the whole unused list (allAp); private, never public
 //   Cards.ripAp(entry)                   C2: the study AP an Observe needs to rip a set card open (more for a more powerful card)
 //   Cards.resolveSet(s, a, entry, target, why, ctx)   C2: a face-down SET card fires (called by Mystery's fireCard, never by an act): returns the reason it holds, or null
 //
-// State (plain JSON): s.cardplay = { by: { <actorId>: { deck: [{ id, used, usedRound }], turnStamp, played, shown, shownAt, shownTo: [ids] } },
+// State (plain JSON): s.cardplay = { by: { <actorId>: { deck: [{ id, used, usedRound, proto }], turnStamp, played, shown, shownAt, shownTo: [ids] } },
 //   priv: { <log index>: { owner, text, id, seenBy: [ids] } }, depth: 0, zones: [] }. The deck belongs to the ACTOR (not the side).
 // Rules this part keeps (tested): a card never plays a card; playCard is callable only from the action door; no response window opens and
 // no reaction is spent; the card id and name never enter a public log entry (kind "cardPlay" carries a generic line; the name lives in
@@ -62,6 +66,14 @@
       for (let i = s.log.length - 1; i >= from; i--) { const e = s.log[i]; if (e.kind === "damage" && e.target === a.id && (e.lfLost > 0 || e.amount > 0)) return true; }
       return false;
     }
+    // Flower S1: the fish cap, the same formula fishRound spawns under (engine/conditions.js).
+    function fishCap(s) {
+      const R = s.rules.fish; if (!R) return 0;
+      let water = 0;
+      for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) if (H.waterAt(s, x, y)) water++;
+      return Math.min(R.max, Math.max(1, Math.floor(water / R.tilesPerFish)));
+    }
+    const spawnsFish = (card) => card.effects.some((e) => e.key === "spawnFish");
     function targetsOf(s, a, card) {
       const range = card.range || dat().rules.defaultRange, c = card.condition, out = [];
       if (card.kind === "field") {   // C4: a zone is centred on any tile within the zone reach of its owner, in the same Dream region (CARDS.md 4.4)
@@ -75,6 +87,15 @@
         return card.target === "self" ? out.filter((p) => p[0] === a.x && p[1] === a.y) : out;
       }
       if (card.target === "tile") {
+        if (spawnsFish(card)) {   // Still Water: open water in range — standing water with no fish on it yet
+          if ((s.fish || []).length >= fishCap(s)) return out;
+          for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) {
+            if (dist(s, a.x, a.y, x, y) > range || !H.waterAt(s, x, y) || (s.fish || []).some((f) => f.x === x && f.y === y)) continue;
+            if (!H.dreamSame(s, a.x, a.y, x, y)) continue;
+            out.push([x, y]);
+          }
+          return out;
+        }
         for (const u of Object.values(s.actors)) if (u.id !== a.id && !u.defeated && !u.escaped && !u.notArrived && concealed(u) && dist(s, a.x, a.y, u.x, u.y) <= range && H.dreamSame(s, a.x, a.y, u.x, u.y)) out.push([u.x, u.y]);
         return out;
       }
@@ -204,11 +225,12 @@
       if (!live()) return "Battle cards are not in play.";
       if (!by) return "You carry no battle deck.";
       if (!a || a.defeated || a.escaped) return "A defeated unit plays no cards.";
+      if (H.Instinct?.lying(a)) return "Stand up first (10 AP).";   // Survival Instincts: a lying unit only stands, ends its turn or waits (actions.js refuses every other act), so it has no ready card either
       if (s.phase !== "action" || H.currentId(s) !== a.id) return "It is not your turn.";
       { const no = H.States?.refuses(s, a, { type: "playCard" }); if (no) return no; }
       const entry = by.deck[index]; if (!entry) return "That is not a card in your deck.";
       const card = L.byId(entry.id);
-      if (!card || card.status !== "live") return "That card is no longer in the game.";
+      if (!card || (card.status !== "live" && !entry.proto)) return "That card is no longer in the game.";
       if (!dat().rules.liveKinds.includes(card.kind)) return `${dat().kinds[card.kind].label} cards are not playable yet.`;
       if (entry.used) return `Played in round ${entry.usedRound}.`;
       if (by.turnStamp === a.ownerTurns) return "One card per turn: you already played one.";
@@ -228,9 +250,12 @@
         if (!Array.isArray(target) || !legal.some((p) => p[0] === target[0] && p[1] === target[1])) return what;
       } else if (card.target === "foe" || card.target === "tile") {
         const legal = targetsOf(s, a, card);
-        if (!legal.length) return card.target === "tile" ? `No concealed unit within ${card.range || dat().rules.defaultRange}.` : `No foe in reach and in sight.`;
+        if (!legal.length) {
+          if (card.target === "tile" && spawnsFish(card)) return (s.fish || []).length >= fishCap(s) ? "The water is fished out." : "No open water there.";
+          return card.target === "tile" ? `No concealed unit within ${card.range || dat().rules.defaultRange}.` : `No foe in reach and in sight.`;
+        }
         if (target) {
-          if (!Array.isArray(target) || !legal.some((p) => p[0] === target[0] && p[1] === target[1])) return card.target === "tile" ? "Choose a concealed unit within range." : "Choose a foe in range and in sight.";
+          if (!Array.isArray(target) || !legal.some((p) => p[0] === target[0] && p[1] === target[1])) return card.target === "tile" ? (spawnsFish(card) ? "No open water there." : "Choose a concealed unit within range.") : "Choose a foe in range and in sight.";
         } else return "Choose a target.";
       }
       return null;
@@ -259,6 +284,16 @@
           const potency = e.potency + showBonus(s, a, t, e.potency);
           hit(s, a, t, instOf(e.type), potency, [], { label: "A blow", damageType: e.type });
         } else if (e.key === "push") { if (t && !t.defeated) knock(s, a, t, e.tiles, instOf("nigredo"), "push"); }
+        else if (e.key === "pullTowardWater") { if (t && !t.defeated) knock(s, a, t, e.tiles, instOf("nigredo"), "pull"); }
+        else if (e.key === "spawnFish") {
+          const [x, y] = target || [];
+          if (x == null || !H.waterAt(s, x, y) || (s.fish || []).some((f) => f.x === x && f.y === y) || (s.fish || []).length >= fishCap(s)) {
+            log(s, { kind: "effect", actor: a.id, tiles: target ? [target] : [[a.x, a.y]], text: "The lure finds no water." });
+          } else {
+            (s.fish ||= []).push({ id: `fish-lure-${s.round}-${s.log.length}`, x, y });
+            log(s, { kind: "effect", actor: a.id, tiles: [[x, y]], text: `${a.name} lures a dream fish onto the water.` });
+          }
+        }
         else if (e.key === "stagger") { if (t && !t.defeated) addStun(s, a, t, e.ap); }
         else if (e.key === "root") {
           if (!t || t.defeated) continue;
@@ -433,6 +468,36 @@
 
     // ── what an observer may know (section 18.3) ──
     function unusedCount(by) { return by.deck.filter((e) => !e.used).length; }
+    // ── Observe reveal (C7; the draft ~/loci-orbit/claude/cards-observe-reveal/DRAFT.md, settled by Mala 2026-11-04) ──
+    // A deliberate Observe by an AWARE unit of a foe that carries a deck buys a glimpse of its UNUSED cards: the kinds from `kindsAp` of study AP, ONE name (a seeded pick among the unused cards it does not
+    // know yet whose price, the card's rip price, the study affords) and, at `allAp`, the whole unused list (what a shown hand gives, taken instead of offered). Kept per observer for the battle in
+    // s.cardplay.known[observer][owner] = { kinds, ids, all }; a played card drops off what is read. Private to the observer's side (a `cardGlimpse` log entry with no public text); an unaware unit finds
+    // nothing to look for, and neither a set placed nor an Observe converts a skeptic: studying is not a witnessed card event.
+    function glimpse(s, obs, owner, studyAp) {
+      const R = dat().rules, by = book(s, owner?.id), cp = s.cardplay;
+      if (!live() || !by || !obs || !owner || obs.side === owner.side || !aware(obs) || !(studyAp >= R.observe.kindsAp)) return false;
+      const L = lib(), unused = by.deck.filter((e) => !e.used && L.byId(e.id)); if (!unused.length) return false;   // a card no longer in the data cannot be played (options: "no longer in the game"), so a glimpse does not see it
+      const k = (((cp.known ||= {})[obs.id] ||= {})[owner.id] ||= { kinds: false, ids: [], all: false }), before = JSON.stringify(k), said = [];
+      if (studyAp >= R.observe.allAp) { k.all = true; k.kinds = true; k.ids = [...new Set(unused.map((e) => e.id))]; said.push(`You read their whole hand: ${unused.map((e) => L.byId(e.id)?.name || e.id).join(", ")}.`); }
+      else {
+        if (!k.kinds) { k.kinds = true; const n = {}; for (const e of unused) { const kd = dat().kinds[L.byId(e.id).kind].label.toLowerCase(); n[kd] = (n[kd] || 0) + 1; } said.push(`You make out what they carry: ${Object.entries(n).map(([kd, c]) => `${c} ${kd}`).join(", ")}.`); }
+        const fresh = unused.filter((e) => !k.ids.includes(e.id) && ripAp({ cardId: e.id }) <= studyAp).sort((x, y) => (x.id < y.id ? -1 : 1));
+        if (fresh.length) { const pick = fresh[Math.floor((H.seededChance?.(`${s.seed}:glimpse:${owner.id}:${obs.id}:${s.round}`) ?? 0) * fresh.length) % fresh.length]; k.ids.push(pick.id); said.push(`You glimpse ${L.byId(pick.id)?.name || pick.id} in their hand.`); }
+      }
+      if (JSON.stringify(k) === before) return false;
+      const i = s.log.length; cp.priv[i] = { owner: obs.id, id: null, seenBy: [], text: said.join(" ") };
+      log(s, { kind: "cardGlimpse", actor: obs.id, tiles: [[owner.x, owner.y]], text: "" });
+      return true;
+    }
+    function knownOf(s, observerId, ownerId, by) {
+      const side = s.actors[observerId]?.side, mine = Object.entries(s.cardplay?.known || {}).filter(([oid]) => s.actors[oid]?.side === side).map(([, byOwner]) => byOwner[ownerId]).filter(Boolean);   // what any unit on the observer's side has glimpsed is read by the side (Decision 5; new per-battle state s.cardplay.known, read side-wide; the live scout share carries only difficulty numbers, so this is not that share)
+      if (!mine.length) return null;
+      const k = { kinds: mine.some((x) => x.kinds), all: mine.some((x) => x.all), ids: [...new Set(mine.flatMap((x) => x.ids))] };
+      const L = lib(), unused = by.deck.filter((e) => !e.used && L.byId(e.id)), kinds = {};   // as glimpse: a card no longer in the data is skipped
+      if (k.kinds) for (const e of unused) { const kd = dat().kinds[L.byId(e.id).kind].label.toLowerCase(); kinds[kd] = (kinds[kd] || 0) + 1; }
+      const names = k.all ? unused.map((e) => L.byId(e.id)?.name || e.id) : unused.filter((e) => k.ids.includes(e.id)).map((e) => L.byId(e.id)?.name || e.id);
+      return { kinds: k.kinds ? kinds : null, names, all: !!k.all };
+    }
     function viewFor(s, observerId, ownerId) {
       const by = book(s, ownerId), owner = s.actors?.[ownerId], obs = s.actors?.[observerId];
       if (!by || !owner || !obs || !live()) return null;
@@ -441,9 +506,10 @@
         return { ...counts, full: true, rows: by.deck.map((e) => ({ id: e.id, name: L.byId(e.id)?.name || e.id, used: !!e.used })) };
       }
       if (!aware(obs)) return null;
-      const shown = by.shownTo.includes(observerId);
-      if (!shown && !perceives(s, obs, owner)) return null;
-      return shown ? { ...counts, full: false, unusedList: by.deck.filter((e) => !e.used).map((e) => L.byId(e.id)?.name || e.id) } : { ...counts, full: false };
+      const shown = by.shownTo.includes(observerId), known = knownOf(s, observerId, ownerId, by);
+      if (!shown && !known && !perceives(s, obs, owner)) return null;
+      const base = shown ? { ...counts, full: false, unusedList: by.deck.filter((e) => !e.used).map((e) => L.byId(e.id)?.name || e.id) } : { ...counts, full: false };
+      return known ? { ...base, known } : base;
     }
     function logFor(s, entry, viewerId) {
       const p = s.cardplay?.priv?.[entry?.i]; if (!p || !live()) return null;
@@ -454,16 +520,141 @@
       return null;
     }
 
+    // ── the AI (slice C5, specs/CARDS.md section 6): traits and necessity, no per-character dials ──
+    // A card is as urgent as its most urgent effect; the goal weight is Workflow.choose's, so traits drive it.
+    // Push shares the root/stagger control rule (a push peels like a root holds); an effect with no rule scores 0.
+    const SECRET_ENCOUNTERS = ["secretWarrior", "secretWarriorNext"];
+    const NO_DECK_CATEGORY = ["summon", "companion", "familiar", "civilian", "bystander"];
+    function deckEligible(a) {
+      if (!a || a.side !== "enemy") return false;
+      if (a.boss || a.summon || a.communed || a.beast || a.dream || a.wild || a.companion || a.clone) return false;   // a live companion (conditions.js callCompanion) or a clone is a body, not a fighter with a deck
+      if (NO_DECK_CATEGORY.includes(a.category)) return false;
+      const ch = H.C?.characters?.[a.character];
+      if (!ch || ch.omega) return false;
+      if (typeof a.character === "string" && a.character.startsWith("boss-")) return false;
+      if (H.isMonster?.(a)) return false;
+      return !!((ch.primary && ch.secondary) || (ch.configs || []).some((c) => c.primary && c.secondary));
+    }
+    function buildEnemyDeck(a, ctx = {}) {
+      const L = lib(), R = dat().rules, seed = ctx.seed ?? 0, level = a.level || 1;
+      const cap = Math.max(1, Math.floor((R.enemyCapMul ?? 0.6) * L.capFor({ level })));
+      const kinds = R.ai?.kinds || ["instant"], pool = L.liveCards().filter((c) => kinds.includes(c.kind) && (c.rarity === "common" || c.rarity === "uncommon" || (level >= (R.enemyRareLevel ?? 10) && c.rarity === "rare")));
+      const TW = H.Workflow?.TRAITS || {};
+      const scored = pool.map((c) => {
+        const w = traitIds(a).reduce((n, t) => n + ((TW[t] || {})[c.goal] || 0), 0);
+        return { c, w: w + (R.ai?.jitter ?? 0) * (H.seededChance?.(`${seed}:enemydeck:${a.id}:${c.id}`) ?? 0.5) };
+      }).sort((x, y) => y.w - x.w || x.c.id.localeCompare(y.c.id));
+      const deck = []; let points = 0;
+      for (const { c } of scored) {
+        for (let i = 0, n = L.copiesFor(c); i < n; i++) {
+          if (deck.length >= R.deck.maxCards || points + c.cost > cap) break;
+          deck.push(c.id); points += c.cost;
+        }
+        if (deck.length >= R.deck.maxCards || points >= cap) break;
+      }
+      return { deck: L.validate(deck, { cap }).legal, cap };
+    }
+    function aiContext(s, a) {
+      // mirrors the context engine/ai.js builds for Workflow.choose (ai.js:515-522)
+      const foes = foesOf(s, a), allies = Object.values(s.actors).filter((t) => t.id !== a.id && t.side === a.side && !t.defeated && !t.escaped && !t.notArrived);
+      const scheduled = (s.randomEventSchedule || []).filter((e) => !e.resolved && e.round >= s.round).sort((x, y) => x.round - y.round)[0];
+      return { enemies: foes.length, allies: allies.length, lowAlly: allies.some((t) => t.lf < t.maxLF * 0.45),
+        lowSelf: a.lf < a.maxLF * 0.4, escapesLeft: H.Instinct?.holder(a) ? H.Instinct.escapesLeft(s, a) : null, mode: s.modeSetup?.mode || "classic",
+        eventIn: scheduled ? scheduled.round - s.round : null,
+        nearestFoeDist: foes.length ? Math.min(...foes.map((t) => dist(s, a.x, a.y, t.x, t.y))) : 99,
+        ultFrac: (a.ultimateCharge ?? 0) / (s.rules.ultimateChargeMax || 100),
+        tempoFrac: (a.tempo ?? 0) / 100, pfFrac: (a.pf ?? 0) / (a.maxPF || 30),
+        painEff: a.pain ? a.pain.v * Math.pow(0.5, Math.max(0, s.round - a.pain.round)) : 0 };
+    }
+    function controlNeed(s, a) {
+      // a foe within 2 (of the AI, so the control reaches) with an ally threatened (a foe beside them)
+      if (!foesOf(s, a).some((t) => dist(s, a.x, a.y, t.x, t.y) <= 2)) return 0;
+      return Object.values(s.actors).some((u) => u.id !== a.id && u.side === a.side && !u.defeated && !u.escaped && !u.notArrived &&
+        foesOf(s, u).some((t) => dist(s, u.x, u.y, t.x, t.y) <= 1)) ? 1 : 0;
+    }
+    const actorAtTile = (s, at) => H.actorAt(s, at[0], at[1]) || Object.values(s.actors).find((u) => !u.defeated && u.x === at[0] && u.y === at[1]) || null;
+    // A zone is worth the units it would cover: its own side's (a boon) or the foes' (a curse), 0.75 for the first and 0.125 more for each further one, up to 1, only when a foe is within 6 (a boon) or it covers a foe (a curse).
+    function fieldNeed(s, a, card, at) {
+      if (!at) return 0; const Z = card.zone, foes = foesOf(s, a), near = foes.some((t) => dist(s, a.x, a.y, t.x, t.y) <= 6);
+      const lock = card.effects.some((e) => e.key === "cardLock");   // Quiet Hour (CARDS.md section 12): worth only the foes inside who hold unused cards, read through viewFor, so an unaware AI reads nothing and never plays it
+      const inside = Object.values(s.actors).filter((u) => !u.defeated && !u.escaped && !u.notArrived && (Z.side === "own" ? u.side === a.side : u.side !== a.side) && dist(s, at[0], at[1], u.x, u.y) <= Z.radius && (!lock || (viewFor(s, a.id, u.id)?.unused || 0) > 0));
+      if (!inside.length || (Z.side === "own" && !near)) return 0;
+      return Math.min(1, 0.75 + 0.125 * (inside.length - 1));
+    }
+    // An equip is worth what its wearer needs: lighter blows when hurt or a foe is close, harder blows when a foe is near, a heal by missing LF, a last stand when low.
+    function equipNeed(s, a, card, at) {
+      const w = card.target === "self" ? a : (at && actorAtTile(s, at)); if (!w || w.defeated) return 0;
+      const hurt = w.maxLF > 0 ? 1 - w.lf / w.maxLF : 0, foeNear = foesOf(s, w).some((t) => dist(s, w.x, w.y, t.x, t.y) <= 4);
+      let n = 0;
+      for (const e of card.effects) {
+        if (e.key === "modTaken") n = Math.max(n, (hurt > 0.2 ? 0.6 : 0) + (foeNear ? 0.4 : 0));
+        else if (e.key === "modDealt") n = Math.max(n, foeNear ? 0.7 : 0);
+        else if (e.key === "regen") n = Math.max(n, hurt);
+        else if (e.key === "lethalSave") n = Math.max(n, hurt >= 0.4 ? 0.8 : 0);
+      }
+      return n;
+    }
+    function necessity(s, a, card, row, at) {
+      const R = dat().rules;
+      let n = 0;
+      if (card.kind === "summon") return foesOf(s, a).some((t) => dist(s, a.x, a.y, t.x, t.y) <= 6) ? 0.7 + (hurtSinceTurn(s, a) || a.lf < a.maxLF * 0.4 ? 0.2 : 0) : 0;   // a familiar is called when a foe is near (more when hurt); the slot and tile are check()'s
+      if (card.kind === "field") return fieldNeed(s, a, card, at);
+      if (card.kind === "equip") return equipNeed(s, a, card, at);
+      if (card.kind === "set") return !a.status?.guard && foesOf(s, a).some((t) => dist(s, a.x, a.y, t.x, t.y) <= 5) ? 0.6 + (hurtSinceTurn(s, a) ? 0.2 : 0) : 0;   // spec section 6: a set is placed when a foe is within 5 and the AI is not already guarding (a little more when hurt); the trigger fires it later
+      for (const e of card.effects) {
+        if (e.key === "heal") n = Math.max(n, a.maxLF > 0 ? 1 - a.lf / a.maxLF : 0);
+        else if (e.key === "ward") n = Math.max(n, (hurtSinceTurn(s, a) ? 0.6 : 0) +
+          (foesOf(s, a).some((t) => dist(s, a.x, a.y, t.x, t.y) <= (card.range || R.defaultRange)) ? 0.4 : 0));
+        else if (e.key === "damage" && at) {
+          const t = actorAtTile(s, at);
+          if (t && !t.defeated && t.lf > 0) { const f = e.potency / t.lf; n = Math.max(n, e.potency >= t.lf ? f * 2 : f); }
+        }
+        else if (e.key === "root" || e.key === "stagger" || e.key === "push") n = Math.max(n, controlNeed(s, a));
+        else if (e.key === "reveal") n = Math.max(n, row.targets.length ? 1 : 0);
+      }
+      return n;
+    }
+    // The AI's foe-card knowledge, like the player's, goes through viewFor only (section 18.3): its one reader is
+    // Quiet Hour's unused-count check in fieldNeed above; nothing in the AI reads another side's deck directly.
+    const R0 = () => dat().rules;
+    function aiPick(s, a) {
+      if (!live() || !a || !H.Workflow?.choose) return null;
+      const by = book(s, a.id);
+      if (!by || by.turnStamp === a.ownerTurns) return null;
+      const kinds = R0().ai?.kinds || ["instant"], rows = options(s, a.id).filter((r) => r.state === "ready" && kinds.includes(r.kind));
+      if (!rows.length) return null;
+      const L = lib(), R = dat().rules, weights = H.Workflow.choose(a, aiContext(s, a)).weights;
+      const bar = (R.ai?.min ?? 0.5) * (1 + (R.ai?.hoardStep ?? 0.25) * (weights.hoard || 0));
+      let best = null;
+      for (const r of rows) {
+        const card = L.byId(r.id), w = card.goal === "summon" ? Math.max(weights.summon || 0, ((weights.pressure || 0) + (weights.protect || 0)) / 2) : (weights[card.goal] || 0);   // nobody but a dreamer weighs "summon" itself: a summon is pressure or protection, by temperament
+        for (const at of r.needsTarget ? r.targets : [null]) {
+          const n = necessity(s, a, card, r, at), score = n * w;
+          if (score >= bar && (!best || score > best.score)) best = { score, necessity: n, goal: card.goal, act: { type: "playCard", actor: a.id, card: r.index, target: at } };
+        }
+      }
+      return best && { act: best.act, necessity: best.necessity, goal: best.goal };
+    }
+
     // ── battle start (section 3.6) ──
     function init(s, opts) {
       if (!live()) return;
       const L = lib(), loadouts = opts?.loadouts || {}, by = {}; let dropped = null;
+      const freshBook = (legal) => ({ deck: legal.map((cid) => ({ id: cid, used: false, usedRound: null, proto: L.byId(cid)?.status === "prototype" })), turnStamp: -1, played: 0, shown: false, shownAt: -1, shownTo: [] });
       for (const id of Object.keys(loadouts)) {
         const cfg = loadouts[id]?.cards, a = s.actors[id];
         if (!a || !cfg || !Array.isArray(cfg.deck) || !cfg.deck.length) continue;
-        const v = L.validate(cfg.deck, { owned: cfg.owned || null, cap: cfg.cap ?? dat().rules.cap.ceiling });
+        const playerSide = a.side === "player", lab = !!s.devPlayground && playerSide;   // §19: prototypes ride player decks; the lab deck skips ownership
+        const v = L.validate(cfg.deck, { owned: lab ? null : (cfg.owned || null), cap: cfg.cap ?? dat().rules.cap.ceiling, proto: playerSide });
         if (v.legal.length < cfg.deck.length) (dropped ||= []).push({ id, cut: cfg.deck.length - v.legal.length, why: v.errors.map((e) => e.text) });
-        if (v.legal.length) by[id] = { deck: v.legal.map((cid) => ({ id: cid, used: false, usedRound: null })), turnStamp: -1, played: 0, shown: false, shownAt: -1, shownTo: [] };
+        if (v.legal.length) by[id] = freshBook(v.legal);
+      }
+      if (dat().rules.enemyDecks && !opts?.noEnemyDecks && !SECRET_ENCOUNTERS.includes(s.encounter)) {   // `opts.noEnemyDecks`: a staged scenario (tests/helpers/battle.mjs duel) keeps its enemies deck-free unless it asks for decks
+        for (const a of Object.values(s.actors)) {
+          if (by[a.id] || !deckEligible(a)) continue;
+          const built = buildEnemyDeck(a, { seed: s.seed ?? 0 });
+          if (built.deck.length) by[a.id] = freshBook(built.deck);
+        }
       }
       if (!Object.keys(by).length && !dropped) return;
       s.cardplay = { by, priv: {}, depth: 0, zones: [] };
@@ -474,6 +665,6 @@
       }
     }
 
-    return { Cards: { init, options, check, play, resolveSet, sweep, zoneTick, zoneTiles, familiarTurn, ripAp, showHand, showOptions, viewFor, logFor, aware } };
+    return { Cards: { init, options, check, play, resolveSet, sweep, zoneTick, zoneTiles, familiarTurn, glimpse, ripAp, showHand, showOptions, viewFor, logFor, aware, aiPick, buildEnemyDeck, eligible: deckEligible } };
   })();
 });

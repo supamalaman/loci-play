@@ -122,7 +122,9 @@
     const sets = view.sets ? ` · ${view.sets} set${view.sets === 1 ? "" : "s"}` : "";
     if (view.full) return `Cards: ${view.unused} of ${view.deckSize} unused${sets}`;
     const base = `Cards (seen): ${view.unused} of ${view.deckSize} unused${sets}`;
-    return view.unusedList ? `${base} · shown: ${view.unusedList.join(", ")}` : base;
+    const knownText = view.known ? [view.known.kinds ? Object.entries(view.known.kinds).map(([k, n]) => `${n} ${k}`).join(", ") : "", view.known.names.length ? view.known.names.join(", ") : ""].filter(Boolean).join("; ") : "";
+    const kn = knownText ? ` · known: ${knownText}` : "";   // nothing left to name (every glimpsed card played): no dangling "known:"
+    return view.unusedList ? `${base} · shown: ${view.unusedList.join(", ")}${kn}` : base + kn;
   }
   // The Redux Inventory tab (plan ~/loci-orbit/claude/cards-art/PLAN-1b.md rev 2): group() gifts the starter cards on its first render and would call ctx.setAccount, which the page saves; so the
   // gift is worked out here first and group() is given the account that already holds it (its own gift step then finds nothing to do). The caller saves only from a deck action, and the gift

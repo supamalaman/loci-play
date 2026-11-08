@@ -109,7 +109,7 @@
     if (b.turnsLeft) return;
     b.expired = true; a.defeated = true; a.lf = 0; a.status.ward = null;
     a.scattered = true; a.reassembled = true; // a departed skeleton must not resurrect
-    H.log(s, { kind: "summon", actor: a.id, target: b.owner, text: `${a.name}'s group summon ends; it leaves the field.` });
+    H.log(s, { kind: "summon", actor: a.id, target: b.owner, text: b.solo ? `${a.name}'s summoned stay ends; it leaves the field.` : `${a.name}'s group summon ends; it leaves the field.` });
   }
   return { qualifies, profile, group, openTile, readiness, candidate, call, afterOwnTurn };
 });

@@ -108,7 +108,12 @@
     ["sad", "loss", "A bad day happens. The hat will be there next cycle."],
     ["sad", "refuse", "You have busked this cycle. The crowd needs a rest too."],
     ["neutral", "fold:square", "The room is hard or easy, and you know which before you play."],
-  ]);
+    ["neutral", "fold:cardtable", "Cards on the table. None of them bite."],
+    ["happy", "buy", "{item} joins the collection, friend. The Battle deck is where you make your mind up."],
+    ["happy", "buy", "Sold for {price}. Fair is fair: the house buys low."],
+    ["happy", "big", "Spending like that, I'll start reading your mind."],
+    ["sad", "err", "You cannot carry that much faith. Cut something."],
+  ]);   // Battle Cards (C6a): the Card Table shares the Gambler's bank; buy and sell split on {item} vs {price} (a missing token skips the line, never holes it)
   // S3: the Field Kit counter keepers (spec NPC_LINES.md sections 6, 8, 9). The Pioneer's `big` line is a price promise, gated
   // "perk" like Jambavan's (the audit caught it ungated; P1 is off). The three `mile` lines are reworded: a level gain says
   // nothing about better stock, rare parts or buy orders, so each says what the level means instead.

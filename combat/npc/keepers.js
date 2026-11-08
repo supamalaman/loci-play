@@ -48,7 +48,7 @@
     madScientist: { name: "The Mad Scientist", role: "The Lab", windows: ["lab", "townWalk"], art: { status: "staged", folder: null, stagedFolder: "mad-scientist-review", pattern: null, map: {}, fallback: null }, voice: "delighted, cross, exact", lines: null, hook: "H15", perk: "P4", wired: false, slice: "S5" },
     starfarer: { name: "The Starfarer", role: "Workshop", windows: ["workshop"], art: std("starfarer"), voice: "far-seeing, unhurried", lines: "starfarer", hook: "H16", perk: null, wired: true, slice: "S4" },
     lakshmana: { name: "Lakshmana", role: "School", windows: ["school"], art: std("lakshmana"), voice: "earnest, strict, fair", lines: "lakshmana", hook: "H17", perk: null, wired: true, slice: "S2" },
-    gambler: { name: "The Gambler", role: "Town square", windows: ["square", "proposeStakes", "sweatIt"], art: std("gambler", "portrait-{x}.png"), voice: "easy, risky, friendly", lines: "gambler", hook: "H18", perk: null, wired: true, slice: "S2" },
+    gambler: { name: "The Gambler", role: "Town square", windows: ["square", "proposeStakes", "sweatIt", "cardtable"], art: std("gambler", "portrait-{x}.png"), voice: "easy, risky, friendly", lines: "gambler", hook: "H18", perk: null, wired: true, slice: "S2", counters: { cardtable: "gambler" } },   // C6a re-cut: the self counter so counterKeeper("cardtable", "cardtable") resolves and Talk answers fold:cardtable (without it the fold event falls back to fold:scenarios)
   };
 
   const w = (keeper, at, fns, slice, exempt = false) => ({ keeper, exempt, fns, at, slice });
@@ -69,7 +69,7 @@
     scribingDesk: w("freemason", "legacy/workshop-ui.js:4", [], "S4"), lab: w("madScientist", "ui.js:1157", ["showLab"], "S5"),
     sheet: w("contextual", "ui.js:showSheet", ["showSheet"], "S6"),   // Fame F3a: the character sheet has no keeper of its own; S6 (the overlay resolver) names who speaks there (FAME.md 10.2 The sheet + 10.8 slicing row; differs from 10.6's exemption wording, disclosed in the shelf NOTE)
     workshop: w("starfarer", "ui.js:1386", ["showWorkshop", "showWorkshopHub"], "S4"), school: w("lakshmana", "ui.js:1514", ["showSchool"], "S2"),
-    square: w("gambler", "ui.js:1551", ["showBusk"], "S2"), classicMenu: w("arantxa", "ui.js:1181", ["showSetup"], "S4"),
+    square: w("gambler", "ui.js:1551", ["showBusk"], "S2"), cardtable: w("gambler", "ui.js:showCardTable", ["showCardTable"], "S6"), classicMenu: w("arantxa", "ui.js:1181", ["showSetup"], "S4"),
     battleSidePanel: w(null, "ui.js:673", [], null, "control surface: owns the Dialogue toggle, no keeper"),
     teachCard: w("contextual", "ui.js:2653", ["showTeachCard"], "S6"), mindDuel: w("served", "ui.js:4450", [], null, "already served: portraitMarkup"),
     multitudes: w("contextual", "ui.js:4692", ["showMultitudesCard"], "S6"), audition: w("contextual", "ui.js:4703", ["showAuditionCard"], "S6"),

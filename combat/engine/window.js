@@ -70,13 +70,18 @@
       const R = RD(s); if (!R?.enabled || !d || d.defeated || inst.directHit || inst.quickened || inst.audienceOnly || !(d.reaction > 0)) return [];
       if (!inst.announced && !seesItComing(s, d, inst)) return [];
       const atk = s.actors[inst.owner], out = [], shown = shownDelivery(s, d, inst, truth);   // the delivery the defender believes (truth: what it would see unfooled)
-      for (const x of H.availableAbilities(s, d.id)) {
+      const targeted = opponentsOn(s, atk, inst.tiles, false).some((u) => u.id === d.id);
+      const coverOnly = !targeted && !inst.announced;   // W1c: in a reactive window a non-target answers only by covering (announced keeps wall answers for off-tile defenders)
+      for (const x of H.availableAbilities(s, d.id, { answers: true })) {
         const m = x.m, def = H.ab(x.id);
+        if (coverOnly && x.id !== "fixedGaze") continue;
         if (def?.answer) { if (answerReady(s, d, x, atk, def, inst)) out.push({ kind: "technique", ability: x.id, target: [atk.x, atk.y], apCost: answerAp(s, m), pf: H.inspiredPay(s, d, m) ? 0 : m.cost, name: m.name, answer: true, ...(H.inspiredPay(s, d, m) ? { inspired: true } : {}) }); continue; }
         if (!def?.reactive || d.pf < m.cost || !canPayAp(s, d, answerAp(s, m))) continue;
         if (learnedFails(s, d, inst, x.id)) continue;   // it failed against this technique already this battle
         const opt = (at) => ({ kind: "technique", ability: x.id, target: at, apCost: answerAp(s, m), pf: m.cost, name: m.name });
         if (m.effect === "barrier") {
+          if (x.id === "fixedGaze" && (!d.status?.ward?.image || !seesItComing(s, d, inst))) continue;   // Fixed Gaze rides on Hold the Image and meets shots it sees coming: announced or not, closer than minRange means no gaze (triage 2026-11-04: the ranged gate)
+          if (x.id === "fixedGaze" && coverOnly) { for (const t of opponentsOn(s, atk, inst.tiles, false)) if (t.side === d.side && t.id !== d.id && !t.defeated && !t.status?.ward && dist(s, d.x, d.y, t.x, t.y) <= 2) out.push({ ...opt([t.x, t.y]), coverFor: t.id }); continue; }   // W1c cover: the image meets a shot at an unwarded ally within 2 (a warded ally needs nothing; the image never overwrites)
           if (m.range === 0) { out.push(opt([d.x, d.y])); continue; }   // Fortress lens: a ward on yourself
           if (shown !== "line" || !atk) continue;   // a wall stops only line deliveries (as far as the defender can tell)
           const between = new Set(H.line(atk.x, atk.y, d.x, d.y).slice(1, -1).map(([x, y]) => key(x, y)));
@@ -94,7 +99,10 @@
       const R = RD(s); if (!R?.enabled || (s.preview && !s.answerPreview) || inst.announced || inst.deception || inst.audienceOnly || inst.quickened || inst.directHit) return false;
       const eff = d.effect === "prototype" ? inst.effect : d.effect, tgt = ["prototype", "recombine"].includes(d.effect) ? inst.target : d.target;   // Innovation: judge a copy by what it became (its manifest), not the slot
       if (d.timing === "delayed" || !(inst.potency > 0) || (eff !== "damage" && d.effect !== "recombine") || !["enemy", "tile"].includes(tgt)) return false;   // an attack aimed at a unit, or at tiles you stand on
-      const targets = opponentsOn(s, a, inst.tiles, false), defenders = targets.filter((t) => reactiveOptions(s, t, inst).length);
+      const targets = opponentsOn(s, a, inst.tiles, false);
+      const cover = [];   // W1c: Fixed Gaze covers an ally of a target (reactiveOptions offers it; only it)
+      for (const t of targets) for (const g of Object.values(s.actors)) if (g.side === t.side && g.id !== t.id && !g.defeated && !g.notArrived && !targets.some((u) => u.id === g.id) && !cover.some((u) => u.id === g.id) && dist(s, g.x, g.y, t.x, t.y) <= 2) cover.push(g);
+      const defenders = [...targets, ...cover].filter((t) => reactiveOptions(s, t, inst).length);
       // Deception, the other way: a line that looks like a field finds a defender who would have walled it offering
       // nothing. It lands; the defender sees what it really was, and is not fooled by this deceiver again this battle.
       for (const t of targets) { const shown = shownDelivery(s, t, inst);
@@ -114,16 +122,17 @@
     }
     function castReaction(s, d, opt, attack) {
       if (H.ab(opt.ability)?.answer) return castAnswer(s, d, opt, attack);
-      const m = H.manifest(s, d, opt.ability), t = H.target(s, d, m, opt.target[0], opt.target[1], {});
+      const m = H.manifest(s, d, opt.ability), t = H.target(s, d, m, ...(opt.coverFor ? [d.x, d.y] : opt.target), {});   // W1c cover: the option names the ally's tile, but the self-targeted manifest re-validates at the holder (the offer itself already seated the ally)
       if (!t.ok) return t.error;
       const now = d.id === currentId(s);
       const tax = starReactionTax(s, d, attack?.owner), apCost = answerAp(s, m) * tax;
       d.pf -= m.cost;
       if (now) { d.tempo -= apCost; d.tempoSpent = (d.tempoSpent || 0) + apCost; } else if (!hasAgility(d, s)) d.tempoDebt = (d.tempoDebt || 0) + apCost;
-      d.reaction -= 1;
+      const crescendoAnswer = H.Inspiration.crescendoAnswer(s, d);   // a Crescendo's answer bend: this answer spends no reaction and is not rushed
+      if (crescendoAnswer) H.Inspiration.crescendoAnswerUsed(d); else d.reaction -= 1;
       s.stats.abilityUses[opt.ability] = (s.stats.abilityUses[opt.ability] || 0) + 1;
       log(s, { kind: "respond", actor: d.id, response: "technique", ability: opt.ability, tiles: t.tiles, apCost,
-        text: `${d.name} answers ${attack.name} with ${m.name} (reaction spent; ${m.cost} ΦF, ${apCost} AP ${now ? "spent now" : "charged as next-turn tempo debt"}).`,
+        text: `${d.name} answers ${attack.name} with ${m.name} (${crescendoAnswer ? "Crescendo: no reaction spent" : "reaction spent"}; ${m.cost} ΦF, ${apCost} AP ${now ? "spent now" : "charged as next-turn tempo debt"}).`,
         why: ["Reactive defense: one reaction a round. After it, the rest you endure.", ...(tax > 1 ? [`Genre-Defining Performance: ×${tax} AP to answer the star.`] : [])] });
       H.chargeUltimate(s, d, m.concept, `Using ${m.name} as a reaction.`, 0, 1, false, H.borrowedCharges(d, m));
       resolveAbility(s, d, { ...m, owner: d.id, origin: [d.x, d.y], sourceHeight: H.heightAt(s, d.x, d.y), mult: 1, tiles: t.tiles, announcedTiles: t.tiles, targets: t.targets || [], aim: t.aim || opt.target, reaction: true });   // a re-aimed big target (targeting.js) keeps its aim
@@ -137,13 +146,20 @@
       if (perfect) log(s, { kind: "respond", actor: d.id, perfect: true, ability: opt.ability, text: `A perfect answer: ${d.name}'s ${m.name} meets ${attack.name} exactly.`,
         why: [`Perfect reactions: ${Math.round(pPerfect * 100)}% for ${d.name}${kMul !== 1 ? ` (focus ×${+kMul.toFixed(2)})` : ""}. It catches everything, as if prepared.`, ...(m.effect === "parry" ? ["A perfect Rebound that catches the hit earns Inspiration."] : [])] });
       // Fired from behind cover, a line is seen late: an ordinary answer catches less (rules.reactiveDefense.fromCover).
-      const hidden = !perfect && attack?.delivery === "line" && RD(s).fromCover && H.shooterCover?.(s, s.actors[attack.owner], d.x, d.y) > 0;
+      const coverAlly = opt.coverFor ? s.actors[opt.coverFor] : null;   // W1c cover: the ward answers at the ally, so the shot is read from the ally's tile
+      const hidden = !perfect && attack?.delivery === "line" && RD(s).fromCover && H.shooterCover?.(s, s.actors[attack.owner], (coverAlly || d).x, (coverAlly || d).y) > 0;
       if (hidden) log(s, { kind: "respond", actor: d.id, fromCover: true, text: `${s.actors[attack.owner]?.name} fired from cover: ${d.name} sees it late.`, why: [`A rushed answer to a shot from cover catches ${Math.round(RD(s).fromCover.rushed * 100)}%, not ${Math.round((RD(s).rushed ?? 1) * 100)}%. A perfect answer still catches everything.`] });
-      const caught = perfect ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
-      if (m.effect === "parry" && d.status.parry) Object.assign(d.status.parry, perfect ? { reacted: true, perfect: true, label: "Rebound (perfect)" } : { reacted: true, rushed: caught, label: "Rebound (rushed)" });   // armed by the reaction: catching this hit costs no second one
-      if (m.effect === "membrane" && d.status.membrane && !perfect) Object.assign(d.status.membrane, { rushed: caught, label: "Membrane (rushed)" });
-      if (m.effect === "barrier" && m.range === 0 && d.status.ward) d.status.ward.protection = Math.round(d.status.ward.protection * caught);
-      if (m.effect === "barrier" && m.range !== 0 && !perfect) { const b = H.barrierAt(s, opt.target[0], opt.target[1]); if (b) b.rushed = caught; }
+      if (crescendoAnswer) log(s, { kind: "respond", actor: d.id, crescendo: true, ability: opt.ability, text: `${d.name}'s Crescendo: the answer is not rushed and no reaction is spent.`, why: ["A Crescendo's answer bend (HOTBUILDS.md 1c): it catches everything, as if prepared."] });
+      const fixedPrimed = opt.ability === "fixedGaze" && (H.fixedFoes?.(s, d) || [H.fixedFoe?.(s, d)]).includes(attack?.owner);   // primed: the shooter is a Fixed foe — either mark (W1c); the ward fires whole (like perfect) and the shooter loses its rhythm
+      const caught = perfect || crescendoAnswer || fixedPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
+      if (fixedPrimed) { const atk = s.actors[attack.owner]; if (atk && !atk.defeated) { atk.status.offTempo = { banned: attack.ability, expiresAt: (atk.ownerTurns ?? 0) + 2, by: d.id }; log(s, { kind: "respond", actor: d.id, target: atk.id, ability: opt.ability, primed: true, text: `${d.name}'s Fixed Gaze meets ${atk.name}'s ${attack.name} whole: the held image holds. ${atk.name} is off-tempo: ${H.ab?.(attack.ability)?.name || attack.ability} is forbidden for a round.`, why: ["Fixed Gaze, primed: the Fixed foe's shot meets the whole ward, and the shooter cannot repeat the technique for a round."] }); } H.Inspiration?.cash(s, d, "Stay."); }   // W1c: a primed gaze cashes (the Hypnotist's line; the round-cap and Inspiration cap live in cash)
+      if (m.effect === "parry" && d.status.parry) Object.assign(d.status.parry, crescendoAnswer ? { reacted: true, label: "Rebound (Crescendo)" } : perfect ? { reacted: true, perfect: true, label: "Rebound (perfect)" } : { reacted: true, rushed: caught, label: "Rebound (rushed)" });   // armed by the reaction: catching this hit costs no second one
+      if (m.effect === "membrane" && d.status.membrane && !perfect && !crescendoAnswer) Object.assign(d.status.membrane, { rushed: caught, label: "Membrane (rushed)" });
+      if (m.effect === "barrier" && m.range === 0 && d.status.ward && !opt.coverFor) d.status.ward.protection = Math.round(d.status.ward.protection * caught);
+      if (opt.coverFor && m.effect === "barrier" && m.range === 0) { const ally = s.actors[opt.coverFor];   // W1c cover: project the image's protection onto the ally for the one shot; the held image itself is untouched, the ally books whatever gets through
+        if (ally && !ally.defeated && !ally.status?.ward) { ally.status.ward = { label: "Projected gaze", owner: d.id, protection: Math.round((d.status.ward?.protection || 0) * caught), expiresAt: (ally.ownerTurns ?? 0) + 1, gazeCover: true };
+          log(s, { kind: "respond", actor: d.id, target: ally.id, ability: opt.ability, text: `${d.name} stands the image over ${ally.name}: ${ally.status.ward.protection} protection against the one shot.`, why: [`Cover: the image's ${d.status.ward?.protection ?? 0} protection fires ${perfect || fixedPrimed ? "whole (primed)" : "rushed"} over an unwarded ally. The held image stays where it is.`] }); } }
+      if (m.effect === "barrier" && m.range !== 0 && !perfect && !crescendoAnswer) { const b = H.barrierAt(s, opt.target[0], opt.target[1]); if (b) b.rushed = caught; }
     }
 
     // ── announced ultimates: defensive window (spec §8) ────────────────────

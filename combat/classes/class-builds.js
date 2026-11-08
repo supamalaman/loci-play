@@ -10,7 +10,7 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatClassBuilds = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  const B = (kit, shared, passives, sprite) => ({ status: "live", kit, shared, passives, sprite: `combat/sprites/${sprite}` });
+  const B = (kit, shared, passives, sprite, status = "live") => ({ status, kit, shared, passives, sprite: `combat/sprites/${sprite}` });
 
   const builds = {
     rapper: B(["freestyle","writtenVerse","clip","juxtapose","dissTrack"], {}, {
@@ -248,6 +248,11 @@
       born_dreamer: { trigger: "she opens a Dream Space", effect: { openLess: 40, apMul: 0.5, drainLess: 10 }, bound: "the dream itself is unchanged; the bar is still its clock", counter: "Make her spend the bar (Call of Faith) or deny the turn she needs." },
       he_is_coming: { trigger: "a battle that seats her without Rama", effect: { heralds: "rama", chance: 0.75, delay: 1 }, bound: "once, at the start; Rama arrives at round 2 if he comes", counter: "Win before round 2, or meet him." },
     }, "sita"),
+    // The Hypnotist (Hotbuilds wave 1): Focus + Imagination, crew arcane. Ultimate + merges arrive W1b/W1c.
+    hypnotist: B(["focus", "deepFocus", "pictureTheArrival", "holdTheImage"], { primaryBasic: "focus", primaryRefined: "deepFocus", secondaryBasic: "pictureTheArrival", secondaryRefined: "holdTheImage" }, {
+      entrainer: { trigger: "he fixes a foe", effect: { subject: "focus mark" }, bound: "one subject at a time", counter: "Break line of sight and the hold slips." },
+      gentle_hand: { trigger: "the first lethal blow he lands on a foe", effect: { sparedAt: 1 }, bound: "once per foe per battle; the win stays non-lethal", counter: "Hit the spared foe again: the hand stays itself only once." },
+    }, "hypnotist", "brief"),
     // Lakshmana (Mala, 2026-10-24; docs/lakshmana-build.md): Boundary + Interposition, crew ayodhya. The line, the guard, and the
     // brother who is felled but not slain. Rule 6: every technique works on anyone, stronger on Sita (the line) and Rama (the guard).
     lakshmana: B(["boundaryLine", "lakshmanaRekhaDraw", "brothersGuard", "coveringShot", "lineNotCrossed"], { primaryBasic: "boundaryLine", primaryRefined: "lakshmanaRekhaDraw", secondaryBasic: "brothersGuard", secondaryRefined: "coveringShot" }, {
@@ -388,6 +393,37 @@
       tide_reader: { trigger: "placing a swale effect", effect: { rangeAdd: 1 }, bound: "placed swale effects only", counter: "None: she reads far water." },
       the_deep: { trigger: "drowning", effect: { discountPhiPerBasin: 2 }, bound: "2 per basin beyond the first, never below 0", counter: "Break basins before the bar fills." },
     }, "pearl_diver"),
+    // Posterity suit warriors (Mala, 2026-11-04: Manavu cuts; magic woven into the suit as technology).
+    orgonite_trooper: B(["stealPresent", "investFuture", "deployWorkstation", "calibrateTool", "orgoniteLance"], { primaryBasic: "stealPresent", primaryRefined: "investFuture", secondaryBasic: "deployWorkstation", secondaryRefined: "calibrateTool" }, {
+      woven_suit: { trigger: "turn start while Hardware is equipped", effect: { workstation: true, hp: 18, follows: true }, bound: "one 18 HP site; Deploy Workstation replaces it with a 3-turn tool", counter: "Destroy the woven site, then stay off adjacent tiles." },
+      first_weave: { trigger: "first classEffect setup each battle", effect: { refundAp: true, refundPhi: true, inspiration: 1 }, bound: "once; Steal the Present or Deploy Workstation", counter: "None: the first charge is cheap. Engine-wide freeFirst is not built." },
+      suit_brace: { trigger: "a ranged shot from 2+ tiles, once a round, while a reaction remains", effect: { damageMul: 0.65 }, bound: "one reaction a round; needs the woven site", counter: "Spend their reaction first, or fight in contact." },
+    }, "manavu-anti-gravity-soldier"),
+    leviathan_suit: B(["stealPresent", "investFuture", "readLivingCircuit", "correctivePulse", "dreamCircuit"], { primaryBasic: "stealPresent", primaryRefined: "investFuture", secondaryBasic: "readLivingCircuit", secondaryRefined: "correctivePulse" }, {
+      woven_loop: { trigger: "Read the Living Circuit while a plant is in reach", effect: { selfAsMember: true }, bound: "the wearer is the only member when no other circuit stands", counter: "Kill the plant before the pulse." },
+      first_weave: { trigger: "first classEffect setup each battle", effect: { refundAp: true, refundPhi: true, inspiration: 1 }, bound: "once; Steal the Present or Read the Living Circuit", counter: "None: the first charge is cheap." },
+      suit_brace: { trigger: "a ranged shot from 2+ tiles, once a round, while a reaction remains", effect: { damageMul: 0.65 }, bound: "one reaction a round", counter: "Spend their reaction first, or fight in contact." },
+    }, "manavu-anti-gravity-blue"),
+    scale_firmware: B(["pictureTheArrival", "holdTheImage", "deployWorkstation", "calibrateTool", "dreamForge"], { primaryBasic: "pictureTheArrival", primaryRefined: "holdTheImage", secondaryBasic: "deployWorkstation", secondaryRefined: "calibrateTool" }, {
+      woven_suit: { trigger: "turn start while Hardware is equipped", effect: { workstation: true, hp: 18, follows: true }, bound: "one 18 HP site", counter: "Destroy the woven site, then close to contact." },
+      first_weave: { trigger: "first classEffect setup each battle", effect: { refundAp: true, refundPhi: true, inspiration: 1 }, bound: "once; Deploy Workstation", counter: "None: the first charge is cheap." },
+      suit_brace: { trigger: "a ranged shot from 2+ tiles, once a round, while a reaction remains", effect: { damageMul: 0.65 }, bound: "one reaction a round; needs the woven site", counter: "Spend their reaction first, or fight in contact." },
+    }, "manavu-future-warrior-crimson-reptilian"),
+    white_jacket_gunner: B(["rasterPass", "layerMask", "stealPresent", "investFuture", "posterityRaster"], { primaryBasic: "rasterPass", primaryRefined: "layerMask", secondaryBasic: "stealPresent", secondaryRefined: "investFuture" }, {
+      printed_future: { trigger: "Posterity Raster", effect: { withBuffer: 18, without: 12 }, bound: "a held raster spends; without one the merge still fires at 12", counter: "Outlast the buffer, or take a non-albedo hit." },
+      first_weave: { trigger: "first classEffect setup each battle", effect: { refundAp: true, refundPhi: true, inspiration: 1 }, bound: "once; Raster Pass or Steal the Present", counter: "None: the first charge is cheap." },
+      suit_brace: { trigger: "a ranged shot from 2+ tiles, once a round, while a reaction remains", effect: { damageMul: 0.65 }, bound: "one reaction a round", counter: "Spend their reaction first, or fight in contact." },
+    }, "manavu-future-warrior-white-jacket-gunner"),
+    bronze_admin: B(["assignTheTask", "delegateTheDecision", "stealPresent", "investFuture", "farOrder"], { primaryBasic: "assignTheTask", primaryRefined: "delegateTheDecision", secondaryBasic: "stealPresent", secondaryRefined: "investFuture" }, {
+      filed_future: { trigger: "Far Order", effect: { orderMul: 1.25, until: 3 }, bound: "nearest ally carries it; a later traveler can inherit if they arrive", counter: "Defeat the carrier before they act; isolate so nobody carries." },
+      first_weave: { trigger: "first classEffect setup each battle", effect: { refundAp: true, refundPhi: true, inspiration: 1 }, bound: "once; Assign the Task or Steal the Present", counter: "None: the first charge is cheap." },
+      suit_brace: { trigger: "a ranged shot from 2+ tiles, once a round, while a reaction remains", effect: { damageMul: 0.65 }, bound: "one reaction a round", counter: "Spend their reaction first, or fight in contact." },
+    }, "manavu-space-admin-bronze-hooded"),
+    horned_suit: B(["pictureTheArrival", "holdTheImage", "assignTheTask", "delegateTheDecision", "summonedMandate"], { primaryBasic: "pictureTheArrival", primaryRefined: "holdTheImage", secondaryBasic: "assignTheTask", secondaryRefined: "delegateTheDecision" }, {
+      pictured_order: { trigger: "Summoned Mandate", effect: { orderMul: 1.25, ward: 8 }, bound: "needs a living ally to carry; no Longtermism traveler", counter: "Isolate them, or strip the ward." },
+      first_weave: { trigger: "first classEffect setup each battle", effect: { refundAp: true, refundPhi: true, inspiration: 1 }, bound: "once; Assign the Task", counter: "None: the first charge is cheap." },
+      suit_brace: { trigger: "a ranged shot from 2+ tiles, once a round, while a reaction remains", effect: { damageMul: 0.65 }, bound: "one reaction a round", counter: "Spend their reaction first, or fight in contact." },
+    }, "manavu-space-admin-crimson-horned"),
     rogue: B(["cutPurse", "disarm", "pocket", "fenceIt", "heist"], {}, {
       light_fingers: { trigger: "your turn starts beside a mark you haven't cased", effect: { revealCarried: 1 }, bound: "one reveal per mark per battle", counter: "Travel light: there is nothing to case." },
       clean_cut: { trigger: "a pruning cut removes something", effect: { victimUnawareTurns: 1, takeUnnamed: true }, bound: "1 round; pocketing names the take", counter: "Holds keep the Rogue off; what was never carried can't be cut." },

@@ -18,16 +18,16 @@
 //   resistKnock(s, a, t, H)                → true if the displacement is cancelled
 //   turnStart(s, a, H)                     → upkeep, expiry, strain, visited tiles
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./class-builds.js"),require("./esker.js"),require("../performers/performers.js"),require("../stealth/stealth.js"),require("../police/police.js"),require("../monkey/monkey.js"),require("../director/director.js"),require("../actor/actor.js"),require("../law/law.js"),require("../martial/martial.js"),require("./hot-pot.js"),require("../teleology/teleology.js"),require("../mise/mise.js"),require("../graph/homology-rules.js"));
-  else root.ConceptCombatClassRuntime = factory(root.ConceptCombatClassBuilds,root.ConceptCombatEsker,root.ConceptCombatPerformers,root.ConceptCombatStealth,root.ConceptCombatPolice,root.ConceptCombatMonkey,root.ConceptCombatDirector,root.ConceptCombatActor,root.ConceptCombatLaw,root.ConceptCombatMartial,root.ConceptCombatHotPot,root.ConceptCombatTeleology,root.ConceptCombatMise,root.ConceptCombatHomologyRules);
-})(typeof self !== "undefined" ? self : this, function (CBmod, Esker, Performers, Stealth, Police, Monkey, Director, Actor, Law, Martial, HotPot, Teleology, Mise, Homology) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./class-builds.js"),require("./esker.js"),require("../performers/performers.js"),require("../stealth/stealth.js"),require("../police/police.js"),require("../monkey/monkey.js"),require("../director/director.js"),require("../actor/actor.js"),require("../law/law.js"),require("../martial/martial.js"),require("./hot-pot.js"),require("../teleology/teleology.js"),require("../mise/mise.js"),require("../graph/homology-rules.js"),require("./posterity-suits.js"));
+  else root.ConceptCombatClassRuntime = factory(root.ConceptCombatClassBuilds,root.ConceptCombatEsker,root.ConceptCombatPerformers,root.ConceptCombatStealth,root.ConceptCombatPolice,root.ConceptCombatMonkey,root.ConceptCombatDirector,root.ConceptCombatActor,root.ConceptCombatLaw,root.ConceptCombatMartial,root.ConceptCombatHotPot,root.ConceptCombatTeleology,root.ConceptCombatMise,root.ConceptCombatHomologyRules,root.ConceptCombatPosteritySuits);
+})(typeof self !== "undefined" ? self : this, function (CBmod, Esker, Performers, Stealth, Police, Monkey, Director, Actor, Law, Martial, HotPot, Teleology, Mise, Homology, Suits) {
   const CB = CBmod.builds;
   const CLASS_PAIRS = { agent_swarm: ["hardware", "cybernetic_ecology"], rapper:["lyricism","collage"], musician:["harmony","resonance"], bard:["harmony","complementarity"], jazz_musician:["lyricism","harmony"], knight: ["barrier", "interposition"], pharaoh: ["legitimacy", "boundary"], daedalus: ["berm", "section"], samurai: ["timing", "sightline"],
     gemini: ["complementarity", "resonance"], wizard: ["pipeline", "selectivity"], jujutsu_sorcerer: ["reciprocal_obligation", "boundary"], super_hero: ["load_distribution", "interposition"], esker: ["interposition", "berm"],
     super_heroine: ["tension", "elasticity"], super_villain: ["dependency", "deception"], defective_machine: ["fault_tolerance", "resonance"], teleporter: ["adjacency", "threshold"],
     mutant_boar: ["plasticity", "inertia"], boarman: ["leverage", "elasticity"], anime_protagonist: ["plasticity", "elasticity"], barbarian: ["threshold", "elasticity"], clockwork: ["pipeline", "timing"], rogue: ["pruning", "extraction"], hooded_cyber_rogue: ["longtermism", "stealth"], medusa: ["sightline", "constraint"], magistrate: ["laws_of_gods_of_men", "threshold"], cleric: ["reciprocal_obligation", "complementarity"], steam_walker: ["inertia", "threshold"], ornithopter: ["section", "adjacency"], engineer: ["gradingDrainage", "load_distribution"], origamist: ["adjacency", "tension"],
     mma_fighter: ["leverage", "constraint"], kickboxer: ["timing", "leverage"], odysseus: ["strategic_commitment", "pathway"], president: ["legitimacy", "strategic_commitment"], detective: ["inference", "selectivity"], maid: ["selectivity", "extraction"], paladin: ["solfeggio", "strategic_commitment"],
-    hypebeast: ["diffusion", "deception"], ranger: ["pathway", "inference"], tech_billionaire: ["adjacency", "dependency"], oil_billionaire: ["extraction", "diffusion"], doctor: ["succession", "inference"], animalTamer: ["resonance", "transmigration"], modern_artist: ["hardware", "software"], cyph: ["lyricism", "selectivity"], general: ["delegation", "timing"], bastet: ["focus", "elasticity"], ninja: ["stealth", "threshold"], police_officer: ["legitimacy", "constraint"], thief: ["stealth", "deception"], monkey_king: ["deception", "leverage"], hanuman: ["aeronautics", "elasticity"], jambavan: ["indexing", "delegation"], rama: ["strategic_commitment", "focus"], lakshmana: ["boundary", "interposition"], sita: ["imagination", "preservation"], ravana: ["extraction", "delegation"], kumbhakarna: ["inertia", "timing"], indrajit: ["deception", "constraint"], mandodari: ["inference", "harmony"], surpanakha: ["glamour", "plasticity"], jatayu: ["interposition", "timing"], director: ["boundary", "delegation"], mangaka: ["collage", "innovation"], aviator_hero: ["aeronautics", "inertia"], jiang_qing: ["glamour", "legitimacy"], starfarer: ["settlement", "sightline"], pioneer: ["sightline", "boundary"], martial_artist: ["bird_mountain", "adaptation"], memorialist: ["preservation", "longtermism"], hot_pot_berserker: ["antifragility", "hospitality"], chef: ["mise_en_place", "hospitality"], seedkeeper: ["longtermism", "succession"], ferryman: ["pathway", "reciprocal_obligation"], pearl_diver: ["swale", "stealth"] };
+    hypebeast: ["diffusion", "deception"], ranger: ["pathway", "inference"], tech_billionaire: ["adjacency", "dependency"], oil_billionaire: ["extraction", "diffusion"], doctor: ["succession", "inference"], animalTamer: ["resonance", "transmigration"], modern_artist: ["hardware", "software"], cyph: ["lyricism", "selectivity"], general: ["delegation", "timing"], bastet: ["focus", "elasticity"], ninja: ["stealth", "threshold"], police_officer: ["legitimacy", "constraint"], thief: ["stealth", "deception"], monkey_king: ["deception", "leverage"], hanuman: ["aeronautics", "elasticity"], jambavan: ["indexing", "delegation"], rama: ["strategic_commitment", "focus"], lakshmana: ["boundary", "interposition"], sita: ["imagination", "preservation"], hypnotist: ["focus", "imagination"], ravana: ["extraction", "delegation"], kumbhakarna: ["inertia", "timing"], indrajit: ["deception", "constraint"], mandodari: ["inference", "harmony"], surpanakha: ["glamour", "plasticity"], jatayu: ["interposition", "timing"], director: ["boundary", "delegation"], mangaka: ["collage", "innovation"], aviator_hero: ["aeronautics", "inertia"], jiang_qing: ["glamour", "legitimacy"], starfarer: ["settlement", "sightline"], pioneer: ["sightline", "boundary"], martial_artist: ["bird_mountain", "adaptation"], memorialist: ["preservation", "longtermism"], hot_pot_berserker: ["antifragility", "hospitality"], chef: ["mise_en_place", "hospitality"], seedkeeper: ["longtermism", "succession"], ferryman: ["pathway", "reciprocal_obligation"], pearl_diver: ["swale", "stealth"], orgonite_trooper: ["longtermism", "hardware"], leviathan_suit: ["longtermism", "cybernetic_ecology"], scale_firmware: ["imagination", "hardware"], white_jacket_gunner: ["software", "longtermism"], bronze_admin: ["delegation", "longtermism"], horned_suit: ["imagination", "delegation"] };
 
   // Content overrides. kind = runtime handler for "classEffect"; extra = damage-path extras keyed by ability id.
   const D = (o) => ({ effect: "damage", ...o }), X = (kind, o = {}) => ({ effect: "classEffect", kind, ...o });
@@ -107,6 +107,12 @@
     renderEngine: X("artistEngine", {target:"enemy",range:5}),
     batchRender: X("artistBatch", {target:"enemy",range:5}),
     compileTheCanvas: X("artistCompile", {target:"enemy",range:6}),
+    orgoniteLance: X("suitLance", {target:"enemy",range:4}),
+    dreamCircuit: X("suitCircuit", {target:"self",range:0}),
+    dreamForge: X("suitForge", {target:"enemy",range:5}),
+    posterityRaster: X("suitRaster", {target:"enemy",range:5}),
+    farOrder: X("suitOrder", {target:"enemy",range:6}),
+    summonedMandate: X("suitMandate", {target:"enemy",range:6}),
     setTheScene: X("directorFilm", {target:"enemy",range:5}),
     audition: X("actor", {target:"self",range:0}),
     genreDefiningPerformance: X("actor", {target:"self",range:0}),
@@ -1425,6 +1431,7 @@
     { const e = Esker.target(s, a, w, tx, ty, H); if (e) return e; }   // Esker (classes/esker.js)
     { const e = Homology?.target(s, a, w, tx, ty, H); if (e) return e; }   // Homology: the aimed enemy, in range (graph/homology-rules.js; absent in a page that does not load it)
     { const e = HotPot.target(s, a, w, tx, ty, H); if (e) return e; }   // the Hot Pot Berserker (classes/hot-pot.js)
+    { const e = Suits?.target?.(s, a, w, tx, ty, H); if (e) return e; }   // Posterity suits
     if (w.kind === "shimmer") {   // Glamour's Shimmer: a unit on your side (yourself included) within range
       const occ = H.actorAt(s, tx, ty) || (tx === a.x && ty === a.y ? a : null);
       if (!occ || occ.defeated || occ.side !== a.side) return fail("Shimmer veils yourself or an ally.");
@@ -1711,6 +1718,7 @@
     let w = wire[inst.ability]; if (!w || w.effect !== "classEffect") return false;
     if (Esker.resolve(s, a, inst, w, H)) return true;   // Esker (classes/esker.js)
     if (HotPot.resolve(s, a, inst, w, H)) return true;   // the Hot Pot Berserker
+    if (Suits?.resolve?.(s, a, inst, w, H)) return true;   // Posterity suits
     { const t0 = inst.targets?.[0] ? H.actor(s, inst.targets[0]) : null; if (w.thematic && t0 && w.thematic[t0.character]) w = { ...w, ...w.thematic[t0.character] }; }   // rule 6: stronger for the story partner
     if (w.kind === "forces") { forcesResolve(s, a, inst, H); return true; }   // the Aviator's Four Forces
     if (glamourResolve(s, a, inst, w, H)) return true;   // Glamour: Shimmer, Allure
@@ -2354,6 +2362,7 @@
       case "buff": buff(s, a, w.buff, H, say, until); break;
       default: return false;
     }
+    Suits?.noteSetup?.(s, a, inst, H);   // Posterity: first setup refunds AP+ΦF and grants 1 Inspiration
     return true;
   }
   // Inference ledger: sources about a target, by provenance. Two independent sources confirm.
@@ -2439,6 +2448,7 @@
     const m = (k, why) => { mult *= k; notes.push(why); };
     if (S(s).interceptMul && S(s).interceptMul !== 1) { m(S(s).interceptMul, `Intercepted on the shield ×${S(s).interceptMul}.`); }
     { const e = Esker.damageMods(s, src, tgt, inst); if (e.mult !== 1) { mult *= e.mult; notes.push(...e.notes); } }   // Esker: burden, Oathbreaker
+    { const e = Suits?.damageMods?.(s, src, tgt, inst, damageType, H); if (e && e.mult !== 1) { mult *= e.mult; notes.push(...(e.notes || [])); } }
     if (aeroForce(tgt) === "drag" && inst?.delivery === "line") m(AERO.dragMul, `${tgt.name} is streamlined (Drag): line attacks ×${AERO.dragMul}.`);
     S(s).interceptMul = null;
     const T = tgt.status || {}, A = src?.status || {};
@@ -2749,6 +2759,7 @@
     Mise.turnStart(s,a,H);   // station lifetimes
     Homology?.turnStart(s,a,H);   // Homology: a pending reconstruction resolves; spent guards drop
     Actor.turnStart(s,a,H);
+    Suits?.turnStart?.(s, a, H);   // Posterity woven workstation
     if (s.rules.hype && isHype(a) && !a.defeated) {   // viral growth: wider every turn nobody has checked
       const hy = hypeOf(s, a), R = s.rules.hype;
       if (!hy.seenBy.length && hy.radius < R.maxRadius) { hy.radius = Math.min(R.maxRadius, hy.radius + R.growPerTurn);
@@ -2960,6 +2971,7 @@
     const directorValue=Director.aiValue(s,a,cand,H);if(directorValue!=null)return directorValue;
     { const e = Esker.aiValue(s, a, cand, wire[cand.ability], H); if (e != null) return e; }   // Esker (classes/esker.js)
     { const e = HotPot.aiValue(s, a, cand, wire[cand.ability], H); if (e != null) return e; }   // the Hot Pot Berserker
+    { const e = Suits?.aiValue?.(s, a, cand, wire[cand.ability], H); if (e != null) return e; }
     if (wire[cand.ability]?.kind === "forces") return forcesValue(s, a, cand, H);   // the Aviator's Four Forces
     if (wire[cand.ability]?.kind === "shimmer") {   // Glamour: veil someone who is actually threatened and not veiled already
       const t = cand.target && (H.actorAt(s, cand.target[0], cand.target[1]) || (cand.target[0] === a.x && cand.target[1] === a.y ? a : null));
@@ -3300,7 +3312,7 @@
 
   const CLASS_NAMES = { agent_swarm: "Agent Swarm", rapper:"Rapper", musician:"Musician", bard:"Bard", jazz_musician:"Jazz Musician", knight: "Knight", pharaoh: "Pharaoh", daedalus: "Daedalus", samurai: "Samurai", gemini: "Gemini", wizard: "Wizard", jujutsu_sorcerer: "Jujutsu Sorcerer",
     super_hero: "Super Hero", esker: "Esker", super_heroine: "Super Heroine", super_villain: "Super Villain", defective_machine: "Defective Machine", teleporter: "Teleporter", clockwork: "Clockwork",
-    magistrate: "Magistrate", mutant_boar: "Mutant Boar", boarman: "Boarman", animalTamer: "Animal Tamer", anime_protagonist: "Anime Protagonist", mma_fighter: "MMA Fighter", kickboxer: "Kickboxer", hypebeast: "Hypebeast", ranger: "Ranger", tech_billionaire: "Tech Billionaire", oil_billionaire: "Oil Billionaire", doctor: "Doctor", odysseus: "Odysseus", president: "President", detective: "Detective", modern_artist: "Modern Artist", cyph: "Cyph", maid: "Maid", general: "General", bastet: "Bastet", ninja: "Ninja", police_officer: "Police Officer", thief: "Thief", monkey_king: "Monkey King", hanuman: "Hanuman", jambavan: "Jambavan", rama: "Rama", lakshmana: "Lakshmana", sita: "Sita", ravana: "Ravana", kumbhakarna: "Kumbhakarna", indrajit: "Indrajit", mandodari: "Mandodari", surpanakha: "Surpanakha", jatayu: "Jatayu", director: "Director", actor: "Actor", barbarian: "Barbarian", paladin: "Paladin", rogue: "Rogue", hooded_cyber_rogue: "Cyber Punk Rogue", medusa: "Medusa", cleric: "Cleric", steam_walker: "Steam Walker", ornithopter: "Ornithopter", engineer: "Engineer", origamist: "Origamist", mangaka: "Mangaka", aviator_hero: "Aviator Hero", jiang_qing: "Jiang Qing", starfarer: "Starfarer", pioneer: "Pioneer", martial_artist: "Ascending Martial Artist", memorialist: "Memorialist", hot_pot_berserker: "Hot Pot Berserker", chef: "Chef", seedkeeper: "Seedkeeper", ferryman: "Ferryman", pearl_diver: "Pearl Diver" };
+    magistrate: "Magistrate", mutant_boar: "Mutant Boar", boarman: "Boarman", animalTamer: "Animal Tamer", anime_protagonist: "Anime Protagonist", mma_fighter: "MMA Fighter", kickboxer: "Kickboxer", hypebeast: "Hypebeast", ranger: "Ranger", tech_billionaire: "Tech Billionaire", oil_billionaire: "Oil Billionaire", doctor: "Doctor", odysseus: "Odysseus", president: "President", detective: "Detective", modern_artist: "Modern Artist", cyph: "Cyph", maid: "Maid", general: "General", bastet: "Bastet", ninja: "Ninja", police_officer: "Police Officer", thief: "Thief", monkey_king: "Monkey King", hanuman: "Hanuman", jambavan: "Jambavan", rama: "Rama", lakshmana: "Lakshmana", sita: "Sita", hypnotist: "The Hypnotist", ravana: "Ravana", kumbhakarna: "Kumbhakarna", indrajit: "Indrajit", mandodari: "Mandodari", surpanakha: "Surpanakha", jatayu: "Jatayu", director: "Director", actor: "Actor", barbarian: "Barbarian", paladin: "Paladin", rogue: "Rogue", hooded_cyber_rogue: "Cyber Punk Rogue", medusa: "Medusa", cleric: "Cleric", steam_walker: "Steam Walker", ornithopter: "Ornithopter", engineer: "Engineer", origamist: "Origamist", mangaka: "Mangaka", aviator_hero: "Aviator Hero", jiang_qing: "Jiang Qing", starfarer: "Starfarer", pioneer: "Pioneer", martial_artist: "Ascending Martial Artist", memorialist: "Memorialist", hot_pot_berserker: "Hot Pot Berserker", chef: "Chef", seedkeeper: "Seedkeeper", ferryman: "Ferryman", pearl_diver: "Pearl Diver", orgonite_trooper: "Orgonite Trooper", leviathan_suit: "Leviathan Suit", scale_firmware: "Scale Firmware", white_jacket_gunner: "White-Jacket Gunner", bronze_admin: "Bronze Administrator", horned_suit: "Horned Suit" };
   // ── The Emissary's memory (docs/emissary.md, "What it remembers") ──
   // memory: { classId: { met, won } } from the account. No memory: the seeded random roll it always was (roll("")).
   // With memory it weighs the kits it has worn against you plus one it has not (seeded): one Thompson guess each,

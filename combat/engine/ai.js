@@ -14,7 +14,7 @@
     const { Auras, Affinity, Bonds, ClassRuntime, Climate, INTERDICT, Imitation, MED, MindDuel, Parley, REVEAL, RITUAL, Traps, Vows, VK, WX, Workflow, ab, accountItems,
       actorAt, apply, auraH, availableAbilities, beliefSummonCandidate, chanted, classH, decider, dist, edgeDistance, fullCourtPressOptions, hasTrait,
       insightRules, isMonster, knownEnemyTraps, log, manifest, moduleArena, monsterCtx, moveOptions, onEdge, paths, presidentCanRecognize, presidentRules,
-      presidentUnits, preview, responseOptions, seededChance, summonQuestions, summonReadiness, summonQuestionHints, summonRules, target, targeting, tileAt, weatherTileValue } = H;
+      presidentUnits, preview, responseOptions, seededChance, summonQuestions, summonReadiness, dreamReadiness, summonQuestionHints, summonRules, target, targeting, tileAt, weatherTileValue } = H;
 
     // ── authored AI (deterministic greedy) ───────────────────────────────
     // C10 action-reveal feed (Muse sandbox batch 9). "All traits produce actions, so actions reveal traits": every AI
@@ -239,6 +239,7 @@
         return traceAiReturn("aiDecide:L211", ({ type: "resolveSummonUltimate", actor: a.id }));
       if (dc.kind === "turn" && a.status?.detained && (a.status.detained.until == null || a.status.detained.until >= a.ownerTurns)) return traceAiReturn("aiDecide:L212", ({ type: "end", actor: a.id }));   // Detained: beforeAbility, Strike and Move all refuse (previews skip those checks), but end/stall stay open — bank it and wait (end auto-stalls when tempo remains)
       if (dc.kind === "turn" && H.States?.blocksAll(s, a)) return traceAiReturn("aiDecide:states", ({ type: "end", actor: a.id }));   // States: shut out of everything but ending the turn
+      if (dc.kind === "turn" && H.Cards) { const pick = H.Cards.aiPick(s, a); if (pick && apply(s, pick.act, { preview: true }).ok) { traceAiTerm("cardNecessity", pick.necessity); traceAiTerm("cardGoal", pick.goal); return traceAiReturn("aiDecide:cards", pick.act); } }   // Battle Cards (C5): one card, then the ordinary action on the next call; the one-card stamp stops a second
       if (dc.kind === "turn" && H.Instinct.lying(a)) {   // Survival Instincts: a lying unit stands once its rest is spent or it is no longer hurt; otherwise it keeps still
         const R = s.rules.survivalInstincts, st = a.status.playingDead;
         const rise = { type: "standUp", actor: a.id };
@@ -922,6 +923,14 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           if (apply(s, act, { preview: true }).ok) out.push(act);
         }
       }
+      if (summonRules && dreamReadiness && summonRules.callsPalace(a) && !communeFirst && !a.communed && !a.dream && !a.aggressive) {   // D2: unlocked dreams are considered beside palace familiars (no question; same exclusions)
+        const unlocked = s.unlockedSummons || [];
+        for (const key of unlocked) {
+          if (!key.startsWith("enemyDream:") || !dreamReadiness(s, id, key, unlocked).ok) continue;
+          const act = { type: "callDream", actor: id, key, unlocked: unlocked.slice() };
+          if (apply(s, act, { preview: true }).ok) out.push(act);
+        }
+      }
       if(H.waterRecovery(s,a)?.allowed && apply(s,{type:"recoverWater",actor:id},{preview:true}).ok)out.push({type:"recoverWater",actor:id});   // Water (synergy merge 1.3.379: hand-placed beside recover; the palace-summon block sits between the patch's anchors)
       if (a.maxPF > 0 && a.pf < 6 && a.lastRecoverTurn < a.ownerTurns - s.rules.recover.cooldownTurns && a.tempo >= s.rules.actionCosts.utility) out.push({ type: "recover", actor: id });
       if (!a.status?.overwatch && (a.reaction ?? 0) > 0 && !a.aggressive && !a.summon && a.tempo >= (s.rules.overwatch?.ap ?? 10)) out.push({ type: "overwatch", actor: id });   // Overwatch (Muse-2)
@@ -956,7 +965,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const atkId = s.pending.attacker;
       const play = (resp) => { const r = apply(s, { type: "respond", actor: a.id, ...resp }, { preview: true }); if (!r.ok) return null;
         let st = r.state, n = 0; while (st.phase === "response" && n++ < 16) { const who = decider(st)?.actor; const q = apply(st, { type: "respond", actor: who, response: "none" }, { preview: true }); if (!q.ok) break; st = q.state; }
-        return { lost: a.lf - (st.actors[a.id]?.lf ?? 0), returned: (s.actors[atkId]?.lf ?? 0) - (st.actors[atkId]?.lf ?? 0) }; };
+        return { lost: a.lf - (st.actors[a.id]?.lf ?? 0), returned: (s.actors[atkId]?.lf ?? 0) - (st.actors[atkId]?.lf ?? 0), st }; };
       const base = play({ response: "none" }); if (!base) return null;
       const worth = (o) => (base.lost - o.lost) + R.returnedWeight * (o.returned - base.returned);
       // Unrevealed, the defender cannot see how the answer meets this technique (the graph's edges): it judges each
@@ -979,6 +988,8 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         }
         const o = known ? play({ response: "technique", ability: t.ability, target: t.target }) : guess(t); if (!o) continue;
         let v = worth(o) - t.apCost * perAp - t.pf * R.pfWeight;
+        if (t.coverFor && o.st && base.st) { const allyBefore = s.actors[t.coverFor]?.lf ?? 0;   // W1c cover: a revealed attack is played out, so the ally's saved LF prices exactly (unrevealed, the guess covers only self and the gaze stays home)
+          v += ((allyBefore - (base.st.actors[t.coverFor]?.lf ?? 0)) - (allyBefore - (o.st.actors[t.coverFor]?.lf ?? 0))) * (R.allyWeight ?? 1); }
         { const B = s.rules.aiLedger?.foeMemory && s.foeBrief?.for === a.id ? s.foeBrief?.prefer?.[s.pending.inst.ability]?.[t.ability] || 1 : 1;   // foe-memory briefing (Muse-2 FOE_MEMORY): an answer that worked against this technique opens hot (x1.25); failures are already excluded by learnedFails (window.js), so there is no guard half
           v = v >= 0 ? v * B : v / B; }
         if (v > R.keep && (!best || v > best.value)) best = { ...t, value: v }; }
@@ -1380,6 +1391,18 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     // order): generic ones here, per-trait ones on H from their part (fruitTraitChecks). An unknown check fails safe
     // (no bonus); the trait-drive tests pin every table name to a check.
     const foeNearHere = (s, a, r) => Object.values(s.actors).some((u) => !u.defeated && !u.notArrived && !H.Tourist?.is?.(u) && u.side !== a.side && u.side !== "bystander" && dist(s, a.x, a.y, u.x, u.y) <= r);   // the AI's own idea of a foe (ai.js foesLeft)
+    // Generic drive checks (hotbuilds W1b; the Entrainer table's `when` names): no live Fixed foe; the Fixed foe
+    // holds a line or ranged technique (range 2+ is what a reaction answers); no ward the damage path would read.
+    const noneFixedHere = (s, a) => !H.fixedFoe?.(s, a);
+    const fixedFoeRangedHere = (s, a) => {
+      const f = s.actors?.[H.fixedFoe?.(s, a)];
+      if (!f) return false;
+      const ids = H.abilitiesOf ? H.abilitiesOf(f) : (f.learned || []);
+      return (ids || []).some((id) => { const d = (H.ab || ab)?.(id); return !!d && (d.delivery === "line" || (typeof d.range === "number" && d.range >= 2)); });
+    };
+    const noWardHere = (s, a) => !((a.status?.ward?.protection || 0) > 0);   // mirrors damage.js: a ward reads while it has protection
+    const foesInSightHere = (s, a, n) => Object.values(s.actors).filter((u) => !u.defeated && !u.notArrived && !H.Tourist?.is?.(u) && u.side !== a.side && u.side !== "bystander" && H.hasSight?.(s, a.x, a.y, u.x, u.y)).length >= (n || 2);   // W1c: Second Gaze wants two foes showing themselves
+    const driveChecks = { foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere };
     function driveWhenHolds(checks, s, a, cand, when) {
       if (when === undefined || when === null) return true;
       // A bare ["name", x] with non-string x is one tuple; any other array is a list of atoms (tuple args are never bare strings).
@@ -1393,7 +1416,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     }
     function traitDriveBonus(s, a, cand) {
       const R = s.rules.aiLedger?.traitDrive; if (!R?.on || cand?.type !== "ability" || !cand.ability) return 0;
-      const checks = { foeNear: foeNearHere, ...(H.fruitTraitChecks || {}) };
+      const checks = { ...driveChecks, ...(H.fruitTraitChecks || {}) };
       let total = 0;
       for (const [trait, table] of Object.entries(R)) {
         if (trait === "on" || !table || typeof table !== "object") continue;
@@ -1486,6 +1509,13 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         if (foes.length === 0 || foes.reduce((n, t) => n + t.lf, 0) <= 12) return 4;
         const friends = Object.values(s.actors).filter((t) => !t.defeated && !t.notArrived && t.side === a.side).length;
         const turns = summonRules?.data?.rules?.baseDuration ?? 3;
+        return (30 + 6 * turns + (foes.length > friends ? 10 : 0)) * MOTIVE.scale;
+      }
+      if (cand.type === "callDream") {   // D2: a called dream buys whole extra turns too (same slot, same purpose): the summon pricing, over the dream's own duration. Kept a separate branch so the tuned palace lines above stay byte-identical.
+        const foes = Object.values(s.actors).filter((t) => H.Instinct.standing(t) && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander");
+        if (foes.length === 0 || foes.reduce((n, t) => n + t.lf, 0) <= 12) return 4;
+        const friends = Object.values(s.actors).filter((t) => !t.defeated && !t.notArrived && t.side === a.side).length;
+        const turns = s.rules.enemySummons?.turns ?? 3;
         return (30 + 6 * turns + (foes.length > friends ? 10 : 0)) * MOTIVE.scale;
       }
       if (cand.type === "aura") return Auras ? (Auras.aiValue(s, a, auraH()) ?? 0) * (s.rules.aiAuraMul ?? 1.8) : 0;   // Auras (rules.aiAuraMul: a sim arm, 2026-10-15)
@@ -1889,6 +1919,6 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       return best && best.d > dist(s, a.x, a.y, foe.x, foe.y) ? { type: "move", actor: a.id, to: best.to } : { type: "end", actor: a.id };
     }
 
-    return { withAiTrace, traceAiEvent, aiLastWorkflow, shownTrait, aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, concentrationValue, approach, retreat, lessonsOf, lessonMul, cannotDodge, traitDriveBonus };
+    return { withAiTrace, traceAiEvent, aiLastWorkflow, shownTrait, aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, concentrationValue, approach, retreat, lessonsOf, lessonMul, cannotDodge, traitDriveBonus, driveChecks };
   })();
 });

@@ -17,6 +17,7 @@
   if (typeof module === "object" && module.exports) module.exports = factory(require("./mint.js"));
   else root.ConceptCombatBoard = factory(root.ConceptCombatMint);
 })(typeof self !== "undefined" ? self : this, function (MINT) {
+  const CL = () => (typeof module === "object" && module.exports ? require("../cards/cards-loot.js") : (typeof self !== "undefined" ? self : this).ConceptCombatCardsLoot);   // lazy: board.js loads before the cards tags on the town pages
   const RULES = { postings: 3, expiryBattles: 3,
     bases: { assassinate: 18, survive: 12, escape: 14, noDamage: 20, solo: 16, turnLimit: 14, noUlts: 15, vowBound: 12, convert: 14, capture: 14, kneeVictory: 22, trialWin: 12 },   // the last four are the non-lethal jobs Fame opens (FAME.md E7; PROVISIONAL, under the mint cap)
     constraintMul: { solo: 1.5, turnLimit: 1.4, noUlts: 1.3, noDamage: 1.6 } };
@@ -36,7 +37,7 @@
     for (const c of constraints || []) p *= RULES.constraintMul[c] || 1;
     return MINT.capped("board", Math.round(p)).seeds;
   }
-  function draft(seed, i, battles, roster, fame = 0) {
+  function draft(seed, i, battles, roster, fame = 0, level = 1) {
     const condition = pick(seed, `board:cond:${i}`, fame >= FAME_MIN ? [...LIVE, ...FAME_LIVE] : LIVE);   // old accounts at Fame 0 or 1 draw exactly the old pool
     const m = { id: `b${battles}-${condition}-${i}`, condition, constraints: [], expiresAt: battles + RULES.expiryBattles };
     let diff = 1;
@@ -51,13 +52,14 @@
     }
     if (m.constraints.includes("turnLimit") && condition !== "turnLimit") m.cn = 6 + Math.floor(roll(seed, `board:cn:${i}`) * 4);
     m.payout = price(condition, diff, m.constraints);
+    if (m.constraints.length) m.card = CL()?.rollCard(null, { seed, tag: `board:card:${i}`, level }) || null;   // Battle Cards (C6a): a constrained job pays a card in kind (never legendary, never staged), its rarity rolled at the player's level like a battle drop
     return m;
   }
-  function generate({ seed = 1, battles = 0, lastIds = [], roster = [], fame = 0 } = {}) {
+  function generate({ seed = 1, battles = 0, lastIds = [], roster = [], fame = 0, level = 1 } = {}) {
     const out = [];
     let guard = 0;
     while (out.length < RULES.postings && guard++ < 30) {
-      const m = draft(`${seed}:${guard}`, out.length, battles, roster, fame);
+      const m = draft(`${seed}:${guard}`, out.length, battles, roster, fame, level);
       if (lastIds.includes(m.id) || out.some((o) => o.id === m.id)) continue;
       out.push(m);
     }
@@ -69,7 +71,7 @@
     b.lastIds = b.postings.map((p) => p.id);
     const kept = b.postings.find((p) => p.id === b.accepted && p.expiresAt > battles);
     if (b.accepted && !kept) b.accepted = null;   // the accepted job rotted off the board (no back-pay, no penalty)
-    const fresh = generate({ seed: `${seed}:b${battles}`, battles, lastIds: b.lastIds, roster, fame })
+    const fresh = generate({ seed: `${seed}:b${battles}`, battles, lastIds: b.lastIds, roster, fame, level: account.level || 1 })
       .filter((p) => p.id !== b.accepted).slice(0, RULES.postings - (kept ? 1 : 0));
     b.postings = [...(kept ? [kept] : []), ...fresh];
     return account;
@@ -132,7 +134,8 @@
     const bits = { assassinate: `Assassinate ${m.target}`, survive: `Survive ${m.n} rounds`, escape: "Get out alive",
       noDamage: "Win untouched", solo: "Win solo", turnLimit: `Win in ${m.n} rounds`, noUlts: "Win without ults", vowBound: "Win with a kept vow",
       convert: "Win a foe over", capture: "Seal or tame a foe", kneeVictory: "Win by presence", trialWin: "Win a trial" };
-    return `${bits[m.condition] || m.condition}${(m.constraints || []).length ? ` (${m.constraints.join(", ")})` : ""} — ${m.payout} Seeds`;
+    const card = m.card ? CL()?.cardName?.(m.card) || null : null;
+    return `${bits[m.condition] || m.condition}${(m.constraints || []).length ? ` (${m.constraints.join(", ")})` : ""} — ${m.payout} Seeds${card ? ` + ${card}` : ""}`;
   }
   return { RULES, LIVE, FAME_LIVE, FAME_MIN, STUBS, generate, refresh, accept, abandon, verify, settle, describe };
 });
