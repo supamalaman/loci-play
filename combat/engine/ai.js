@@ -616,7 +616,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       // Ritual burial: ritual-minded units (the Chanter, Desert Rites) bury a body beside them unless a strong attack is on
       // offer and no foe is close enough to break the rite (muse/ritual-burial/SPEC.md: valuation lands with the build).
       if (s.rules.rite?.burial && (Spirit()?.greedOpen?.(s, a) ?? true) && (hasTrait(a, "unendingChant") || (s.rules.rite.burial.fastTraits || []).some((t) => hasTrait(a, t))) && H.corpseBeside?.(s, a)
-        && (!best || best.sc < 8) && !Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "civilian" && Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)) <= 1)
+        && (!best || best.sc < 8) && !Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "civilian" && u.side !== "bystander" && Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)) <= 1)
         && apply(s, { type: "riteStep", actor: a.id, section: "burial" }, { preview: true }).ok) return traceAiReturn("aiDecide:L543", ({ type: "riteStep", actor: a.id, section: "burial" }));
       // C15: with nothing good on offer (best under 3) and charge to build, meditate: half the time, Contemplative 80%, Restless 20%.
       const canMeditate = a.tempo >= MED.ap && (a.ultimateCharge ?? 0) < s.rules.ultimateChargeMax && !a.dream && !a.summon && s.rules.meditateAi !== false;
@@ -1485,7 +1485,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           const left = (after.state.arena.objects || []).find((p) => p.id === foeBld.id)?.hp ?? 0;
           const dmg = foeBld.hp - left; if (dmg > 0) return dmg * 0.8 + (left <= 0 ? 10 : 0); } }
       if (cand.type === "tameBeast" || cand.type === "markVessel" || cand.type === "callPack") return H.tamerValue(s, a, cand);
-      if (cand.type === "catchFish") { const R = s.rules.fish, room = s.rules.ultimateChargeMax - (a.ultimateCharge ?? 0), near = Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "civilian" && Math.abs(u.x - a.x) + Math.abs(u.y - a.y) <= 3);
+      if (cand.type === "catchFish") { const R = s.rules.fish, room = s.rules.ultimateChargeMax - (a.ultimateCharge ?? 0), near = Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "civilian" && u.side !== "bystander" && Math.abs(u.x - a.x) + Math.abs(u.y - a.y) <= 3);
         return near ? 0 : Math.min(R.ultCharge, room) * (R.aiValuePer ?? 0.2) * (Spirit()?.greedMul?.(s, a) ?? 1); }   // 20 charge ≈ 4: worth a quiet turn, never worth turning your back on a foe; SP-02: ~zero while conducted
       if (cand.type === "vow" && cand.target === "word") return s.rules.ramaWord?.aiValue ?? 14;   // a whole battle of +3: worth more than one swing
       if (cand.type === "vow" && cand.target === "technique") return vowTechScore(s, a, cand);
@@ -1699,6 +1699,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         // Delayed fields can be aimed at empty tiles. They are legal commitments,
         // but without an occupant there is no target whose delayed effect can score.
         if (!target || !s.actors[target.id] || target.defeated || target.notArrived) return 0;
+        if (H.Tourist?.is(target)) return 0;   // the Tourist is a bystander: a committed strike on him is never a gain (the live scorer below prices him as a cost)
         const tid = target.id;
         if (s.scheduled.some((e) => e.trigger.actor === tid)) return 0;   // don't stack delayed effects on one target
         if (!cannotDodge(s, target, a)) return 0;   // it lands at their next turn and they step out of it (Trip Threshold, 4 misses in a row, 2026-10-14)

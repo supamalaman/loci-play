@@ -237,6 +237,7 @@
         const live = s.rumors.filter((r) => r.expiresRound > s.round);
         if (live.length !== s.rumors.length) { s.rumors = live; log(s, { kind: "expire", actor: a.id, text: "An unverified rumor fades." }); }
       }
+      totemTurnStart(s, a);   // ingredient totems: a host's totem buffs allies within 2 as their turns start (spec claude-ingredient-totems-spec)
       cornerAdvice(s, a); callCompanion(s, a); H.Longtermism?.turnStart(s, a);   // class companions (conditions.js); Longtermism bequest and Endowment expiry
       H.sproutSeeds(s, a);   // lodged seeds (Breadfruit Hurl) sprout as the turn starts (resolve.js)
       H.squeeze(s, a);   // Strong Grip: enemies in this unit's Grapple are hurt as its turn starts (actions.js)
@@ -513,8 +514,31 @@
       for (const k of ["silenced", "bleed"]) if (a.status[k]?.until != null && a.status[k].until < n) a.status[k] = null;   // `until` marks end quietly: clear the spent mark so no card or singer reads it
       if (a.status.entangled && a.status.entangled.expiresAt < n) { a.status.entangled = null; log(s, { kind: "expire", actor: a.id, text: `${a.name}'s entanglement clears.` }); }
     }
+    // ── Ingredient totems (spec claude-ingredient-totems-spec T1). A totem is a state on its host, never a unit.
+    function totemTurnStart(s, a) {
+      const IG = H.Communion?.ingredients; if (!IG || !a || a.defeated) return;
+      const done = new Set();   // two totems of one kind do not stack on one ally
+      for (const h of Object.values(s.actors)) {
+        const t = h.totem; if (!t || h.defeated || h.side !== a.side || done.has(t.kind) || dist(s, h.x, h.y, a.x, a.y) > IG.rules.radius) continue;
+        const def = IG.totems[t.kind]; if (!def) continue; done.add(t.kind);
+        if (def.heal && a.lf < a.maxLF) { const n = Math.min(def.heal, a.maxLF - a.lf); a.lf += n; log(s, { kind: "heal", actor: h.id, target: a.id, text: `The ${t.name} mends ${a.name}: +${n} LF.` }); }
+        if (def.phi && a.pf < a.maxPF) { const n = Math.min(def.phi, a.maxPF - a.pf); a.pf += n; log(s, { kind: "effect", actor: h.id, target: a.id, text: `The ${t.name} restores ${n} ΦF to ${a.name}.` }); }
+        if (def.cleanse && !t.cleansed.includes(a.id)) {
+          const k = IG.rules.tofuCleanses.find((key) => a.status?.[key]);
+          if (k) { a.status[k] = null; t.cleansed.push(a.id); log(s, { kind: "effect", actor: h.id, target: a.id, text: `The ${t.name} eases ${a.name}: ${k} ends.` }); }
+        }
+      }
+    }
+    function totemTurnEnd(s, a) {
+      const t = a?.totem; if (!t) return;
+      if (a.defeated) { a.totem = null; return; }
+      if (a.totemWokeTurn === a.ownerTurns) return;   // the turn she woke it does not count
+      t.turnsLeft -= 1;
+      if (t.turnsLeft <= 0) { a.totem = null; log(s, { kind: "totem", actor: a.id, text: `The ${t.name} goes back to sleep.` }); }
+    }
     function endTurn(s) {
       const a = s.actors[currentId(s)];
+      totemTurnEnd(s, a);   // ingredient totems: the host's count runs at her turn end (not the turn she woke it)
       if (s.law?.dispatch?.pending && H.Dispatch) { s.law.dispatch.autoArrived = true; H.Dispatch.arrive(s, H); }   // no UI played the call (sims, headless): the officers still come
       if (a) { a._unspent = a._heldAtEnd ?? a.tempo; a._heldAtEnd = null; }   // W5.3: heat reads banked-first (stall zeroes tempo before this runs)
       armEstablishedGuard(s, a);
@@ -614,7 +638,7 @@
       const def=summonRules.data.summons[actor.summon.key];
       const effect=actor.summon.maxForm ? def?.maxForm?.revealEffect : def?.trueForm?.revealEffect;
       if(!effect) return;
-      const enemies=Object.values(s.actors).filter(u=>!u.defeated && u.lf>0 && u.side!==actor.side && H.astralSameRegion(s,actor.x,actor.y,u.x,u.y));   // reveal fields do not cross to the astral plane (or back)
+      const enemies=Object.values(s.actors).filter(u=>!u.defeated && u.lf>0 && u.side!==actor.side && !H.Tourist?.is(u) && H.astralSameRegion(s,actor.x,actor.y,u.x,u.y));   // reveal fields do not cross to the astral plane (or back)
       if(effect.kind==="dazzle") for(const enemy of enemies) {
         const success=seededChance(`${s.seed}:${actor.id}:${actor.summon.owner}:${s.round}:dazzle:${enemy.id}`)<effect.chance;
         if(success) enemy.dazzleApLoss=Math.max(enemy.dazzleApLoss || 0,effect.fraction);

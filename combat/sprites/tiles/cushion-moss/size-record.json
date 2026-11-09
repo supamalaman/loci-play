@@ -1,0 +1,45 @@
+{
+  "source": "ChatGPT Image Nov 3, 2026, 01_13_52 PM.png",
+  "poses": {
+    "young": {
+      "pixel_size": [
+        182,
+        114
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        178,
+        110
+      ],
+      "sha256": "4724f8e4e6ba91b11691536efee93b931dfb914417a4630fc8952b5cfe75f615"
+    },
+    "mature": {
+      "pixel_size": [
+        325,
+        196
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        321,
+        192
+      ],
+      "sha256": "b3ef366e472ee88f87bc4d0c3b9fbec220a50df9744b0c225118cfdd33ab2be4"
+    },
+    "dormant": {
+      "pixel_size": [
+        210,
+        123
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        206,
+        119
+      ],
+      "sha256": "e40914dec23cc7046bb8590c974e87d49f0754130b9a074524dee7f710aedbaa"
+    }
+  },
+  "note": null
+}

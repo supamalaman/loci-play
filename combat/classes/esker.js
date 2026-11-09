@@ -25,7 +25,7 @@
   const live = (s) => Object.values(s.actors || {}).filter((u) => u && !u.defeated && !u.notArrived && !u.escaped);
   const st = (u) => (u.status ||= {});
   const active = (x, u) => !!x && (x.until == null || x.until >= (u?.ownerTurns ?? 0));
-  const hostile = (s, a, b) => a.side !== b.side && a.side !== "civilian" && b.side !== "civilian";
+  const hostile = (s, a, b) => a.side !== b.side && ![a.side, b.side].some((x) => x === "civilian" || x === "bystander");
   const burden = (a) => a?.status?.eskerBurden?.stacks || 0;
   const wardsOf = (s, a) => (active(a.status?.eskerBetween, a) ? a.status.eskerBetween.wards.map((id) => s.actors[id]).filter((u) => u && !u.defeated) : []);
   const markOf = (s, a) => { const m = s.eskerMarks?.[a.id]; return m && s.round - m.round <= 1 ? s.actors[m.target] || null : null; };

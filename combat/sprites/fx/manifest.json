@@ -151,5 +151,11 @@
   "commune-water"
  ],
  "hit": 8,
- "burst": 9
+ "burst": 9,
+ "signatures": {
+  "smite": {
+   "projectile": 4,
+   "impact": 3
+  }
+ }
 }

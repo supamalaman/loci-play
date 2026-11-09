@@ -132,6 +132,122 @@
       "features": []
     }
   },
+  "beretaniaCourt": {
+    "archetype": "terrace",
+    "height": [
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "0000000000000000000",
+      "1111111111111111111",
+      "1111111111111111111",
+      "1111111111111111111",
+      "1111111111111111111"
+    ],
+    "id": "beretaniaCourt",
+    "map": [
+      "..T...T.....T...T..",
+      "..,,,,,,...,,,,,,..",
+      "..,,T,,,...,,,T,,..",
+      "..,,,,,,...,,,,,,..",
+      "..,,T,,,...,,,T,,..",
+      "..,,#,,,...,,,#,,..",
+      "..hh...........hh..",
+      "....#.........#....",
+      "..hh...........hh..",
+      "....#.........#....",
+      "///////////////////",
+      "....#.........#....",
+      "...mTm.......mTm...",
+      "...................",
+      "..hh...........hh.."
+    ],
+    "name": "Beretania Court",
+    "note": "1617 S Beretania arrival grounds: monkeypod allee lawn off the street, the folded-plate entrance canopy spanning the full arrival court on six column piers, driveway ramp up to the rear parking deck. Tower mass sits east out of bounds; the grounds wrap it.",
+    "requirements": {
+      "walkableLevels": true
+    },
+    "schemaVersion": 1,
+    "spawns": {
+      "enemy": [
+        [
+          8,
+          13
+        ],
+        [
+          9,
+          13
+        ],
+        [
+          10,
+          13
+        ]
+      ],
+      "player": [
+        [
+          9,
+          1
+        ]
+      ]
+    },
+    "visual": {
+      "features": [
+        {
+          "columns": [
+            [
+              4.5,
+              5.5
+            ],
+            [
+              14.5,
+              5.5
+            ],
+            [
+              4.5,
+              7.5
+            ],
+            [
+              14.5,
+              7.5
+            ],
+            [
+              4.5,
+              9.5
+            ],
+            [
+              14.5,
+              9.5
+            ]
+          ],
+          "depth": 4,
+          "rise": 1.8,
+          "slats": 31,
+          "type": "canopy",
+          "width": 13,
+          "x": 3,
+          "y": 5
+        }
+      ],
+      "lighting": "day",
+      "palette": {
+        "ramp": "#6f6e6a",
+        "soil": "#7a5c3e",
+        "stone": "#b8b2a6",
+        "turf": "#5d8f4e",
+        "wall": "#cfc8bb",
+        "water": "#3f6f8f"
+      },
+      "seed": 1617,
+      "style": "isometric"
+    }
+  },
   "bioswaleCourt": {
     "schemaVersion": 1,
     "id": "bioswaleCourt",

@@ -529,6 +529,9 @@
       return !a.defeated || !!a.notArrived;
     }
     function checkOutcome(s) {
+      // Ingredient totems: a host that falls loses its totem at once, so a revive never brings it back (Fathom AD batch 5).
+      // Here because nearly every defeat path ends in checkOutcome; totemTurnEnd still clears it on any path that does not.
+      for (const u of Object.values(s.actors)) if (u.totem && u.defeated) { log(s, { kind: "totem", actor: u.id, text: `The ${u.totem.name} goes back to sleep: its host fell.` }); u.totem = null; }
       rootFallenPlants(s);
       collapseFallenStructures(s);
       H.astralDeathLink?.(s);   // the death-link resolves before the outcome is read: a fallen soul takes its body

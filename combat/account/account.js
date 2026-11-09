@@ -340,7 +340,7 @@ const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder,
   function beatenIn(state, characters = {}) {
     if (state?.outcome?.winner !== "player") return [];
     const stoodDown = new Set(state.outcome.surrendered || []);
-    const foeSide = (a) => ["enemy", "posthuman"].includes(a.side) || (state.mode === "melee" && a.side !== "player" && a.side !== "civilian");   // melee: every rival crew counts
+    const foeSide = (a) => ["enemy", "posthuman"].includes(a.side) || (state.mode === "melee" && a.side !== "player" && a.side !== "civilian" && a.side !== "bystander");   // melee: every rival crew counts
     return Object.values(state.actors || {}).filter((a) => foeSide(a) && characters[a.character]
       && !a.summon && !a.summonBinding && !a.companion && !a.beast && !a.monster && !a.dream && !a.wild && !a.communed && !a.escaped && !a.notArrived
       && (a.defeated || a.knockedOut || a.persuaded || stoodDown.has(a.id)))

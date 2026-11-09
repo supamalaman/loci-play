@@ -140,6 +140,10 @@
       out.push({ key: `wound-${zone}`, name: `${label}: ${w.g === 2 ? "maimed" : "wounded"}`, text: null, color: null, icon: null, count: null,
         detail: bleed ? `bleed ${bleed}` : "steady", help: `${effect}. MEND downgrades, TEND steadies the bleeding.` });
     }
+    // Ingredient totems (spec claude-ingredient-totems-spec): the host's card and hover name the totem, its buff and the turns left.
+    const T = globalThis.ConceptCombatCommunion?.ingredients?.totems || (typeof module === "object" && module.exports ? (() => { try { return require("./terrain/communion.js").ingredients.totems; } catch { return null; } })() : null);
+    if (a?.totem && !a.defeated) out.push({ key: "totem", name: a.totem.name, text: null, color: null, icon: null, count: a.totem.turnsLeft,
+      detail: `${a.totem.turnsLeft} of the host's turns left`, help: `${T?.[a.totem.kind]?.text || "A woken ingredient buffs allies within 2."} It stands beside its host; it cannot attack or be attacked.` });
     return out;
   }
   function marks(a, { showParry = false, wardAsNumber = false, actors = null } = {}) {   // actors: lets a held creature show its "Held" mark

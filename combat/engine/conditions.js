@@ -466,11 +466,7 @@
         log(s, { kind: "ritual", actor: recipient.id, text: `${from.name}'s death waits: ${recipient.name} is already chanting, and the rite begins when that channel ends.` });
         return;
       }
-      const rite = recipient.rite || { steps: [], hold: 0 };
-      if (!rite.steps.some((x) => x.type === "sacrifice" && x.from === from.id)) rite.steps.push({ type: "sacrifice", from: from.id });
-      rite.steady = true;   // the whole open bank, including steps added onto this same rite, holds without concentration
-      rite.hold = Math.max(rite.hold || 0, 2 * rite.steps.length);
-      recipient.rite = rite;
+      H.Rites.sacrifice(s, recipient, from);   // L1: the sacrifice step banks through the ledger (steady stays mirror-only)
       log(s, { kind: "ritual", actor: recipient.id, tiles: [[recipient.x, recipient.y]], text: `${from.name}'s death is the first step of ${recipient.name}'s rite. It does not take concentration to hold.` });
     }
     function flushSacrifice(s, a) {
@@ -482,14 +478,14 @@
     function endRite(s, a, how) {
       if (!a.rite) return;
       const n = a.rite.steps.length;
-      a.rite = null;
+      H.Rites.clear(s, a);   // L1: abandon/fizzle/break empties the ledger record with the mirror
       log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], ended: how, text: how === "broken" ? `${a.name}'s rite breaks under the blow (${n} step${n === 1 ? "" : "s"} lost).` : how === "fizzled" ? `${a.name}'s rite fades: the banked steps go unspent.` : `${a.name} abandons the rite.` });
     }
     function riteTick(s, a) {
       if (!a.rite) return;
       if (a.rite.steady) return;   // a sacrificed rite does not fizzle: the lover already paid the holding
       if (hasTrait(a, "unendingChant")) return;   // Rites (Muse-2): the Chanter holds steps until spent — the bank never fizzles
-      a.rite.hold -= 1;
+      H.Rites.tickHold(s, a);   // L1: the tick burns in the ledger and the mirror together
       if (a.rite.hold < 0) return endRite(s, a, "fizzled");
       log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite holds (${a.rite.hold} turn${a.rite.hold === 1 ? "" : "s"} of bank left, ${a.rite.steps.length} step${a.rite.steps.length === 1 ? "" : "s"} banked).` });
     }
@@ -604,7 +600,7 @@
     function assignEnemyLoci(s) {
       const G = Generation(); if (!G || s.rules.enemyLoci === false || s.preview) return;
       const hero = s.modeSetup?.hero || "player", heroSide = s.actors[hero]?.side || "player", SC = Schools();
-      const foes = Object.values(s.actors).filter((u) => u.side !== heroSide && u.side !== "civilian" && !u.defeated);
+      const foes = Object.values(s.actors).filter((u) => u.side !== heroSide && u.side !== "civilian" && u.side !== "bystander" && !u.defeated);
       const doorOf = (u) => { const name = SC?.schoolOf?.(u.primary), d = SC?.RING ? SC.RING.indexOf(name) : -1; return d >= 0 ? d : G.fallbackDoor(u.primary); };   // schools.js names the school; the ring index is the door
       for (const [id, lo] of Object.entries(G.forBattle(s.seed, foes, doorOf))) s.actors[id].loci = lo;
     }

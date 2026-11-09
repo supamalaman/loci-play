@@ -863,6 +863,15 @@
 .cc-mind-vows summary>span { color:#b9c4d8; margin-left:8px; font-size:11px; }
 .cc-mind-vows>div { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:4px 0 10px; }
 .cc-mind-vows button b { display:block; margin-bottom:5px; color:#ead7a8; }
+.cc-mind-sample { display:block; margin-top:4px; color:#9fb0cc; font-size:11px; font-style:italic; line-height:1.4; }
+.cc-mind-talk { margin-top:10px; border-top:1px solid #404c62; padding-top:6px; }
+.cc-mind-talk-lines { max-height:130px; overflow:auto; }
+.cc-mind-talk p { color:#e3e9f5; font-size:13px; line-height:1.55; margin:5px 0; }
+.cc-mind-talk p.is-new { opacity:0; animation:cc-talk-in .35s ease forwards; animation-delay:calc(var(--i) * .9s); }
+.cc-mind-talk.is-skipped p.is-new { opacity:1; animation:none; }
+.cc-mind-skip { background:none; border:1px solid #404c62; color:#9fb0cc; font-size:11px; padding:2px 8px; border-radius:4px; cursor:pointer; }
+@keyframes cc-talk-in { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .cc-mind-talk p.is-new { opacity:1; animation:none; } }
 .cc-mind-history { margin-top:10px; border-top:1px solid #404c62; }
 .cc-mind-history p { color:#ccd4e3; font-size:12px; line-height:1.6; margin:6px 0; }
 .cc-mind-wait { padding:24px 0; color:#ddc99d; }
@@ -1039,6 +1048,31 @@
 .cc-cx-ready { color: #86c88c; font-weight: 600; font-size: 11px; border: 1px solid #4a6b4f; border-radius: 9px; padding: 0 6px; }
 .cc-cx-body { padding: 0 2px 8px; }
 .cc-cx-body > .cc-hall-offer:first-child { border-top: 0; }
+
+/* Practice a trial (law/practice-trial.js; claude-magistrate-court-spec M0): a made-up case in the Codex. Favor bar: Sword | Confiscate | Acquit zones at the courtroom thresholds (−2, +2) on a −12..+12 track. */
+.cc-practice [aria-pressed="true"] { background: #3a3550; border-color: #e9c46a; color: #e9c46a; }
+.cc-pt-coach { margin: 6px 0 10px; padding: 8px 12px; border-left: 3px solid #e9c46a; background: #221f2b; color: #e6dfc8; font-style: italic; }
+.cc-pt-counts { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
+.cc-pt-count { padding: 6px 10px; border: 1px solid #3a3550; border-radius: 6px; }
+.cc-pt-count small { color: #9a9ec4; margin-left: 6px; }
+.cc-pt-count.struck b, .cc-pt-count.absolved b { text-decoration: line-through; color: #8a8698; }
+.cc-pt-favor { margin: 4px 0 12px; }
+.cc-pt-zones { display: grid; grid-template-columns: 10.5fr 3fr 10.5fr; font: 700 11px ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: .04em; }
+.cc-pt-zones span { padding: 3px 6px; }
+.cc-pt-zones .z-sword { background: #4a1f24; color: #f2a5a5; border-radius: 6px 0 0 6px; }
+.cc-pt-zones .z-conf { background: #4a3f1f; color: #e9c46a; text-align: center; }
+.cc-pt-zones .z-acq { background: #1f4a2c; color: #9ee0ae; text-align: right; border-radius: 0 6px 6px 0; }
+.cc-pt-track { position: relative; height: 10px; margin: 2px 0 4px; background: #1a1822; border-radius: 5px; }
+.cc-pt-track i { position: absolute; top: -3px; width: 4px; height: 16px; margin-left: -2px; background: #f4ecdc; border-radius: 2px; box-shadow: 0 0 6px #e9c46a; transition: left .25s ease; }
+.cc-pt-favor small { color: #9a9ec4; }
+.cc-pt-log { margin: 0 0 10px; padding-left: 20px; max-height: 220px; overflow: auto; font-size: 13px; }
+.cc-pt-log li { margin: 3px 0; }
+.cc-pt-lesson { display: block; color: #9a9ec4; font-size: 12px; }
+.cc-pt-moves { flex-wrap: wrap; gap: 8px; }
+.cc-pt-moves button { flex: 1 1 130px; min-width: 0; }
+.cc-pt-verdict { margin: 8px 0; padding: 10px 14px; border: 1px solid #e9c46a; border-radius: 8px; background: #1f1c27; }
+.cc-pt-verdict h3 { margin: 0 0 6px; color: #e9c46a; }
+@media (prefers-reduced-motion: reduce) { .cc-pt-track i { transition: none; } }
 
 /* NPC keepers (npc/keeper-ui.js): a strip in the card header, outside every fold. 88px portrait box (56px under 720px wide, plate hidden). */
 .cc-keeper { display:grid; grid-template-columns:88px 1fr; grid-template-areas:"portrait speech" "plate speech" "actions actions" "chips chips"; gap:4px 12px; align-items:start; margin:8px 0 12px; padding:10px; border:1px solid #68758b; border-radius:12px; background:#10192a; }

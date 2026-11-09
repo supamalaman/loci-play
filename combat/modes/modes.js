@@ -142,6 +142,8 @@
   // snapshot = { round, units: [{ id, side, x, y, defeated }], wild: [monsters] }
   function outcome(setup, snap) {
     const alive = (u) => u && !u.defeated && (u.lf == null || u.lf > 0);
+    // Civilians and bystanders (the Tourist, side "bystander") are nobody's crew: they never hold a battle open or lose it.
+    const neutral = (u) => u.side === "civilian" || u.side === "bystander";
     // Nonlethal victory (NONLETHAL.md N3): a unit incapacitated with at least one own turn still to come is out of the fight for a side's elimination
     // (not `standing`: engine/instinct.js already defines that name). It is read for side elimination only, never for a marked target.
     const subdued = (u) => !!u && alive(u) && (u.states?.incapacitated?.count ?? 0) >= 1;
@@ -161,16 +163,16 @@
       const standing = counts.player ? ["player"] : counts.enemy ? ["enemy"] : counts.wild ? ["wild"] : [];
       if (standing.length === 1) {
         const winner = standing[0], name = { player: "Player", enemy: "Enemy", wild: "Wild" }[winner];
-        const out = snap.units.filter((u) => u.side !== winner && u.side !== "civilian" && subdued(u));   // a faction that was subdued, not killed, loses non-lethally
+        const out = snap.units.filter((u) => u.side !== winner && !neutral(u) && subdued(u));   // a faction that was subdued, not killed, loses non-lethally
         return out.length && winner !== "wild" ? subdueEnd(winner, out, `${name} faction is the last standing; the rest are subdued.`) : { winner, reason: `${name} faction is the last standing.` };
       }
       return { winner: "none", reason: "Every faction has fallen." };
     }
     if (setup.mode === "melee") {   // sub-faction melee (Mala, 2026-10-17): N crews, last standing wins
       const crews = {};
-      for (const u of snap.units) { if (unsubdued(u) && u.side !== "civilian") crews[u.side] = (crews[u.side] || 0) + 1; }
+      for (const u of snap.units) { if (unsubdued(u) && !neutral(u)) crews[u.side] = (crews[u.side] || 0) + 1; }
       const standing = Object.keys(crews);
-      const ownSub = playerSide.filter(subdued), othersSub = snap.units.filter((u) => u.side !== "player" && u.side !== "civilian" && subdued(u));
+      const ownSub = playerSide.filter(subdued), othersSub = snap.units.filter((u) => u.side !== "player" && !neutral(u) && subdued(u));
       if (!crews.player) return ownSub.length ? subdueEnd("enemy", ownSub, "Your crew is subdued in the melee.") : { winner: "enemy", reason: "Your crew fell in the melee." };
       if (standing.length === 1) return othersSub.length ? subdueEnd("player", othersSub, "Your crew is the last standing; the rest are subdued.") : { winner: "player", reason: "Your crew is the last standing." };
       return null;
@@ -236,7 +238,7 @@
     }
     if (setup.mode === "melee") {
       const crews = {};
-      for (const u of snap.units) { if (!u.defeated && u.side !== "civilian") crews[u.side] = (crews[u.side] || 0) + 1; }
+      for (const u of snap.units) { if (!u.defeated && u.side !== "civilian" && u.side !== "bystander") crews[u.side] = (crews[u.side] || 0) + 1; }
       return `Melee · ${Object.entries(crews).map(([s, n]) => `${s} ${n}`).join(" / ")}`;
     }
     if (setup.mode === "scenario") return OBJ ? OBJ.text(setup, snap, snap.rules) : "Scenario";

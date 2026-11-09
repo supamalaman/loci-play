@@ -105,5 +105,27 @@
       lf: Math.min(ally.lf, Math.max(1, ally.maxLF - t.lfAdd)), treeant: null };
   }
 
-  return { rules: R, data: D, profile, observe, canCommune, pickQuestion, questionFor, scoreAnswer, makeAlly, corpseObject, promoteToTreeant, revertTreeant };
+  // ── Ingredient totems (spec claude-ingredient-totems-spec T1). Pure: the engine owns state, costs and the log.
+  const IG = D.ingredients || { rules: {}, totems: {} };
+  const traitIds = (unit) => (unit?.traits || []).map((t) => (typeof t === "string" ? t : t?.id));
+  const totemOf = (item) => IG.totems[item] || null;
+  const canWakeIngredients = (unit) => traitIds(unit).some((t) => IG.rules.traits.includes(t));
+  //   canCommuneIngredient({ unit, item, ap, pf, usedThisTurn, dist }) → { ok, reason, totem }
+  function canCommuneIngredient({ unit, item, ap = 0, pf = 0, usedThisTurn = false, dist = 0 }) {
+    const totem = totemOf(item); if (!totem) return { ok: false, reason: "That ingredient does not wake." };
+    if (!canWakeIngredients(unit)) return { ok: false, reason: "Only an Animist, or a cook who has watched it done, can wake an ingredient." };
+    if (usedThisTurn) return { ok: false, reason: "One ingredient a turn." };
+    if (dist > IG.rules.pickupRange) return { ok: false, reason: "Stand beside the ingredient to wake it." };
+    if (ap < IG.rules.communeAp) return { ok: false, reason: `Needs ${IG.rules.communeAp} AP.` };
+    if (pf < IG.rules.phi) return { ok: false, reason: `Needs ${IG.rules.phi} ΦF.` };
+    return { ok: true, totem };
+  }
+  // The player learned Kitchen Animism this battle: write it to the account's self traits once (the Animist grant's shape, account/loot.js).
+  function settleKitchen(account, learned, traitDef) {
+    if (!learned || !account || (account.self?.traits || []).some((t) => (t?.id || t) === IG.rules.learnedTrait)) return account;
+    const T = traitDef || { name: "Kitchen Animism", text: "" };
+    return { ...account, self: { ...(account.self || {}), traits: [...(account.self?.traits || []), { id: IG.rules.learnedTrait, name: T.name, kind: "trait", depth: 1, category: "psychology", text: T.text, apparent: true, known: true }] } };
+  }
+
+  return { rules: R, data: D, profile, observe, canCommune, ingredients: IG, totemOf, canWakeIngredients, canCommuneIngredient, settleKitchen, pickQuestion, questionFor, scoreAnswer, makeAlly, corpseObject, promoteToTreeant, revertTreeant };
 });

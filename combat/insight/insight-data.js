@@ -130,6 +130,7 @@
     horticultureExpertise: { name: "Horticulture Expertise", category: "psychology", text: "Keeps what grows for them alive: each turn, communed plants within 2 tiles recover 2 LF and get a fresh Green ward, and their plants range further from them.", open: true, difficulty: 2 },
     // Animist (Tsukumogami slice 1; Mala, 2026-10-29): granted once, account-wide, when the first item in the
     // account's care reaches Awakened (account/loot.js logCare). The gate for observing structures.
+    kitchenAnimism: { name: "Kitchen Animism", category: "psychology", text: "Has watched food wake up and knows how it is done: can commune with ingredients (not structures).", open: true, difficulty: 2 },   // ingredient totems (Mala, 2026-11-07): learned by a cook who sees an ingredient wake; rare on cooks
     animist: { name: "Animist", category: "psychology", text: "It was never just a thing. You can commune with structures.", open: true, difficulty: 1 },
     // Grappler and Reach (Mala, 2026-10-11; content.js rules.grapple.grappler and rules.strike.reach).
     grappler: { name: "Grappler", category: "psychology", text: "Trained in the clinch: Grapple costs 20 action points instead of 35, and once a turn a Strike on a held opponent is free up to a balanced strike.", open: true, difficulty: 2 },
@@ -250,7 +251,7 @@
     charitable:     { name: "Charitable", text: "What they have is for whoever needs it: supports the weakest first.", difficulty: 2 },
     traditionalist: { name: "Traditionalist", text: "The old way is the right way: repeats what worked.", difficulty: 2, planned: "Resists being made Outmoded." },
     // Mala, 2026-10-30 (the Chef): "Culinary Training for Psychological trait, means he gets one free fresh station per turn." Read by mise/mise.js.
-    culinaryTraining: { name: "Culinary Training", text: "Years on the line: once a turn, the first Rack and Label he lays costs nothing, unless it goes on a tile where a station was used this turn or last round.", difficulty: 2 },
+    culinaryTraining: { name: "Culinary Training", text: "Years on the line: eating or drinking food costs 10 fewer AP (never under 5); and once a turn, the first Rack and Label laid costs nothing, unless it goes on a tile where a station was used this turn or last round.", difficulty: 2 },
     // Mala, 2026-10-11: the value that goes with the Craftsmanship concept. Wired today through goal weights only.
     craftsmansMindset: { name: "Craftsman's Mindset", text: "The work should be done properly or not at all: prepares, repeats what it has practised, and will not be hurried. It cannot overclock or borrow action points from a future turn, and in return everything it does is 15% stronger. With Craftsmanship it holds one more practice stack.", difficulty: 3 },
     // Mala, 2026-10-12 (docs/post-humanity.md; engine.js PostHuman). Roko's Basilisk spares a sympathizer and their AI
@@ -340,7 +341,7 @@
       "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "comparative", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
       "attentionToDetail", "culinaryTraining", "directorsVision", "knowsPeople", "methodActing", "focused", "scattered", "sampler", "adrenalineJunkie", "artist", "unendingChant", "shipsEngineer", "arcaneMastery",
-      /* tsukumogami self-trait, 2026-10-29 */ "animist",
+      /* tsukumogami self-trait, 2026-10-29 */ "animist", /* ingredient totems, 2026-11-07 */ "kitchenAnimism",
       /* the Paladin, 2026-10-31 (PALADIN.md) */ "consecrated", "faithful", "compassionate",
       /* the respec fruit, 2026-11-01 */ "fruitbound",
       /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer"],
@@ -724,8 +725,8 @@
     devouring_mother: { traits: ["lonely", "stubborn"], obs: [{ kind: "tell", text: "Opens all four arms before she takes; what she holds, she will not let go.", difficulty: 1 }] },
     tactical_operative: { traits: ["dutiful", "scout"], obs: [{ kind: "tell", text: "Signals the dog before moving; the K9 goes first, she covers its line.", difficulty: 1 }] },
     frogan: { traits: ["curious", "restless"], obs: [{ kind: "tell", text: "Tests doorways that aren't there before moving; the fight relocates where he points.", difficulty: 1 }] },
-    shaman: { traits: ["contemplative", "empathic"], obs: [{ kind: "tell", text: "Introduces someone you can't see before acting; the guest arrives where he gestures.", difficulty: 1 }] },
-    hedge_witch: { traits: ["dutiful", "guarded"], obs: [{ kind: "tell", text: "Lights a candle before settling in; the safe edge is wherever she put it.", difficulty: 1 }] },
+    shaman: { traits: ["contemplative", "empathic"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [{ kind: "tell", text: "Introduces someone you can't see before acting; the guest arrives where he gestures.", difficulty: 1 }] },
+    hedge_witch: { traits: ["dutiful", "guarded"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [{ kind: "tell", text: "Lights a candle before settling in; the safe edge is wherever she put it.", difficulty: 1 }] },
     robot_mechanic: { traits: ["impatient", "collaborative"], obs: [{ kind: "tell", text: "Raps the nearest ally with her wrench before patching; the fix lands where she stood.", difficulty: 1 }] },
     origamist: { traits: ["honest", "contemplative"], obs: [{ kind: "tell", text: "Measures the distance twice before folding it; the crease falls where she looked.", difficulty: 1 }] },
     policeOfficer: { traits: ["guarded", "stubborn"], obs: [{ kind: "tell", text: "Checks the crossing before setting a boundary.", difficulty: 1 }] },
@@ -852,11 +853,11 @@
       { kind: "tell", text: "Mouths a name whenever anyone falls.", difficulty: 1 },
       { kind: "tell", text: "Touches the ledger before spending anything.", difficulty: 1 },
     ] },
-    hot_pot_berserker: { traits: ["charitable", "courageous", "ironStomach"], obs: [
+    hot_pot_berserker: { traits: ["charitable", "courageous", "ironStomach"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [
       { kind: "tell", text: "The lid rattles before he charges.", difficulty: 1 },
       { kind: "tell", text: "Ladles a portion for whoever is closest, friend or not, then thinks better of it.", difficulty: 1 },
     ] },
-    chef: { traits: ["thrifty", "dutiful", "culinaryTraining"], chanceTraits: [["agreeable", 0.4]], obs: [
+    chef: { traits: ["thrifty", "dutiful", "culinaryTraining"], chanceTraits: [["agreeable", 0.4], ["kitchenAnimism", 0.10]], obs: [
       { kind: "tell", text: "Wipes the pass and sets one clean plate down on a tile before he steps in; the plate is already there when the first blow lands.", difficulty: 1 },
       { kind: "realization", text: "A laid plate holds full strength only a round or two and then fades unless he renews it, and a foe who walks onto it clears it.", difficulty: 2 } ] },
     seedkeeper: { traits: ["steward", "thrifty", "dreamer"], obs: [

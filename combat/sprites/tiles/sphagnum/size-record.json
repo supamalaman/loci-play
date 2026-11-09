@@ -1,0 +1,48 @@
+{
+  "source": "ChatGPT Image Nov 3, 2026, 01_13_58 PM.png",
+  "poses": {
+    "young": {
+      "pixel_size": [
+        267,
+        199
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        263,
+        195
+      ],
+      "sha256": "d17cf27b4dbd17687eb964bed8fcc51efce56e6568df6085de25cdb34e541be7"
+    },
+    "mature": {
+      "pixel_size": [
+        349,
+        299
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        345,
+        295
+      ],
+      "sha256": "6252ac43c4d47ade8a39f0a23879c9aa0dea5ee4f01e74061c95ff98d6457eef"
+    },
+    "dry": {
+      "pixel_size": [
+        311,
+        231
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        307,
+        227
+      ],
+      "sha256": "1ccacc73c38f9b7c8d06bf714ddc18219c627810a3099570e795b3384f08227b"
+    }
+  },
+  "note": "dry.png is unused spare art (Mala 2026-11-06): keep; may become a droppable item later; not living-tiles dormancy.",
+  "unused": [
+    "dry"
+  ]
+}

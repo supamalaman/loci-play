@@ -68,6 +68,7 @@
   };
   const RULES = {
     maxWillpower: 10, maxRounds: 4,
+    talk: false,                      // conversational wrapper (insight/mind-talk.js): mindTalk log lines each round, off until the UI lands
     apDebt: 30,                       // decisive fallback: next turn opens -30 AP
     vowDebateAdd: 1, vowEmpathizeHealAdd: 1, staggerAttackMinus: 2,   // the gentle tongue / the unyielding mind
     speedTalkerDebate: 4,             // speedTalker migrated here: rapid-fire points (integrator call)

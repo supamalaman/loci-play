@@ -1299,7 +1299,7 @@
           const drawn = sampleScript(item.script, local);
           for (const op of drawn.ops) ops.push(op);
           const cue = item.script.cue;
-          if (drawn.ops.length) groups.push({ cue: cue ? { concept: cue.concept, effect: cue.effect, type: cue.type, damageType: cue.damageType } : null, ops: drawn.ops });
+          if (drawn.ops.length) groups.push({ cue: cue ? { concept: cue.concept, effect: cue.effect, type: cue.type, damageType: cue.damageType, ability: cue.ability } : null, ops: drawn.ops });
           if (drawn.pose) {
             pose = drawn.pose;
             actor = drawn.actor;

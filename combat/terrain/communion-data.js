@@ -129,5 +129,20 @@
     { id: "kukui-canoe", for: { species: "kukui" }, prompt: "Kukui arrived in Hawaiʻi by…?", choices: ["Polynesian canoe", "Wind dispersal", "Container ship"], answer: 0, clue: "Its seeds do not drift far on the sea. The first voyagers brought it with them as a canoe plant.",
       explain: "A canoe plant, carried across the Pacific for light, oil, medicine and lei." },
   ];
-  return { rules, forms, species, questions };
+  // Ingredient totems (Mala, 2026-11-07; spec claude-ingredient-totems-spec, slice T1). An Animist, or a cook who has watched it done (Kitchen
+  // Animism), wakes an ingredient from the pack or an adjacent pickup into a totem beside them. A totem is not a unit: it is a state on its host
+  // (`a.totem`), drawn beside her; it takes no turn, holds no tile, has no LF and is in no target list. It buffs allies within `radius` of the host.
+  const ingredients = {
+    rules: { communeAp: 20, phi: 2, pickupRange: 1, radius: 2, turns: 2, cookTurns: 3, traits: ["animist", "kitchenAnimism"], learnedTrait: "kitchenAnimism", learnInspirationChance: 1,   // passed to Inspiration.roll directly: the shared chance table is pinned to small chances (tests/inspiration.test.mjs)
+     
+      learnFrom: "culinaryTraining",   // a holder of Culinary Training counts as a cook for learning, beside the cooks list (account/cooking.js rules.cooks)
+      // Tofu ends one of these (status keys, in this order) at an ally's turn start, once per ally per totem. Stun, grapples and petrification are left out.
+      tofuCleanses: ["bleed", "poison", "burning", "entangled", "stagger", "dread", "soaked", "woozy", "inebriated", "wrapped", "seedLodge"] },
+    totems: {
+      bokChoy: { name: "Bok Choy Totem", sprite: "hotpot-bok-choy", heal: 2, text: "Allies within 2 heal 2 LF at the start of each of their turns." },
+      shiitake: { name: "Shiitake Totem", sprite: "hotpot-shiitake", phi: 1, text: "Allies within 2 recover 1 ΦF at the start of each of their turns." },
+      tofu: { name: "Tofu Totem", sprite: "hotpot-tofu", cleanse: true, text: "At the start of each of their turns, an ally within 2 is freed of one of these (once per ally): bleeding, poison, burning, entangled, stagger, dread, soaked, woozy, drunk, wrapped or a lodged seed. Stuns and grapples hold." },
+    },
+  };
+  return { rules, forms, species, questions, ingredients };
 });

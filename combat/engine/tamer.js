@@ -98,7 +98,7 @@
       const v = vesselOf(s, a) || (longOn(s, a) ? anyVessel(s, a)[0] : null); if (!v) return false;
       const from = [a.x, a.y], effigy = !!v.effigy, burst = longOn(s, a) ? r.burst * 2 : r.burst;
       // The crossing (Transmigration): 8 Nigredo against the enemies beside the body he leaves (class build crossing_burst).
-      if (holds(a, "transmigration")) for (const e of Object.values(s.actors)) if (!e.defeated && e.side !== a.side && e.side !== "civilian" && Math.max(Math.abs(e.x - from[0]), Math.abs(e.y - from[1])) === 1)
+      if (holds(a, "transmigration")) for (const e of Object.values(s.actors)) if (!e.defeated && e.side !== a.side && e.side !== "civilian" && e.side !== "bystander" && Math.max(Math.abs(e.x - from[0]), Math.abs(e.y - from[1])) === 1)
         H.hit(s, a, e, { ability: "crossingBurst", name: "The crossing", concept: "transmigration", delivery: "self", damageType: "nigredo", tier: "basic" }, burst, ["The soul bursts out of the body it leaves."], { label: "The crossing" });
       if (effigy) {   // an effigy: a 20 LF body, rooted for a turn; the effigy is gone
         s.arena.objects = s.arena.objects.filter((o) => o.id !== v.id);

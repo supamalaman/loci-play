@@ -5,10 +5,15 @@
 // Broken will is never game-over, either side. State: s.mindDuel = { a, b, round, picks, learned,
 // rounds, concede }; phase "mind" pauses the battle; the decider is whoever still has to pick.
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(() => require("./mind-matrix.js"));
-  else root.ConceptCombatMindDuel = factory(() => root.ConceptCombatMindMatrix);
-})(typeof self !== "undefined" ? self : this, function (matrix = () => null) {
+  if (typeof module === "object" && module.exports) module.exports = factory(() => require("./mind-matrix.js"), () => require("./mind-talk.js"), () => { try { return require("../dialogue/parley-voices.js"); } catch (e) { return null; } });
+  else root.ConceptCombatMindDuel = factory(() => root.ConceptCombatMindMatrix, () => root.ConceptCombatMindTalk, () => root.ConceptCombatParleyVoices);
+})(typeof self !== "undefined" ? self : this, function (matrix = () => null, talkMod = () => null, voiceMod = () => null) {
   const MX = () => matrix();
+  const Talk = () => talkMod();
+  // What the wrapper may read: names, mind-traits, and only the traits each side has READ in the other.
+  // A character's own parley lines (dialogue/parley-voices.js), found by character, boss, sprite or name.
+  const voiceOf = (s, id) => { const a = s.actors[id], V = voiceMod()?.voices; if (!a || !V) return null; const k = [a.character, a.boss, a.sprite, String(a.name || "").toLowerCase().replace(/\s+/g, "_")].find((x) => x && V[x]); return k ? V[k] : null; };
+  const talkCtx = (s) => { const du = s.mindDuel; return { seed: s.seed, voice: (id) => voiceOf(s, id), name: (id) => name(s.actors[id]), traits: (id) => matrixTraits(s.actors[id]), known: { [du.a]: knownTo(s, du.a, du.b), [du.b]: knownTo(s, du.b, du.a) } }; };
   const APPARENT_SHARE = 0.5;   // same pool as observeSelf: apparent traits are visible to everyone
   function roll(seed, tag) {
     let h = 2166136261 ^ (seed >>> 0);
@@ -118,22 +123,26 @@
     }
       const atkA = attack(s, A, B, mvA, allB, { staggered: stagA }), atkB = attack(s, B, A, mvB, allA, { staggered: stagB });
     const labels = [];
+    const res = { kind: "win", winner: null, margin: 0, yielder: null, a: { move: mvA, heal: 0 }, b: { move: mvB, heal: 0 }, weak: { a: false, b: false }, immune: { a: false, b: false }, backfire: { a: false, b: false } };
+    for (const [k, mv, def, all] of [["a", mvA, B, allB], ["b", mvB, A, allA]]) if (mv !== "concede") { const ts = matrixTraits(def).filter((t) => all.includes(t)); res.immune[k] = ts.some((t) => M.MATCHUPS[t].strong === mv); res.weak[k] = !res.immune[k] && ts.some((t) => M.MATCHUPS[t].weak === mv); }
     if (mvA === "concede" && mvB === "concede") { heal(s, A, M.MOVES.concede.yieldHeal); heal(s, B, M.MOVES.concede.yieldHeal);
-      revealTrait(s, du.a, du.b, H); revealTrait(s, du.b, du.a, H); labels.push("both yield: both steadied, both learned"); }
+      revealTrait(s, du.a, du.b, H); revealTrait(s, du.b, du.a, H); labels.push("both yield: both steadied, both learned"); res.kind = "bothYield"; }
     else if (mvA === "concede" || mvB === "concede") {
       const C = mvA === "concede" ? A : B, O = C === A ? B : A, atkO = C === A ? atkB : atkA;
       hurt(s, C, atkO); heal(s, O, M.MOVES.concede.yieldHeal); revealTrait(s, C.id, O.id, H);
+      res.kind = "yield"; res.yielder = C === A ? "a" : "b"; res.winner = C === A ? "b" : "a"; res.margin = atkO;
       labels.push(`${name(C)} yields: ${name(O)}'s ${M.MOVES[mvA === "concede" ? mvB : mvA].name.toLowerCase()} lands uncontested for ${atkO}`);
     } else {
-      if (atkA === atkB) labels.push(`clash: ${atkA} meets ${atkB}, both cancel`);
-      else { const loser = atkA > atkB ? B : A, margin = Math.abs(atkA - atkB); hurt(s, loser, margin);
+      if (atkA === atkB) { res.kind = "clash"; labels.push(`clash: ${atkA} meets ${atkB}, both cancel`); }
+      else { const loser = atkA > atkB ? B : A, margin = Math.abs(atkA - atkB); hurt(s, loser, margin); res.winner = loser === B ? "a" : "b"; res.margin = margin;
         labels.push(`${name(loser === B ? A : B)} wins the exchange by ${margin} (${Math.max(atkA, atkB)} over ${Math.min(atkA, atkB)})`); }
     }
-    for (const [u, mv] of [[A, mvA], [B, mvB]]) if (mv === "empathize") heal(s, u, M.MOVES.empathize.heal + (u.status.mindVow?.type === "gentle" ? M.RULES.vowEmpathizeHealAdd : 0));
-    for (const [u, mv, foe] of [[A, mvA, B], [B, mvB, A]]) if (mv === "insult" && immuneTo(foe, "insult")) { hurt(s, u, M.MOVES.insult.backfire); labels.push(`scorn rebounds on ${name(u)} (−${M.MOVES.insult.backfire})`); }
+    for (const [u, mv] of [[A, mvA], [B, mvB]]) if (mv === "empathize") { const h = M.MOVES.empathize.heal + (u.status.mindVow?.type === "gentle" ? M.RULES.vowEmpathizeHealAdd : 0); const before = wp(u); heal(s, u, h); res[u === A ? "a" : "b"].heal = wp(u) - before; }
+    for (const [u, mv, foe] of [[A, mvA, B], [B, mvB, A]]) if (mv === "insult" && immuneTo(foe, "insult")) { hurt(s, u, M.MOVES.insult.backfire); res.backfire[u === A ? "a" : "b"] = true; labels.push(`scorn rebounds on ${name(u)} (−${M.MOVES.insult.backfire})`); }
     const text = `Mind round ${du.round}: ${name(A)} ${mvA}s, ${name(B)} ${mvB}s — ${labels.join("; ")} (willpower ${wp(A)} vs ${wp(B)}).`;
-    du.rounds.push({ round: du.round, a: mvA, b: mvB, text });
+    du.rounds.push({ round: du.round, a: mvA, b: mvB, text, res });
     H.log(s, { kind: "parley", actor: du.a, target: du.b, text });
+    if (M.RULES.talk && Talk()) for (const l of Talk().talk(du, du.rounds.length - 1, talkCtx(s))) { H.log(s, { kind: "mindTalk", actor: l.speaker, text: l.text }); (du.talk ||= []).push({ round: du.round, speaker: l.speaker, text: l.text }); }
     const aOut = wp(A) <= 0, bOut = wp(B) <= 0;
     if (aOut || bOut) {
       const severity = du.round <= 1 ? "blowout" : du.round <= 3 ? "decisive" : "narrow";
@@ -153,6 +162,7 @@
   function endDuel(s, result, H) {
     const du = s.mindDuel, M = MX();
     if (result.tie) {
+      if (M.RULES.talk && Talk()) for (const l of Talk().closing(du, result, talkCtx(s))) H.log(s, { kind: "mindTalk", actor: l.speaker, text: l.text });
       H.Parley.lock(s, du.a, du.b);
       H.log(s, { kind: "parley", actor: du.a, target: du.b, text: `Dead even after ${M.RULES.maxRounds} rounds: no persuasion. Talk is closed between ${name(s.actors[du.a])} and ${name(s.actors[du.b])}.` });
       return closeDuel(s);
@@ -163,6 +173,7 @@
     H.log(s, { kind: "parley", actor: result.winner, target: result.loser,
       text: `${name(loser)}'s will breaks (${result.severity}${du.rounds.length <= M.RULES.maxRounds && wp(loser) <= 0 ? `, round ${du.round}` : ", on points"}). ${name(loser)} stands down — come to terms is open.`,
       why: ["Broken will is never game-over: one lost argument costs something, never everything."] });
+    if (M.RULES.talk && Talk()) for (const l of Talk().closing(du, result, talkCtx(s))) { H.log(s, { kind: "mindTalk", actor: l.speaker, text: l.text }); (du.talk ||= []).push({ round: du.round, speaker: l.speaker, text: l.text, end: true }); }
     du.concede = { by: result.loser, severity: result.severity };
     if (result.loser === "player") return null;   // the player picks their poison
     autoConcede(s, H);
@@ -285,6 +296,16 @@
 
   // What the viewer knows, for the window: own panel shows all (you know yourself), the foe's
   // panel shows known traits plus "?" slots for the rest. Moves, round, vow offers, concession menu.
+  // The wrapper's window data (flag on only): transcript, the faces, and a sentence under each move for the viewer.
+  function talkView(s, du, viewerId, panel) {
+    const T = Talk(), last = du.rounds[du.rounds.length - 1], mine = viewerId === du.a || viewerId === du.b;
+    const ko = !!last && du.round <= 1 && (wp(s.actors[du.a]) <= 0 || wp(s.actors[du.b]) <= 0);
+    const m = last?.res ? T.mood(last.res, ko) : null, foe = mine ? foeOf(du, viewerId) : null;
+    const read = foe ? knownTo(s, viewerId, foe) : [];
+    return { talk: (du.talk || []).map((l) => ({ ...l, name: name(s.actors[l.speaker]) })),
+      mood: m ? { [du.a]: m.a, [du.b]: m.b } : {},
+      previews: foe ? Object.fromEntries(Object.keys(MX().MOVES).map((mv) => [mv, T.preview(mv, matrixTraits(s.actors[foe]), read)])) : {} };
+  }
   function intel(s, viewerId = "player") {
     const du = s.mindDuel, M = MX();
     if (!du) return null;
@@ -300,6 +321,7 @@
     return { a: panel(du.a), b: panel(du.b), round: du.round, maxRounds: M.RULES.maxRounds,
       moves: Object.fromEntries(Object.entries(M.MOVES).map(([id, m]) => [id, { name: m.name, text: m.text }])),
       log: du.rounds.map((r) => r.text),
+      ...(M.RULES.talk && Talk() ? talkView(s, du, viewerId, panel) : {}),
       vowOffer: inDuel && du.round === 1 && !du.picks[viewerId] && !viewer?.status?.mindVow,
       concede: du.concede?.by === viewerId ? concedeOptions(s) : null };
   }

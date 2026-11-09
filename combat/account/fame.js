@@ -49,7 +49,7 @@
     const out = s?.outcome;
     if (!s || out?.winner !== "player" || s.focusedDreamTest) return [];
     const actors = Object.values(s.actors || {}), sideOf = (id) => s.actors?.[id]?.side;
-    const foeSide = (a) => ["enemy", "posthuman"].includes(a.side) || (s.mode === "melee" && a.side !== "player" && a.side !== "civilian");
+    const foeSide = (a) => ["enemy", "posthuman"].includes(a.side) || (s.mode === "melee" && a.side !== "player" && a.side !== "civilian" && a.side !== "bystander");
     const real = (a) => characters[a.character] && !a.boss && !a.summon && !a.summonBinding && !a.companion && !a.beast && !a.monster && !a.dream && !a.wild && !a.communed && !a.escaped && !a.notArrived;
     const events = [], name = (a) => characters[a.character]?.name || a.name || a.character;   // the class name, as beatenIn shows it
     for (const a of actors) {

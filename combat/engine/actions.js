@@ -51,8 +51,8 @@
       const R = s.rules.rite ?? {}, max = R.maxSteps ?? 3, rite = a.rite || { steps: [], hold: 0 };
       const no = a.ritual ? "chanting a capture" : rite.steps.length >= max ? "three steps banked already" : rite.stepTurn === a.ownerTurns || a.riteStepTurn === a.ownerTurns ? "one rite step per turn" : "";
       if (no) { log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite takes no step from it (${no}).` }); return; }
-      rite.steps.push({ type }); rite.hold = 2 * rite.steps.length; rite.stepTurn = a.riteStepTurn = a.ownerTurns; a.rite = rite;
-      log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite holds ${rite.steps.length} step${rite.steps.length === 1 ? "" : "s"} (bank keeps ${rite.hold} turns).` });
+      H.Rites.step(s, a, type);   // L1: the step banks through the ledger; the mirror keeps the gates' shape
+      log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite holds ${a.rite.steps.length} step${a.rite.steps.length === 1 ? "" : "s"} (bank keeps ${a.rite.hold} turns).` });
     }
 
     // ── actions ─────────────────────────────────────────────────────────────
@@ -1008,7 +1008,7 @@
           if (pfFull && !effect.heal) return "ΦF is already full.";
           if (effect.ultCharge && (a.ultimateCharge || 0) >= s.rules.ultimateChargeMax) return "Your ultimate charge is already full.";
           if (effect.placeBarrier && (actorAt(s, at[0], at[1]) || barrierAt(s, at[0], at[1]) || tileAt(s, at[0], at[1]).blocksMove)) return "Choose an empty floor tile for the sandbag.";
-          const useAp = Cooking()?.useCost(item, s.rules.actionCosts.utility) ?? s.rules.actionCosts.utility;   // better consumables cost less: food by preparation, the rest by rarity (account/cooking.js)
+          const useAp = Cooking()?.useCost(item, s.rules.actionCosts.utility, a) ?? s.rules.actionCosts.utility;   // better consumables cost less: food by preparation, the rest by rarity (account/cooking.js)
           const spendError = spendTempo(s, a, useAp, `Use ${accountItem.name}`); if (spendError) return spendError;
           a.inventory.splice(a.inventory.indexOf(item), 1);
           if (effect.ultCharge) { const n = Math.min(effect.ultCharge, s.rules.ultimateChargeMax - (a.ultimateCharge || 0)); a.ultimateCharge = (a.ultimateCharge || 0) + n; log(s, { kind: "item", actor: a.id, text: `${accountItem.name}: +${n} ultimate charge.` }); }
@@ -1411,8 +1411,8 @@
         if (rite.stepTurn === a.ownerTurns || a.riteStepTurn === a.ownerTurns) return "One rite step per turn.";
         const section = act.section;
         const bank = (type) => {
-          rite.steps.push({ type }); rite.hold = 2 * rite.steps.length; rite.stepTurn = a.riteStepTurn = a.ownerTurns; a.rite = rite;
-          log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite holds ${rite.steps.length} step${rite.steps.length === 1 ? "" : "s"} (bank keeps ${rite.hold} turns).` });
+          H.Rites.step(s, a, type);   // L1: the step banks through the ledger; the mirror keeps the gates' shape
+          log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite holds ${a.rite.steps.length} step${a.rite.steps.length === 1 ? "" : "s"} (bank keeps ${a.rite.hold} turns).` });
         };
         if (section === "words") {
           const spendError = spendTempo(s, a, riteDiscount(s, a, R.wordsAp ?? 10), "Rite: magic words"); if (spendError) return spendError;
@@ -1469,7 +1469,7 @@
         const ground = (tileAt(s, a.x, a.y).tags || []).includes("soil") || wet;
         if (ground) g.potencyAdd += (R.groundPotency ?? 2);
         if (plant) g.plantMend = R.plantMend ?? 4;
-        a.rite = null;
+        H.Rites.clear(s, a);   // L1: the seal empties the ledger record with the mirror
         log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} seals the rite: ${g.charges} charge${g.charges === 1 ? "" : "s"}${g.potencyAdd ? `, +${g.potencyAdd} potency` : ""}${g.rangeAdd ? `, +${g.rangeAdd} range` : ""}${g.piercing ? ", piercing" : ""}${g.bleedRider ? `, ${g.bleedRider} bleed` : ""}. Check techniques to spend them.${dreamFed ? " The dream feeds the rite." : ""}${witness ? " Someone beside them witnesses it." : ""}${ground ? " The ground feeds it." : ""}${plant ? " A communed plant leans in." : ""}` });
       },
       riteToggle(s, a, act) {   // Rites (Muse-2): checkbox — this technique draws from the augment pool or not
@@ -1841,6 +1841,32 @@
         const next = step ? ` ${step.text}` : "";
         log(s, { kind: "observePlant", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${fam}/${prof.need}.${q?.clue ? ` Study note: ${q.clue}` : ""}${next}`,
           why: [`As an ally: ${prof.name}, ${prof.hp} LF, ${conceptName(prof.primary)} with ${conceptName(prof.secondary)}.`, `Communing costs ${Communion.rules.communeAp} action points and ${prof.phi} ΦF from an adjacent tile.`, ...(hiker ? ["Hiker: +1 familiarity for reading the ground."] : []), ...(botanist ? [`Field Botany: +${BT.observeBonus} familiarity for knowing what they are looking at.`] : [])] });
+      },
+      communeIngredient(s, a, act) {   // Ingredient totems (spec claude-ingredient-totems-spec T1): wake an ingredient from the pack or an adjacent pickup
+        if (!Communion?.canCommuneIngredient) return "Ingredient communion is unavailable.";
+        const IR = Communion.ingredients.rules;
+        const pickup = act.pickup != null ? (s.arena.pickups || []).find((p) => p.id === act.pickup) : null;
+        if (act.pickup != null && !pickup) return "That ingredient is gone.";
+        const item = pickup ? pickup.item : act.item;
+        if (!pickup && !(a.inventory || []).includes(item)) return "That ingredient is not in your pack.";
+        const can = Communion.canCommuneIngredient({ unit: a, item, ap: a.tempo, pf: a.pf, usedThisTurn: a.totemWokeTurn === a.ownerTurns, dist: pickup ? dist(s, a.x, a.y, pickup.x, pickup.y) : 0 });
+        if (!can.ok) return can.reason;
+        const spend = spendTempo(s, a, IR.communeAp, `Wake the ${can.totem.name}`); if (spend) return spend;
+        a.pf -= IR.phi; a.totemWokeTurn = a.ownerTurns;
+        if (pickup) s.arena.pickups = s.arena.pickups.filter((p) => p !== pickup); else a.inventory.splice(a.inventory.indexOf(item), 1);
+        if (a.totem) log(s, { kind: "totem", actor: a.id, text: `The ${a.totem.name} goes back to sleep.` });
+        const cook = !!Cooking()?.isCook?.(a);
+        a.totem = { kind: item, name: can.totem.name, sprite: can.totem.sprite, turnsLeft: cook ? IR.cookTurns : IR.turns, cleansed: [] };
+        log(s, { kind: "totem", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} wakes the ${can.totem.name}.`, why: [can.totem.text, `It stays beside ${a.name} for ${a.totem.turnsLeft} of ${a.name}'s turns${cook ? " (a cook's totem lasts 3)" : ""}; it cannot attack or be attacked.`] });
+        // Cooks who see it learn it (Mala, 2026-11-07): +1 Inspiration (a certain, once-a-battle roll) and Kitchen Animism, granted here so a full bar still learns.
+        for (const u of Object.values(s.actors)) {
+          if (u.id === a.id || u.defeated || u.notArrived || !hasSight(s, u.x, u.y, a.x, a.y)) continue;
+          if (!(Cooking()?.isCook?.(u) || hasTrait(u, IR.learnFrom))) continue;
+          if (Communion.canWakeIngredients(u)) continue;   // an Animist cook (or one who already learned) has nothing to learn: no Inspiration either (Fathom AD batch 5)
+          H.Inspiration?.roll(s, u, "seesIngredientCommune", IR.learnInspirationChance);
+          (u.traits ||= []).push(IR.learnedTrait); (s.kitchenLearned ||= []).push(u.id);
+          log(s, { kind: "learn", actor: u.id, target: a.id, text: `${u.name} watches the ${({ bokChoy: "bok choy", shiitake: "shiitake", tofu: "tofu" })[item] || item} wake, and understands. Learned: Kitchen Animism.` });
+        }
       },
       commune(s, a, act) {   // Plant communion step 2: a botany question; a right answer brings the plant out as an ally
         if (!Communion) return "Plant communion is unavailable.";

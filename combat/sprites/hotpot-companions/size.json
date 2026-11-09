@@ -1,0 +1,21 @@
+{
+  "size_class": "small",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 0.4,
+  "world_height_definition": "PROPOSED Kerf CU 2026-11-07: hotpot ingredient companions, peer of ember-moth familiars (small 0.4).",
+  "runtime_consumed": false,
+  "source": "Hotpot Sprites.png COMPANIONS row only",
+  "note": "Precision cut of companions band; full sheet was REGEN (junk alpha / painted bg). Six icons only.",
+  "foot_point_px": [
+    53.5,
+    128
+  ],
+  "idle_alpha_size_px": [
+    99,
+    124
+  ],
+  "minimum_pixel_size_px": 48
+}

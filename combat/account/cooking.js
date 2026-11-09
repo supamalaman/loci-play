@@ -36,6 +36,7 @@
     cookAp: { field: 20, full: 35 },            // AP for the Cook action in battle; free at camp
     // Cooks make full recipes in battle (Mala: "Chefs, Hot Pot Berserker, Hedge Witch etc can cook full recipes in battle").
     cooks: { characters: ["hedge_witch", "shaman", "hot_pot_berserker", "chef"], concepts: ["herbal_medicine", "traditional_medicine"] },
+    culinaryTraining: { trait: "culinaryTraining", foodApLess: 10, floor: 5 },   // the trait's class-free food buff (useCost)
   };
   // needs: one ingredient per entry, each entry a tag (or "tag|tag"); `from`: an exact item instead (a roast).
   // field: anyone can make it in battle. teach: where the dish comes from, shown on its card.
@@ -52,7 +53,10 @@
   const isFood = (id) => !!FOOD[id];
   // AP to eat `id`; `fallback` is the engine's utility cost for anything that isn't food.
   // AP to use a consumable: food by preparation, anything else by rarity, and `fallback` for items with neither.
-  const useCost = (id, fallback) => (FOOD[id] ? rules.eatAp[FOOD[id].prep] : rules.useAp[I?.consumables?.[id]?.rarity] ?? fallback);
+  // Culinary Training (Mala, 2026-11-07; spec claude-ingredient-totems-spec 2b): food costs its holder 10 AP less, never under 5. One function prices
+  // both the engine's use action and the battle menu, so the label and the charge agree; callers pass the eating unit.
+  const trained = (unit) => (unit?.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === rules.culinaryTraining.trait);
+  const useCost = (id, fallback, unit = null) => (FOOD[id] ? Math.max(trained(unit) ? rules.culinaryTraining.floor : 0, rules.eatAp[FOOD[id].prep] - (trained(unit) ? rules.culinaryTraining.foodApLess : 0)) : rules.useAp[I?.consumables?.[id]?.rarity] ?? fallback);
   function isCook(unit) {
     if (!unit) return false;
     if (rules.cooks.characters.includes(unit.character)) return true;

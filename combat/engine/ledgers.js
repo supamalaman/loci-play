@@ -1,9 +1,10 @@
 "use strict";
 // Ledgers: state that outlasts a turn and belongs to no single action. Post-Humanity (the faction a transcended AGI
-// joins), Inspiration (the shared resource), and Contains Multitudes (the Warden's embodiment).
+// joins), Inspiration (the shared resource), Contains Multitudes (the Warden's embodiment), and Rites (one ledger
+// per actor for ritual state; L1 socket, dual-written with the a.rite mirror).
 // A part of the Concept Combat engine, moved out of engine.js on 2026-10-12 to keep the core small. It is not a
 // module in its own right: engine.js installs it with the host object H and it hands back what it defines. The rest
-// of the engine reaches these as H.PostHuman, H.Inspiration and H.Multitudes.
+// of the engine reaches these as H.PostHuman, H.Inspiration, H.Multitudes and H.Rites.
 (function (root, install) {
   if (typeof module === "object" && module.exports) module.exports = install;
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).ledgers = install;
@@ -65,7 +66,7 @@
     // One ledger for every character: actor.inspiration, 0 to cap. It never decays. The player's is carried in from the
     // account (opts.inspiration) and read back by the UI when the battle ends. The Bard's `inspiration` passive is a
     // different, older thing and is untouched.
-    const WHY_INSPIRED = { seesUltimate: "saw an ultimate", nearDeath: "came to the edge of death", opensDream: "opened a dream", insideDream: "stood inside a dream", worthyOpponent: "faced a worthy opponent", seesNewTrait: "saw someone change", seesSacrifice: "witnessed a self-sacrifice", seesSmite: "saw holy power strike" };
+    const WHY_INSPIRED = { seesIngredientCommune: "watched food wake", seesUltimate: "saw an ultimate", nearDeath: "came to the edge of death", opensDream: "opened a dream", insideDream: "stood inside a dream", worthyOpponent: "faced a worthy opponent", seesNewTrait: "saw someone change", seesSacrifice: "witnessed a self-sacrifice", seesSmite: "saw holy power strike" };
     const Inspiration = {
       cap: (s) => s.rules.inspiration?.cap ?? 3,
       of: (a) => a?.inspiration || 0,
@@ -161,6 +162,55 @@
         a.lastQuote = line;
         log(s, { kind: "quote", actor: a.id, quote: line, text: `${a.name}: “${line}”` });
         return true;
+      },
+    };
+    // ── Rites (RITE-LEDGER.md; L1 socket): one ledger per actor for ritual state. a.rites[] holds a
+    // record per kind ({ id, kind, steps[], bank{}, hold, audience, state }); a.rite stays behind as a
+    // dual-written mirror so every old reader (capture gate, seal, tick, concentration, menus) reads
+    // byte-identical state until L2 moves it. Rebuild-on-write: a mirror with no record (an old save,
+    // a sacrifice grant ahead of the first step) is absorbed on the next ledger write, never duplicated.
+    const Rites = {
+      of(a, kind = "muse2") { return (a.rites || []).find((r) => r.kind === kind) || null; },
+      // The muse2 record: created on the first banked step, or rebuilt from the a.rite mirror.
+      muse2(a) {
+        let rec = this.of(a);
+        if (!rec) {
+          const m = a.rite || { steps: [], hold: 0 };
+          rec = { id: `${a.id}:muse2`, kind: "muse2", steps: (m.steps || []).map((x) => ({ ...x })), bank: {}, hold: m.hold || 0, audience: null, state: "open" };
+          (a.rites ||= []).push(rec);
+        }
+        return rec;
+      },
+      // Bank one Muse-2 step through the ledger; the mirror keeps the exact live shape.
+      step(s, a, type) {
+        const rec = this.muse2(a);
+        rec.steps.push({ type }); rec.hold = 2 * rec.steps.length;
+        const rite = a.rite || { steps: [], hold: 0 };
+        rite.steps.push({ type }); rite.hold = 2 * rite.steps.length; rite.stepTurn = a.riteStepTurn = a.ownerTurns; a.rite = rite;
+        return rite;
+      },
+      // A lover's death banks a sacrifice step (steady stays mirror-only until the sacrifice kind lands).
+      sacrifice(s, a, from) {
+        const rec = this.muse2(a);
+        if (!rec.steps.some((x) => x.type === "sacrifice" && x.from === from.id)) rec.steps.push({ type: "sacrifice", from: from.id });
+        rec.hold = Math.max(rec.hold || 0, 2 * rec.steps.length);
+        const rite = a.rite || { steps: [], hold: 0 };
+        if (!rite.steps.some((x) => x.type === "sacrifice" && x.from === from.id)) rite.steps.push({ type: "sacrifice", from: from.id });
+        rite.steady = true; rite.hold = Math.max(rite.hold || 0, 2 * rite.steps.length); a.rite = rite;
+        return rite;
+      },
+      // Seal, abandon, fizzle, break: the bank empties in both homes. Returns the lost step count.
+      clear(s, a) {
+        const n = this.of(a)?.steps.length || a.rite?.steps.length || 0;
+        if (a.rites) a.rites = a.rites.filter((r) => r.kind !== "muse2");
+        a.rite = null;
+        return n;
+      },
+      // One turn of bank burns in both homes. Returns the remaining hold, like the live tick.
+      tickHold(s, a) {
+        const rec = this.muse2(a);   // rebuild keeps a mirror-only bank (an old save) whole, never duplicated
+        rec.hold -= 1; a.rite.hold -= 1;
+        return a.rite.hold;
       },
     };
     // ── Post-Humanity (Mala, 2026-10-12; docs/post-humanity.md) ──
@@ -436,6 +486,6 @@
       }
     };
 
-    return { Multitudes, Inspiration, PostHuman, Exposure, Support, carryOrder };
+    return { Multitudes, Inspiration, PostHuman, Exposure, Support, Rites, carryOrder };
   })();
 });

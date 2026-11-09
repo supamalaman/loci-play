@@ -33,8 +33,12 @@
   const EFFECT_UTILITY = { heal: "buff", mend: "buff", buff: "buff", guard: "shield", ward: "shield", shield: "shield", teleport: "teleport", blink: "teleport", summon: "summon", debuff: "debuff", weaken: "debuff", slow: "debuff" };
 
   // A technique with art of its own (one frame each) in place of its concept's element set. Breadfruit Hurl: the
-  // flying fruit and its burst, from the ʻulu sheet (sprites/fx/ulu/).
-  const SIGNATURE = { uluHurl: { projectile: "fx/ulu/projectile", impact: "fx/ulu/hit" } };
+  // flying fruit and its burst, from the ʻulu sheet (sprites/fx/ulu/). A phased signature lists its frames instead:
+  // Smite flies its four and lands its three (loop 1a1a05036e8), pointed at the tracked Solfeggio
+  // frames (re-cut: byte-identical to the first cut's smite/ copies, which never landed).
+  const SIGNATURE = { uluHurl: { projectile: "fx/ulu/projectile", impact: "fx/ulu/hit" },
+    smite: { projectile: ["fx/solfeggio/smite-1", "fx/solfeggio/smite-2", "fx/solfeggio/smite-3", "fx/solfeggio/smite-4"],
+      impact: ["fx/solfeggio/smite-5", "fx/solfeggio/smite-6", "fx/solfeggio/smite-7"] } };
   // Technique pictures (sprites/fx/spells/, 40 strips imported and unused until 2026-10-11). A technique's strip is
   // chosen by what it does (its shape) and its concept's element, so every technique gets one without a hand-made
   // list. The pictures are illustration only: the name on a strip's file is not the technique's name.
@@ -95,12 +99,13 @@
       for (const op of g.ops || []) {
         const p = op.p == null ? 1 : op.p;
         if (op.op === "stamp" && op.at) {
-          if (sig?.impact) out.push({ src: sig.impact, at: op.at.slice(0, 2), angle: 0, size: 1.5, alpha: 1 });
+          if (Array.isArray(sig?.impact)) out.push({ src: sig.impact[step(p, sig.impact.length) - 1], at: op.at.slice(0, 2), angle: 0, size: 1.5, alpha: 1 });
+          else if (sig?.impact) out.push({ src: sig.impact, at: op.at.slice(0, 2), angle: 0, size: 1.5, alpha: 1 });
           else if (util) out.push({ src: `fx/${util}/frame-${step(p, UTILITY[util])}`, at: op.at.slice(0, 2), angle: 0, size: 1.5, alpha: 1 });
           else out.push({ src: `fx/${el}/impact-${step(p, PHASES.impact)}`, at: op.at.slice(0, 2), angle: 0, size: 1.5, alpha: 1 });
         } else if (op.op === "polyline" && op.head && !op.hold && !op.dash && (el || sig?.projectile) && p < 1 && (op.points || []).length > 1) {
           const pts = op.points, a = pts[pts.length - 2], b = pts[pts.length - 1];
-          out.push({ src: sig?.projectile || `fx/${el}/projectile-${step(p, PHASES.projectile)}`, at: [b[0], b[1]], angle: Math.atan2(b[1] - a[1], b[0] - a[0]), size: 1, alpha: 1 });
+          out.push({ src: Array.isArray(sig?.projectile) ? sig.projectile[step(p, sig.projectile.length) - 1] : (sig?.projectile || `fx/${el}/projectile-${step(p, PHASES.projectile)}`), at: [b[0], b[1]], angle: Math.atan2(b[1] - a[1], b[0] - a[0]), size: 1, alpha: 1 });
         } else if (op.op === "rise" && el) {
           for (const t of op.tiles || []) out.push({ src: `fx/${el}/linger-${step(1 - p, PHASES.linger)}`, at: [t[0], t[1]], angle: 0, size: 1, alpha: 0.9 });
         } else if (op.op === "aura" && op.origin) {
@@ -134,7 +139,7 @@
     const out = [];
     for (const el of ELEMENTS) for (const [ph, n] of Object.entries(PHASES)) for (let i = 1; i <= n; i++) out.push(`fx/${el}/${ph}-${i}`);
     for (const [u, n] of Object.entries(UTILITY)) for (let i = 1; i <= n; i++) out.push(`fx/${u}/frame-${i}`);
-    for (const s of Object.values(SIGNATURE)) out.push(...Object.values(s));
+    for (const s of Object.values(SIGNATURE)) for (const v of Object.values(s)) out.push(...(Array.isArray(v) ? v : [v]));
     return out;
   }
 

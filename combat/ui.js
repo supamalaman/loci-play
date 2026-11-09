@@ -145,7 +145,7 @@
     { id: "drawer:move", label: "Move ▸", title: "Move", has: (id) => ["move", "jump", "climb", "disengage", "breakGrapple"].includes(id) || id === "scramble" || id.startsWith("press:") },
     // Rituals (Mala, 2026-10-20): dreams, Palace summons, capture ritual, communes, rites, Contains Multitudes and
     // Become the Integrated Self all ride one tab; the old Dream drawer folded into it.
-    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "summons", "orderSummonUltimate", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") },
+    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "summons", "orderSummonUltimate", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") },
     { id: "drawer:talk", label: "Talk ▸", title: "Talk", has: (id) => id === "insight" || id === "trial" || id === "stakes" || id.startsWith("accept:") || id.startsWith("decline:") || id.startsWith("terms:") || id.startsWith("convert") || id.startsWith("display:") || id.startsWith("borrow:") || id.startsWith("order:") || id === "repayDebt" || id === "settleVisit" || id === "declareBankruptcy" },
     // Observe is its own tab now; studying a plant stays here, but the commune selection moved to Rituals.
     { id: "drawer:observe", label: "Observe ▸", title: "Observe", has: (id) => ["observe", "investigate", "observeSelf"].includes(id) || id?.startsWith("journal:") || id?.startsWith("finding:") },
@@ -595,7 +595,7 @@
   }
   function mindDuelMarkup(ix,actors) {
     const bar=p=>{const pct=Math.max(0,Math.min(100,Math.round(100*p.willpower/Math.max(1,p.maxWillpower))));return `<div class="cc-mind-meter" role="progressbar" aria-label="${esc(p.name)} willpower" aria-valuemin="0" aria-valuemax="${p.maxWillpower}" aria-valuenow="${p.willpower}"><span style="width:${pct}%"></span></div>`;};
-    const panel=p=>`<section class="cc-mind-opponent ${p.isYou?"is-you":"is-other"}"><div class="cc-mind-person">${portraitMarkup(actors[p.id] || {name:p.name},"thinking",p.id===ix.a.id)}<div><small>${p.isYou?"YOU":"OPPONENT"}</small><h3>${esc(p.name)}</h3><div class="cc-mind-will"><span>Willpower</span><b>${p.willpower}<em> / ${p.maxWillpower}</em></b></div>${bar(p)}</div></div>
+    const panel=p=>`<section class="cc-mind-opponent ${p.isYou?"is-you":"is-other"}"><div class="cc-mind-person">${portraitMarkup(actors[p.id] || {name:p.name},ix.mood?.[p.id] || "thinking",p.id===ix.a.id)}<div><small>${p.isYou?"YOU":"OPPONENT"}</small><h3>${esc(p.name)}</h3><div class="cc-mind-will"><span>Willpower</span><b>${p.willpower}<em> / ${p.maxWillpower}</em></b></div>${bar(p)}</div></div>
       ${p.vow?`<p class="cc-mind-status">Vowed: ${p.vow==="gentle"?"The gentle tongue":"The unyielding mind"}</p>`:""}${p.stagger?`<p class="cc-mind-status">Stammering opener · −2</p>`:""}
       <details class="cc-mind-reads" data-mind-fold="reads:${esc(p.id)}"><summary>${p.traits.length} known read${p.traits.length===1?"":"s"}${p.unknown?` · ${p.unknown} unknown`:""}</summary><div>${p.traits.map(t=>`<article><b>${esc(INS?.data?.traits?.[t.id]?.name || t.id.replace(/([A-Z])/g," $1"))}</b><span>Weak to ${esc(t.weak)} · immune to ${esc(t.strong)}</span><p>${esc(t.why)}</p></article>`).join("") || `<p>No read yet. A hidden immunity can rebound.</p>`}</div></details></section>`;
     const me=ix.a.isYou?ix.a:ix.b;
@@ -603,10 +603,10 @@
     if(!ix.a.isYou && !ix.b.isYou)choices=`<p class="cc-mind-wait" role="status">They are exchanging arguments…</p>`;
     else if(ix.concede)choices=`<div class="cc-mind-prompt"><h3>Choose a concession</h3><p>Your will breaks · ${esc(ix.concede.severity)}</p></div><div class="cc-mind-choices">${ix.concede.options.map(o=>`<button type="button" data-concede="${esc(o.id)}" ${o.off?"disabled":""}><strong>${esc(o.label)}</strong><span>${esc(o.note)}</span></button>`).join("")}</div>`;
     else if(me.picked)choices=`<p class="cc-mind-wait" role="status">Argument chosen. Waiting for the reply…</p>`;
-    else choices=`<div class="cc-mind-prompt"><h3>Make your argument</h3><p>Both choose together. The stronger argument deals the margin.</p></div><div class="cc-mind-choices">${Object.entries(ix.moves).map(([id,m],i)=>`<button type="button" data-move="${esc(id)}"><small>0${i+1}</small><strong>${esc(m.name)}</strong><span>${esc(m.text)}</span></button>`).join("")}</div>${ix.vowOffer?`<details class="cc-mind-vows" data-mind-fold="vows"><summary>Swear a vow <span>optional · free this battle</span></summary><div><button type="button" data-vow="gentle"><b>The gentle tongue</b><span>Never insult · empathy +1</span></button><button type="button" data-vow="unyielding"><b>The unyielding mind</b><span>Never concede · debate +1</span></button></div></details>`:""}`;
+    else choices=`<div class="cc-mind-prompt"><h3>Make your argument</h3><p>Both choose together. The stronger argument deals the margin.</p></div><div class="cc-mind-choices">${Object.entries(ix.moves).map(([id,m],i)=>`<button type="button" data-move="${esc(id)}"><small>0${i+1}</small><strong>${esc(m.name)}</strong><span>${esc(m.text)}</span>${ix.previews?.[id]?`<em class="cc-mind-sample">${esc(ix.previews[id])}</em>`:""}</button>`).join("")}</div>${ix.vowOffer?`<details class="cc-mind-vows" data-mind-fold="vows"><summary>Swear a vow <span>optional · free this battle</span></summary><div><button type="button" data-vow="gentle"><b>The gentle tongue</b><span>Never insult · empathy +1</span></button><button type="button" data-vow="unyielding"><b>The unyielding mind</b><span>Never concede · debate +1</span></button></div></details>`:""}`;
     return `<section class="cc-card cc-mind-dialog" role="dialog" aria-modal="true" aria-labelledby="ccMindTitle" tabindex="-1"><header class="cc-mind-header"><div><small>A CONTEST OF WILL</small><h2 id="ccMindTitle">Battle of minds</h2></div><div class="cc-mind-round" aria-label="Round ${ix.round} of ${ix.maxRounds}"><span>Round ${ix.round} / ${ix.maxRounds}</span><div aria-hidden="true">${Array.from({length:ix.maxRounds},(_,i)=>`<i class="${i+1<ix.round?"is-done":i+1===ix.round?"is-current":""}"></i>`).join("")}</div></div></header>
       <div class="cc-mind-versus">${panel(ix.a)}<span class="cc-mind-vs" aria-hidden="true">VS</span>${panel(ix.b)}</div>${choices}
-      ${ix.log.length?`<details class="cc-mind-history" data-mind-fold="history"><summary>Last exchange</summary><div aria-live="polite">${ix.log.slice(-4).map(l=>`<p>${esc(l)}</p>`).join("")}</div></details>`:""}</section>`;
+      ${ix.talk?.length?`<section class="cc-mind-talk ${ix.talkSkipped?"is-skipped":""}" aria-label="Conversation transcript"><div class="cc-mind-talk-lines" role="log" aria-live="polite">${ix.talk.map((l,i)=>`<p class="${i>=ix.talk.length-3?"is-new":""}" style="--i:${Math.max(0,i-(ix.talk.length-3))}"><b>${esc(l.name)}:</b> ${esc(l.text)}</p>`).join("")}</div><button type="button" class="cc-mind-skip" data-talk-skip>Skip</button></section>`:""}${ix.log.length?`<details class="cc-mind-history" data-mind-fold="history"><summary>Last exchange</summary><div aria-live="polite">${ix.log.slice(-4).map(l=>`<p>${esc(l)}</p>`).join("")}</div></details>`:""}</section>`;
   }
   // Art for the wild's field hazards (sprites/<folder>/idle.png, idle-2.png, ...). `ms` per frame animates; without
   // it each tile keeps one frame picked by its position.
@@ -868,6 +868,12 @@
     function smokeImage(strip) {
       if (!smokeImages.has(strip)) { const img = new Image(); img.src = new URL(`combat/sprites/smoke/${strip}.png`, document.baseURI).href; img.onload = () => { if (U.s && !U.destroyed) draw(); }; img.onerror = () => { img.failed = true; }; smokeImages.set(strip, img); }   // a failed load stays cached as failed: one request, not one per redraw
       const img = smokeImages.get(strip); return !img.failed && img.complete && img.naturalWidth ? img : null;
+    }
+    const totemImages = new Map();   // ingredient totems (spec claude-ingredient-totems-spec): one idle image each in sprites/hotpot-companions/
+    function totemImage(sprite) {
+      if (!sprite) return null;
+      if (!totemImages.has(sprite)) { const img = new Image(); img.src = new URL(`combat/sprites/hotpot-companions/${sprite}.png`, document.baseURI).href; img.onload = () => { if (U.s) draw(); }; img.onerror = () => totemImages.set(sprite, false); totemImages.set(sprite, img); }
+      const img = totemImages.get(sprite); return img && img.complete && img.naturalWidth ? img : null;
     }
     function worldSprite(group, id) {
       if (!id || !["objects", "items", "plants", "walls"].includes(group)) return null;
@@ -1348,6 +1354,7 @@
             ${st.complete && !st.donated ? `<button type="button" data-donate="${esc(st.technique)}">Donate (+1 favor)</button>` : ""}${st.complete && canMem && !lg.memory.held.includes(st.technique) ? `<button type="button" data-memorize="${esc(st.technique)}" ${pr < LB.MEMORIZE_AT ? "disabled" : ""}>Memorize</button>` : ""}${st.complete && !canMem ? `<small class="cc-muted">can't be held: ${esc(LB.unmemorizableWhy(st.technique, C) || "sealed")}</small>` : ""}${st.complete && boss ? `<button type="button" data-take="${esc(st.technique)}" ${LB.legendary(lg) && !lg.parts.some(p=>p.source===st.technique) ? "" : "disabled"}>Take apart${LB.legendary(lg) ? "" : " (needs a legendary tradition)"}</button>` : ""}</div>`; }).join("") : `<p class="cc-muted">Empty. In battle, Observe ▸ Take notes on a technique a foe used: it spends your reaction. Three notes finish a study.</p>`}`)}
         ${cx("notebook", "Field notebook", lg.findingNotebook.length, `${lg.findingNotebook.length ? lg.findingNotebook.map(f=>`<p>${esc(f.text)} <small>· ${esc(f.method)} · via ${esc(f.viaName||f.originName||f.via||f.origin)}</small></p>`).join("") : `<p class="cc-muted">Record a learned or verified finding during battle to preserve it here.</p>`}`)}
         ${cx("systems", "Systems studied", `${sysSeen.length}/${sysRows.length}`, `<p class="cc-muted">The first look at each kind of Observe is kept here. A system you have not studied yet is marked “Not studied yet”.</p>${sysRows.map((r) => (U.account.seenSystems || {})[r.k] ? `<div class="cc-hall-offer"><div><b>${esc(r.n.title)}</b><p>${esc(r.n.text)}</p></div></div>` : `<div class="cc-hall-offer"><div><b>${esc(r.n.title)}</b> <small class="cc-muted">Not studied yet</small></div></div>`).join("")}`)}
+        ${root.ConceptCombatPracticeTrial ? cx("court", "The court", "practice", `<p class="cc-muted">Practice a trial on a made-up case, tried by the real court rules. Nothing you do here counts: no record, no Fame, no cost.</p><button type="button" class="cc-primary" id="ccPracticeTrial">Practice a trial ↗</button>`) : ""}
         ${PF && CM ? (() => { const rows = PF.species().map((t) => ({ t, pr: CM.profile(t), nt: PF.notes(U.account.plantFacts, t) })).filter((r) => r.pr && r.nt.N), heard = rows.reduce((n, r) => n + r.nt.n, 0), all = rows.reduce((n, r) => n + r.nt.N, 0);
           return cx("plantnotes", "Plant field notes", `${heard}/${all}`, `<p class="cc-muted">What each plant has told you when it answered a commune. A fact you have not heard yet shows as a numbered blank. Each time a plant answers a commune you hear one of its facts, a new one first until you have heard them all.</p>${rows.map((r) => `<details class="cc-fn-species"><summary><b>${esc(r.pr.common)}</b> <small>${r.nt.n} of ${r.nt.N} heard${r.nt.cycles ? ` · ${r.nt.n >= r.nt.N ? "all" : "the earlier facts"} ${r.nt.cycles > 1 ? `${r.nt.cycles} times` : "once"}` : ""}</small></summary><ol>${r.nt.bank.map((f, i) => r.nt.heard.includes(f.id) ? `<li><span>${esc(f.text)}</span> <small class="cc-muted">Source: ${esc(f.source)}</small></li>` : `<li class="cc-fn-blank" aria-label="Not heard yet">Not heard yet</li>`).join("")}</ol></details>`).join("")}`); })() : ""}
         ${CardsUI?.almanac ? (() => { const al = CardsUI.almanac(); return cx("cardalmanac", "Card almanac", `${al.playable}/${al.total}`, al.html); })() : ""}
@@ -1367,6 +1374,7 @@
         const r = LB.buyBook(U.account.legacy, book); U.account.seeds -= r.price; save(r.legacy, `Bought the book: ${nameOf(book.technique)} (practice +1).`); });
       ov.querySelectorAll("[data-take]").forEach((b) => b.onclick = () => { const r = LB.disassemble(U.account.legacy, b.dataset.take, C); r.ok ? save(r.legacy, `Taken apart: ${nameOf(b.dataset.take)}. Its parts are on the table.`) : showCodex(r.error, true); });
       $("ccOpenWorkshop").onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: account => { if (U.saveBroken) saveRefused(); else localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showCodex(), keeper: mountDeskKeeper });
+      $("ccPracticeTrial")?.addEventListener("click", () => root.ConceptCombatPracticeTrial?.mount(ov, { back: () => showCodex() }));   // M0 practice trial (claude-magistrate-court-spec 1.4): writes nothing
       $("ccCodexBack").onclick = () => showSetup(); $("ccCodexBack").focus();
       mountKeeper(ov, "codex", refused ? { event: "refuse" } : {});   // the Magistrate (S4a): the reserved slot in .cc-codex-head, above the dropdown sections
     }
@@ -4343,6 +4351,7 @@
       const icons = statusMarks(a, { showParry: a.side === "player" || !!U.s.disclosures[a.id].rebound, wardAsNumber: true, actors: U.s.actors });
       drawStatusMarks(icons, cx, cy - h * 1.02, tw);
       if (a.defeated) return;
+      if (a.totem) { const ti = totemImage(a.totem.sprite); if (ti) { const th2 = h * .5, tw2 = th2 * ti.naturalWidth / ti.naturalHeight; g.drawImage(ti, cx + tw * .42 - tw2 / 2, cy + th * .2 - th2, tw2, th2); } }   // the totem stands beside its host: drawn, never a unit
       const w = tw * .7, y0 = cy + th * .32; g.fillStyle = "#000a"; g.fillRect(cx - w / 2, y0, w, 5);
       g.fillStyle = a.lf / a.maxLF > .35 ? "#7cc6a4" : "#ef6f6c"; g.fillRect(cx - w / 2, y0, w * a.lf / a.maxLF, 5);
     }
@@ -4891,6 +4900,7 @@
           ]; })(),
         ...(typeof riteMenu === "function" ? riteMenu() : []),
         ...(typeof communeMenu === "function" ? communeMenu() : []),   // known plants answer from the Rituals tab
+        ...(typeof ingredientMenu === "function" ? ingredientMenu() : []),   // ingredient totems: wake one from the pack or the ground beside you
         ...(typeof awakenMenu === "function" ? awakenMenu() : []),   // known structures wake from the Rituals tab
         ...(typeof nameDreamMenu === "function" ? nameDreamMenu() : []),   // O2b: dream monsters are named from the Rituals tab
         ...(typeof tamerMenu === "function" ? tamerMenu() : []),   // capture a weakened wild monster; release a bead   // set a trap; disarm one you have spotted (terrain/traps.js)
@@ -4951,7 +4961,7 @@
     // (engine/actions.js useItem). itemAp is the base price (the row label; heldPrices scales labels itself). itemCost is
     // the price the engine takes: in a Contact Reading hold every price is scaled, so greying, the "Not enough AP" reason
     // and the help text all read itemCost and agree with each other and with spendTempo.
-    function itemAp(id) { const u = U.s.rules.actionCosts.utility, e = Loot.data.consumables[id]?.effect; return !Cook || !e || e.wild || e.hire ? u : Cook.useCost(id, u); }
+    function itemAp(id) { const u = U.s.rules.actionCosts.utility, e = Loot.data.consumables[id]?.effect; return !Cook || !e || e.wild || e.hire ? u : Cook.useCost(id, u, U.s.actors.player); }   // the eater's Culinary Training prices the label too
     function itemHeldMul() { return E.heldCostMul(U.s, controlledId(U.s)) || 1; }
     function itemCost(id) { return Math.round(itemAp(id) * itemHeldMul()); }
     function itemHelpFor(id, tempo) {
@@ -5243,7 +5253,7 @@
       if (["dreamSpace", "wakeDream", "aura", "nameDream"].includes(id) || id.startsWith("focusDream:")) return [0, "Dreams"];
       if (["summons", "orderSummonUltimate", "bead"].includes(id)) return [1, "Summons"];
       if (["ritual", "ritualHold", "tameBeast", "markVessel", "callPack"].includes(id)) return [2, "Capture"];
-      if (id === "commune" || id === "communeStructure" || id.startsWith("treeant") || id.startsWith("maxChannel")) return [3, "Communion"];
+      if (id === "commune" || id === "communeIngredient" || id === "communeStructure" || id.startsWith("treeant") || id.startsWith("maxChannel")) return [3, "Communion"];
       if (id.startsWith("rite") || id === "mockTrial") return id === "mockTrial" ? [6, "Trials"] : [4, "Rites"];
       if (id === "declarePresence" || id.startsWith("declareWard:")) return [5, "Wards"];
       return [7, "Becoming"];
@@ -5306,7 +5316,7 @@
       const focused=document.activeElement, key=["move","vow","concede"].find(k=>focused?.dataset?.[k]);
       const keepFocus=key?{key,value:focused.dataset[key]}:null;
       const open=new Set([...ov.querySelectorAll("details[data-mind-fold][open]")].map(d=>d.dataset.mindFold));
-      ov.innerHTML=mindDuelMarkup(ix,U.s.actors);bindPortraitFallbacks(ov);
+      ix.talkSkipped=U.talkSkippedAt===(ix.talk?.length||0)&&ix.talk?.length>0;ov.innerHTML=mindDuelMarkup(ix,U.s.actors);bindPortraitFallbacks(ov);
       ov.querySelectorAll("details[data-mind-fold]").forEach(d=>{d.open=open.has(d.dataset.mindFold);});
       const dialog=ov.querySelector(".cc-mind-dialog");
       dialog.onkeydown=e=>{if(e.key!=="Tab")return;const stops=[...dialog.querySelectorAll("button:not(:disabled),summary")].filter(el=>el.offsetParent!==null && !el.closest("details:not([open]) > :not(summary)"));const first=stops[0],last=stops.at(-1);if(!first)return;
@@ -5314,6 +5324,8 @@
         if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}};
       const restore=keepFocus && [...ov.querySelectorAll(`[data-${keepFocus.key}]`)].find(b=>b.dataset[keepFocus.key]===keepFocus.value);
       if(!U.closeup)(restore || ov.querySelector("[data-move], [data-concede]:not(:disabled)") || dialog).focus({preventScroll:true});
+      const talkBox=ov.querySelector(".cc-mind-talk-lines"); if(talkBox)talkBox.scrollTop=talkBox.scrollHeight;
+      ov.querySelector("[data-talk-skip]")?.addEventListener("click",()=>{U.talkSkippedAt=U.s.mindDuel?.talk?.length||0;ov.querySelector(".cc-mind-talk")?.classList.add("is-skipped");});
       ov.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => act({ type: "mindPick", actor: "player", move: b.dataset.move }));
       ov.querySelectorAll("[data-vow]").forEach((b) => b.onclick = () => act({ type: "mindVow", actor: "player", vow: b.dataset.vow }));
       ov.querySelectorAll("[data-concede]").forEach((b) => b.onclick = () => act({ type: "mindConcede", actor: "player", choice: b.dataset.concede }));
@@ -5421,6 +5433,7 @@
           U.menu = "root"; U.mode = "target"; U.sel = { palingenesis: true, burn, tg: { range: legal.map((q) => q.at), legal } }; U.cursor = legal[0].at; return render();
         }
         if (it.id === "commune") return showCommuneQuestion(it.object);   // commune rows ride the Rituals tab now
+        if (it.id === "communeIngredient") { act({ type: "communeIngredient", actor: "player", item: it.item, pickup: it.pickup }); return; }
         if (it.id === "communeStructure") return showAwakenQuestion(it.object);
         if (it.id === "nameDream") return showNameDreamQuestion(it.target);   // O2b: naming rows ride the Rituals tab too
         if (it.id === "bead") { const BSr = root.ConceptCombatBeadSwallow, hand = U.s.actors.player?.beads || []; if (BSr?.isStaked?.(hand, it.index, U.stakeHeld)) return flashTip(`${hand[it.index].name} is staked on this fight: it is on the table, not in your hand.`); return act({ type: "bead", actor: "player", at: it.at, index: it.index }); }   // a staked bead cannot be released (audit 1.3.449: release + win duplicated it)
@@ -5474,6 +5487,7 @@
         if (it.id === "observeStructure") { act({ type: "observeStructure", actor: "player", object: it.object, invest: it.invest }); return; }
         if (it.id === "observeSummon") { act({ type: "observeSummon", actor: "player", summon: it.summon }); return; }
         if (it.id === "commune") return showCommuneQuestion(it.object);
+        if (it.id === "communeIngredient") { act({ type: "communeIngredient", actor: "player", item: it.item, pickup: it.pickup }); return; }
         if (it.id === "communeStructure") return showAwakenQuestion(it.object);
         if (it.id === "nameDream") return showNameDreamQuestion(it.target);
         U.insightTarget = it.id; const ok = act({ type: "observe", actor: "player", target: it.id, invest: U.observeInvest }); if (ok) { U.menu = "insight"; render(); } return;
@@ -5735,6 +5749,17 @@
           why: `Know a plant well enough and it will answer you. As an ally: ${pr.name}, ${pr.hp} LF. If it dies fighting for you, Gaia will hold it against you.` };
       });
     }
+    function ingredientMenu() {   // ingredient totems (Mala, 2026-11-07): an Animist, or a cook who watched it done, wakes an ingredient
+      const s = U.s, p = s?.actors?.player; if (!CM?.canCommuneIngredient || !p || p.defeated || !CM.canWakeIngredients(p)) return [];
+      const IR = CM.ingredients.rules, rows = [], seen = new Set();
+      for (const item of p.inventory || []) if (CM.totemOf(item) && !seen.has(item)) { seen.add(item); rows.push({ item, pickup: null, d: 0 }); }
+      for (const pk of s.arena.pickups || []) { const d = E.geometry.dist(s, p.x, p.y, pk.x, pk.y); if (CM.totemOf(pk.item) && d <= IR.pickupRange) rows.push({ item: pk.item, pickup: pk.id, d }); }
+      return rows.map((r) => {
+        const t = CM.totemOf(r.item), can = CM.canCommuneIngredient({ unit: p, item: r.item, ap: p.tempo, pf: p.pf, usedThisTurn: p.totemWokeTurn === p.ownerTurns, dist: r.d });
+        return { id: "communeIngredient", item: r.item, pickup: r.pickup, label: `Wake the ${t.name}${r.pickup != null ? " (on the ground)" : ""} ▸ ${IR.communeAp} AP + ${IR.phi} ΦF`, off: !can.ok,
+          why: can.reason || `${t.text} It stays beside you for ${Cook?.isCook?.(p) ? IR.cookTurns : IR.turns} of your turns${Cook?.isCook?.(p) ? " (a cook's totem lasts longer)" : ""} and cannot attack or be attacked. One totem at a time.` };   // the player's own count, from the rules (Fathom AD batch 5)
+      });
+    }
     function communeMenu() {   // known plants, answered from the Rituals tab (Mala, 2026-10-20)
       const ctx = nearbyPlants(); if (!ctx) return [];
       const { p, d, fam, active, list } = ctx;
@@ -5870,7 +5895,7 @@
     }
     function strikeTargeting(reach = E.strikeRange(U.s, controlledId(U.s))) {
       const s = U.s, p = controlledFighter(s), ox = p.x, oy = p.y;
-      const hostile = a => s.mode === "warfare" ? a.side !== p.side : s.mode === "melee" ? a.side !== p.side && a.side !== "civilian" : a.side === "enemy";   // melee (SC05 Three Crews): every other crew is a target, as in warfare
+      const hostile = a => s.mode === "warfare" ? a.side !== p.side : s.mode === "melee" ? a.side !== p.side && a.side !== "civilian" && a.side !== "bystander" : a.side === "enemy";   // melee (SC05 Three Crews): every other crew is a target, as in warfare
       const legal = Object.values(s.actors).filter((a) => hostile(a) && !a.defeated && E.geometry.dist(s, ox, oy, a.x, a.y) <= reach).map((a) => ({ at: [a.x, a.y], tiles: [[a.x, a.y]] }));
       if (s.mode === "warfare") for (const m of s.wild || []) if (m.form === "unit" && !m.fleeing && E.geometry.dist(s, ox, oy, m.x, m.y) <= reach) legal.push({ at: [m.x, m.y], tiles: [[m.x, m.y]] });
       const range = []; for (let dy = -reach; dy <= reach; dy++) for (let dx = -reach; dx <= reach; dx++) if ((dx || dy) && Math.abs(dx) + Math.abs(dy) <= reach) range.push([ox + dx, oy + dy]);
@@ -6023,7 +6048,7 @@
       const reach = m.delivery === "routed" ? `route ≤ ${m.routeBudget}` : m.effect === "barrier" ? (m.range ? `place ≤ ${m.range}` : "self only") : m.range ? `range ${m.range}` : "self";
       const multi = ["radius", "plus", "line"].includes(m.area.shape);
       const pv = U.mode === "target" ? previewFor(U.sel.self ? null : U.hover) : null;
-      const foes = Object.values(s.actors).filter((a) => (s.mode === "warfare" ? a.side !== p.side : s.mode === "melee" ? a.side !== p.side && a.side !== "civilian" : a.side === "enemy") && !a.defeated);
+      const foes = Object.values(s.actors).filter((a) => (s.mode === "warfare" ? a.side !== p.side : s.mode === "melee" ? a.side !== p.side && a.side !== "civilian" && a.side !== "bystander" : a.side === "enemy") && !a.defeated);
       const responseFoes = pv?.ok && U.announce && m.timing !== "delayed" ? (pv.pending?.defenders || []).map(id => s.actors[id]).filter(Boolean) : foes;
       const techniqueKnown = Object.values(s.knowledge).some(k2 => k2[p.id]?.abilities[id]);
       const canDeceive = (p.primary === "deception" || p.secondary === "deception") && m.tier === "ultimate" && !d.timing && advertisedReach(m) > 1 && !x.revealed && !techniqueKnown;
@@ -6157,6 +6182,7 @@
         if(U.s.focusedDreamTest) { U.reward={xp:0,lines:["Practice battle · saved progression unchanged", ...sageLines],drops:[]}; if (U.stakeHeld || U.account.stakeEscrow) { U.account = { ...AN.refund(U.account, U.account.stakeEscrow || U.stakeHeld), stakeEscrow: null }; U.stakeHeld = null; saveAccount(); } }   // no stake settles in practice: anything staked goes home
         else {
         if (root.ConceptCombatInjury) U.account.injuries = root.ConceptCombatInjury.settle(U.s, U.account.injuries);   // wounds rest and persist (practice never settles: see the branch above)
+        if (CM?.settleKitchen && (U.s.kitchenLearned || []).includes("player")) U.account = CM.settleKitchen(U.account, true, root.ConceptCombatInsightData?.traits?.kitchenAnimism);   // a cook who watched food wake keeps Kitchen Animism
         const defeated = Object.values(U.s.actors).filter(a => a.side === "enemy" && a.defeated && !a.noXp && !a.settledBack);   // a settled structure was not killed
         const monstersDefeated = U.s.log.filter(e => e.kind === "wildEnd" && /defeat/i.test(e.text || "")).length;
         const foughtBeside = Object.values(U.s.actors).filter(a => a.id !== "player" && a.side === "player" && !a.summon && a.character && !a.notArrived && C.characters[a.character]).map(a => a.character);   // real characters only: communed plants (plant-*) and boss bodies are not valid ally-event draws
