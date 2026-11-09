@@ -132,8 +132,9 @@
     }
     const waterAt = (s, x, y) => !!tileAt(s, x, y).tags?.includes("water");
     const isKraken = (m) => !!m && (m.kind === "kraken" || m.beast?.kind === "kraken");   // tamed krakens keep kind under beast (tamer.js)
-    // Pathing entry: the mover reaches stepCost only when awakened or kraken — everyone else's pathing is untouched (engine.js paths calls this).
-    const moveCost = (s, x, y, nx, ny, mover, flyer) => stepCost(s, x, y, nx, ny, flyer || (mover?.awakened || isKraken(mover) ? mover : null));
+    // Pathing entry: the mover reaches stepCost only when awakened, kraken or a Trailcraft holder — everyone else's pathing is untouched (engine.js paths calls this).
+    const hasTrailcraft = (m) => !!ClassRuntime?.builds?.[m?.character]?.passives?.trailcraft;   // Trailcraft prices her reach too, not only her AP (Fathom AD batch 5)
+    const moveCost = (s, x, y, nx, ny, mover, flyer) => stepCost(s, x, y, nx, ny, flyer || (mover?.awakened || isKraken(mover) || hasTrailcraft(mover) ? mover : null));
     function stepCost(s, x, y, nx, ny, mover = null) {
       if (mover && ClassRuntime && ClassRuntime.flies(mover)) return 1;   // ClassRuntime: Flight ignores terrain movement costs
       const dh = heightAt(s, nx, ny) - heightAt(s, x, y), terrain = tileAt(s, nx, ny);
@@ -143,7 +144,8 @@
       if (mover?.awakened) return 1;   // Tsukumogami: terrain-blind — every step costs one, cliffs still cliff
       if (usableRamp(s, x, y, nx, ny)) return Math.max(1, Math.abs(dh));
       if (waterAt(s, nx, ny) && terrain.blocksMove) return H.hasTrait(mover, "treeWalker") ? 1 : 2; // swimmers may wade through a deep-water tile, at a large AP surcharge; Tree Walkers pay normal (anime batch)
-      return (terrain.moveCost || 1) + (dh === 1 && !H.hasTrait(mover, "treeWalker") ? 1 : 0) + (MaidSystems ? MaidSystems.levelAt(s, nx, ny) : 0);   // Tree Walkers waive the uphill step (anime batch)
+      const trail = (terrain.moveCost || 1) > 1 && ClassRuntime?.builds?.[mover?.character]?.passives?.trailcraft;   // Trailcraft (Big Game Hunter): rough ground costs her 1 less a step, min 1
+      return (trail ? Math.max(trail.effect.min, (terrain.moveCost || 1) - trail.effect.terrainCostLess) : (terrain.moveCost || 1)) + (dh === 1 && !H.hasTrait(mover, "treeWalker") ? 1 : 0) + (MaidSystems ? MaidSystems.levelAt(s, nx, ny) : 0);   // Tree Walkers waive the uphill step (anime batch)
     }
     function movementTempoCost(s, a, route) {
       if (a.awakened) return 0;   // Tsukumogami: movement costs no tempo — the turn's price is the one action

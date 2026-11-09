@@ -370,6 +370,11 @@
     }, "hot-pot-berserker"),
     // Chef (Mise en Place + Hospitality, 2026-10-30; docs/chef.md): set the station first. Slice 1: the Mise side is live; Welcome,
     // Guest Right and Chef's Table are staged (no castable Hospitality yet), so his castable kit is Rack and Label, Parallel Prep and Everything in Its Place.
+    // Big Game Hunter (spec claude-big-game-hunter-merge-spec, H1, 2026-11-07): Discovery's and Indexing's own techniques; Apex staged until H3.
+    big_game_hunter: Object.assign(B(["survey", "verify", "indexEntry", "crossReference", "apex"], { primaryBasic: "survey", primaryRefined: "verify", secondaryBasic: "indexEntry", secondaryRefined: "crossReference" }, {
+      trophy_eye: { trigger: "her first damaging hit each battle aimed at an enemy whose LF is higher than hers as she strikes (whoever then takes the blow)", effect: { potencyAdd: 5 }, bound: "once per battle; spent only when the hit deals damage", counter: "Be smaller than her when she first swings at you, or feed her first swing to chaff." },
+      trailcraft: { trigger: "a step onto difficult terrain (move cost above 1)", effect: { terrainCostLess: 1, min: 1 }, bound: "terrain cost only; uphill, deep water and surcharges unchanged", counter: "Fight her on open ground." },
+    }, "big-game-hunter"), { staged: ["apex"] }),   // H1: apex is authored (kits-data staged) but not castable until H3
     chef: Object.assign(B(["rackAndLabel", "parallelPrep", "welcome", "guestRight", "chefsTable"], { primaryBasic: "rackAndLabel", primaryRefined: "parallelPrep" }, {
       early_service: { trigger: "a station he lays in round 1 or 2", effect: { graceRounds: 1 }, bound: "once per station, fixed when laid; a renewal clears it; Everything in Its Place never gets it", counter: "Walk onto or prune the station; hit him before it pays." },
       stocked_line: { trigger: "a Strike while his stations stand fresh", effect: { strikeAddPerFreshStation: 2 }, bound: "max +6 (three stations); only stations at full strength count; Strike only", counter: "Walk onto, prune or outwait the stations: they are public." },

@@ -316,6 +316,7 @@
         if (spined && src && s.actors[src.id] === src && !src.defeated && potency > 0 && (!inst || inst.delivery === "contact" || inst.ability === "strike" || inst.effect === "strike")) applyPoison(s, src, wildRules.data.monsters[tgt.kind], tgt.id, "touched");
         for (const ev of r.events) log(s, { kind: ev.kind, actor: src?.id || null, target: tgt.id, amount: ev.amount, text: ev.text, why: causes });
         const actual=s.wild.find(u=>u.id===tgt.id);if(actual)Performers?.afterHit(s,src,actual,amount,classH());
+        ClassRuntime?.spendTrophyEye?.(s, src, amount);   // Trophy Eye: this branch returns before ClassRuntime.afterHit
         checkOutcome(s); return amount;
       }
       const aimed = tgt;

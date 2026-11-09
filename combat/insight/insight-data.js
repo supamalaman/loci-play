@@ -901,10 +901,10 @@
       { kind: "tell", text: "Tunes something small and fiddly before every big number.", difficulty: 1 },
       { kind: "weakness", channel: "nigredo", text: "The instruments are wood and wire: break them and the band goes quiet.", difficulty: 1 },
       { kind: "realization", text: "Every recast repeats the last basic: read one bar and you have read the song.", difficulty: 2 } ] },
-    big_game_hunter: { traits: ["scout", "keenSenses"], chanceTraits: [["curious", 0.5]], obs: [
-      { kind: "tell", text: "Looks at one of you longer than the rest. That one is the quarry.", difficulty: 1 },
-      { kind: "weakness", channel: "citrinitas", text: "One-quarry eyes: flood the field and it cannot watch everyone.", difficulty: 2 },
-      { kind: "realization", text: "The mark is the kit: cleanse it and the Hunter is just a walker.", difficulty: 2 } ] },
+    big_game_hunter: { traits: ["heavyBones", "scout", "playfulness"], obs: [   // merge spec H1 (2026-11-07): Heavy Bones (biology, live via combat.extra), Scout (psychology), Playfulness (value); keenSenses (planned, no effect) and curious dropped
+      { kind: "tell", text: "Looks at one of you longer than the rest, and writes something down. That one is the quarry.", difficulty: 1 },
+      { kind: "weakness", channel: "citrinitas", text: "One catalogue at a time: flood the field and her notes spread thin.", difficulty: 2 },
+      { kind: "realization", text: "She hits hardest what she has studied, and hardest of all on something bigger than her: hide from her looks, and meet her first swing with a smaller fighter.", difficulty: 2 } ] },
     burlesque_dancer: { traits: ["theLook", "playfulness"], chanceTraits: [["methodActing", 0.5]], obs: [
       { kind: "tell", text: "Holds still for one beat too long before the reveal.", difficulty: 1 },
       { kind: "weakness", channel: "nigredo", text: "No audience, no leverage: smoke, walls, and averted eyes.", difficulty: 1 },
