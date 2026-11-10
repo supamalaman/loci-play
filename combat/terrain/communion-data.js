@@ -137,11 +137,18 @@
      
       learnFrom: "culinaryTraining",   // a holder of Culinary Training counts as a cook for learning, beside the cooks list (account/cooking.js rules.cooks)
       // Tofu ends one of these (status keys, in this order) at an ally's turn start, once per ally per totem. Stun, grapples and petrification are left out.
-      tofuCleanses: ["bleed", "poison", "burning", "entangled", "stagger", "dread", "soaked", "woozy", "inebriated", "wrapped", "seedLodge"] },
+      tofuCleanses: ["bleed", "poison", "burning", "entangled", "stagger", "dread", "soaked", "woozy", "inebriated", "wrapped", "seedLodge"],
+      // T2 AI (spec section 6): an AI unit wakes a totem from need. Each need is priced in LF-equivalents over the totem's life; a cook
+      // (the cooks list or a Culinary Training holder) prices it ×cookMul. Nothing here is per character: who wakes is who holds the trait.
+      ai: { cookMul: 1.25, phiWorth: 1.5, cleanseWorth: 6, lowLf: 0.25, saveWorth: 14, farGap: 2, chaseWorth: 4, pressFoes: 2, pressRange: 3 } },
     totems: {
       bokChoy: { name: "Bok Choy Totem", sprite: "hotpot-bok-choy", heal: 2, text: "Allies within 2 heal 2 LF at the start of each of their turns." },
       shiitake: { name: "Shiitake Totem", sprite: "hotpot-shiitake", phi: 1, text: "Allies within 2 recover 1 ΦF at the start of each of their turns." },
       tofu: { name: "Tofu Totem", sprite: "hotpot-tofu", cleanse: true, text: "At the start of each of their turns, an ally within 2 is freed of one of these (once per ally): bleeding, poison, burning, entangled, stagger, dread, soaked, woozy, drunk, wrapped or a lodged seed. Stuns and grapples hold." },
+      // T2 (spec section 3): the three "while in range" totems. They are read where the thing happens (the move budget, the hit), not at turn start.
+      veganShrimp: { name: "Shrimp Totem", sprite: "hotpot-shrimp", move: 1, text: "Allies within 2 move 1 tile further." },
+      napaCabbage: { name: "Napa Totem", sprite: "hotpot-napa", hitLess: 2, hitFloor: 1, text: "Each hit an ally within 2 takes is 2 lower (never below 1)." },
+      noodles: { name: "Noodle Totem", sprite: "hotpot-noodles", longLife: true, text: "Long Life: the first ally within 2 who would fall stays at 1 LF instead, and the totem goes back to sleep." },
     },
   };
   return { rules, forms, species, questions, ingredients };

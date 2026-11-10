@@ -23,6 +23,7 @@
     fishEggs: { prep: "raw", tags: ["sea"] },
     tofu: { prep: "raw", tags: ["tofu"] }, shiitake: { prep: "raw", tags: ["fungus"] }, bokChoy: { prep: "raw", tags: ["greens"] },
     beefSlices: { prep: "raw", tags: ["meat"] }, chiliPepper: { prep: "raw", tags: ["spice"] },
+    veganShrimp: { prep: "raw", tags: ["sea"] }, napaCabbage: { prep: "raw", tags: ["greens"] }, noodles: { prep: "raw", tags: ["grain"] },   // ingredient totems T2
     cornSkewer: { prep: "ready", tags: ["grain"] }, fishFillet: { prep: "ready", tags: ["fish"] }, seaweedWrap: { prep: "ready", tags: ["sea", "greens"] },
     chipBag: { prep: "ready", tags: ["grain"] }, trailMix: { prep: "ready", tags: ["sweet"] }, jellyCup: { prep: "ready", tags: ["sweet"] },
     herbCup: { prep: "ready", tags: [] }, bobaTea: { prep: "ready", tags: ["sweet"] }, sodaCan: { prep: "ready", tags: ["sweet"] },

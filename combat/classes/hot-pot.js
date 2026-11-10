@@ -11,7 +11,7 @@
   else root.ConceptCombatHotPot = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const RULES = {
-    spill: { perRound: 2, perBattle: 6, items: ["tofu", "chiliPepper", "bokChoy", "beefSlices", "shiitake"] },
+    spill: { perRound: 2, perBattle: 6, items: ["tofu", "chiliPepper", "bokChoy", "beefSlices", "shiitake", "veganShrimp", "napaCabbage", "noodles"] },   // + the totem T2 three (spec D5)
     bank: { max: 3, strikeAdd: 2 },
     hormesis: { heal: 4 },
     serve: { range: 2, dish: "mapoTofu" },

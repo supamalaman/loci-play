@@ -120,6 +120,44 @@
     if (pf < IG.rules.phi) return { ok: false, reason: `Needs ${IG.rules.phi} ΦF.` };
     return { ok: true, totem };
   }
+  // T2: the first standing ally host within the radius whose totem has `key` (move, hitLess, longLife). Two totems of one kind never stack.
+  //   totemAura(s, unit, key, dist) → { host, totem, def } | null
+  function totemAura(s, unit, key, dist) {
+    if (!unit || unit.defeated) return null;
+    for (const h of Object.values(s.actors || {})) {
+      const t = h.totem; if (!t || h.defeated || h.side !== unit.side) continue;
+      const def = IG.totems[t.kind]; if (!def?.[key]) continue;
+      if (dist(s, h.x, h.y, unit.x, unit.y) <= IG.rules.radius) return { host: h, totem: t, def };
+    }
+    return null;
+  }
+  // T2 AI (spec section 6): what waking `item` is worth to unit `a` right now, in LF-equivalents over the totem's life, from need only:
+  // a hurt ally (Bok Choy), low ΦF (Shiitake), a cleansable condition (Tofu), an ally under a quarter LF (Noodle), a far foe (Shrimp),
+  // two or more foes pressing (Napa). 0 when nothing needs it. h = { dist, isCook, reach } (reach: tiles this unit closes in a turn).
+  // A wake puts the host's standing totem back to sleep, so it is worth only what it adds (Fathom AD batch 6: the AI re-woke over its own
+  // totem every turn): the same totem already standing answers that need, 0; a different one is worth its value less what the standing
+  // totem would still give over the turns it has left.
+  function wakeValue(s, a, item, h) {
+    const def = totemOf(item), A = IG.rules.ai, cur = a?.totem; if (!def || !a || !A) return 0;
+    if (cur && cur.kind === item) return 0;
+    const cook = !!h.isCook?.(a), full = cook ? IG.rules.cookTurns : IG.rules.turns;
+    const v = totemWorth(s, a, def, full, h), kept = cur && totemOf(cur.kind) ? totemWorth(s, a, totemOf(cur.kind), cur.turnsLeft, h) : 0;
+    return Math.max(0, v - kept) * (cook ? A.cookMul : 1);
+  }
+  function totemWorth(s, a, def, turns, h) {
+    const A = IG.rules.ai;
+    const live = (u) => u && !u.defeated && !u.notArrived;
+    const near = Object.values(s.actors || {}).filter((u) => live(u) && u.side === a.side && h.dist(s, a.x, a.y, u.x, u.y) <= IG.rules.radius);
+    const foes = Object.values(s.actors || {}).filter((u) => live(u) && u.side !== a.side && u.side !== "bystander" && u.side !== "civilian");
+    let v = 0;
+    if (def.heal) v = near.reduce((n, u) => n + Math.min(def.heal * turns, Math.max(0, (u.maxLF || 0) - (u.lf || 0))), 0);
+    else if (def.phi) v = near.reduce((n, u) => n + Math.min(def.phi * turns, Math.max(0, (u.maxPF || 0) - (u.pf || 0))), 0) * A.phiWorth;
+    else if (def.cleanse) v = near.filter((u) => IG.rules.tofuCleanses.some((k) => u.status?.[k])).length * A.cleanseWorth;
+    else if (def.longLife) v = near.some((u) => (u.lf || 0) <= (u.maxLF || 1) * A.lowLf) ? A.saveWorth : 0;
+    else if (def.move) { const d = foes.length ? Math.min(...foes.map((f) => h.dist(s, a.x, a.y, f.x, f.y))) : 0; v = d > (h.reach?.(a) ?? 4) + A.farGap ? A.chaseWorth * near.length : 0; }
+    else if (def.hitLess) { const n = foes.filter((f) => h.dist(s, a.x, a.y, f.x, f.y) <= A.pressRange).length; v = n >= A.pressFoes ? def.hitLess * n * turns : 0; }
+    return v;
+  }
   // The player learned Kitchen Animism this battle: write it to the account's self traits once (the Animist grant's shape, account/loot.js).
   function settleKitchen(account, learned, traitDef) {
     if (!learned || !account || (account.self?.traits || []).some((t) => (t?.id || t) === IG.rules.learnedTrait)) return account;
@@ -127,5 +165,5 @@
     return { ...account, self: { ...(account.self || {}), traits: [...(account.self?.traits || []), { id: IG.rules.learnedTrait, name: T.name, kind: "trait", depth: 1, category: "psychology", text: T.text, apparent: true, known: true }] } };
   }
 
-  return { rules: R, data: D, profile, observe, canCommune, ingredients: IG, totemOf, canWakeIngredients, canCommuneIngredient, settleKitchen, pickQuestion, questionFor, scoreAnswer, makeAlly, corpseObject, promoteToTreeant, revertTreeant };
+  return { rules: R, data: D, profile, observe, canCommune, ingredients: IG, totemOf, canWakeIngredients, canCommuneIngredient, settleKitchen, totemAura, wakeValue, pickQuestion, questionFor, scoreAnswer, makeAlly, corpseObject, promoteToTreeant, revertTreeant };
 });

@@ -434,7 +434,7 @@
     // Mystery layer (Muse W2.5, docs/mystery.md): face-down set intents + concealed stakes. Budget 3 face-downs
     // per side per battle; set intents expire after 2 rounds unrevealed (no refund); triggers on-attacked /
     // on-turn-start / manual. Opponent view is count-only; reveals announce at T1+. Numbers provisional.
-    mystery: { budget: 3, expiry: 2, triggers: ["on-attacked", "on-turn-start", "manual"], ai: { ripPerCard: 3 } },   // ripPerCard (Muse AI-half-1): what the AI adds to an Observe it already wants when the target holds any face-down card (Observe rips one); provisional
+    mystery: { budget: 3, expiry: 2, triggers: ["on-attacked", "on-turn-start", "manual"], ai: { ripPerCard: 3, setWaitMul: 0.7, ripRiskMul: 1, setMaxPerTrigger: 1, setPatienceMul: 0.6, braveUltSet: 2 } },   // ripPerCard (Muse AI-half-1): what the AI adds to an Observe it already wants when the target holds any face-down card (Observe rips one); set* (Muse AI-S1): the wait discount and the per-setter per-trigger cap (the trigger outlook has no knob of its own: it is aiLedger.threatRangeSelf, the same threatening-foe range the AI prices worn protection over); ripRiskMul retained for S3's manual risk (S1/S2 price no watcher discount: a live rip holds the card); setPatienceMul (Muse AI-S2): the longer-wait discount of an on-turn-start set; braveUltSet (AI-S2): what a brave setter adds to burying a full bar; all provisional
     repositionTiles: 2,                          // defensive reposition after an announcement
     delayedResponseWindow: true,                 // a landing delayed area effect lets its target spend the reaction (guard/reposition)
     lensChangeInCombat: "tempoCost",
@@ -1548,7 +1548,7 @@
         { id: "sieve-view", label: "Sightline + Selectivity", primary: "sightline", secondary: "selectivity", reserve: [], lens: {} },
       ] },
     // Tofu trio (Muse Berry BD hot-build, 2026-10-29): a yokai-anchored enemy pack. Spawn linkage in
-    // random-events.js (tofuPack); art folders land with the cutter. Names provisional for Mala.
+    // random-events.js (tofuPack); art in sprites/tofu-{yokai,archer,warden}/ (registered 2026-11-08). Names provisional for Mala.
     tofu_yokai: { name: "Tofu Yokai", side: "enemy", sprite: "tofu-yokai", level: 1, xp: 0, randomEventOnly: true,
       primary: "deception", secondary: "stealth", reserve: [], lootTable: "tofu",
       lens: { deception: "balanced", stealth: "balanced" }, ai: "tofu_yokai", traits: ["reckless"],
@@ -1569,6 +1569,14 @@
       conceptPool: ["boundary", "inertia"], configs: [
         { id: "tofu_warden-gate", label: "Boundary + Inertia", primary: "boundary", secondary: "inertia", reserve: [], lens: {} },
         { id: "tofu_warden-mass", label: "Inertia + Boundary", primary: "inertia", secondary: "boundary", reserve: [], lens: {} },
+      ] },
+    // Maricha (Surpanakha flee chain S1; R-20261108-06: story-only, thin, until a later hot-build). Arrives only through her flee chain.
+    maricha: { name: "Maricha", side: "enemy", sprite: "mutant-boar", level: 1, xp: 0, randomEventOnly: true,   // stand-in until the golden deer sheet is cut (sprite request on the board)
+      primary: "deception", secondary: "plasticity", reserve: [],
+      lens: { deception: "balanced", plasticity: "balanced" }, traits: ["fearful", "dutiful"],
+      conceptPool: ["deception", "plasticity", "glamour"], configs: [
+        { id: "maricha-deer", label: "Deception + Plasticity", primary: "deception", secondary: "plasticity", reserve: [], lens: {} },
+        { id: "maricha-gold", label: "Deception + Glamour", primary: "deception", secondary: "glamour", reserve: [], lens: {} },
       ] },
     student: { name: "Student", side: "enemy", sprite: "student", level: 1, xp: 0,
       primary: "selectivity", secondary: null, reserve: [],
@@ -1733,6 +1741,13 @@
     surpanakhaGuise: { name: "Lovely guise", text: "A lovely shape: foes hit her for x0.7. The first blow shows her true shape.",
       why: "Valmiki, Aranya Kanda: Surpanakha takes a beautiful form to woo Rama.",
       mods: [{ on: "taken", mult: 0.7 }], breakers: [{ hurt: 1, do: [{ grant: "surpanakhaTrue", to: "self" }, { scene: { title: "The Guise Falls", line: "The lovely shape tears away: her own face, and her fury." } }] }] },
+    // Surpanakha flee chain S1 (cursor-surpanakha-flee-chain-spec; R-20261107-07, R-20261108-06, R-20261109-09): when she flees, Maricha
+    // comes in the shape of a golden deer. A lure, not a fighter (illusory: no hostile moves); the first blow ends the illusion and he runs.
+    marichaDeer: { name: "Golden deer", text: "Maricha in the shape of a golden deer: a lure, it makes no hostile moves. The first blow ends the illusion and he flees.",
+      why: "Valmiki, Aranya Kanda: at Ravana's order Maricha becomes a golden deer to lure Rama away from Sita.",
+      body: { traits: ["illusory"] },   // illusory: Parley.blocks refuses its strikes, grapples and shoves (R-20261109-09)
+      gate: { blocks: ["ability", "ultimate", "overwatch"], reason: "a deer casts no techniques and keeps no watch" },
+      breakers: [{ hurt: 1, do: [{ scene: { title: "The Illusion Ends", line: "The golden deer's shape tears away: a rakshasa, running." } }, { leave: true, reason: "Maricha drops the deer's shape and flees the battle, alive." }] }] },
     surpanakhaTrue: { name: "True shape", text: "Her own shape, and her fury: her blows land x1.2 for 3 rounds.", why: "Shamed and wounded, she turns to revenge.",
       mods: [{ on: "dealt", mult: 1.2 }], clock: { counts: "rounds", n: 3 } },
     surpanakhaWounded: { name: "The wound", text: "Whoever wounds her carries her grudge.", why: "The cut that began the war.",
@@ -1928,7 +1943,7 @@
   // A class's own pool first, then the shared fallback; seeded by the battle, never twice in one battle. Characters who
   // are already individuals (unique) keep their own name. All names are invented for the game: no real people.
   const NAME_POOLS = {
-    unique: ["arantxa", "odysseus", "artemesia", "mao_zedong", "daedalus", "medusa", "bastet", "monkey_king", "hanuman", "jambavan", "rama", "lakshmana", "sita", "ravana", "kumbhakarna", "indrajit", "mandodari", "surpanakha", "jatayu", "jiang_qing", "frogan", "esker", "tallyman", "visitor_grey", "visitor_ship"],
+    unique: ["maricha", "arantxa", "odysseus", "artemesia", "mao_zedong", "daedalus", "medusa", "bastet", "monkey_king", "hanuman", "jambavan", "rama", "lakshmana", "sita", "ravana", "kumbhakarna", "indrajit", "mandodari", "surpanakha", "jatayu", "jiang_qing", "frogan", "esker", "tallyman", "visitor_grey", "visitor_ship"],
     byClass: {
       soldier: ["Reyes", "Okafor", "Brandt", "Kealoha", "Sato", "Mendez", "Novak", "Duarte", "Haugen", "Achebe"],
       policeOfficer: ["Officer Lum", "Officer Park", "Officer Akana", "Officer Vance", "Officer Diaz", "Officer Ng"],
@@ -1966,7 +1981,7 @@
     oil_billionaire: "money", student: "money", tech_billionaire: "money",
     super_hero: "masks", super_heroine: "masks", super_villain: "masks", telekinetic_hero: "masks",
     deepsea_warrior: "wake", sailor: "wake", ferryman: "wake", pearl_diver: "wake",
-    hanuman: "ayodhya", jambavan: "ayodhya", rama: "ayodhya", lakshmana: "ayodhya", sita: "ayodhya", jatayu: "ayodhya", ravana: "lanka", kumbhakarna: "lanka", indrajit: "lanka", mandodari: "lanka", surpanakha: "lanka",
+    hanuman: "ayodhya", jambavan: "ayodhya", rama: "ayodhya", lakshmana: "ayodhya", sita: "ayodhya", jatayu: "ayodhya", ravana: "lanka", maricha: "lanka", kumbhakarna: "lanka", indrajit: "lanka", mandodari: "lanka", surpanakha: "lanka",
     hot_pot_berserker: "interdimensional",
     chef: "street",
     hooded_cyber_rogue: "posterity",
@@ -2208,7 +2223,8 @@
       learned: ["formBase", "formMonkey", "formGiant", "vanish"], allyFavors: ["jambavan"] });
     if (characters.jambavan) characters.jambavan.traits = ["contemplative", "traditionalist", "honorable"];
     if (characters.jatayu) Object.assign(characters.jatayu, { traits: ["aerodynamic", "loyal", "courageous"], startStates: ["jatayuAloft", "jatayuLastWord"] });   // Jatayu (docs/jatayu-build.md): winged, so he breaks the serpent noose
-    if (characters.surpanakha) Object.assign(characters.surpanakha, { traits: ["vengeful", "rivalrous", "impatient", "proud"], startStates: ["surpanakhaGuise", "surpanakhaWounded"] });   // Surpanakha (docs/surpanakha-build.md; Mala: vengeful AND rivalrous)
+    if (characters.surpanakha) Object.assign(characters.surpanakha, { traits: ["vengeful", "rivalrous", "impatient", "proud"], startStates: ["surpanakhaGuise", "surpanakhaWounded"],
+      fleeChain: { character: "maricha", chance: 1, delay: 1, states: ["marichaDeer"], why: "Her flight is a lure: Lanka sends a golden deer to the place she ran from." } });   // Surpanakha (docs/surpanakha-build.md; Mala: vengeful AND rivalrous)
     if (characters.wizard) {   // Wizard kit + High remainder (Mala, 2026-10-27): Arcane Mastery + astral presence always (a master, not a student); cipher primary; imagination aboard for wards and rehearsal (his summon source is an open loop — the palace stays Warden-only); NPCs draw control or engine
       const wiz = characters.wizard;
       wiz.traits = ["arcaneMastery", "astralPresence"];

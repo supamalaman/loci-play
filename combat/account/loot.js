@@ -233,7 +233,10 @@
     const card = soulSays(a, id, "card");   // J4: the soul's codicil on the gear card (null when soulless — every old line untouched)
     const gift = JK?.giftLine?.(a, id);   // J5: the gift is named on the card, so the player knows the trick
     const held = gift && JK?.activeGifts?.(a, Object.values(a.gear.equipped))?.held?.includes(id);   // J5 rework: one soul speaks — the rest wait their turn
-    const giftBit = gift ? `${gift}${held ? "" : " (dormant)"}` : "";
+    const speaker = gift && !held ? (JK?.activeGifts?.(a, Object.values(a.gear.equipped))?.held || []).map((x) => I.equipment[x]?.name || x).join(" and ") : "";
+    const worn = Object.values(a.gear.equipped).includes(id) && (a.gear.durability[id] ?? maxDurability(id, a)) > 0;
+    const spent = (a.gear.durability[id] ?? maxDurability(id, a)) <= 0;   // 0 durability: the Souls strip chip says Worn, so the card says worn out too, never "(resting)" (1.3.555, post-ship gremlin on 1.3.554)
+    const giftBit = gift ? `${gift}${held ? "" : spent ? " (worn out)" : worn && speaker ? ` (listening: ${speaker} speaks)` : " (resting)"}` : "";   // Active Jinki J2: name who speaks (was "(dormant)")
     const voiced = card ? `${line} ${card}` : line;
     return { score, title: done ? done[1] : null, next: nextM ? { at: nextM[0], name: nextM[1] } : null, awakened: score >= CARE.awaken,
       rarity, soul: r.soul || null, kind: (r.soul && r.soul.kind) || (JK ? JK.kindOf(r) : "humble"), line: giftBit ? `${voiced} ${giftBit}` : voiced, record: r };
@@ -507,6 +510,22 @@
     const a = withBags(account), held = JK?.activeGifts?.(a, Object.values(a.gear.equipped))?.held || [];
     return held.map((id) => `${I.equipment[id].name} speaks: ${JK.giftName(a, id)}.`);
   }
+  // The Souls strip (Active Jinki J2): every awakened piece the player owns, outside the Museum, with the state the Field Kit shows.
+  // Speaking: it speaks next battle. Listening: worn and awake, but another speaks. Resting: awakened, not worn. Worn: 0 durability.
+  // `summary` is the line under the strip; `resting` is why a chosen soul is not speaking (null when it speaks or there is no choice).
+  function soulStrip(account) {
+    const a = withBags(account), worn = Object.values(a.gear.equipped), held = JK?.activeGifts?.(a, worn)?.held || [];
+    const ROMAN = [null, "I", "II", "III"], name = (id) => I.equipment[id]?.name || id;
+    const chips = a.gear.owned.filter((id) => I.equipment[id] && !enshrined(a, id) && JK?.giftsFor?.(a, id)).map((id) => {
+      const g = JK.giftsFor(a, id), broken = (a.gear.durability[id] ?? maxDurability(id, a)) <= 0;
+      const state = held.includes(id) ? "Speaking" : broken ? "Worn" : worn.includes(id) ? "Listening" : "Resting";
+      return { id, name: name(id), kind: g.kind, tier: g.tier, gift: `${g.kind} ${ROMAN[g.tier]}: ${g.name}`, state, chosen: a.gear.speaking === id };
+    });
+    const speaks = held.map((id) => chips.find((c) => c.id === id)).filter(Boolean).map((c) => `${c.name} (${c.gift})`);
+    const choir = (a.perks?.soulChoir || 0) > 0;
+    const summary = !speaks.length ? "No soul speaks in battle." : choir ? `Choir: a soul of each kind speaks: ${speaks.join(", ")}.` : `Speaks in battle: ${speaks[0]}.`;
+    return { mode: a.gear.speaking ? "choose" : "auto", chips, summary, choir, resting: JK?.restingReason?.(a, worn, name) || null };
+  }
   // ── gear and battle packing ──────────────────────────────────────────────
   function equip(account, id) {
     const a = withBags(account), it = I.equipment[id];
@@ -579,5 +598,5 @@
     return { ...a, carried: [...a.carried.slice(0, i), ...a.carried.slice(i + 1)] };
   }
 
-  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, sellConsumable, trashConsumable, equip, unequip, passives, setSpeaking, speakingLines, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
+  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, sellConsumable, trashConsumable, equip, unequip, passives, setSpeaking, speakingLines, soulStrip, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
 });

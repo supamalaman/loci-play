@@ -156,11 +156,13 @@
     if (!n) return fail("No adapters yet: it can still be Taken apart for its carrier.");
     if (l.parts.some((p) => p.source === id)) return fail("You already have unspent parts from this technique. Use those before copying it again.");
     const battles = account.battles || 0; if (l.transcribedAt[id] === battles) return fail("You have already transcribed this technique since your last battle.");
-    const price = T.seeds + T.perComponent * n;
+    const study = l.journal?.studies?.[id], waived = !!(study?.complete && !study.transcribed);   // B1d: a completed study waives the fee once
+    const price = waived ? 0 : T.seeds + T.perComponent * n;
     if ((account.seeds || 0) < price) return fail(`Transcribing takes ${price} Seeds.`);
     let serial = 1; while (l.parts.some((p) => p.id === `part-${serial}-${id}`)) serial++;
     l.parts.push({ id: `part-${serial}-${id}`, ...parts }); l.transcribedAt[id] = battles;
-    return { ok: true, account: { ...account, seeds: account.seeds - price, legacy: l }, parts, price };
+    if (waived) study.transcribed = true;   // l is fresh()'s deep clone: the caller's study is untouched (B1c)
+    return { ok: true, account: { ...account, seeds: (account.seeds || 0) - price, legacy: l }, parts, price, waived };
   }
   // An engine ability for a scribed technique (registered into C.abilities by the engine at battle start).
   // The pre-workshop branch below stays for ancient scribed defs in old saves; the desk that made them is gone.

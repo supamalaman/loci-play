@@ -80,7 +80,8 @@
       },
       events: { encounter: ["#ty_line.capitalize#.", "#ty_line.capitalize#."], attack: ["#ty_line.capitalize#!", "#ty_line.capitalize#!"],
         hurt: ["#ty_hurt.capitalize#.", "#ty_hurt.capitalize#."], low_lf: ["#ty_low.capitalize#.", "#ty_low.capitalize#."],
-        climb: ["Better view of the marks from up here."], rethink: ["New trick. Same tofu.", "That one saw me. Rude."], defeat: ["Keep the block. I insist.", "Pressed flat. See? Tofu all the way down."] } },
+        climb: ["Better view of the marks from up here."], rethink: ["New trick. Same tofu.", "That one saw me. Rude."], defeat: ["Keep the block. I insist.", "Pressed flat. See? Tofu all the way down."] },
+      faces: { encounter: "happy", attack: "happy", hurt: "surprised", low_lf: "sad", climb: "happy", rethink: "neutral", defeat: "sad" } },   // heads/<face>.png, shown beside the bark (art registered 2026-11-08)
     tofu_archer: { name: "Tofu Archer", voice: "Eldest sister; dutiful shrine archer, brine and nigari in every lesson.",
       rules: {
         ta_line: ["the shrine sill is mine to hold", "the shot is set. watch",
@@ -90,7 +91,8 @@
       },
       events: { encounter: ["#ta_line.capitalize#.", "#ta_line.capitalize#."], attack: ["#ta_line.capitalize#!", "#ta_line.capitalize#!"],
         hurt: ["#ta_hurt.capitalize#.", "#ta_hurt.capitalize#."], low_lf: ["#ta_low.capitalize#.", "#ta_low.capitalize#."],
-        climb: ["Higher ground, cleaner thread."], rethink: ["Re-sighting. Hold the sill.", "Wind changed. So do I."], defeat: ["The sill holds without me.", "Press me flat. I'll feed the shrine."] } },
+        climb: ["Higher ground, cleaner thread."], rethink: ["Re-sighting. Hold the sill.", "Wind changed. So do I."], defeat: ["The sill holds without me.", "Press me flat. I'll feed the shrine."] },
+      faces: { encounter: "neutral", attack: "angry", hurt: "sad", low_lf: "angry", climb: "happy", rethink: "neutral", defeat: "sad" } },   // heads/<face>.png, shown beside the bark (art registered 2026-11-08)
     tofu_warden: { name: "Tofu Warden", voice: "Younger sister; stubborn gate-keeper, soft heart, set curd.",
       rules: {
         tw_line: ["none pass the gate. the gate is me", "sister aims. I stand. yokai snacks. it works",
@@ -100,7 +102,8 @@
       },
       events: { encounter: ["#tw_line.capitalize#.", "#tw_line.capitalize#."], attack: ["#tw_line.capitalize#!", "#tw_line.capitalize#!"],
         hurt: ["#tw_hurt.capitalize#.", "#tw_hurt.capitalize#."], low_lf: ["#tw_low.capitalize#.", "#tw_low.capitalize#."],
-        climb: ["Gates don't climb. ...fine. a short climb."], rethink: ["Gate's moving. don't get used to it.", "New post. same standing."], defeat: ["Gate's open. mind the step.", "Flat as a pressed block. Tasty, though."] } },
+        climb: ["Gates don't climb. ...fine. a short climb."], rethink: ["Gate's moving. don't get used to it.", "New post. same standing."], defeat: ["Gate's open. mind the step.", "Flat as a pressed block. Tasty, though."] },
+      faces: { encounter: "neutral", attack: "angry", hurt: "surprised", low_lf: "angry", climb: "sad", rethink: "neutral", defeat: "sad" } },   // heads/<face>.png, shown beside the bark (art registered 2026-11-08)
 
     sieve: { name: "Sieve", voice: "Fussy and exact; only the right things get through.",
       rules: {
@@ -257,6 +260,11 @@
       adapt: ["An old bird learns new winds."],
       transcend: ["Now I see the whole field."],
       swear: ["I am old, and I swear it anyway. The king of the vultures keeps his word to the last feather."] } },
+    // Maricha (Surpanakha flee chain S1, 2026-11-09): Ravana's unwilling uncle, the golden deer. Original lines.
+    maricha: { name: "Maricha", ownOnly: true, voice: "Afraid and obedient; an old rakshasa who remembers one arrow too well.", rules: {}, events: {
+      encounter: ["Look, but do not follow. Or do. That is the point."],
+      hurt: ["Again an arrow. Enough. I am gone."],
+      defeat: ["I told him this would end badly."] } },
     // Surpanakha (docs/surpanakha-build.md "Voice"): Ravana's sister; charming, then furious; never forgets.
     surpanakha: { name: "Surpanakha", ownOnly: true, voice: "Honeyed, then shrill; vain, wounded, relentless. Every slight is a debt.", rules: {}, events: {
       encounter: ["Such a handsome warrior. Come closer.", "Do you know who my brother is?"],

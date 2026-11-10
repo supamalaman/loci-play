@@ -132,7 +132,8 @@
     const mine = (base.participants || []).filter((p) => p.side === "player").map((p) => p.character);
     const feuds = ctx.rules?.factions?.feuds || [];
     const feud = (a, b) => feuds.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
-    const poolOf = (crew) => Object.entries(chars).filter(([id, ch]) => ch.subfaction === crew && id !== "warden" && id !== ctx.mainCharacter && !(F.exclude || []).includes(id)
+    const lead = F.lead && chars[F.lead] && !mine.includes(F.lead) && F.lead !== ctx.mainCharacter ? [F.lead] : [];   // foes.lead: one fixed foe, counted in n (Spilled Pot)
+    const poolOf = (crew) => Object.entries(chars).filter(([id, ch]) => ch.subfaction === crew && id !== "warden" && id !== ctx.mainCharacter && !lead.includes(id) && !(F.exclude || []).includes(id)
       && !ch.permanentAlly && !ch.randomEventOnly && Array.isArray(ch.configs) && !mine.includes(id)
       && !mine.some((m) => feud(ch.subfaction, chars[m]?.subfaction))).map(([id]) => id)
       .sort((a, b) => hash(seed, "scenario:foe:" + a) - hash(seed, "scenario:foe:" + b) || (a < b ? -1 : 1));
@@ -140,10 +141,10 @@
     let n = lo + Math.floor(hash(seed, "scenario:count") * (hi - lo + 1));
     if (tier <= 1) n = Math.min(n, 2); else if (tier >= 3) n = Math.max(n, 3);   // spec 3.3: tier 1 at most 2 foes, tier 3 at least 3
     n = Math.min(n, 4);
-    const pools = F.crews.map((crew) => [crew, poolOf(crew)]), roomy = pools.filter(([, p]) => p.length >= n);
+    const need = n - lead.length, pools = F.crews.map((crew) => [crew, poolOf(crew)]), roomy = pools.filter(([, p]) => p.length >= need);
     const from = roomy.length ? roomy : [pools.reduce((a, b) => (b[1].length > a[1].length ? b : a))];
     const [crew, pool] = from[Math.floor(hash(seed, "scenario:crew") * from.length)];
-    return { crew, ids: pool.slice(0, Math.max(1, Math.min(n, pool.length))) };
+    return { crew, ids: [...lead, ...pool.slice(0, Math.max(lead.length ? 0 : 1, Math.min(need, pool.length)))] };
   }
 
   // SC05: `groups` crews of `count` fighters each, one side per crew (the melee counts sides). The crews are drawn from every crew with enough
@@ -252,12 +253,15 @@
     if (warfare) { const w = warfareBase(base, seed, ctx); if (!w) return base; base = w; }   // SC10: the encounter's own actors, field and events replace the roll
     const groups = !rolled && S.foes.groups ? pickGroups(S, base, seed, ctx) : null;   // SC05: one crew per side
     if (groups && groups.length < S.foes.groups) return base;   // too few crews that can stand apart: the roll stays as it was
+    const fixedList = !rolled && !warfare && !S.foes.groups && Array.isArray(S.foes.fixed) ? S.foes.fixed.filter((id) => typeof id === "string" && id) : [];   // teaching (SC22+): exact characters, no draw; loadouts and tiles ride E.create defaults and spawns
+    const fixed = fixedList.length ? fixedList : null;
     const sideOf = (character) => (groups ? groups.find((g) => g.ids.includes(character)).crew : "enemy");
-    const ids = warfare ? [] : groups ? groups.flatMap((g) => g.ids) : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : pickFoes(S, base, seed, tier, ctx).ids;
+    const ids = warfare ? [] : groups ? groups.flatMap((g) => g.ids) : fixed ? fixed.slice() : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : pickFoes(S, base, seed, tier, ctx).ids;
     const n = warfare ? (base.participants || []).filter((p) => p.side === "enemy").length : ids.length, maxLF = LF_BY_COUNT[n];
-    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF }));
+    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF, ...(S.foes?.traits?.[character] ? { traits: S.foes.traits[character].slice() } : {}) }));   // foes.traits: a scenario grants a class a trait (Spilled Pot)
     const others = warfare ? base.participants : (base.participants || []).filter((p) => !/^random-foe-/.test(p.id));
     let out = warfare ? { ...base } : { ...base, participants: [others[0], ...foes, ...others.slice(1)] };   // the player first, the foes, then the ally and event arrivals (the engine's order)
+    if (S.quiet && !warfare) out = { ...out, participants: (out.participants || []).filter((p) => !p.eventActor && p.id !== "random-ally-1"), randomEventSchedule: (out.randomEventSchedule || []).filter((e) => e.type === "weather"), scenario: { ...(out.scenario || {}), ally: null } };   // teaching: a quiet duel — no ally, no event arrivals; weather stands
     if (groups) {   // a melee: events that bring in other opponents are dropped with their arrivals (the Powers That Be rule, themed-battles.js KEEP_EVENTS)
       const keep = (e) => e.type === "weather" || e.type === "ally", gone = new Set((out.randomEventSchedule || []).filter((e) => !keep(e)).flatMap((e) => e.actorIds || []));
       out = { ...out, participants: out.participants.filter((p) => !gone.has(p.id)), randomEventSchedule: (out.randomEventSchedule || []).filter(keep) };
@@ -268,6 +272,16 @@
       out = reArena(out, list[Math.floor(hash(seed, "scenario:arena") * list.length)], seed, ctx);
     }
     else { const placed = place(out.participants, out.arenaData, ctx, true); out = { ...out, participants: out.participants.map((p, i) => (/^random-foe-/.test(p.id) ? placed[i] : p)) }; }   // same map: only the foes move
+    if (fixed && (Array.isArray(S.foes.at) || S.foes.holdTurns > 0)) {   // teaching (SC22, SC23): a fixed foe on its authored tile, holding it for its first turns (the lesson needs a setter with no shot)
+      const taken = new Set(out.participants.filter((p) => !/^random-foe-/.test(p.id) && p.at).map((p) => K(...p.at)));
+      out = { ...out, participants: out.participants.map((p) => {
+        const i = /^random-foe-(\d+)$/.exec(p.id)?.[1] - 1, at = Number.isInteger(i) ? S.foes.at?.[i] : null;
+        if (!Number.isInteger(i)) return p;
+        const q = { ...p, ...(S.foes.holdTurns > 0 ? { holdTurns: S.foes.holdTurns } : {}) };
+        if (at && walkable(out.arenaData, ctx, at[0], at[1]) && !taken.has(K(...at))) { q.at = at.slice(); taken.add(K(...at)); }
+        return q;
+      }) };
+    }
     if (S.phase) out.startPhase = S.phase;
     if (S.weather) out.randomEventSchedule = (out.randomEventSchedule || []).filter((e) => e.type !== "weather");   // a rolled weather event would re-roll the forced sky at round 1
     if (S.weather && ctx.Climate) out.weatherState = { ...ctx.Climate.rollWeather(out.arenaData, { seed: out.seed ?? seed, archetype: out.arenaData?.archetype }), id: S.weather };
@@ -293,6 +307,7 @@
     if (W.round) return (state.round || 0) >= W.round;
     if (W.houseOwned) return (state.arena?.objects || []).some((o) => o.type === "house" && o.house && o.house.side);
     if (W.firstFall) return Object.values(state.actors || {}).some((u) => /^random-foe-/.test(u.id) && u.defeated);
+    if (W.foeHolds) return (state.mystery?.enemy || []).some((c) => W.foeHolds === true || c.trigger === W.foeHolds);   // teaching: the lesson lands the moment a face-down card of that trigger exists
     return false;
   }
 

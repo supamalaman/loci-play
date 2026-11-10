@@ -3,15 +3,16 @@
 // the town square (glamour check, fame track, tomato marks) plus showboat
 // style bonuses for crowd battles, judged at the victory ledger.
 //
-// INPUT HONESTY: glamourAdd reads live in parley (W4.3), but the busk check
-// keeps its own provisional grounding until the input table is tuned:
-// glamour worn as a concept (3/2) + dressed gear (+1 a piece) + glow hook
-// (0 until Glow dishes land). The
-// MECHANISM (tiers, fame slope, cap, cycle, tomato, showboat menu) is exact;
-// the input table in RULES.input is tuner-provisional.
+// INPUTS (Fame F0d, FAME.md section 14; Mala 2026-10-30: "plain gear doesn't
+// need to add it, only fine garments"): glamour worn as a concept (3/2) + the
+// glamourAdd of worn fine garments, read from Loot.passives (the reader parley
+// and presence use: a soiled garment counts half, a worn-out one nothing) +
+// glow hook (0 until Glow dishes land), rounded down. Plain gear adds nothing.
+// The MECHANISM (tiers, fame slope, cap, cycle, tomato, showboat menu) is exact.
 //
 //   RULES                              → tunables (tiers, fame, cap, cycle, inputs)
-//   glamourOf(loadout, gearCount)      → provisional glamour score
+//   glamourOf(loadout, wornGlamour, glow) → concept + worn glamourAdd + glow, rounded down
+//   glamourParts(loadout, account, Loot) → { total, concept, worn, glow, soiled, title } for the Town square
 //   crowdDiff(cycle, fame)             → seeded base 2..6 + fame (no farmed rooms)
 //   tiers(g)                           → 0/10/20/30/40 at 0/2/4/6/8
 //   busk(account, glamour)             → { ok, paid, fameUp, mark, account, lines }
@@ -24,11 +25,26 @@
 })(typeof self !== "undefined" ? self : this, function () {
   const RULES = { perCycle: 1, famePts: 2, fameMax: 5, famePay: 5, capTotal: 55, showCap: 40,
     show: { nodmg: 10, vow: 10, knee: 15, sub: 10, ann: 5 }, kneeFrac: 0.25, annCap: 2,
-    input: { glamPrimary: 3, glamSecondary: 2, perGear: 1 }, diffBase: 2, diffSpan: 5 };
+    input: { glamPrimary: 3, glamSecondary: 2 }, diffBase: 2, diffSpan: 5 };
 
-  const glamourOf = (loadout = {}, gearCount = 0, glow = 0) =>
-    (loadout.primary === "glamour" ? RULES.input.glamPrimary : loadout.secondary === "glamour" ? RULES.input.glamSecondary : 0)
-    + gearCount * RULES.input.perGear + glow;
+  const conceptGlamour = (loadout = {}) =>
+    loadout.primary === "glamour" ? RULES.input.glamPrimary : loadout.secondary === "glamour" ? RULES.input.glamSecondary : 0;
+  const glamourOf = (loadout = {}, wornGlamour = 0, glow = 0) => Math.floor(conceptGlamour(loadout) + (wornGlamour || 0) + glow);
+  // The busk glamour with its parts, for the Town square header and its hover. Worn glamour is
+  // Loot.passives(account).glamourAdd; soiled lists the equipped glamour pieces that count half.
+  function glamourParts(loadout, account, Loot, glow = 0) {
+    const concept = conceptGlamour(loadout), worn = Loot?.passives?.(account)?.glamourAdd || 0;
+    const a = Loot?.withBags ? Loot.withBags(account) : account, I = Loot?.data;
+    const soiled = [];
+    for (const id of Object.values(a?.gear?.equipped || {})) {
+      const e = id && I?.equipment?.[id], d = a.gear.durability?.[id] ?? 99;
+      if (e && (e.passive?.glamourAdd || e.empower?.passive?.glamourAdd) && d > 0 && d <= I.rules.durability.warnAt) soiled.push(e.name);
+    }
+    const total = glamourOf(loadout, worn, glow);
+    const title = [`Glamour concept ${concept}`, `fine garments ${worn}`, `glow ${glow}`, ...soiled.map((n) => `${n} (soiled: half)`),
+      ...(total !== concept + worn + glow ? ["rounded down"] : [])].join(" · ");
+    return { total, concept, worn, glow, soiled, title };
+  }
   // Deterministic per cycle (mulberry32): the room changes, but never farms.
   const seeded01 = (n) => { let t = (n + 0x6D2B79F5) >>> 0; for (let i = 0; i < 3; i++) t = Math.imul(t ^ (t >>> 15), t | 1); return ((t ^= t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0) / 4294967296; };
   const crowdDiff = (cycle, fame) => RULES.diffBase + Math.floor(seeded01(cycle) * RULES.diffSpan) + fame;
@@ -66,5 +82,5 @@
     const conds = { nodmg: rounds.length, vow: vowsKept, knee, sub, ann: Math.min(s.crowdHeat?.player || 0, RULES.annCap) };   // W9.5: announced titles warm the crowd
     return { ...conds, total: showboat(conds) };
   }
-  return { RULES, glamourOf, crowdDiff, tiers, busk, showboat, crowdBattle, judgeShowboat };
+  return { RULES, glamourOf, glamourParts, crowdDiff, tiers, busk, showboat, crowdBattle, judgeShowboat };
 });

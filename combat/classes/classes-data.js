@@ -1185,6 +1185,16 @@
       { strength: "The cage shrinks around it: every round it stands still it is harder to move and meaner to touch.", weakness: "It must stand still: drag it off its tile and the Decision is just a bruise." },
       { weakTo: "Forced movement and grabs that relocate it.", strongAgainst: "Honest brawlers who trade in the pocket.", strongWith: "Walls, corners, and allies that pin enemies in reach.", bypass: "None.", negate: "Shove it off its tile; wait out the Decision.", neutral: "Ranged chip: it weathers a little, not a lot." },
       { origin: "Muse Berry BD hot-build 2026-10-29 (Antifragility + Settlement; unused pair)", art: "mma-fighter-alternate" }),
+    // Maricha (Kedge BD, 2026-11-09; Surpanakha flee chain S1, R-20261108-06: story-only and thin until a later hot-build). Ravana's
+    // unwilling uncle, the shape-shifter who became the golden deer. Arrives only through Surpanakha's flight. Fights from concept kits; passives + merge staged.
+    maricha: C("maricha", "Maricha", ["Deception", "Plasticity"], ["Deception", "Plasticity", "Glamour"],
+      [["golden_hide", "Staged: while in a borrowed shape, the first technique that targets Maricha each round must be re-aimed if another foe is in range."],
+       ["old_wound", "Staged: Maricha starts each battle afraid of Rama's arrow: his fear checks are 25% likelier while Rama stands within 4."]],
+      { primaryBasic: "Lure Step: Feint (Deception kit), a glimpse of gold between the trees.", primaryRefined: "False Trail: Feigned Retreat (Deception kit): he runs, and the chaser follows too far.", secondaryBasic: "Borrowed Shape: New Configuration (Plasticity kit): another body, the same rakshasa.", secondaryRefined: "Take the Shape: Take the Shape (Plasticity kit): the deer, the voice, whatever lures." },
+      "Ha Lakshmana: Maricha cries out in an ally's voice; the nearest foe must move toward the cry or lose 2 AP. It needs both concepts: Deception's lie, Plasticity's borrowed throat. Staged.",
+      { strength: "A lure nobody can ignore: a foe who chases him has left someone else unguarded.", weakness: "Afraid and unwilling: one clean blow ends the illusion, and he runs." },
+      { weakTo: "Archers and anyone who strikes first and asks later.", strongAgainst: "Protectors who leave their ward to give chase.", strongWith: "Surpanakha, whose flight he covers.", bypass: "Ignore the deer and hold your post.", negate: "Hit it once: the illusion breaks.", neutral: "Patient teams that keep formation." },
+      { existingAbilities: { primaryBasic: "feint", primaryRefined: "feignedRetreat", secondaryBasic: "newConfiguration", secondaryRefined: "takeTheShape" }, origin: "Ramayana (Valmiki, Aranya Kanda); Surpanakha flee chain (cursor-surpanakha-flee-chain-spec)", art: "mutant-boar" }),
     // Tofu Yokai (Muse Berry BD hot-build, 2026-10-29): the pack anchor. Feints, vanishes, and wobbles through; every gift is a trick and every trick starts as a gift. Fights from concept kits; passives + merge staged.
     tofu_yokai: C("tofu_yokai", "Tofu Yokai", ["Deception", "Stealth"], ["Deception", "Stealth", "Inertia"],
       [["wobble", "The first hit each round that would deal 6+ to the Yokai deals 2 less (min 0); soft curd absorbs."],

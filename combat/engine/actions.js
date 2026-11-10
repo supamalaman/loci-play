@@ -60,7 +60,7 @@
     // Live board reads for learning; no synthetic terrain knowledge or account writes.
     // Recovery is explicit: rejected apply() still returns the unchanged input.
     function aiFailure(state, action) {
-      if (!UtilityAI || action?.type!=="ability" || action.actor==="player" || !state.actors[action.actor]) return state;
+      if (!UtilityAI || (action?.type!=="ability" && action?.type!=="setIntent") || action.actor==="player" || !state.actors[action.actor]) return state;   // Mystery S1 (1.3.549): a refused face-down set is a failed technique too, so the refusal is recorded and the AI stops offering it for three rounds
       const s=clone(state), actor=s.actors[action.actor]; s.aiMinds ||= {}; s.aiBans ||= {};
       const mind=s.aiMinds[actor.id] ||= UtilityAI.createMind(actor,{posture:actor.posture,seed:s.seed});
       mind.reliability[action.ability]=(mind.reliability[action.ability]??1)*0.3;
@@ -1867,7 +1867,7 @@
           if (Communion.canWakeIngredients(u)) continue;   // an Animist cook (or one who already learned) has nothing to learn: no Inspiration either (Fathom AD batch 5)
           H.Inspiration?.roll(s, u, "seesIngredientCommune", IR.learnInspirationChance);
           (u.traits ||= []).push(IR.learnedTrait); (s.kitchenLearned ||= []).push(u.id);
-          log(s, { kind: "learn", actor: u.id, target: a.id, text: `${u.name} watches the ${({ bokChoy: "bok choy", shiitake: "shiitake", tofu: "tofu" })[item] || item} wake, and understands. Learned: Kitchen Animism.` });
+          log(s, { kind: "learn", actor: u.id, target: a.id, text: `${u.name} watches the ${can.totem.name} wake, and understands. Learned: Kitchen Animism.` });
         }
       },
       commune(s, a, act) {   // Plant communion step 2: a botany question; a right answer brings the plant out as an ally

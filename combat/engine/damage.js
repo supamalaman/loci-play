@@ -520,6 +520,8 @@
         dmg = Math.max(0, dmg - 2);
         notes.push(`${tgt.name} wobbles: soft curd absorbs 2 of the blow (first hard hit this round).`);
       }
+      { const napa = dmg > 0 && H.Communion?.totemAura?.(s, tgt, "hitLess", H.dist);   // Napa Totem (ingredient totems T2): its leaves take 2 off every hit on an ally within 2, never below 1
+        if (napa && dmg > napa.def.hitFloor) { const cut = Math.min(napa.def.hitLess, dmg - napa.def.hitFloor); dmg -= cut; notes.push(`${napa.totem.name}: −${cut} (its leaves layer over ${tgt.name}).`); } }
       let parachute = false;
       if (dmg > 0 && tgt.form?.learned && bossRules?.formBeforeApply) { const pb = bossRules.formBeforeApply(tgt, dmg); if (pb.release) { dmg = pb.dmg; parachute = true; tgt.parachuteUsed = true; notes.push("Golden Parachute: the form gives out before the founder does."); } }
       if (dmg > 0 && dmg >= tgt.lf && tgt.passives?.surviveLethalOnce && !tgt.bristleconeUsed) {
@@ -530,6 +532,8 @@
         dmg = Math.max(0, tgt.lf - 1); tgt.sagaEndingRefused = true; tgt.sagaWard = false;
         notes.push(`${tgt.name}'s saga refuses to end: death turned aside at 1 LF.`);
       }
+      { const ll = dmg > 0 && dmg >= tgt.lf && tgt.lf > 0 && H.Communion?.totemAura?.(s, tgt, "longLife", H.dist);   // Noodle Totem, Long Life (T2): after the unit's own survive-at-1 effects above, once per totem
+        if (ll) { dmg = Math.max(0, tgt.lf - 1); ll.host.totem = null; notes.push(`Long Life: the ${ll.totem.name} keeps ${tgt.name} standing at 1 LF, then goes back to sleep.`); } }
       let sharedVictims = [];
       const burden = tgt.status.sharedBurden;
       if (dmg > 0 && burden?.expiresAt > tgt.ownerTurns) {

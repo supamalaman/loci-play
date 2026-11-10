@@ -1,0 +1,23 @@
+{
+ "size_class": "person",
+ "footprint_tiles": [
+  1,
+  1
+ ],
+ "world_height": 1.0,
+ "world_height_definition": "Kerf CU proposed person at the cut; kept (Halyard BD, 2026-11-08). A person (the Warden) = 1.0. The new idle is 291px tall where the old was 188px; the battle draws every idle at one person's height, so he stands as tall on the board as before.",
+ "runtime_consumed": false,
+ "source": "Lakshmana Archer Pixel Art Sprite Sheet.png (cursor-lakshmana-recut, Kerf CU)",
+ "note": "Nothing in web/combat reads size_class or world_height yet.",
+ "foot_point_px": [
+  111.0,
+  294
+ ],
+ "idle_alpha_size_px": [
+  211,
+  291
+ ],
+ "minimum_pixel_size_px": 96,
+ "minimum_pixel_size_definition": "The draw height the person class must reach on screen (ROLES.md Art sizing). The idle's source alpha height is above it.",
+ "foot_point_definition": "The idle's foot point in idle.png's pixels: centre x of the bottom alpha row, and that row."
+}

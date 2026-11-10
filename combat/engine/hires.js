@@ -63,9 +63,9 @@
       const B = s.hires; if (!B?.pending?.length) return;
       for (const p of B.pending.slice()) {
         if (p.round > s.round) continue;
-        const owner = s.actors[p.owner];
+        const owner = live(s.actors[p.owner]) ? s.actors[p.owner] : p.side ? Object.values(s.actors).find((u) => u.side === p.side && live(u)) : null;   // a flee chain is owed to her side, not to one ally
         if (!live(owner)) { B.pending.splice(B.pending.indexOf(p), 1); continue; }   // the caller is down: nobody comes
-        const at = openNear(s, owner); if (!at) continue;
+        const at = (p.at && openNear(s, { x: p.at[0], y: p.at[1] })) || openNear(s, owner); if (!at) continue;
         B.pending.splice(B.pending.indexOf(p), 1);
         spawn(s, owner, p, at);
       }
@@ -81,6 +81,20 @@
     function callKin(s, a, who, { delay = 1, why = null } = {}) {
       book(s).pending.push({ kind: "kin", owner: a.id, character: who, round: s.round + delay });
       log(s, { kind: "hire", actor: a.id, hire: "kin", character: who, tiles: [[a.x, a.y]], text: `${a.name} calls ${C.characters[who].name}: ${C.characters[who].name} will be here ${delay === 1 ? "next round" : `in ${delay} rounds`}.`, why: why ? [why] : [] });
+    }
+    // Surpanakha flee chain S1 (cursor-surpanakha-flee-chain-spec; R-20261107-07, R-20261108-06, R-20261109-09): a unit whose character
+    // has a fleeChain and truly flees (fleeBattle) books that character beside the tile she fled from, next round, on her side, holding
+    // the chain's states (Maricha as the golden deer). Nobody left standing on her side: nothing comes, and the battle ends as before.
+    function fleeChain(s, a) {
+      const chain = C.characters[a.character]?.fleeChain; if (!chain || !C.characters[chain.character] || a.hired) return;   // a hire who quits in terror is not her flight
+      if (onField(s, chain.character) || pendingFor(s, chain.character)) return;
+      const allies = Object.values(s.actors).filter((u) => u.side === a.side && u.id !== a.id && live(u)); if (!allies.length) return;
+      if (H.Factions && !H.Factions.fits(s.rules, chain.character, allies.map((u) => u.character))) return;   // feud
+      if (H.seededChance(`${s.seed}:fleeChain:${a.id}`) >= (chain.chance ?? 1)) return;
+      const near = (u) => Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)), owner = allies.reduce((b, u) => (near(u) < near(b) ? u : b));
+      book(s).pending.push({ kind: "kin", owner: owner.id, side: a.side, character: chain.character, round: s.round + (chain.delay ?? 1), at: [a.x, a.y], states: (chain.states || []).slice(), fled: a.name });
+      const name = C.characters[chain.character].name;
+      log(s, { kind: "hire", actor: a.id, hire: "kin", character: chain.character, tiles: [[a.x, a.y]], text: `${a.name}'s flight is a lure: ${name} will be here ${(chain.delay ?? 1) === 1 ? "next round" : `in ${chain.delay} rounds`}.`, why: chain.why ? [chain.why] : [] });
     }
     // Round 1: a unit whose character heralds another (Sita heralds Rama) has them already on the way, on a seeded chance.
     function heralds(s) {
@@ -114,8 +128,9 @@
       s.order.push(u.id);
       H.wheelhouseSettle?.(s, u, ch);   // hotbuild hires roll on arrival, like any NPC spawn (W0a)
       if (p.kind === "kin") for (const id of ch.startStates || []) H.States?.grant(s, u, id);   // kin arrive as themselves (Hanuman: Forgotten)
+      for (const id of p.states || []) H.States?.grant(s, u, id);   // a flee chain's lure arrives in its shape (Maricha: the golden deer)
       log(s, { kind: "hire", actor: u.id, target: owner.id, arrived: true, hire: p.kind, tiles: [at],
-        text: p.kind === "kin" ? `${u.name} answers ${owner.name}'s call and takes the field.` : p.kind === "merc" ? `${u.name} arrives on contract to fight beside ${owner.name}.` : `${u.name} arrives under a letter of safe conduct to talk for ${owner.name}.` });
+        text: p.fled ? `${u.name} steps out where ${p.fled} fled${u.states?.marichaDeer ? ", in the shape of a golden deer" : ""}.` : p.kind === "kin" ? `${u.name} answers ${owner.name}'s call and takes the field.` : p.kind === "merc" ? `${u.name} arrives on contract to fight beside ${owner.name}.` : `${u.name} arrives under a letter of safe conduct to talk for ${owner.name}.` });
     }
 
     // End of a hired unit's own turn: the merc's clock and nerve, the mediator's patience.
@@ -199,6 +214,6 @@
       return null;
     }
 
-    return { Hires: { call, roundStart, turnEnd, mediate, aiAction, cannotAsk, truceChance, kindOf, callKin, kinFor } };
+    return { Hires: { call, roundStart, turnEnd, mediate, aiAction, cannotAsk, truceChance, kindOf, callKin, kinFor, fleeChain } };
   })();
 });

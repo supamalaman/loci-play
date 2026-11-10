@@ -1051,6 +1051,7 @@
       log(s, { kind: "flee", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} flees the battle in fear.`, why: ["It reached the edge of the map. It is out of the fight, alive."] });
       if (a.hired) log(s, { kind: "hire", actor: a.id, left: true, tiles: [[a.x, a.y]],   // a contract that ends by terror still ends (Muse-2: technique oaths exposed the gap)
         text: a.hired.kind === "merc" ? `${a.name} breaks the contract and runs.` : `${a.name} abandons the letter and runs.` });
+      H.Hires?.fleeChain?.(s, a);   // Surpanakha's flight sends Maricha as the golden deer (engine/hires.js fleeChain)
       checkOutcome(s);
     }
     const isMonster = (a) => !!(EM && a?.monster && a.dream && EM.data.monsters[a.monster]);

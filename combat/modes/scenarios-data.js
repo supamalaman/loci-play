@@ -9,12 +9,17 @@
 //   id, name, minTier (1-3), weight (> 0)               required. minTier gates it by account wins (scenarios.js tierOf)
 //   arenas: "any" | [designedArenaId, ...]              the map is rolled by the engine unless a list is given
 //   phase: "day" | "night", weather: weatherId          forced; else the random roll stands
-//   foes: "roll" | { crews: [crewId...], exclude: [classId...], count: [min, max] }   "roll" keeps the foes the engine rolled, cut to `count[1]` (top-level count)
+//   foes: "roll" | { crews: [crewId...], exclude: [classId...], count: [min, max] } | { fixed: [characterId...] }   "roll" keeps the foes the engine rolled, cut to `count[1]` (top-level count)
+//   fixed: exact characters in order (teaching scenarios, SC22+); no draw, no tier trim. Exclusive with groups (groups wins if both).
+//     With fixed: at: [[x, y]...] puts each fixed foe on its tile (when walkable and free), and holdTurns: n makes each keep its tile for its first n turns.
 //   force: { <checkpointId>: { type, ...fields } }      authored event at that checkpoint (random-events.js create force); wild: [{ kind: "brushfire" }]  a field form at the start
 //                                                      one crew is drawn, then `count` of its classes (tier trims the count)
+//   foes.lead: classId                                  one fixed foe, always drawn first and counted in `count` (the crew fills the rest)
+//   foes.traits: { classId: [traitId...] }              traits granted to that class when it is drawn as a foe (Spilled Pot: Kitchen Animism)
 //   houses: "always"                                    rules.houses.chance becomes { default: 1 } for this battle
+//   quiet: true                                        a quiet duel: no rolled ally, no event arrivals (participants or schedule); weather stands. Teaching duels (SC22+).
 //   objective: { kind }                                 required; slice 1 has only "classic" (no deadline field)
-//   text: { open, mid: { when, text }, result: { player, enemy, none } }   same beats as a theme (Arantxa narrates them); `none` is the
+//   text: { open, mid: { when, text }, result: { player, enemy, none } }   same beats as a theme (Arantxa narrates them); when: { round } | { houseOwned } | { firstFall } | { foeHolds: trigger | true }; `none` is the
 //                                                      round-limit ending (winner "none"), which a theme has no line for
 // Spec note: SCENARIOS.md 3.1-3.2 say every scenario carries a clock of at most 14, sections 4 and 12 say a premise-only classic one has
 // none (it ends by the default branch, rules.standoff and maxRounds). Slice 1 follows 4 and 12: these two have no deadline.
@@ -153,6 +158,19 @@
         result: { player: "The alley is yours until somebody tells it otherwise.", enemy: "You leave through the end of the alley the others left open.",
           none: "Nobody gives way, and the round limit comes. The alley is still nobody's, and all three crews know it." } } },
 
+    // Teaching scenario for ingredient totems (Mala's 2026-11-02 rule: every major change ships one; spec claude-ingredient-totems-spec T2).
+    // A Hot Pot Berserker who has learned Kitchen Animism leads a street crew: every landed blow on him spills an ingredient beside him (Spilled
+    // Pot), and he wakes what spills into a totem. A cook who sees it learns it (+1 Inspiration and Kitchen Animism, kept on the account).
+    spilledPot: { id: "spilledPot", name: "Spilled Pot", minTier: 1, weight: 1,
+      arenas: "any",
+      foes: { lead: "hot_pot_berserker", crews: ["street"], exclude: LAW, count: [2, 2], traits: { hot_pot_berserker: ["kitchenAnimism"] } },   // the street crew has the Chef: a cook on their side can learn it from him too
+      objective: { kind: "classic" },
+      text: {
+        open: "A man with a hot pot on his back and a street crew behind him, and everything in the pot is listening. Watch what he does with what spills; a cook who watches can learn it.",
+        mid: { when: { round: 2 }, text: "Whatever spills from his pot is still listening, and he can wake it when his crew needs it." },
+        result: { player: "The pot goes quiet. The bok choy lies down, and so does he.", enemy: "He ladles out what is left of the broth and walks off with his pot, and the ingredients follow him.",
+          none: "The broth goes cold before anyone gives way. The ingredients wait in a ring around the pot." } } },
+
     longFront: { id: "longFront", name: "The Long Front", minTier: 3, weight: 0.5,   // SC10, selection only: the Warfare encounter, offered from the random chooser
       encounter: "warfare", mode: "warfare",
       arenas: "any",                                                   // the Warfare field (apply lays it); no map draw
@@ -163,6 +181,28 @@
         mid: { when: { round: 6 }, text: "Six rounds in. Nobody on the line is fresh any more." },
         result: { player: "Your side is the last one standing on the long front.", enemy: "The front closes over you, and the line moves on.",
           none: "The front goes quiet. Nothing has been settled and everyone knows it." } } },
+
+    heldCounter: { id: "heldCounter", name: "The Held Counter", minTier: 1, weight: 1,   // SC22, teaching Mystery S1: a fixed student holds its post six tiles out behind a pillar (in its trigger outlook, no shot), so the opening sets a counter and the player springs it
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["student"], at: [[5, 2]], holdTurns: 2 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "A student holds the crater, and students set counters. Watch for the face-down card — walk in and spring it, or study them from afar.",
+        mid: { when: { foeHolds: "on-attacked" }, text: "There — a counter face-down. Attack them and spring it, or take a hard look: the plan stays down, but what can fire, fires." },
+        result: { player: "You sprung the counter and stood through it. The crater keeps no secrets now.", enemy: "The counter did its work. Next time, study first.",
+          none: "Nobody springs anything, and the round limit comes. The face-down card goes back to the dark with its holder." } } },
+
+    buriedBar: { id: "buriedBar", name: "The Buried Bar", minTier: 1, weight: 1,   // SC23, teaching Mystery S2: a fixed arantxa holds its post six tiles out behind a pillar; a full bar goes face-down at turn start and fires on schedule, or waits when the radius is empty
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["arantxa"], at: [[5, 4]], holdTurns: 2 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "Arantxa fights for the bar — once it is full it goes face-down. Keep your distance and it waits; step close and it fires when their turn starts.",
+        mid: { when: { foeHolds: "on-turn-start" }, text: "The bar just went face-down. It fires when their turn starts with you close — or waits if there is nothing to hit." },
+        result: { player: "The buried bar never found you. The court is yours.", enemy: "The bar fired on schedule, and you stood too close.",
+          none: "The bar stays buried, the rounds run out, and nothing is decided." } } },
   };
 
   return { SCENARIOS, LAW };

@@ -116,6 +116,10 @@
     tofu: { name: "Tofu", rarity: "common", biomes: ["terrace"], dropWeight: 0.4, effect: { heal: 6 }, text: "Heal 6 LF. A block of soft tofu; better cooked." },
     shiitake: { name: "Shiitake", rarity: "common", biomes: ["grove"], dropWeight: 0.4, effect: { heal: 4 }, text: "Heal 4 LF. A shiitake mushroom." },
     bokChoy: { name: "Bok choy", rarity: "common", biomes: ["terrace"], dropWeight: 0.4, effect: { heal: 4 }, text: "Heal 4 LF. A head of bok choy." },
+    // Ingredient totems T2 (spec claude-ingredient-totems-spec section 7; art: Kerf CU's vegan-ingredients cut, the raw forms).
+    veganShrimp: { name: "Vegan shrimp", rarity: "common", biomes: ["terrace"], dropWeight: 0.4, effect: { heal: 4 }, text: "Heal 4 LF. Plant-based shrimp for the pot." },
+    napaCabbage: { name: "Napa cabbage", rarity: "common", biomes: ["terrace"], dropWeight: 0.4, effect: { heal: 4 }, text: "Heal 4 LF. A whole head of napa cabbage." },
+    noodles: { name: "Noodles", rarity: "common", biomes: ["terrace"], dropWeight: 0.4, effect: { heal: 4 }, text: "Heal 4 LF. A bundle of dry noodles; long ones, for long life." },
     beefSlices: { name: "Sliced beef", rarity: "common", biomes: ["terrace"], dropWeight: 0.4, effect: { heal: 3 }, text: "Heal 3 LF raw. Thin slices for the pot." },
     chiliPepper: { name: "Chili pepper", rarity: "common", biomes: ["terrace"], dropWeight: 0.4, effect: { phiForce: 3 }, text: "Restore 3 ΦF. The heat clears your head." },
     // A ballpark novelty (Mala, 2026-10-30, from a photo): a Bloody Mary glass piled with a burger stack, a hot dog, an onion ring

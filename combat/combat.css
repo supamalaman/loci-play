@@ -1031,6 +1031,19 @@
 .cc-ws-node.cc-ws-locked{opacity:.55;border-style:dashed}.cc-ws-lock{color:#e9c46a;margin:6px 0}
 .cc-swallow-tracker{list-style:none;padding:0;margin:6px 0 0}.cc-swallow-tracker li{display:flex;align-items:center;gap:10px;margin:3px 0}.cc-pips{display:inline-flex;gap:4px}.cc-pips i{width:10px;height:10px;border-radius:50%;border:1px solid #c9b98a;display:inline-block}.cc-pips i.on{background:#e3c46a}
 .cc-care-line{margin:4px 0 0;font-size:12px;color:#c7d3b8}
+/* Active Jinki J2: the Souls strip in the Field Kit gear view */
+.cc-souls{margin:0 0 12px;padding:10px 12px;border:1px solid #5a4c2c;border-radius:8px;background:rgba(235,226,201,.04)}
+.cc-souls h4{margin:0 0 6px;color:#f3eee2;font-size:13px;letter-spacing:.04em}
+.cc-soul-mode{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 8px;font-size:12px;color:#d8d0bc}
+.cc-soul-chips{display:flex;gap:8px;flex-wrap:wrap}
+.cc-soul-chip{display:grid;gap:1px;min-width:132px;padding:6px 10px;border:1px solid #4a4436;border-radius:6px;background:#1d1b16;color:#d8d0bc;text-align:left;cursor:pointer}
+.cc-soul-chip b{font-size:12px}.cc-soul-chip small{font-size:11px;color:#a9a18c}.cc-soul-chip em{font-style:normal;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#a9a18c}
+.cc-soul-chip.is-speaking{border-color:#d9b45a;background:#2e2612;box-shadow:0 0 0 1px #d9b45a55}.cc-soul-chip.is-speaking em{color:#f1dca0}
+.cc-soul-chip.is-listening em{color:#b9c9a6}.cc-soul-chip.is-resting{opacity:.8}
+.cc-soul-chip.is-worn{opacity:.5;filter:grayscale(1)}
+.cc-soul-chip.is-chosen{outline:2px solid #e9c46a;outline-offset:1px}
+.cc-soul-chip:hover,.cc-soul-chip:focus-visible{border-color:#c9a24a}
+.cc-soul-summary{margin:8px 0 0;font-size:12px;color:#f1dca0}.cc-soul-resting{margin:4px 0 0;font-size:12px}
 
 .cc-mise-slot { display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin:4px 0; padding:2px 4px; border-radius:4px; }
 .cc-mise-active { outline:1px solid #c9a24a; }

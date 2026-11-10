@@ -191,7 +191,19 @@
     }
   }
 
-  function forgetActor(s, id) {
+  function forgetActor(s, id, H) {
+    // A unit that leaves takes its pending delayed strikes with it, as a fallen owner's are cancelled (damage.js): a strike left on the
+    // schedule would land for an owner the field no longer holds (Mystery S1: a cameo's sprung face-down Trip Threshold outlived its cameo).
+    for (const ev of (s.scheduled || []).filter((e) => e.owner === id)) H?.log(s, { kind: "cancel", text: `${s.actors[id]?.name || "A departed unit"}'s pending ${ev.inst.name} is cancelled (its owner left the field).` });
+    if (s.scheduled) s.scheduled = s.scheduled.filter((e) => e.owner !== id);
+    // The same holds for a strike whose response window is still open (Mystery S2: a cameo's announced turn-start plan opened a
+    // window and the cameo left in that same turn start; the window outlived its owner). Mala, 2026-11-09: the strike is cancelled.
+    const owns = (p) => p && (p.attacker === id || p.inst?.owner === id);
+    if (s.pendingStack) s.pendingStack = s.pendingStack.filter((p) => !owns(p));
+    if (owns(s.pending)) {
+      H?.log(s, { kind: "cancel", text: `${s.actors[id]?.name || "A departed unit"}'s ${s.pending.inst?.name || "strike"} is cancelled (its owner left the field).` });
+      s.pending = (s.pendingStack || []).pop() || null; s.phase = s.pending ? "response" : "action";
+    }
     delete s.actors[id]; delete s.knowledge[id]; delete s.disclosures[id];
     if (s.observedAbilities) delete s.observedAbilities[id];
     if (s.insight?.decks) delete s.insight.decks[id];
@@ -212,7 +224,7 @@
     // The mark keeps what the duel did (including death); the co-star's contract is complete.
     const mark = s.actors[f.markId];
     if (mark) { mark.x = f.markPos[0]; mark.y = f.markPos[1]; delete mark.status.trapped; }
-    forgetActor(s, f.costarId);
+    forgetActor(s, f.costarId, H);
     const cameo = f.cameoId ? s.actors[f.cameoId] : null;
     if (cameo && f.cameoPos) { cameo.x = f.cameoPos[0]; cameo.y = f.cameoPos[1]; delete cameo.status.trapped; }   // back to the field, clock resumes, no longer trapped
     for (const [id, u] of Object.entries(sv.actors)) s.actors[id] = u;
@@ -266,7 +278,7 @@
     a.cameo.turnsLeft -= 1;
     if (a.cameo.turnsLeft > 0) return;
     H.log(s, { kind: "film", actor: a.id, text: `${a.name} leaves to film other movies.` });
-    forgetActor(s, a.id);
+    forgetActor(s, a.id, H);
     s.order = s.order.filter((id) => id !== a.id);
   }
   function turnStart(s, a, H) {

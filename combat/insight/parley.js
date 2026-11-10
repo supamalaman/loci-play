@@ -235,6 +235,7 @@
     if (t.safeConduct && !t.defeated) return `${name(t)} carries a letter of safe conduct: no one may raise a hand against them.`;   // a hired mediator (engine/hires.js)
     if (t.truce && t.truce.until >= s.round && a.side === t.truce.side) return `A truce holds with ${name(t)} until round ${t.truce.until + 1}.`;
     if (a.persuaded) return `${name(a)} has come to terms; they're out of the fight.`;
+    if ((a.traits || []).some((tr) => (typeof tr === "string" ? tr : tr?.id) === "illusory")) return `${name(a)} is an illusion, a lure: it makes no hostile moves.`;   // the golden deer (content.js marichaDeer)
     if (standingDown(s, a)) return `${name(a)} has stood down; no hostile moves until round ${a.standDownUntil + 1}.`;   // Mind duel: losing the argument benches you too
     if (bonds()?.naturalPair(a, t)) return `${name(a)} won't raise a hand against ${name(t)}: max friendship.`;   // Bonds: natural friends never fight
     if (t.persuaded) return `${name(t)} has come to terms; the fight with them is over.`;

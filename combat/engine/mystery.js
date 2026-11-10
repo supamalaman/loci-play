@@ -6,7 +6,7 @@
 // { unitId, side, ability, trigger, target, setRound, age }.
 // Budget 3 per side per battle; expiry after 2 rounds unrevealed, no refund.
 // Opponent view is COUNT ONLY (seeFoe) — no leaks, ever. The AI never reads
-// contents (its only reader is the counts-only mysteryUnitCount; sealed by tests/mystery-ai.test.mjs).
+// contents (its only readers are the counts-only mysteryUnitCount/mysteryBudgetLeft/mysteryOwnCount; sealed by tests/mystery-ai.test.mjs + tests/mystery-ai-s1.test.mjs).
 // Concealed stakes ride s.stakes.faceDown (engine/ante.js + account/ante.js).
 (function (root, install) {
   if (typeof module === "object" && module.exports) module.exports = install;
@@ -130,11 +130,26 @@
       }
     }
 
-    // Turn start: the turn unit's oldest on-turn-start card fires (stored target).
+    // Turn start: the turn unit's oldest on-turn-start card fires. A set CARD and a plan with a stored target fire as they always did.
+    // A plan with no stored target (every AI set, Mystery S2) finds its target now: an aimed plan tries the foes its setter fights,
+    // nearest first, through the ability handler (range, sight and line checked like a player's pick), and the first one accepted takes
+    // it; a self-centred attack fires only with such a foe inside its radius; any other self-resolving plan fires outright. With no
+    // valid target the plan holds for a later turn (the expiry still ends it).
+    const fights = (s, a, u) => u.id !== a.id && !u.defeated && !u.notArrived && !H.Instinct.lying(u) && !H.Tourist?.is(u) && u.side !== a.side && u.side !== "bystander"
+      && H.PostHuman.atWar(s, a, u) && H.Civilian.atWar(s, a, u) && (H.Visitors?.atWar(s, a, u) ?? true) && H.Factions.atWar(s, a, u)
+      && !(a.truceWith === u.id && a.truceUntil >= s.round) && !(H.Parley && H.Parley.blocks(s, a, u));   // the foes this unit fights: the test the AI applies to its own foe list (ai.js candidates)
     function mysteryTurnStart(s, a) {
       if (!a || a.defeated) return;
       const card = oldest(s, a.side, a.id, "on-turn-start");
-      if (card) fireCard(s, card, undefined, "the turn begins");
+      if (!card) return;
+      if (card.kind === "card" || card.target) { fireCard(s, card, undefined, "the turn begins"); return; }
+      const m = manifest(s, a, card.ability, {}), far = (u) => H.dist(s, a.x, a.y, u.x, u.y);
+      const foes = Object.values(s.actors).filter((u) => fights(s, a, u)).sort((p, q) => far(p) - far(q));
+      if (m.target === "self") {
+        if (m.effect === "damage" && !foes.some((u) => far(u) <= (m.area?.radius ?? 0))) return;
+        fireCard(s, card, undefined, "the turn begins"); return;
+      }
+      for (const u of foes) if (fireCard(s, card, [u.x, u.y], "the turn begins") === null) return;
     }
 
     // The victim's on-attacked plans of one phase, oldest first. oldest() runs first only for its MCR-06 heal of a plan stranded on the other side by a conversion.
@@ -173,6 +188,11 @@
     // sit on the other list until they heal). A NUMBER, never contents.
     const mysteryUnitCount = (s, unitId) => ["player", "enemy"].reduce((n, side) => n + (s.mystery?.[side] || []).filter((c) => c.kind !== "card" && c.unitId === unitId).length, 0);   // a face-down CARD set is not counted: the AI reads a card only through Cards.viewFor, and only when it is aware (CARDS.md 18.3)
 
-    return { mysterySet, mysteryReveal, mysteryForce, mysteryTick, mysteryTurnStart, mysteryAttacked, mysteryBeforeHit, mysteryRoom, mysteryPlace, mysteryCardCount, mysteryFoeCount, mysteryMigrate, mysteryUnitCount };
+    // S1's two more numbers (still counts only): the side's unspent budget (shared with set CARDS through mysteryPlace), and one
+    // setter's held PLANS (per trigger when asked), across both lists for MCR-06. A set card is not counted here either (C2 landed first: the AI reads a card only through Cards).
+    const mysteryBudgetLeft = (s, side) => Math.max(0, (RULES(s).budget ?? 3) - (s.mysterySpent?.[side] || 0));
+    const mysteryOwnCount = (s, unitId, trigger) => ["player", "enemy"].reduce((n, side) => n + (s.mystery?.[side] || []).filter((c) => c.kind !== "card" && c.unitId === unitId && (!trigger || c.trigger === trigger)).length, 0);
+
+    return { mysterySet, mysteryReveal, mysteryForce, mysteryTick, mysteryTurnStart, mysteryAttacked, mysteryBeforeHit, mysteryRoom, mysteryPlace, mysteryCardCount, mysteryFoeCount, mysteryMigrate, mysteryUnitCount, mysteryBudgetLeft, mysteryOwnCount };
   })();
 });

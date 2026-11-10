@@ -1,0 +1,23 @@
+{
+ "size_class": "person",
+ "footprint_tiles": [
+  1,
+  1
+ ],
+ "world_height": 1.0,
+ "world_height_definition": "PROPOSED by the builder (Halyard BD, 2026-11-08): a person (the Warden) = 1.0. The Yokai is a chibi figure; whether he should stand shorter than his sisters (class small) is a decision for Mala in the shelf NOTE.",
+ "runtime_consumed": false,
+ "source": "Tofu Yokai Fantasy RPG Sprite Sheet.png (claude-tofu-trio-art-build)",
+ "note": "Nothing in web/combat reads size_class or world_height yet: the battle draws every idle at one person's height (ui.js, tw * .568) and the other poses at idle's pixel scale.",
+ "foot_point_px": [
+  134.5,
+  259
+ ],
+ "idle_alpha_size_px": [
+  263,
+  256
+ ],
+ "minimum_pixel_size_px": 96,
+ "minimum_pixel_size_definition": "The draw height the person class must reach on screen (ROLES.md Art sizing: tiny 24, small 48, person 96, large 144, giant 192 px). The idle's source alpha height is above it.",
+ "foot_point_definition": "The idle's foot point in idle.png's pixels: centre x of the bottom alpha row, and that row."
+}

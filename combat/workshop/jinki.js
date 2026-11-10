@@ -80,7 +80,7 @@
   function restingReason(account, equippedIds, nameOf = (id) => id) {
     const id = account?.gear?.speaking; if (!id) return null;
     if (activeGifts(account, equippedIds).held.includes(id)) return null;
-    const name = nameOf(id), because = !(account?.gear?.owned || []).includes(id) ? "it is no longer yours" : (account?.museum?.placed || []).includes(id) ? "it is in the Museum" : !giftsFor(account, id) ? "it has not awakened" : !(equippedIds || []).includes(id) ? "put it on to hear it" : "it is worn out: repair it to hear it";
+    const name = nameOf(id), because = !(account?.gear?.owned || []).includes(id) ? "it is no longer yours" : (account?.museum?.placed || []).includes(id) ? "it is in the Museum" : !giftsFor(account, id) ? "it has not awakened" : !(equippedIds || []).includes(id) ? ((account?.gear?.durability?.[id] ?? 1) > 0 ? "put it on to hear it" : "it is worn out: repair it and put it on to hear it") : "it is worn out: repair it to hear it";   // a stored, spent soul needs both (1.3.555: putting it on alone would not wake it, activeGifts drops 0 durability)
     return `Your chosen soul, ${name}, is resting: ${because}.`;
   }
   // "Breakfall II": the gift a soul lends, as the round-1 line and the Souls strip name it.

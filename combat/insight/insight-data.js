@@ -287,6 +287,7 @@
     exoskeleton: { name: "Exoskeleton", text: "Chitin Knight: can't be knocked back, and the first hit each round deals 5 less.", open: true, formOnly: true },
     broodmind: { name: "Broodmind", text: "Chitin Knight: big hits wake the brood (larvae are not drawn yet).", open: true, formOnly: true },
     molting: { name: "Molting", text: "Chitin Knight's flaw: every third turn in form the shell comes off: ×1.15 damage taken and no Exoskeleton, but they heal 15.", open: true, formOnly: true },
+    illusory: { name: "Illusory", text: "An illusion, a lure: it makes no hostile moves. The first blow ends it.", open: true, formOnly: true },   // Surpanakha flee chain S1: the golden deer (content.js marichaDeer body; parley.js blocks)
     faceless: { name: "Faceless", text: "Faceless: nothing to read. No tells, and their traits can't be exploited.", open: true, formOnly: true },
     unbearable: { name: "Unbearable", text: "Faceless: a foe who starts its turn beside them faces fear.", open: true, formOnly: true },
     hollow: { name: "Hollow", text: "Faceless's flaw: nothing heals them while the form is held.", open: true, formOnly: true },
@@ -336,7 +337,7 @@
       /* anime theorycraft batch, 2026-10-26 */ "ironJaw", "poisonAffinity", "crushingHands", "typedSoul", "gyoEyes", "heavyBones", "copyEye", "oneBlindSpot", "treeWalker", "vesselBody", "soulLayers", "looseFit", "vatGrown", "shockEater", "pluggedEye", "oldBlood", "deepWells", "redSliver", "automailLimb", "softSoles", "filterLungs", "openVessel", "atlasBones",
       /* feats batch, 2026-10-27 */ "packMule", "fourArms",
       /* tsukumogami structures, 2026-10-29 */ "heavy", "rigid", "brittle", "light",
-      /* trepanation, 2026-10-30 */ "trepanation"],
+      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory"],
     psychology: ["discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
       "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "comparative", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
@@ -752,6 +753,10 @@
       { kind: "tell", text: "She remembers exactly who hurt her, and looks at them.", difficulty: 1 },
       { kind: "weakness", channel: "albedo", text: "Lakshmana's blade drew blood through the guise: a clean, precise cut shows her true shape at once.", difficulty: 2 },
       { kind: "realization", text: "Her grudge falls on whoever wounds her. Let someone you can spare do it.", difficulty: 2 } ] },
+    maricha: { traits: ["fearful", "dutiful"], obs: [   // Surpanakha flee chain S1: every line is true of the golden deer as built (content.js marichaDeer)
+      { kind: "tell", text: "Too golden to be a deer.", difficulty: 1 },
+      { kind: "tell", text: "It makes no move to fight.", difficulty: 1 },
+      { kind: "realization", text: "One blow ends the illusion: whatever wears the deer runs.", difficulty: 2 } ] },
     mandodari: { traits: ["honest", "loyal"], obs: [
       { kind: "tell", text: "She speaks to her allies before every clash, urgently.", difficulty: 1 },
       { kind: "tell", text: "She watches you as if she already knows how this ends.", difficulty: 1 },

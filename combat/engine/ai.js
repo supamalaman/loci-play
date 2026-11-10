@@ -84,6 +84,7 @@
       if(act.type==="observe"&&has("discernment"))return {trait:"discernment",goal:"understand"};
       if (act.type === "observe" && has("scout")) return { trait: "scout", goal: "understand" };
       if(["observePlant","commune"].includes(act.type)&&has("botanist"))return {trait:"botanist",goal:"summon"};
+      if (act.type === "communeIngredient" && (has("kitchenAnimism") || has("animist"))) return { trait: has("kitchenAnimism") ? "kitchenAnimism" : "animist", goal: "support" };
       if(act.type==="observePlace"&&has("steward"))return {trait:"steward",goal:"understand"};
       if (act.type === "disarm" && has("tinkerer")) return { trait: "tinkerer", goal: "prepare" };
       if (act.type === "pet" && has("animalLover")) return { trait: "animalLover", goal: "support" };
@@ -559,6 +560,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           }
         }
         for (const cand of candidates(st, a.id, true, !to)) {
+          if (to && cand.type === "setIntent") continue;   // Mystery S1: a set works from anywhere, so it must not justify a step — paired scoring would pace (ai-pacing seed 7). Stays score it; observation pairs out the same way (!to above).
           if (aiTrace) traceAiEvent("candidate", { to, action: cand });
           const predicted = apply(st, cand, { preview: true }); if (!predicted.ok) { if (aiTrace) traceAiEvent("rejected", { stage: "action-preview", to, action: cand, error: predicted.error }); continue; }
           const harm = standoff && (cand.type === "strike" || cand.type === "grapple" || Object.values(predicted.state.actors).some((t) => t.side !== a.side && st.actors[t.id] && t.lf < st.actors[t.id].lf));
@@ -756,10 +758,25 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       if (!holders.length) return true;
       return !!(heldUlt && a.tempo - x.m.tempoCost >= heldUlt.tempoCost && a.pf - x.m.cost >= heldUlt.cost);
     };
+    // Ingredient totems T2 (spec claude-ingredient-totems-spec section 6): one candidate per ingredient kind in the pack or on an adjacent tile.
+    const cookingRules = () => (typeof module === "object" && module.exports ? require("../account/cooking.js") : globalThis.ConceptCombatCooking) || null;
+    function totemWakes(s, a) {
+      const CM = H.Communion; if (!CM?.canWakeIngredients || !a || a.defeated || !CM.canWakeIngredients(a) || a.totemWokeTurn === a.ownerTurns) return [];
+      const IR = CM.ingredients.rules, out = [], seen = new Set();
+      if ((a.tempo || 0) < IR.communeAp || (a.pf || 0) < IR.phi) return [];
+      for (const item of a.inventory || []) if (CM.totemOf(item) && !seen.has(item)) { seen.add(item); out.push({ type: "communeIngredient", actor: a.id, item }); }
+      for (const pk of s.arena?.pickups || []) if (CM.totemOf(pk.item) && !seen.has(pk.item) && dist(s, a.x, a.y, pk.x, pk.y) <= IR.pickupRange) { seen.add(pk.item); out.push({ type: "communeIngredient", actor: a.id, pickup: pk.id }); }
+      return out;
+    }
+    function totemWakeScore(s, a, cand) {
+      const CM = H.Communion, item = cand.item || (s.arena?.pickups || []).find((p) => p.id === cand.pickup)?.item;
+      return CM?.wakeValue ? CM.wakeValue(s, a, item, { dist, isCook: (u) => !!cookingRules()?.isCook?.(u), reach: () => s.rules.moveBudget ?? 4 }) : 0;
+    }
     function candidates(s, id, keepObservation = false, withObservation = true) {
       const a = s.actors[id]; const out = [];
       if((a.learned||[]).some(id=>ab(id)?.contract))for(const x of availableAbilities(s,id)){const c=x.contract;if(c?.next?.kind==="invoke"&&!c.spent&&a.tempo>=10)out.push({type:"contractSpeak",actor:id,ability:x.id,words:c.next.words});if(c?.canPrepare&&a.tempo>=20)out.push({type:"contractPrepare",actor:id,ability:x.id});}
       if (dreamerCan(s, a)) out.push({ type: "dreamSpace", actor: id });
+      out.push(...totemWakes(s, a));   // ingredient totems T2: an Animist or Kitchen Animism holder may wake an ingredient (scored from need)
       { const o = siegeOf(s, a); if (o && !a.status?.soothed && dist(s, a.x, a.y, o.x, o.y) <= H.strikeRange(s, a) && a.tempo >= s.rules.actionCosts.strikeMin)
           out.push({ type: "strike", actor: id, target: [o.x, o.y], effort: Math.min(s.rules.actionCosts.strike, s.rules.actionCosts.strikeMax, a.tempo) }); }
       // Drone towers (docs/agent-swarm.md): an opposing tower's anchor in Strike range is something to break.
@@ -942,6 +959,21 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         if (H.Instinct.threatened(s, a) && !H.hasTrait(a, "honorable") && apply(s, { type: "playDead", actor: id }, { preview: true }).ok) out.push({ type: "playDead", actor: id });   // deceit is not honorable
       }
       if (Auras && !a.wild && Auras.aiValue(s, a, auraH()) != null) out.push({ type: "aura", actor: id });   // Auras
+      { const MR = s.rules.mystery?.ai;   // Mystery S1 + S2: face-down sets for a setter with a foe in its trigger outlook. S1, counter-first: an on-attacked attack, never an ultimate (spec section 1). S2, patient: an on-turn-start attack, ultimates included (the set call's own gate: a full bar, or Mastery). First-come side budget, one plan per setter per trigger; the decide-time preview re-validates. No coin and no jitter (R-20261103-18: sets come from traits and necessity): a full bar plus an outlook offers the patient set every decide, and the cast comparison spends the bar whenever the cast is worth more.
+        if (MR && (H.mysteryBudgetLeft?.(s, a.side) || 0) > 0 && setOutlook(s, a).length)
+          for (const trigger of ["on-attacked", "on-turn-start"]) {
+            if ((H.mysteryOwnCount?.(s, a.id, trigger) || 0) >= (MR.setMaxPerTrigger ?? 1)) continue;
+            for (const x of authoredAbilities) {
+              if (!x.affordable || x.m.effect !== "damage" || !(x.m.potency > 0)) continue;
+              if (x.m.tier === "ultimate" && trigger !== "on-turn-start") continue;
+              { const d = ab(x.id); if (d?.crescendo || d?.inspirationPrice || x.m.lfPrice) continue; }   // prices the face-down path does not charge (a Crescendo's Inspiration gate and an inspirationPrice are skipped at set and prepaid at fire; the Ajin LF price likewise): the AI does not set what it could not pay to cast (tests/crescendo.test.mjs; landing 1.3.549)
+              if (breachPrice(s, a, x.m)) continue;   // Declared Terms: a set fires through the ability path later (the face-down fire calls handlers.ability prepaid), so a counter that breaks the setter's own contract would land the breach penalty and stun on it at a moment it does not choose; the cast loop prices that (breachAp below), the set loop simply keeps its word (Integrator's reading under R-20261103-28, landing 1.3.549; tests/contract-breach-ai.test.mjs B1/B2)
+              if ((s.aiBans?.[id]?.[x.id] ?? -1) > s.round) continue;   // a refused set (or cast) of this ability banned it for three rounds (actions.js aiFailure): the set generator honours the ban as the cast loop does (landing 1.3.549)
+              if (a.tempo < x.m.tempoCost || a.pf < x.m.cost) continue;   // the set pays now, no overclock and no Inspiration path (as the set call charges)
+              const act = { type: "setIntent", actor: id, ability: x.id, trigger };
+              if (apply(s, act, { preview: true }).ok) out.push(act);
+            }
+          } }
       if (H.fruitOf) for (const c of out) if (c.type === "strike") {   // Sinkerfruit: coat a Strike in Steel will against Coil's give or Mist's Drift, when the AP allows
         const t = actorAt(s, ...(c.target || [])), f = t && H.fruitOf(t);
         if (f && (f.id === "coil" || f.id === "mist") && !H.damped(s, t) && a.tempo >= (c.effort || s.rules.actionCosts.strike) + H.fruitRules.steelWillAP) c.steelWill = true;
@@ -1040,6 +1072,17 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     }
     // Least-used ledgers (rules.aiLedger): price what previews can't show. Threat first, then info.
     const liveStatus = (a, key) => { const st = a.status?.[key]; return st && (st.expiresAt == null || st.expiresAt > a.ownerTurns); };
+    // Mystery S1: the trigger outlook of an on-attacked set — the foes who could spring it. The foes this unit fights (the test
+    // candidates() applies to its own foe list: standing, no tourist, at war on every axis, no truce, no parley; and arrived)
+    // inside the ledger's threatRangeSelf, the range the AI already prices worn protection over (threatValue below). A counter
+    // is worn protection that hits back: it pays only if one of them attacks the wearer. The range is a judgement, not a proof:
+    // a foe farther off may still arrive before the card expires, and the AI does not bet on it (spec section 1: no set with an
+    // empty trigger outlook). Distance only, as the ledger counts worn protection: no sight test. Nearest first.
+    function setOutlook(s, a) {
+      const R6 = s.rules.aiLedger?.threatRangeSelf ?? 6;
+      return Object.values(s.actors).filter((t) => H.Instinct.standing(t) && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander" && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && H.Factions.atWar(s, a, t) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, t)) && dist(s, a.x, a.y, t.x, t.y) <= R6)
+        .sort((p, q) => dist(s, a.x, a.y, p.x, p.y) - dist(s, a.x, a.y, q.x, q.y));
+    }
     function threatValue(s, a, cand, def) {
       const L = s.rules.aiLedger, frac = def && L?.cover?.[def.effect];
       if (!frac) return 0;
@@ -1445,6 +1488,13 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         const v = H.Observation.value(s,a,cand,H.observationH());
         return (firstFor(cand.type) ? Math.max(v, COMMUNE_FIRST) : v) + ripOf(v);
       }
+      if (cand.type === "setIntent") {   // Mystery S1 + S2: a delayed blow — the attack's value at the likeliest attacker (the nearest foe in the trigger outlook), discounted for the wait. On the damage scale (ΦF ×0.3), so casting now wins when it can. S2: an on-turn-start set waits longer (setPatienceMul), and a brave setter commits a full bar (braveUltSet). No watcher discount: a live rip holds the plan (Mystery.js hold), so no loss is priced.
+        const MR = s.rules.mystery?.ai; if (!MR || (cand.trigger !== "on-attacked" && cand.trigger !== "on-turn-start")) return 0;
+        const m = manifest(s, a, cand.ability, {}); if (!m || m.effect !== "damage" || !(m.potency > 0)) return 0;   // manifest opts mirror the set call's
+        const victim = setOutlook(s, a)[0]; if (!victim) return 0;
+        const patient = cand.trigger === "on-turn-start", wait = patient ? (MR.setPatienceMul ?? 0.6) : (MR.setWaitMul ?? 0.7);
+        return Math.min(m.potency, victim.lf) * wait - m.cost * 0.3 + (patient && m.tier === "ultimate" && H.hasTrait?.(a, "brave") ? (MR.braveUltSet ?? 2) : 0);   // no kill bonus, even when the blow would be lethal: the bonus is for kills the caller already believes in, and a delayed strike is not covered (kill-beats-all below, Mala 2026-10-19). A kill on the table now (a cast, or the oath that opens one) must outrank a counter that waits on the foe's choice.
+      }
       { const o = cand.type === "strike" && cand.target && anchorsOf(s, a).find((p) => p.x === cand.target[0] && p.y === cand.target[1]);
         if (o) { const after = apply(s, cand, { preview: true }); if (!after.ok) return -1;   // a tower's anchor: its HP lost, and the tower if it falls
           const left = (after.state.arena.objects || []).find((p) => p.id === o.id)?.hp ?? 0; return (o.hp - left) * 0.8 + (left <= 0 ? s.rules.droneTowers.potency * 2 : 0); } }
@@ -1485,6 +1535,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           const left = (after.state.arena.objects || []).find((p) => p.id === foeBld.id)?.hp ?? 0;
           const dmg = foeBld.hp - left; if (dmg > 0) return dmg * 0.8 + (left <= 0 ? 10 : 0); } }
       if (cand.type === "tameBeast" || cand.type === "markVessel" || cand.type === "callPack") return H.tamerValue(s, a, cand);
+      if (cand.type === "communeIngredient") return totemWakeScore(s, a, cand);   // need only: 0 when no ally needs what the totem gives
       if (cand.type === "catchFish") { const R = s.rules.fish, room = s.rules.ultimateChargeMax - (a.ultimateCharge ?? 0), near = Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "civilian" && u.side !== "bystander" && Math.abs(u.x - a.x) + Math.abs(u.y - a.y) <= 3);
         return near ? 0 : Math.min(R.ultCharge, room) * (R.aiValuePer ?? 0.2) * (Spirit()?.greedMul?.(s, a) ?? 1); }   // 20 charge ≈ 4: worth a quiet turn, never worth turning your back on a foe; SP-02: ~zero while conducted
       if (cand.type === "vow" && cand.target === "word") return s.rules.ramaWord?.aiValue ?? 14;   // a whole battle of +3: worth more than one swing
