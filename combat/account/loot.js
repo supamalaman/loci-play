@@ -118,8 +118,8 @@
     const mul = rarityMul(level);
     const odds = (r) => Math.max(mul[r] ?? 1, tribute?.rarityFloor?.[r] ?? 0) * (tribute?.rarityMul?.[r] ?? 1);
     const rarity = weighted(roll(seed, tag + ":rarity"), Object.entries(I.rarities).map(([r, d]) => [r, d.weight * (tribute ? odds(r) : (mul[r] ?? 1))]));
-    let pool = Object.entries(catalog(kind)).filter(([id, it]) => it.rarity === rarity && !exclude.has(id) && !it.dropOnly && !it.hallOnly && !it.questOnly);   // hallOnly: the Hiring Hall's contracts; questOnly: J3 mythics are EARNED, never rolled
-    if (!pool.length) pool = Object.entries(catalog(kind)).filter(([id, it]) => it.rarity !== "legendary" && !exclude.has(id) && !it.dropOnly && !it.hallOnly && !it.questOnly);
+    let pool = Object.entries(catalog(kind)).filter(([id, it]) => it.rarity === rarity && !exclude.has(id) && !it.dropOnly && !it.hallOnly && !it.questOnly && !it.cookOnly);   // hallOnly: the Hiring Hall's contracts; questOnly: J3 mythics are EARNED, never rolled; cookOnly: FX1 mush is made, never rolled
+    if (!pool.length) pool = Object.entries(catalog(kind)).filter(([id, it]) => it.rarity !== "legendary" && !exclude.has(id) && !it.dropOnly && !it.hallOnly && !it.questOnly && !it.cookOnly);
     if (!pool.length) return null;
     const id = weighted(roll(seed, tag + ":item"), pool.map(([pid, it]) => [pid, (it.dropWeight ?? 1) * (it.biomes.includes(biome) ? I.dropRules.biomeWeight : 1)]));
     return { kind, id, rarity: catalog(kind)[id].rarity };
@@ -411,10 +411,23 @@
     });
   }
   // The Hiring Hall (town): merc contracts and letters of safe conduct, always in stock at their fixed price.
+  // S1a: fame discount (F1) × Bargain Hall −10%/rank × tomatoed +10%; never under 70% of list.
+  function hallMult(account) {
+    const a = withBags(account);
+    const fameOff = FAME ? FAME.effects(FAME.levelFor(a)).hallDiscount : 0;
+    const bargain = 0.10 * Math.max(0, Math.floor(a.perks?.bargainHall || 0));
+    const tomato = (a.marks || []).includes("tomatoed") ? 0.10 : 0;
+    return (1 - fameOff) * (1 - bargain) * (1 + tomato);
+  }
+  function hallPrice(account, listPrice) {
+    const list = Math.max(0, Number(listPrice) || 0);
+    const raw = Math.max(1, Math.round(list * hallMult(account)));
+    const floor = Math.max(1, Math.round(list * 0.7));
+    return Math.max(floor, raw);
+  }
   function hallStock(account) {
     const a = withBags(account);
-    const off = FAME ? FAME.effects(FAME.levelFor(a)).hallDiscount : 0;   // Fame F1 (FAME.md E3): -4% a level to -20%; the offer carries the price and buy() charges it
-    return Object.entries(I.consumables).filter(([, it]) => it.hallOnly).map(([id, it]) => ({ kind: "consumable", id, rarity: it.rarity, price: off > 0 ? Math.max(1, Math.round(it.price * (1 - off))) : it.price, listPrice: it.price, name: it.name, text: it.text, owned: a.stash[id] || 0 }));
+    return Object.entries(I.consumables).filter(([, it]) => it.hallOnly).map(([id, it]) => ({ kind: "consumable", id, rarity: it.rarity, price: hallPrice(a, it.price), listPrice: it.price, name: it.name, text: it.text, owned: a.stash[id] || 0 }));
   }
   function buy(account, offer) {
     let a = withBags(account);
@@ -429,6 +442,9 @@
       if (!r.added) return { ok: false, account: a, reason: `Your stash is full (${stashLimit(a)}).` };
       a = r.a;
     }
+    // Perks S1a: a real Hall hire purchase is a `hires` deed (merc / letter of safe conduct).
+    if (offer.kind === "consumable" && I.consumables[offer.id]?.hallOnly && I.consumables[offer.id]?.effect?.hire && A.noteDeed)
+      a = A.noteDeed(a, "hires", 1).account;
     return { ok: true, account: a };
   }
   function sell(account, kind, id) {
@@ -598,5 +614,5 @@
     return { ...a, carried: [...a.carried.slice(0, i), ...a.carried.slice(i + 1)] };
   }
 
-  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, buy, sell, sellConsumable, trashConsumable, equip, unequip, passives, setSpeaking, speakingLines, soulStrip, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
+  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, hallPrice, hallMult, buy, sell, sellConsumable, trashConsumable, equip, unequip, passives, setSpeaking, speakingLines, soulStrip, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
 });

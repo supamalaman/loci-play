@@ -43,6 +43,7 @@
   const BK = root.ConceptCombatWorkshopBusking || null;   // W6.5: the hat in the square
   const RW = root.ConceptCombatWorkshopRewrite || null;   // W6.2: self-authorship
   const SM = root.ConceptCombatSummons, SQ = root.ConceptCombatSummonQuestions, DS = root.ConceptCombatDreamSpace, AU = root.ConceptCombatAuras;
+  const OG = root.ConceptCombatOrgonite;
   const PC = root.ConceptCombatSummonContracts || null;   // summon pacts (summons/contracts.js): the contract book + quizless calls
   const GF = root.ConceptCombatGaiaField;
   const ISO = root.ConceptCombatIsoView || null;   // terrain/iso-view.js: the isometric board, where an arena has a sculpted scene
@@ -145,7 +146,7 @@
     { id: "drawer:move", label: "Move ▸", title: "Move", has: (id) => ["move", "jump", "climb", "disengage", "breakGrapple"].includes(id) || id === "scramble" || id.startsWith("press:") },
     // Rituals (Mala, 2026-10-20): dreams, Palace summons, capture ritual, communes, rites, Contains Multitudes and
     // Become the Integrated Self all ride one tab; the old Dream drawer folded into it.
-    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "summons", "orderSummonUltimate", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") },
+    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "summons", "orderSummonUltimate", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") || id.startsWith("plantOrgonite") },
     { id: "drawer:talk", label: "Talk ▸", title: "Talk", has: (id) => id === "insight" || id === "trial" || id === "stakes" || id.startsWith("accept:") || id.startsWith("decline:") || id.startsWith("terms:") || id.startsWith("convert") || id.startsWith("display:") || id.startsWith("borrow:") || id.startsWith("order:") || id === "repayDebt" || id === "settleVisit" || id === "declareBankruptcy" },
     // Observe is its own tab now; studying a plant stays here, but the commune selection moved to Rituals.
     { id: "drawer:observe", label: "Observe ▸", title: "Observe", has: (id) => ["observe", "investigate", "observeSelf"].includes(id) || id?.startsWith("journal:") || id?.startsWith("finding:") },
@@ -197,7 +198,7 @@
     "hooded-cyber-rogue": "#8f7ae8", "child-of-the-future": "#f2d38a", "futuristic-armored-ninja": "#7fb2d9" };
   const TRUE_FORM_SPRITES = ["genghis-khan-true-form", "kobe-true-form", "perimeter-guardian-true-form", "aristotle-true-form", "little-king-true-form", "inner-child-true-form", "zherm-true-form", "napoleon-true-form", "the-king-true-form"];
   for (const key of TRUE_FORM_SPRITES) SPRITE[key] = "#d8b45a";
-  const MAX_SPRITES = ["cyber-napoleon"];   // MAX forms (beyond true form; permanent for the stay)
+  const MAX_SPRITES = ["cyber-napoleon", "mitsuko-max", "max-khan"];   // MAX forms (beyond true form; permanent for the stay)
   for (const key of MAX_SPRITES) SPRITE[key] = "#d9ccff";
   const PLAYER_POSES = ["idle", "walk", "cast", "block", "punch", "knocked-out"];
   const SPRITE_DIR = { tourist:"tourist", kaiba:"kaiba", "neo-warden":"neo-warden", "paladin-crusader":"paladin-crusader", archivist:"archivist", "archivist-kaiba":"archivist-kaiba", warden: "player", pathfinder: "pathfinder", sieve: "sieve", student: "student", "student-journeyman": "student-journeyman", "student-master": "student-master",
@@ -245,7 +246,8 @@
   const BIG_UNIT_SCALE = 3.05;   // the 2x2 bosses (dragon, oni, kaiju) are drawn at this scale
   const SPRITE_SCALE = { inner_child: 0.72, "inner-child-true-form": 0.72, "nettle-caterpillar": 0.72,   // the caterpillar art is wide: at full height it spanned more than its tile (Mala, 2026-10-27: "it doesnt take much for a caterpillar to be giant")
     dragon: 3.05, oni: 3.05, kaiju: 3.05,
-    hanuman: 1.2, "hanuman-chibi": 0.85, "hanuman-giant": 1.6, kumbhakarna: 1.8,   // Kumbhakarna: boss scale (Mala, 2026-10-23), on one tile   // Mala's map-scale rulings: heroic a bit larger, giant larger; the monkey reads small
+    "mitsuko-max": 1.17, "max-khan": 2.2   /* MX2: a 2x1 mount; the 2x2 bosses draw at 3.05 */,   // MX1: the sun halo is the top 14% of her MAX idle; 1.17 draws her body at her true form's height (lineup: claude-max-mitsuko-build qa-evidence)
+    hanuman: 1.2, "hanuman-chibi": 0.85, "hanuman-giant": 1.6, kumbhakarna: 1.8, "dream-frankenstein": 1.5,   // Kumbhakarna: boss scale (Mala, 2026-10-23), on one tile; Dream Frankenstein one tile, 1.5x taller (R-20261110-03)   // Mala's map-scale rulings: heroic a bit larger, giant larger; the monkey reads small
     "commune-monkeypod": 3, "commune-koa": 3, "commune-ohia": 3, "commune-wiliwili": 3, "commune-rainbowShower": 3, "commune-ulu": 3, "commune-loulu": 3,
     "commune-passionflower": 1.8, "commune-puya": 1.8,
     "commune-banyan": 3, "commune-bristlecone": 3, "commune-kukui": 3,
@@ -262,6 +264,7 @@
   const SPRITE_FACES_RIGHT = Object.fromEntries(Object.keys(SPRITE_DIR).map((sprite) => [sprite, sprite === "warden" || sprite === "agi"]));
   for (const key of CARD_FAMILIARS) { SPRITE_FACES_RIGHT[key] = true; SPRITE[key] ||= "#e9a23b"; }   // the sheets draw them facing right (unreviewed: the Cutter's NOTE)
   for (const sprite of [...SUMMON_SPRITES,...TRUE_FORM_SPRITES,...MAX_SPRITES,"mitsuko-true-form"]) SPRITE_FACES_RIGHT[sprite] = true;
+  SPRITE_FACES_RIGHT["dream-frankenstein"] = true;   // the 1.3.561 re-cut (cursor-frankenstein-recut) faces right; eye-checked at the ship (Bowline IN)
   SPRITE_FACES_RIGHT["modern-artist"]=true; SPRITE_FACES_RIGHT["field-botanist"]=true; SPRITE_FACES_RIGHT["chef"]=true;   // chef directionals face right (Berry CU facing call, 2026-10-30)
   SPRITE_FACES_RIGHT.fighting_coach=true; SPRITE_FACES_RIGHT.hypebeast=true;
   SPRITE_FACES_RIGHT.archivist=true;SPRITE_FACES_RIGHT["archivist-kaiba"]=true;
@@ -542,7 +545,7 @@
   // Face portraits for whoever is speaking (sprites/<folder>/face-<expression>.png; docs/conversational-cast.md).
   // faceFile falls back from the asked expression to neutral, then to null: the caller shows the battle sprite instead,
   // never someone else's face.
-  const FACE_ART = { "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
+  const FACE_ART = { "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "dream-frankenstein":["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
   for (const key of ["tofu-yokai", "tofu-archer", "tofu-warden"]) FACE_ART[key] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Tofu trio (claude-bestiary-art-spec B2): the same five portraits a bark shows from heads/
   FACE_ART["brood-mite"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the mite's five portraits were cut as portrait-<x>.png, a name nothing reads; face-<x>.png are the same files (claude-bestiary-art-spec B1-a)
   const faceFile = (sprite, expression = "neutral") => {
@@ -806,6 +809,7 @@
     const $ = (id) => host.querySelector("#" + id);
     // Explicit developer opt-in; normal games allocate no inspector or trace history.
     let decisionInspector = null, decisionInspectorPanel = null, decisionInspectorButton = null, pendingInspectedDecision = null;
+    let surfaceUI = null;   // Forum S2: the surface screen while it shows (surface/surface-ui.js); U.surface is its flag
     function openDecisionInspector() {
       if (decisionInspector || !root.ConceptCombatDecisionInspector) return;
       const panel = document.createElement("div"); panel.className = "emissary-drawer"; panel.hidden = true; host.querySelector(".cc").appendChild(panel);
@@ -998,7 +1002,7 @@
     }
     const wildPoseImages = new Map();
     function wildSprite(kind, pose) {
-      const folder = kind === "feralPig" ? "feral-pig" : kind === "termites" ? "termites" : kind === "gaia" ? "gaia-wounded" : kind === "nettleCaterpillar" ? "nettle-caterpillar" : kind === "wolf" ? "wolf" : kind === "ducks" ? "ducks" : kind === "sasquatch" ? "sasquatch" : kind === "moa" ? "moa" : kind === "porgy" ? "porgy" : kind === "kraken" ? "kraken" : null;   // kraken: muse-kraken-cut + muse-kraken-build (1.3.541, Bollard IN)
+      const folder = kind === "feralPig" ? "feral-pig" : kind === "termites" ? "termites" : kind === "gaia" ? "gaia-wounded" : kind === "nettleCaterpillar" ? "nettle-caterpillar" : kind === "wolf" ? "wolf" : kind === "ducks" ? "ducks" : kind === "sasquatch" ? "sasquatch" : kind === "moa" ? "moa" : kind === "porgy" ? "porgy" : kind === "kraken" ? "kraken" : kind === "chicken" ? "wild-chicken" : null;   // kraken: muse-kraken-cut + muse-kraken-build (1.3.541, Bollard IN)
       if (!folder) return null;
       const key = `${folder}/${pose}`;
       if (!wildPoseImages.has(key)) {
@@ -1099,13 +1103,14 @@
       const gear = Loot.data.slots.map((slot) => { const id = U.account.gear.equipped[slot]; return `<div class="cc-kit-slot" data-kit-slot="${slot}"><small>${GEAR_SLOT_LABEL[slot]}</small>${id ? kitTile("gear", id, `gear:${slot}`) : `<div class="cc-kit-empty">·</div>`}</div>`; }).join("");
       const bag = U.account.gear.owned.filter((id) => !Object.values(U.account.gear.equipped).includes(id)).map((id) => kitTile("gear", id, "gearbag")).join("") || `<p class="cc-muted">No stored gear.</p>`;
       const can = Cook ? Cook.available(U.potSelection) : [];
+      const mash = Cook && Cook.mush && !can.length ? Cook.mush(U.potSelection, { reserveTeaLeaf: Cook.teaReserveOn ? Cook.teaReserveOn(U.account) : true }) : null;   // FX1: named matches first; mush only when nothing matches; the tea reserve reads the gateway flag
       const book = Cook ? Object.entries(Cook.recipes).map(([rid, r]) => `<li class="${can.includes(rid) ? "is-ready" : ""}"><b>${esc(r.name)}</b> <small>${(r.from || r.needs).map((n) => esc(r.from ? Loot.data.consumables[n]?.name || n : n.replace("|", " or "))).join(" + ")} → ${esc(Loot.data.consumables[r.out]?.name || r.out)}${r.field ? " · field recipe" : " · full recipe"}</small></li>`).join("") : "";
       return `<section class="cc-kit"><div class="cc-kit-col"><h3>Stash · ${stashTotal}/${Loot.stashLimit(U.account)}</h3><div class="cc-kit-grid" data-kit-zone="stash">${stash.map(([id]) => { const n = kitFree(id); return kitTile("item", id, "stash", `<b class="cc-kit-n">${n}</b>`).replace('class="cc-kit-tile', `class="cc-kit-tile${n ? "" : " is-spent"}`); }).join("") || `<p class="cc-muted">Empty. Battles and the field shop fill it.</p>`}</div>
         <h3>Stored gear</h3><div class="cc-kit-grid" data-kit-zone="gearbag">${bag}</div></div>
         <div class="cc-kit-col"><h3>Battle pack · ${U.packSelection.length}/${slots}</h3><div class="cc-kit-slots" data-kit-zone="pack">${pack}</div>
         <h3>Worn gear</h3><div class="cc-kit-slots cc-kit-gear" data-kit-zone="gear">${gear}</div>
         <h3>Camp kitchen</h3><div class="cc-kit-slots" data-kit-zone="pot">${pot}</div>
-        <div class="cc-kit-cook">${can.length ? can.map((rid) => `<button type="button" data-kit-cook="${rid}">Cook ${esc(Cook.recipes[rid].name)}</button>`).join("") : `<span class="cc-muted">${U.potSelection.length ? "No recipe uses these together." : "Drag ingredients into the pot."}</span>`}${U.potSelection.length ? `<button type="button" data-kit-empty-pot>Empty pot</button>` : ""}</div>
+        <div class="cc-kit-cook">${can.length ? can.map((rid) => `<button type="button" data-kit-cook="${rid}">Cook ${esc(Cook.recipes[rid].name)}</button>`).join("") : mash?.ok ? `<button type="button" data-kit-cook="mush">Mash into mush</button>` : `<span class="cc-muted">${U.potSelection.length ? esc(mash?.reason || "No recipe uses these together.") : "Drag ingredients into the pot."}</span>`}${U.potSelection.length ? `<button type="button" data-kit-empty-pot>Empty pot</button>` : ""}</div>
         <details class="cc-kit-book"><summary>Recipes</summary><ul>${book}</ul><p class="cc-muted">Anything cooks here between battles. In battle anyone can make a field recipe; cooks (Hedge Witch, Shaman, Hot Pot Berserker, herbal and traditional medicine) make them all. Eating costs AP by preparation: raw ${Cook?.rules.eatAp.raw}, ready ${Cook?.rules.eatAp.ready}, a dish ${Cook?.rules.eatAp.dish}.</p></details></div>
       <div class="cc-kit-salvage"><div><h3>Sell for Seeds</h3><div class="cc-kit-slots" data-kit-zone="sell"><div class="cc-kit-empty">sell</div></div></div><div><h3>Trash</h3><div class="cc-kit-slots" data-kit-zone="trash"><div class="cc-kit-empty">trash</div></div></div></div></section>`;
     }
@@ -2009,7 +2014,7 @@
       const ov = $("ccOverlay"); ov.hidden = false;
       const back = () => { if (returnMode === "setup") showSetup(); else if (returnMode === "sheet") showSheet(U.sheetReturnMode || "setup"); else if (returnMode === "town") showTown(); else { ov.hidden = true; U.mode = returnMode; render(); pump(); } };
       const gp = BK.glamourParts({ primary: U.character?.primary, secondary: U.character?.secondary }, U.account, Loot), glamour = gp.total;   // Fame F0d: only fine garments count (FAME.md section 14)
-      const fame = Math.min(BK.RULES.fameMax, U.account.fame || 0);
+      const fame = BK.fameOf ? BK.fameOf(U.account) : Math.min(BK.RULES.fameMax, U.account.fame || 0);   // A02 Name Recognition: Fame.cap lifts past 5
       const bc = U.account.buskCycle, spent = bc && bc.cycle === (U.account.battles || 0) && bc.busked >= BK.RULES.perCycle;
       const diff = BK.crowdDiff(U.account.battles || 0, fame);
       ov.innerHTML = `<div class="cc-card cc-school"><header><div><h2>Town square</h2><p class="cc-muted"><span id="ccBuskGlamour" title="${esc(gp.title)}">Glamour ${glamour}</span> · fame ${fame}${FM ? ` (${FM.tierName(fame)})` : ""} · room difficulty ${diff} · once a cycle · pays to ${BK.RULES.capTotal}</p></div><span><button type="button" id="ccBuskTable">Card Table</button> <button type="button" id="ccBuskClose">Back</button></span></header>
@@ -2796,7 +2801,7 @@
       U.teach = { last: null, seen: [], asked: 0, right: 0, wisdom: 0 }; U.teachCard = null;   // Teach mode starts fresh each battle
       if (PC && U.account.contracts?.active) { PC.endCall(U.account.contracts, { how: "abandoned" }); saveAccount(); }   // a call left open by an abandoned battle ends here, with no standing, before the book is snapshotted: the new battle's calls must not trip on it
       resetFollow();
-      U.s = E.create({ ...U.setupOpts, receiptId: `tourist-${Date.now()}-${seed}`, cognitive: U.account.cognitive, seeds: U.account.seeds, inspiration: U.setupOpts?.inspiration ?? (U.account.inspiration || 0), victories: U.setupOpts?.victories ?? (U.account.victories || {}), emissaryMemory: U.setupOpts?.emissaryMemory ?? (U.account.emissary || {}), self: U.account.self, mirror: U.account.mirror, unlockedSummons: U.account.unlocked, contracts: U.account.contracts, imitatedTraits: IM ? IM.carried(U.account) : [], gaiaBoons: GB && !U.setupOpts?.focusedDreamTest ? GB.battleOptions(GB.of(U.account).standing) : [], perkMods: A.perkMods(U.account) }); U.actions = []; U.report = null; U.answered = null; U.fxPlayer?.skip(); U.fxFrame = null; U.bubbles = []; U.actionCues = {}; U.facing = {};
+      U.s = E.create({ ...U.setupOpts, receiptId: `tourist-${Date.now()}-${seed}`, cognitive: U.account.cognitive, seeds: U.account.seeds, orgonite: { player: U.account.orgonite || 0 }, inspiration: U.setupOpts?.inspiration ?? (U.account.inspiration || 0), victories: U.setupOpts?.victories ?? (U.account.victories || {}), emissaryMemory: U.setupOpts?.emissaryMemory ?? (U.account.emissary || {}), self: U.account.self, mirror: U.account.mirror, unlockedSummons: U.account.unlocked, contracts: U.account.contracts, imitatedTraits: IM ? IM.carried(U.account) : [], gaiaBoons: GB && !U.setupOpts?.focusedDreamTest ? GB.battleOptions(GB.of(U.account).standing) : [], perkMods: A.perkMods(U.account) }); U.actions = []; U.report = null; U.answered = null; U.fxPlayer?.skip(); U.fxFrame = null; U.bubbles = []; U.actionCues = {}; U.facing = {};
       if (!practice && root.ConceptCombatInjury) { const kept = U.setupOpts?.injuries ?? U.account.injuries ?? {}; for (const a of Object.values(U.s.actors)) if (a.side === "player" && kept[a.character]) a.injuries = root.ConceptCombatInjury.begin(a, a, { injuries: kept }); }   // wounds cross battles (practice bodies arrive clean)
       if (!practice && U.s.actors.player) for (const text of Loot?.speakingLines?.(U.account) || []) U.s.log.push({ round: U.s.round, kind: "announce", actor: "player", text });   // Active Jinki (J1): round 1 names each soul that speaks
       U.stakeHeld = null; U.stakeSeen = 0; U.pactSeen = 0;   // W1.5+W5.3: no held vessels, no settled wagers at battle start   // pacts: no drained codes either
@@ -2838,6 +2843,7 @@
       if (U.llmEnabled) connectSocketOpponent();
       showDialogueFrom(0);
       host.classList.remove("cc-setting-up"); ov.hidden = true; U.mode = "menu"; U.menu = "root"; U.menuIndex = 0; U.sel = null;
+      surfaceUI?.close(); surfaceUI = o?.surface && root.ConceptCombatSurfaceUI ? root.ConceptCombatSurfaceUI.mount(host.querySelector(".cc-main"), surfaceDeps()) : null; U.surface = !!surfaceUI;   // Forum S2: every other start is the map
       U.narrationResultDone = false;
       U.narrationScene = (o && Object.prototype.hasOwnProperty.call(o, "narration"))
         ? o.narration
@@ -2866,6 +2872,21 @@
         } catch (err) { console.error("loading screen", err); }
         if (!started) { dropLoading(); openNarration("open", () => pump()); }
       } else openNarration("open", () => pump());
+    }
+    // Forum S2: what the surface screen reads and calls. Open the map is one way: the flag clears and the map draws as it is.
+    function surfaceDeps() {
+      return { E, state: () => U.s, controlledId, act: (a) => act(a), busy: () => !!U.closeup || U.mode === "wait" || !!U.narrationHold || !!U.reading,
+        sprite: (unit) => popupSprite(unit, "idle"), flip: (key, right) => shouldFlipSprite(key, right),
+        openMap: () => { surfaceUI = null; U.surface = false; render(); }, teach: !!U.forumTeach };
+    }
+    // Forum (FORUM.md section 5): one foe on open ground, the surface showing. o.seed, o.setupOpts and o.teach are for tests and later arenas.
+    function surfaceBattle(o) {
+      const SU = root.ConceptCombatSurfaceUI; if (!SU) return false;
+      const seed = o.seed ?? ((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0);
+      U.forumTeach = o.teach ?? (!U.account?.forumTaught && !o.setupOpts);   // S3 (R-20261111-03): a save's first Forum fight is Open the Plane, with its hint (o.teach: tests choose)
+      startSafely({ surface: true, encounter: "gapCourt", opener: "player", setupOpts: { ...SU.forumSetup(C, seed, mainClass(), { teach: U.forumTeach }), ...(o.setupOpts || {}) } });
+      if (U.forumTeach && U.surface) { U.account = { ...U.account, forumTaught: true }; saveAccount(); }   // taught once the fight is up; a start that failed teaches nothing
+      return U.surface;
     }
     function startSafely(o) {
       if (needsFirstPick()) firstPickDefault(!!(params.autoplay || params.steps || o?.setupOpts?.testMenu || o?.setupOpts?.devPlayground));   // S2: scripted entries and Quick Battle never reach a fight with an empty menu; a test start saves nothing
@@ -3075,6 +3096,8 @@
         if (event.kind === "wildMove" && event.from && event.to) {
           U.facing[event.id] = FX?.facingRight?.(across(event.from), across(event.to), U.facing[event.id] ?? true) ?? (across(event.to)[0] > across(event.from)[0]);
           U.poseUntil[event.id] = { pose: "walk", until: performance.now() + 600 }; setTimeout(() => { if (U.s) draw(); }, 650);   // wild animals show their own walk, not a sliding idle
+        } else if (event.kind === "wildScatter" && event.actor) {
+          U.poseUntil[event.actor] = { pose: "dodge", until: performance.now() + 700 }; setTimeout(() => { if (U.s) draw(); }, 750);   // W2: prey that scatters shows its dodge (chicken, ducks)
         } else if (event.kind === "wildHit" && event.actor && event.target) {
           const target = U.s.actors[event.target] || fxBefore.actors[event.target];
           const from = event.from || U.s.wild?.find((m) => m.id === event.actor);
@@ -3090,6 +3113,7 @@
       }
       if (!U.s.focusedDreamTest) {
       if (U.s.seeds != null) U.account.seeds = U.s.seeds;
+      if (U.s.orgonite?.player != null) U.account.orgonite = U.s.orgonite.player;
       if (U.s.actors?.player && U.s.actors.player.inspiration != null && U.account.inspiration !== U.s.actors.player.inspiration) { U.account.inspiration = U.s.actors.player.inspiration; saveAccount(); }   // Inspiration is kept between battles
       if (U.s.insight?.cognitive) { U.account.cognitive = U.s.insight.cognitive; saveAccount(); }
       if (U.s.self) U.account.self = U.s.self;
@@ -3975,6 +3999,10 @@
         const look = GF.veil(s);
         if (look) GF.paintTerrain(g, look, s.arena, tileXY, geo, performance.now(), cam ? onGround : null);
       }
+      if (OG) for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) {
+        if (!OG.inField(s.arena.objects, x, y) || unseen(x, y)) continue;
+        onGround(x, y, (px, py) => { g.strokeStyle = "rgba(196, 163, 90, .55)"; g.lineWidth = 2; roundRect(px + 3, py + 3, geo.tw - 6, geo.th - 6, 5); g.stroke(); });
+      }
       for (const object of (s.arena.objects || []).slice().sort((a, b) => a.y - b.y || a.x - b.x)) {
         if (unseen(object.x, object.y)) continue;
         // The same species, stage and object art on both boards: the isometric scene models ground and architecture only.
@@ -4052,7 +4080,7 @@
           g.save(); g.strokeStyle = glow; g.globalAlpha = .6; g.lineWidth = 2.5; g.beginPath(); g.ellipse(cx, cy + th * .12, tw * .4, th * .28, 0, 0, Math.PI * 2); g.stroke(); g.restore(); }
         if (img) {
           const maxW = m.kind === "gaia" ? tw * 2.3 : m.kind === "feralPig" ? tw * 1.28 : tw * 1.02, maxH = m.kind === "gaia" ? th * 2.4 : th * 1.28;
-          const kindScale = m.kind === "nettleCaterpillar" ? 0.72 : 1;   // Mala, 2026-10-27: "it doesnt take much for a caterpillar to be giant"
+          const kindScale = m.kind === "nettleCaterpillar" ? 0.72 : m.kind === "chicken" ? 0.5 : 1;   // Mala, 2026-10-27: "it doesnt take much for a caterpillar to be giant"
           const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight) * kindScale, dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
           g.save(); g.imageSmoothingEnabled = false; g.globalAlpha = pose === "knocked-out" ? .76 : 1;
           if (shouldFlipSprite(m.kind, U.facing[m.id] ?? true)) { g.translate(cx, 0); g.scale(-1, 1); }
@@ -4588,7 +4616,7 @@
       }
       return drawLivingObject(o, x, y, tw, th, palette);
     }
-    const objectSpriteId = (o) => o.kind === "plant" ? (o.form === "tree" ? "tree" : o.form) : o.type === "house" ? o.sprite : o.type?.startsWith("parterre") ? `parterre/${o.type}` : o.type;   // parterre art lives in its own folder; the loading screen asks the same question
+    const objectSpriteId = (o) => o.kind === "plant" ? (o.form === "tree" ? "tree" : o.form) : o.type === "house" || o.type === "orgonite" ? o.sprite : o.type?.startsWith("parterre") ? `parterre/${o.type}` : o.type;   // parterre art lives in its own folder; the loading screen asks the same question
     function drawLivingObject(o, x, y, tw, th, palette) {
       // Sprite art answers with the rectangle it filled, which is what the isometric board needs to know what it covers.
       const plant = o.kind === "plant" && drawSpeciesPlant(o, x, y, tw, th); if (plant) return plant;
@@ -4712,6 +4740,7 @@
       renderPanel("party", renderParty);
       renderPanel("unit window", renderUnitInfo);
       renderPanel("mind duel", renderMindDuel);
+      if (U.surface) renderPanel("surface", () => surfaceUI.render());   // Forum S2
       if (!$("ccGraph").hidden) renderPanel("concept map", renderGraph);
     }
     // Unit window (insight/hover.js windowHtml): click a unit to pin what the player knows about it. It re-renders with
@@ -4738,7 +4767,7 @@
       { const downs = E.mysteryOwnView(U.s, t.side).filter((c) => c.unitId === t.id);   // Mystery tray: own side sees all, foe sees the side count only
         const foeCount = t.side === "player" ? 0 : E.mysteryFoeView(U.s, t.side).count;
         if (t.side === "player" ? downs.length : foeCount) panel.insertAdjacentHTML("beforeend", t.side === "player"   // Battle Cards C2: a foe's face-down CARD sets are not in foeCount, so a foe holding only cards gets no "0 set plans" line
-          ? `<div class="cc-muted cc-gear-line"><b>Face-down</b> ${downs.map((c) => `${esc(c.kind === "card" ? root.ConceptCombatCards?.byId(c.cardId)?.name || "A card" : C.abilities[c.ability]?.name || c.ability)} (${esc(c.trigger)}, age ${c.age})`).join(" · ")} <button type="button" data-myst-reveal="${esc(t.id)}">Reveal</button></div>`
+          ? `<div class="cc-muted cc-gear-line"><b>Face-down</b> ${downs.map((c) => `${esc(c.kind === "card" ? root.ConceptCombatCards?.byId(c.cardId)?.name || "A card" : C.abilities[c.ability]?.name || c.ability)} (${esc(U.s.rules.mystery?.triggerWords?.[c.trigger] || c.trigger)}, age ${c.age})`).join(" · ")} <button type="button" data-myst-reveal="${esc(t.id)}">Reveal</button></div>`
           : `<div class="cc-muted cc-gear-line"><b>Face-down</b> ${foeCount} set plan${foeCount === 1 ? "" : "s"} on their side</div>`);
         panel.querySelector("[data-myst-reveal]")?.addEventListener("click", () => { act({ type: "revealIntent", actor: t.id }); }); }
       panel.hidden = false;
@@ -4809,7 +4838,7 @@
         return [{id:"tech",label:`Deliver Freestyle: ${C.abilities[p.status.verse.id].name} ▸`,off:none,why:none?"No legal target: discard it.":"",help:"The draw paid its AP and ΦF. Choose the original technique's target now; you cannot move or bank this line."},{id:"discardVerse",label:p.character==="rapper"&&!p.status.wordplayUsed?"Wordplay: redraw once":"Discard this line",off:false}];}
       const selfTraits = s.self?.traits || [], knownSelf = selfTraits.filter(t => t?.known).length;
       const dreamKnowledge = { placeFamiliarity: s.placeObservation?.familiarity || 0, selfKnowledge: selfTraits.length ? knownSelf / selfTraits.length : 0 };
-      const dreamOpening = E.dreamOpening(s), dreamCheck = DS?.canOpen(p, dreamOpening.rules, s.dreamSpace, dreamKnowledge);
+      const dreamOpening = E.dreamOpening(s), dreamCheck = DS?.canOpen(p, dreamOpening.rules, s.dreamSpace, dreamKnowledge, s.arena.objects);
       const moveBudget = (id) => root.ConceptCombatInjury?.moveBudget(s, s.actors[id], E.movementBudget(s, id), !!root.ConceptCombatClassRuntime?.flies?.(s.actors[id])) ?? E.movementBudget(s, id);
       return [
         ...Object.values(s.actors).filter(u=>u.side===p.side && u.fullCourtPress && !u.defeated).map(u=>({id:`press:${u.id}`,label:`Press ▸ ${u.name}`,off:!E.fullCourtPressOptions(s,u.id).length,help:"Relocate this ally once to any open map tile for 0 AP, including across the dream boundary. Movement vows and position locks still apply."})),
@@ -4825,7 +4854,7 @@
         ...(Object.values(s.actors).some((w) => w.side !== p.side && !w.defeated && (w.reaction ?? 0) > 0 && E.geometry.dist(s, p.x, p.y, w.x, w.y) <= E.strikeRange(s, w.id)) && p.disengageTurn !== p.ownerTurns ? [{ id: "disengage", label: `Disengage (${s.rules.opportunity?.disengageAp ?? 15} AP)`, off: p.tempo < (s.rules.opportunity?.disengageAp ?? 15), why: "The rest of this turn, leaving a reach draws no swing." }] : []),
         ...(siHolder(p) && !p.status?.playingDead ? (() => { const R = s.rules.survivalInstincts, left = R.scramble.uses - (p.instinct?.scrambles || 0), r = E.apply(s, { type: "scramble", actor: controlledId(s) }, { preview: true });   // Survival Instincts: listed when held and hurt, with the engine's own reason when it is off
           return p.lf < p.maxLF * R.woundedBelow ? [{ id: "scramble", label: `Scramble · ${R.scramble.ap} AP · ${left} left`, off: !r.ok, why: r.ok ? `Hurt and running: leaving a reach draws no swing and you move +${R.scramble.moveAdd} until your next turn.` : r.error }] : []; })() : []),
-        ...(DS ? [{ id: "dreamSpace", label: U.s.dreamSpace ? `Dream Space · ${p.ultimateCharge} ULT clock` : `Open Dream · ${dreamOpening.ap} AP`, why: U.s.dreamSpace ? "" : `Needs ${dreamCheck?.required ?? U.s.rules.ultimateChargeMax}% ultimate charge.${dreamOpening.night ? " It is easier by night." : ""}`, off: (!!dreamCheck?.reason && !(root.ConceptCombatVows && !s.dreamSpace && DS.canOpen(p, { ...s.rules, ultimateChargeMax: s.rules.ultimateChargeMax - 25 }, s.dreamSpace, dreamKnowledge)?.ok)) || p.tempo < DS.rules.apCost }] : []),   // Vows: Early Dream can open it sooner
+        ...(DS ? [{ id: "dreamSpace", label: U.s.dreamSpace ? `Dream Space · ${p.ultimateCharge} ULT clock` : `Open Dream · ${dreamOpening.ap} AP`, why: U.s.dreamSpace ? "" : (!dreamCheck?.ok && dreamCheck?.reason ? dreamCheck.reason : `Needs ${dreamCheck?.required ?? U.s.rules.ultimateChargeMax}% ultimate charge.${dreamOpening.night ? " It is easier by night." : ""}`), off: (!!dreamCheck?.reason && !(root.ConceptCombatVows && !s.dreamSpace && DS.canOpen(p, { ...s.rules, ultimateChargeMax: s.rules.ultimateChargeMax - 25 }, s.dreamSpace, dreamKnowledge, s.arena.objects)?.ok)) || p.tempo < DS.rules.apCost }] : []),   // Vows: Early Dream can open it sooner
         ...(CardsUI && E.cards ? CardsUI.drawerRows(E.cards.options(s, controlledId(s)), E.cards.showOptions(s, controlledId(s))) : []),   // Battle Cards (C1): one row per deck card, greyed with the reason; Show your hand
         ...(p.inventory?.length ? [{ id: "items", label: `Use item ▸ (${p.inventory.length})`, off: p.tempo < Math.min(...p.inventory.map(itemCost)),
           why: `Use one of the ${p.inventory.length} item${p.inventory.length === 1 ? "" : "s"} you carry. Hover a row to see what it does and what it costs.${p.tempo < Math.min(...p.inventory.map(itemCost)) ? ` Not enough AP: your cheapest item costs ${Math.min(...p.inventory.map(itemCost))}.` : ""}` }] : []),
@@ -4855,7 +4884,7 @@
           ? { id: "aura", label: `Imbue the Dream · ${AU.rules.imbueApCost} AP`, off: !!AU.canImbue(U.s, p), why: AU.canImbue(U.s,p) || "Your folded aura burns out: it fires at once, takes the rest of the bar, and inherits the dream's opening vows. Imbuing cannot add or change vows." }
           : { id: "aura", label: p.aura?.burning ? "Dream burning out · ends next turn" : p.aura?.imbued ? "Folded aura · the dream is gone" : p.aura ? `Let the aura fall · ${p.ultimateCharge} ULT left` : `Extend Aura · ${AU.rules.apCost} AP · ${AU.rules.flareCost} ULT, −${AU.knobsFor ? AU.knobsFor(U.s, p).drain : AU.rules.drainPerTurn}/turn`, off: !!p.aura?.burning || (!p.aura && !!AU.canActivate(U.s, p)), why: p.aura?.burning ? "The burning dream ends at your next turn." : p.aura?.imbued ? "The dream closed under your folded aura; letting it fall." : p.aura ? "Dismiss your active aura." : AU.canActivate(U.s,p) || `Ready · ${p.ultimateCharge} ULT available. Charge freezes while the aura is active.` }] : []),   // Auras
         ...(DS && CM && s.dreamSpace?.owner === p.id && p.aura?.imbued && !p.aura?.burning ? Object.values(s.actors).filter((u) => u.communed && u.communed.owner === p.id && !u.defeated && !u.treeant).map((u) => ({ id: `treeant:${u.id}`, label: `Raise ${u.name} · ${CM.rules.treeant.ap} AP`, off: p.tempo < CM.rules.treeant.ap, help: `Pour your folded dream-aura into ${u.name}: +${CM.rules.treeant.lfAdd} LF, Bark ward ${CM.rules.treeant.wardProtection}, treeant art. The dream's field loses your aura; when the dream closes it sinks back to plant form.` })) : []),   // Treeant
-        ...(DS && SM && s.dreamSpace?.owner === p.id ? Object.values(s.actors).filter((u) => u.summon && u.summon.owner === p.id && !u.defeated && u.summon.trueForm && !u.summon.maxForm && SM.data.summons[u.summon.key]?.maxForm).map((u) => { const MC = SM.data.rules.maxChannel, MF = SM.data.summons[u.summon.key].maxForm; return { id: `maxChannel:${u.id}`, label: `Channel MAX: ${u.name} · ${MC.actionCost} AP + full ULT`, off: p.tempo < MC.actionCost || (p.ultimateCharge ?? 0) < (s.rules.ultimateChargeMax ?? 100), help: `Pour the dream and a full ultimate into ${u.name}: it becomes ${MF.name} permanently — double turns left, ${MF.technique.name}, a new ultimate. The dream is consumed and closes.` }; }) : []),   // MAX channel
+        ...(DS && SM && s.dreamSpace?.owner === p.id ? Object.values(s.actors).filter((u) => u.summon && u.summon.owner === p.id && !u.defeated && u.summon.trueForm && !u.summon.maxForm && SM.data.summons[u.summon.key]?.maxForm).map((u) => { const MC = SM.data.rules.maxChannel, MF = SM.data.summons[u.summon.key].maxForm; return { id: `maxChannel:${u.id}`, label: `Channel MAX: ${u.name} · ${MC.actionCost} AP + full ULT`, off: p.tempo < MC.actionCost || (p.ultimateCharge ?? 0) < (s.rules.ultimateChargeMax ?? 100) || !E.maxRoomFor(s, u), ...(E.maxRoomFor(s, u) ? {} : { why: `There is no room beside ${u.name} for the winged mount: clear a tile east or west.` }), help: `${E.maxRoomFor(s, u) ? "" : `There is no room beside ${u.name} for the winged mount: clear a tile east or west. `}Pour the dream and a full ultimate into ${u.name}: it becomes ${MF.name} permanently — double turns left, ${MF.technique.name}, a new ultimate. The dream is consumed and closes.` }; }) : []),   // MAX channel
         ...(p.status?.verse&&!p.status.verse.id?p.status.verse.choices.map(id=>({id:`verse:${id}`,label:`Pocket: ${C.abilities[id].name}`,off:false,help:`${C.abilities[id].mechanism||C.abilities[id].description||""} Keep this line; the other two are discarded. Its original prerequisites and counters still apply.`})):[]),
         ...(p.status?.verse?[{id:"discardVerse",label:p.character==="rapper"&&p.status.verse.freeAp&&!p.status.wordplayUsed?"Wordplay: redraw once":"Discard held verse",off:false,why:p.character==="rapper"&&p.status.verse.freeAp&&!p.status.wordplayUsed?"Replace the held line with a new draw, once. The new line must then be delivered.":p.status.verse.freeAp?"Put the held line away undelivered: half its ΦF returns and the action stays spent.":"Put the held verse away without delivering it."}]:[]),
         ...(p.birdMountain?.red?[{id:"dismissUlaula",label:"Let the red go out · free",off:!!p.birdMountain.vows?.neverQuench,why:p.birdMountain.vows?.neverQuench?"Sworn: Never-Quench cannot be dismissed.":"Dismiss ʻUlaʻula. Free, on your turn."}]:[]),
@@ -4924,6 +4953,9 @@
             { id: "palingenesisBurn", label: `Burn a plant · ${R.burnAp} AP`, off: !!burnNo, why: burnNo || `An adjacent living plant becomes ashes that remember its form. A tree leaves no stump. Creeper just burns away (no ashes). ${banked(`Banks a burn step (+${RR.burnPotency ?? 4} potency on the sealed rite).`)}` },
             { id: "palingenesis", label: `Call from ashes · ${R.restoreAp} AP`, off: !!callNo, why: callNo || `Call that same form back once, at half life. Scatter the ashes and there is nothing to call. ${banked(`Banks a call step (+${RR.callCharges ?? 1} charge on the sealed rite).`)}` },
           ]; })(),
+        ...(() => { if (!OG) return [];
+          const no = OG.plantError(s, p, OG.plantSites(s, p)[0]);
+          return [{ id: "plantOrgonite", label: `Plant orgonite · ${OG.RULES.ap} AP`, off: !!no, why: no || OG.COPY.help }]; })(),
         ...(typeof riteMenu === "function" ? riteMenu() : []),
         ...(typeof communeMenu === "function" ? communeMenu() : []),   // known plants answer from the Rituals tab
         ...(typeof ingredientMenu === "function" ? ingredientMenu() : []),   // ingredient totems: wake one from the pack or the ground beside you
@@ -5276,7 +5308,7 @@
     const groupTech = (p, rows) => rows.map((it, i) => ({ it, i, g: techGroup(it, p) })).sort((a, b) => a.g[0] - b.g[0] || a.i - b.i).map(({ it, g }) => ({ ...it, group: g[1] }));
     function ritualGroup(it) {   // Rituals holds dreams through wards: headers keep it navigable (Grok Keystone, 2026-10-27)
       const id = String(it?.id || "");
-      if (["dreamSpace", "wakeDream", "aura", "nameDream"].includes(id) || id.startsWith("focusDream:")) return [0, "Dreams"];
+      if (["dreamSpace", "wakeDream", "aura", "nameDream", "plantOrgonite"].includes(id) || id.startsWith("focusDream:")) return [0, "Dreams"];
       if (["summons", "orderSummonUltimate", "bead"].includes(id)) return [1, "Summons"];
       if (["ritual", "ritualHold", "tameBeast", "markVessel", "callPack"].includes(id)) return [2, "Capture"];
       if (id === "commune" || id === "communeIngredient" || id === "communeStructure" || id.startsWith("treeant") || id.startsWith("maxChannel")) return [3, "Communion"];
@@ -5444,6 +5476,11 @@
         if (it.id === "ritual") return act({ type: "ritual", actor: "player", at: it.at });
         if (it.id === "astralReturn") return act({ type: "astralReturn", actor: "player" });
         if (it.id === "astralProject") return act({ type: "astralProject", actor: "player" });
+        if (it.id === "plantOrgonite") {
+          const legal = (OG?.plantSites(s, p) || []).map((at) => ({ at, tiles: [at] }));
+          if (!legal.length) return flashTip(OG?.plantError(s, p, [p.x + 1, p.y]) || "No adjacent open tile.");
+          U.menu = "root"; U.mode = "target"; U.sel = { plantOrgonite: true, tg: { range: legal.map((q) => q.at), legal } }; U.cursor = legal[0].at; return render();
+        }
         if (it.id === "palingenesis" || it.id === "palingenesisBurn") {
           const burn = it.id === "palingenesisBurn", R = s.rules.palingenesis, legal = [];
           for (const o of s.arena.objects || []) {
@@ -5893,7 +5930,7 @@
       mountSpeaker(ov, "summonQuestion", { summon: { id, name: SM.data.summons[id].name } });   // S6: the called summon
     }
     function beginSummonPlacement(id, q, answer) {
-      const p = controlledFighter(U.s), occupied = new Set(Object.values(U.s.actors).filter(a => !a.defeated).map(a => `${a.x},${a.y}`));
+      const p = controlledFighter(U.s), occupied = new Set(Object.values(U.s.actors).filter(a => !a.defeated).flatMap(a => { const out = []; for (let dy = 0; dy < (a.size?.h || 1); dy++) for (let dx = 0; dx < (a.size?.w || 1); dx++) out.push(`${a.x + dx},${a.y + dy}`); return out; }));   // every tile of a big body (MX2), as the engine's arrival check
       const tiles = SM.placementTiles(U.s.arena, [p.x, p.y], occupied);
       if (!tiles.length) return flashTip("There is no open tile nearby for the summon.");
       U.pendingSummon = { id, q, answer };
@@ -5952,6 +5989,7 @@
         if (U.sel.grapple) return act({ type: "grapple", actor: "player", target: at });
 
         if (U.sel.palingenesis) return act({ type: "palingenesis", actor: "player", at, burn: !!U.sel.burn });
+        if (U.sel.plantOrgonite) return act({ type: "plantOrgonite", actor: "player", at });
         if (U.sel.strike) { const aim = U.strikeAim; U.strikeAim = null; return act({ type: "strike", actor: "player", target: at, effort: U.sel.effort, ...(aim ? { aim } : {}) }); }
         if (U.sel.item) return act({ type: "useItem", actor: "player", item: U.sel.item, target: at });
         if (U.sel.card != null) return act({ type: "playCard", actor: "player", card: U.sel.card, target: at });   // Battle Cards (C1)
@@ -6118,7 +6156,7 @@
           ${responseFoes.map((f) => `${esc(f.name)} ${f.reaction ? "has a reaction" : "<b>has no reaction left</b>"}`).join(", ") || "Nobody is in the committed area"}.</label>` : ""}
         ${U.announce && id !== "feint" && !U.quickened && (m.tier === "ultimate" || m.effect === "damage") && s.rules.revelation ? `<label class="cc-check" title="Revelation: the more you explain, the harder it hits, and the more a reader learns. The response window is the same at every tier.">Reveal <select id="ccRevelation">${[1, 2, 3].map((t) => `<option value="${t}" ${(U.revelation || 1) === t ? "selected" : ""}>${s.rules.revelation.names[t]} ×${s.rules.revelation.mults[t]}${s.rules.revelation.apAdd?.[t] ? ` · +${s.rules.revelation.apAdd[t]} AP` : ""}</option>`).join("")}</select></label>` : ""}
         ${canDeceive ? `<label class="cc-check"><input type="checkbox" id="ccDeception" ${U.deception ? "checked" : ""} ${U.announce ? "" : "disabled"}> Deceptive tell: claim ${claimedRange}-tile reach. No ×${s.rules.announceMultiplier} bonus; defenders only see and respond to this shorter threat envelope.</label>` : ""}
-        ${U.mode === "target" && U.sel?.ability && (m.tier === "ultimate" || m.effect === "damage") ? `<label class="cc-check" title="Mystery: pay the cost now, fire later. Setting is count-only; the reveal announces at T1.${m.tier === "ultimate" ? " Setting spends the full ultimate bar." : ""}"><input type="checkbox" id="ccSetDown" ${U.setDown ? "checked" : ""}> Set face-down${U.setDown ? ` <select id="ccSetTrigger">${["manual", "on-attacked", "on-turn-start"].map((t) => `<option value="${t}" ${(U.setTrigger || "manual") === t ? "selected" : ""}>${t}</option>`).join("")}</select>` : ""}</label>` : ""}
+        ${U.mode === "target" && U.sel?.ability && (m.tier === "ultimate" || m.effect === "damage") ? `<label class="cc-check" title="Mystery: pay the cost now, fire later. Setting is count-only; the reveal announces at T1.${m.tier === "ultimate" ? " Setting spends the full ultimate bar." : ""}"><input type="checkbox" id="ccSetDown" ${U.setDown ? "checked" : ""}> Set face-down${U.setDown ? ` <select id="ccSetTrigger">${["manual", "on-attacked", "on-turn-start"].map((t) => `<option value="${t}" ${(U.setTrigger || "manual") === t ? "selected" : ""}>${esc(U.s.rules.mystery?.triggerWords?.[t] || t)}</option>`).join("")}</select>` : ""}</label>` : ""}
         ${pv ? previewHtml(pv) : U.mode === "target" ? `<div class="cc-muted">${U.sel.tg.legal.length ? "Hover a ringed tile to preview the outcome." : "No legal target from here. Move, or change lens."}</div>` : ""}`;
       if(d.contract){const c=d.contract,st=x.contract,D=root.ConceptCombatContracts;el.insertAdjacentHTML("beforeend",`<section class="cc-contract-sheet"><h4>Written contract · ${esc(st?.reason||"Ready")}</h4><ol>${c.unlock.map((step,i)=>`<li>${i<(st?.index||0)?"✓ ":i===st?.index?"→ ":""}${esc(D.stepLabel(step,i===st?.index?st.count:0))}</li>`).join("")||"<li>No unlock prerequisites.</li>"}</ol><p>Cast: ${[c.cast.lf?c.cast.lf+" LF":"",c.cast.reaction?"reaction":"",c.cast.prepare?"20 AP preparation and one owner-turn wait":"",c.cast.ultimate?"full ultimate bar":"",c.cast.onlyType&&c.cast.onlyType!=="none"?"only "+D.specialties[c.cast.onlyType].name:""].filter(Boolean).map(esc).join(" · ")||"no additional sacrifices"}.</p><p>While active: ${[c.active.anchored?"remain on casting tile":"",c.active.concentration?"concentrate; another technique ends it":"",c.active.upkeep?c.active.upkeep+" extra ΦF upkeep":""].filter(Boolean).map(esc).join(" · ")||"no ongoing vow"}.</p><p>${c.reset==="once"?"Once per battle.":"After release, repeat the unlock chain."} Specialization: ${esc(D.specialties[c.specialization].name)}. Ongoing strength is earned after holding one owner turn.</p></section>`);}
       const rv = el.querySelector("#ccReveal"); if (rv && !rv.disabled) rv.onchange = () => { U.reveal = rv.checked; renderDetail(); };
@@ -6195,6 +6233,7 @@
     // ── post-battle ───────────────────────────────────────────────────────
     function finish() {
       Promise.resolve(opts.llmBridge?.stop?.()).catch(() => {}); U.llmConnection = null;
+      if (U.surface) { surfaceUI?.close(); surfaceUI = null; U.surface = false; }   // Forum S2: battle end clears the surface (FORUM.md Lifecycle)
       if (!U.report) {
         U.report = E.report(U.s);
         // AP-01 sage wiring: the demonstration settles win or lose, practice or not. The ladder persists on the account.
@@ -6284,7 +6323,7 @@
         if (!testBattle()) U.account = root.ConceptCombatKeeperMemory?.noteBattle(U.account, { encounter: U.s.encounter, winner: U.s.outcome.winner }) || U.account;   // Rama remembers the Town Hall encounter you lost (npc/keepers.js rematch)
         if (U.packedVessels && SL && U.s.vessels) { SL.returnPouch(U.account.vessels || (U.account.vessels = { shard: 0, bead: 0, orb: 0 }), U.s.vessels); U.packedVessels = false; }   // vessel economy: unspent pouch vessels go home (packed battles only; thin-air pouches dissolve)
         if (root.ConceptCombatFruit && !testBattle() && !U.practiceBattle) { const hp = U.s.actors[U.s.modeSetup?.hero || "player"], ff = root.ConceptCombatFruit.settleFeats(U.account, { feats: U.s.fruitFeats || [], shapes: U.s.fruitShapes || [], won: U.s.outcome.winner === "player", shaped: !!(hp?.status?.hideShape && hp.status.hideShape.expiresAt > hp.ownerTurns), drained: !!U.s.fruitDrained, struck: !!U.s.fruitStruck }); U.account = ff.account; U.reward.lines.push(...ff.lines); }   // Sinkerfruit respec S1a: feats count in real battles only (off unless FR.RULES.respec)
-        if (root.ConceptCombatFruit && !testBattle()) { const fs = root.ConceptCombatFruit.settleFruit(U.account, { hunterDown: !!(U.s.actors.hunter && U.s.actors.hunter.defeated), hunterName: U.s.actors.hunter?.name || "a hunter", lost: U.s.outcome.winner !== "player", submitted: !!U.s.actors.player?.submitted, bossesDown: !U.practiceBattle && U.s.outcome.winner === "player" ? Object.values(U.s.actors).filter((u) => u.boss && u.defeated && u.side !== "player").length : 0 }); U.account = fs.account; U.reward.lines.push(...fs.lines); }   // OP1 §6-8: installments share today's tally (stall first), then the purse, the claim, the raise
+        if (root.ConceptCombatFruit && !testBattle()) { const fs = root.ConceptCombatFruit.settleFruit(U.account, { hunterDown: !!(U.s.actors.hunter && U.s.actors.hunter.defeated), hunterName: U.s.actors.hunter?.name || "a hunter", lost: U.s.outcome.winner !== "player", submitted: !!U.s.actors.player?.submitted, bossesDown: !U.practiceBattle && U.s.outcome.winner === "player" ? Object.values(U.s.actors).filter((u) => u.boss && u.defeated && u.side !== "player").length : 0, studyNotes: U.s.fruitStudyNotes || null }); U.account = fs.account; U.reward.lines.push(...fs.lines); }   // OP1 §6-8: installments share today's tally (stall first), then the purse, the claim, the raise; Perfect Recall S6c: battle study notes land on the account
         if (MK && !testBattle()) { const mt = MK.tickMarket(U.account, { won: U.s.outcome.winner === "player" }); U.account = mt.account; U.reward.lines.push(...mt.lines); }   // vessel economy: the market-day turns on real battles (parts inflow, floods reset, campaign ticks, orders refresh)
         if (root.ConceptCombatFruit && U.s.actors.rival?.fruit && !testBattle() && !U.practiceBattle) { const rs = root.ConceptCombatFruit.settleRival(U.account, { fruit: U.s.actors.rival.fruit.id, defeated: root.ConceptCombatFruit.rivalBeaten(U.s.actors.rival, U.s.actors), won: U.s.outcome.winner === "player", seed: U.s.seed }); U.account = rs.account; U.reward.lines.push(...rs.lines); }   // Sinkerfruit respec S4b: beat the rival, maybe win its fruit (account/fruit.js)
         if (root.ConceptCombatFruit) { const fd = root.ConceptCombatFruit.afterBattle(U.account, { won: U.s.outcome.winner === "player", test: testBattle(), seed: U.s.seed, abroad: U.s.actors.rival?.fruit?.id || null }); if (fd.dropped) { U.account = fd.account; U.reward.lines.push(fd.line); } }   // Sinkerfruit: a won battle can surface a pooled fruit (account/fruit.js)
@@ -6604,6 +6643,7 @@
       if (U.reading && e.key === " " && !e.target.closest("input,textarea,select,button")) { e.preventDefault(); skipReading(false); return; }   // Slow pace: Space skips the wait for the line on screen
       if (U.narrationHold) return;
       if (U.s?.phase === "mind") return;
+      if (U.surface) return;   // Forum S2: the surface's own buttons take the keys; the hidden map menu must not
       if (U.mode === "teach") return;
       if (U.mode === "town") return;   // town/town.js listens for its own keys   // a Teach mode card is open: its own buttons take the keys
       if (e.target.closest(".cc-status") && e.key !== "Escape") return; // native disclosure keys must not issue a battle command
@@ -6680,6 +6720,7 @@
       // The app's ← button (app.js): one step back inside Concept Combat before leaving it (Mala, 2026-10-26: "exiting out of
       // menus in Concept combat kicks you out to this page"). True when it stepped back; false at the main menu itself.
       quickBattle() { startSafely({ randomEncounter: true, everything: true, opener: "player" }); },   // the home page's Quick battle: the setup screen's Random Encounter
+      surfaceBattle(o = {}) { return surfaceBattle(o); },   // Redux's Forum button (tools/web-build/play.js)
       openFieldKit() { showAccount(); },   // the home page's Field Kit
       fightSecretWarrior() { if (!SN) return false; startSafely({ encounter: "secretWarriorNext", opener: "player" }); return true; },   // the home page's Fight Secret Warrior (Mala, 2026-10-28)
       backOut() {

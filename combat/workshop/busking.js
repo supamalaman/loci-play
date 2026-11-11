@@ -20,9 +20,10 @@
 //   crowdBattle(themedId, themes)      → stage Showdown or a crowd-flagged theme
 //   judgeShowboat(s, vowsKept)         → { nodmg, vow, knee, sub, ann, total }
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.ConceptCombatWorkshopBusking = factory();
-})(typeof self !== "undefined" ? self : this, function () {
+  // Fame + Account load after this file in combat.html; read them lazily (Node require is fine at call time).
+  if (typeof module === "object" && module.exports) module.exports = factory(() => require("../account/fame.js"), () => require("../account/account.js"));
+  else root.ConceptCombatWorkshopBusking = factory(() => root.ConceptCombatFame, () => root.ConceptCombatAccount);
+})(typeof self !== "undefined" ? self : this, function (fameMod, accountMod) {
   const RULES = { perCycle: 1, famePts: 2, fameMax: 5, famePay: 5, capTotal: 55, showCap: 40,
     show: { nodmg: 10, vow: 10, knee: 15, sub: 10, ann: 5 }, kneeFrac: 0.25, annCap: 2,
     input: { glamPrimary: 3, glamSecondary: 2 }, diffBase: 2, diffSpan: 5 };
@@ -49,13 +50,20 @@
   const seeded01 = (n) => { let t = (n + 0x6D2B79F5) >>> 0; for (let i = 0; i < 3; i++) t = Math.imul(t ^ (t >>> 15), t | 1); return ((t ^= t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0) / 4294967296; };
   const crowdDiff = (cycle, fame) => RULES.diffBase + Math.floor(seeded01(cycle) * RULES.diffSpan) + fame;
   const tiers = (g) => (g >= 8 ? 40 : g >= 6 ? 30 : g >= 4 ? 20 : g >= 2 ? 10 : 0);
+  // A02: the fame number the square shows and busk() clamps to (Fame.cap with Name Recognition, else RULES.fameMax).
+  const fameOf = (account) => {
+    const FAME = fameMod?.(), a = account || {};
+    const cap = FAME?.cap ? FAME.cap(a) : RULES.fameMax;
+    return Math.min(cap, a.fame || 0);
+  };
 
   function busk(account, glamour) {
     const cycle = account?.battles || 0, bc = account?.buskCycle;
     if (bc && bc.cycle === cycle && bc.busked >= RULES.perCycle)
       return { ok: false, error: "The hat fills once a cycle. Battle on.", account, paid: 0, lines: [] };
     const a = { seeds: 0, fame: 0, marks: [], buskCycle: { cycle: -1, busked: 0 }, ...account };
-    const fame = Math.min(RULES.fameMax, a.fame || 0);
+    // A02 Name Recognition (perks S1a): Fame.cap lifts 5→8; absent Fame module keeps RULES.fameMax.
+    const A = accountMod?.(), fame = fameOf(a), fameCap = fameMod?.()?.cap ? fameMod().cap(a) : RULES.fameMax;
     const diff = crowdDiff(cycle, fame), eff = glamour + fame - diff;
     const base = { ...a, buskCycle: { cycle, busked: 1 } };
     if (eff < 0) return { ok: true, paid: 0, fameUp: false, famePts: 0, mark: "tomatoed",
@@ -63,9 +71,12 @@
       account: { ...base, marks: [...(base.marks || []), "tomatoed"].slice(-50) } };
     const paid = Math.min(RULES.capTotal, tiers(glamour) + fame * RULES.famePay);
     // Fame F0b (FAME.md section 1): the hat no longer raises the level; it returns famePts and ui.js feeds them to Fame.add.
+    // S1a: a good busk clears tomatoed marks and writes a `busks` deed (real play; noteDeed skips test).
+    let next = { ...base, seeds: base.seeds + paid, marks: (base.marks || []).filter((m) => m !== "tomatoed") };
+    if (A?.noteDeed) next = A.noteDeed(next, "busks", 1).account;
     return { ok: true, paid, fameUp: false, famePts: RULES.famePts, mark: null,
-      lines: [`Busked the square: +${paid} Seeds${fame >= RULES.fameMax ? " · legend" : ` · fame +${RULES.famePts} points`}.`],   // at the top level the hat still says legend (FAME.md section 6 item 11, a GUARD)
-      account: { ...base, seeds: base.seeds + paid } };
+      lines: [`Busked the square: +${paid} Seeds${fame >= fameCap ? " · legend" : ` · fame +${RULES.famePts} points`}.`],   // at the top level the hat still says legend (FAME.md section 6 item 11, a GUARD)
+      account: next };
   }
   const showboat = ({ nodmg = 0, vow = 0, knee = 0, sub = 0, ann = 0 } = {}) =>
     Math.min(RULES.showCap, nodmg * RULES.show.nodmg + vow * RULES.show.vow + knee * RULES.show.knee + sub * RULES.show.sub + ann * RULES.show.ann);
@@ -82,5 +93,5 @@
     const conds = { nodmg: rounds.length, vow: vowsKept, knee, sub, ann: Math.min(s.crowdHeat?.player || 0, RULES.annCap) };   // W9.5: announced titles warm the crowd
     return { ...conds, total: showboat(conds) };
   }
-  return { RULES, glamourOf, glamourParts, crowdDiff, tiers, busk, showboat, crowdBattle, judgeShowboat };
+  return { RULES, glamourOf, glamourParts, crowdDiff, tiers, fameOf, busk, showboat, crowdBattle, judgeShowboat };
 });

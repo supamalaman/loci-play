@@ -147,6 +147,58 @@
         result: { player: "The crossing is yours, and the water gives no opinion.", enemy: "The ford belongs to whoever crosses it last.",
           none: "The water takes the ford, and with it the argument." } } },
 
+    // Slice 5 (SCENARIOS.md §9 row 5): ward kind + afterCreate civilians / Tourist. SC11 is classic with customers on the field;
+    // SC12–SC14 run the ward clock. Clean-hands Seeds (SC11) and the Sasquatch photo bonus wait on slice 7's mint (bonus.seeds data only).
+    marketDay: { id: "marketDay", name: "Market Day", minTier: 1, weight: 1,   // SC11
+      arenas: ["terraceGarden", "loiTerraces", "canalGarden"],
+      foes: { crews: ["street"], exclude: LAW, count: [2, 2] },
+      civilians: [{ id: "customer-1", name: "Customer" }, { id: "customer-2", name: "Customer" }],
+      objective: { kind: "classic" },
+      bonus: { seeds: 8, cleanHands: true },   // paid when slice 7's scenario mint reads it; cleanHands: no "civilians are now hostile" faction log
+      text: {
+        open: "It is market day. The people here came for tomatoes and are not impressed by you.",
+        mid: { when: { round: 4 }, text: "A customer steps behind a stall and does not step out." },
+        result: { player: "The market closes around you like water.", enemy: "The stalls fold up. Somebody sweeps.",
+          none: "The market packs up with nobody settled, and the tomatoes go home." } } },
+
+    hostageHall: { id: "hostageHall", name: "Hostage Hall", minTier: 2, weight: 1,   // SC12
+      arenas: ["gardenCourt", "oculusCourt"],
+      foes: { crews: ["street", "masks"], exclude: LAW, count: [2, 3], aggressive: true },
+      civilians: [{ id: "customer-1", name: "Customer", middle: true }, { id: "customer-2", name: "Customer", middle: true }],
+      objective: { kind: "ward", deadline: 12, onDeadline: "win", civilians: ["customer-1", "customer-2"] },
+      bonus: { seeds: 10 },
+      text: {
+        open: "Two people are standing in the middle of the hall who did not come to fight. The people who did have noticed.",
+        mid: { when: { round: 6 }, text: "Someone says the quiet part loudly: nobody gets hurt if you do not move." },
+        result: { player: "The hall empties out slowly, and everyone is counted twice.", enemy: "A name goes on the report, and it is a bystander's.",
+          none: "The hall empties on the clock with nobody claiming it." } } },
+
+    photoSafari: { id: "photoSafari", name: "Photo Safari", minTier: 1, weight: 1,   // SC13
+      arenas: ["banyanGrove", "punchbowlRim", "canalGarden"],
+      foes: "roll", count: [1, 1],
+      tourist: true,
+      wildPick: [[{ kind: "wolf", count: 2 }], [{ kind: "feralPig" }, { kind: "nettleCaterpillar" }]],
+      objective: { kind: "ward", deadline: 10, onDeadline: "win", wardId: "tourist" },
+      bonus: { seeds: 6 },
+      text: {
+        open: "A man with a camera has wandered into the bad part of the park. He thinks the wolves are a good composition.",
+        mid: { when: { round: 5 }, text: "He photographs the wolf. The wolf is polite about it, for exactly one round." },
+        result: { player: "He gets his picture, and you get his thanks.", enemy: "The camera is found later, and not the man.",
+          none: "The park keeps its picture, and so does he, somewhere." } } },
+
+    sasquatchSighting: { id: "sasquatchSighting", name: "Sasquatch Sighting", minTier: 3, weight: 1,   // SC14
+      arenas: ["banyanGrove"],
+      foes: "roll", count: [1, 1],
+      tourist: true,
+      wild: [{ kind: "sasquatch", far: true }],
+      objective: { kind: "ward", deadline: 12, onDeadline: "win", wardId: "tourist" },
+      bonus: { seeds: 10, sasquatchPhoto: true },   // mint (S7) pays when tourist.photos names a sasquatch
+      text: {
+        open: "He has waited his whole life to be here. The thing in the trees has waited longer.",
+        mid: { when: { round: 6 }, text: "He stops walking. So does the forest." },
+        result: { player: "The shot is taken. Nobody tells him what it cost.", enemy: "The forest keeps the picture, and so does he, somewhere.",
+          none: "The forest keeps its quiet, and the clock runs out." } } },
+
     threeCrews: { id: "threeCrews", name: "Three Crews, One Alley", minTier: 2, weight: 1,   // SC05
       arenas: "any",
       mode: "melee",                                                   // last crew standing (modes.js melee); the crews hit each other, so the player picks the moment
@@ -161,6 +213,19 @@
     // Teaching scenario for ingredient totems (Mala's 2026-11-02 rule: every major change ships one; spec claude-ingredient-totems-spec T2).
     // A Hot Pot Berserker who has learned Kitchen Animism leads a street crew: every landed blow on him spills an ingredient beside him (Spilled
     // Pot), and he wakes what spills into a totem. A cook who sees it learns it (+1 Inspiration and Kitchen Animism, kept on the account).
+    // Pond Patrol (Wild Food Web W1, claude-wild-food-web-spec section 8; teaching scenario): the food web in one garden. A nettle
+    // caterpillar on its host plant, a feral flock on the water beside it: the ducks go for the caterpillar before anyone else.
+    pondPatrol: { id: "pondPatrol", name: "Pond Patrol", minTier: 1, weight: 1,
+      arenas: ["canalGarden"],   // Canal Garden only: on Rill Garden the shore nearest a host plant can be 6 tiles off, past the ducks' reach of 4
+      foes: "roll", count: [1, 2],
+      wild: [{ kind: "nettleCaterpillar", near: "host", reason: "it was on the garden's leaves all along" }, { kind: "ducks", near: "water", closeTo: "nettleCaterpillar", reason: "a feral flock comes up from the water" }],
+      objective: { kind: "classic" },
+      text: {
+        open: "A nettle caterpillar on the garden's leaves, a feral flock on the water beside it. Leave the caterpillar alone and watch what the ducks do with it.",
+        mid: { when: { round: 3 }, text: "The wild has its own appetites: whatever eats is busy with its meal, and whatever is eaten runs." },
+        result: { player: "The garden is yours, and so is the pond.", enemy: "You give up the garden. The ducks stay.",
+          none: "Nobody gives way. The flock settles back on the water." } } },
+
     spilledPot: { id: "spilledPot", name: "Spilled Pot", minTier: 1, weight: 1,
       arenas: "any",
       foes: { lead: "hot_pot_berserker", crews: ["street"], exclude: LAW, count: [2, 2], traits: { hot_pot_berserker: ["kitchenAnimism"] } },   // the street crew has the Chef: a cook on their side can learn it from him too
@@ -190,7 +255,7 @@
       text: {
         open: "A student holds the crater, and students set counters. Watch for the face-down card — walk in and spring it, or study them from afar.",
         mid: { when: { foeHolds: "on-attacked" }, text: "There — a counter face-down. Attack them and spring it, or take a hard look: the plan stays down, but what can fire, fires." },
-        result: { player: "You sprung the counter and stood through it. The crater keeps no secrets now.", enemy: "The counter did its work. Next time, study first.",
+        result: { player: "You stood through whatever they set. The crater keeps no secrets now.", enemy: "They held the crater. Next time, study them first.",
           none: "Nobody springs anything, and the round limit comes. The face-down card goes back to the dark with its holder." } } },
 
     buriedBar: { id: "buriedBar", name: "The Buried Bar", minTier: 1, weight: 1,   // SC23, teaching Mystery S2: a fixed arantxa holds its post six tiles out behind a pillar; a full bar goes face-down at turn start and fires on schedule, or waits when the radius is empty
@@ -201,8 +266,28 @@
       text: {
         open: "Arantxa fights for the bar — once it is full it goes face-down. Keep your distance and it waits; step close and it fires when their turn starts.",
         mid: { when: { foeHolds: "on-turn-start" }, text: "The bar just went face-down. It fires when their turn starts with you close — or waits if there is nothing to hit." },
-        result: { player: "The buried bar never found you. The court is yours.", enemy: "The bar fired on schedule, and you stood too close.",
+        result: { player: "Arantxa is down, and the crater is yours.", enemy: "Arantxa held the crater. Next time, watch the bar before you close in.",
           none: "The bar stays buried, the rounds run out, and nothing is decided." } } },
+
+    setTable: { id: "setTable", name: "The Set Table", minTier: 2, weight: 1,   // teaching scenario for Investigate I4b (face-down reads); uncatalogued: no SC number (R-20261109-11 (4)); pooled from tier 2 like SC22/SC23
+      arenas: "any",
+      foes: "roll", count: [1, 2],
+      objective: { kind: "classic" },
+      text: {
+        open: "This table loves a face-down game. What anyone sets here stays hidden until it fires, unless someone reads it first. Observe rips a set card into the open and sets it off; Investigate reads it quietly.",
+        mid: { when: { round: 5 }, text: "Set your own, too: pay now, pick when it fires, and let the table wonder." },
+        result: { player: "You leave the table standing, and its secrets with it.", enemy: "The table keeps its secrets, and you leave with none of them.",
+          none: "Nobody reads anything. The face-down plans fade with the light, unspent and unknown." } } },
+    roomToRise: { id: "roomToRise", name: "Room to Rise", minTier: 2, weight: 1,   // SC24 (tier 2: MAX needs a revealed summon and a full bar, a few wins in; the tier-1 pool stays as it is), teaching MAX (MX1 Max Mitsuko + MX2 Max Genghis Khan, loop 1a1c6359d54): an open field, one foe apart from a pair, so a revealed summon has the room and a reason to rise
+      arenas: ["warfareField"],
+      foes: { fixed: ["student", "student", "arantxa"], at: [[11, 1], [12, 2], [12, 7]], holdTurns: 2 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "Open ground, and one of them stands apart. Call a summon from your palace and open your Dream Space to show what it really is. With a full ultimate bar, Channel MAX: the dream pours into it for good.",
+        mid: { when: { round: 3 }, text: "A revealed summon can rise further. Mitsuko wards whoever is weakest. The Khan's winged rhino needs a clear tile beside him, then rides down whoever stands alone." },
+        result: { player: "The field is yours, and the dream went into something that stayed.", enemy: "The dream closed before anything rose from it. Reveal first, then pour.",
+          none: "The rounds run out on open ground. Nothing rose, and nothing was decided." } } },
   };
 
   return { SCENARIOS, LAW };

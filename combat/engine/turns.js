@@ -10,6 +10,7 @@
   return (function () {
     const Spirit = () => (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null;
     const Orders = () => (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null;
+    const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
     const { Auras, C, EmergentIdeas, EnemySummons, ClassRuntime, Climate, Director, EM, MaidSystems, Performers, SHADE, Stealth, Vows, actorAt, addStun, auraH, beastTick, callCompanion, companionTick, cornerAdvice, bossRules, classH, conceptName,
       currentId, dist, dreamSpaceRules, edgeUsed, hasSight, heightAt, insightRules, isMonster, key, log, monsterApply, monsterCtx, poisonTick,
       presidentContext, presidentRules, presidentUnits, processRandomEvents, progress, refreshDrowning, ritualTick, riteTick, runWildEnvironment, settleHomeward,
@@ -407,7 +408,7 @@
       if (Auras && a.aura) { Auras.turnStart(s, a, auraH()); if (s.outcome) return; }   // Auras: drain, stage, per-turn ring effects
       if (Vows) Vows.turnStart(s, a, { log });   // Vows: Spent Tomorrow, Rooted breaches, vows ending with their source
       // 3. regenerate ΦF
-      const before = a.pf, dreamMods = dreamSpaceRules?.modsFor(a, s.dreamSpace) || {}, growth = patchAt(s, a.x, a.y);
+      const before = a.pf, dreamMods = dreamSpaceRules?.modsFor(a, s.dreamSpace, s.arena.objects) || {}, growth = patchAt(s, a.x, a.y);
       const rawRegen = s.rules.pfRegen - (a.mirrorScar || 0) + (a.passives?.pfRegenAdd || 0) + (dreamMods.pfRegenAdd || 0) + (growth?.side === a.side && growth.stage >= 2 ? 1 : 0);
       const soulRegen = H.soulFrac?.(a) ?? 1;
       const regen0 = soulRegen >= 1 ? rawRegen : Math.max(0, Math.round(rawRegen * soulRegen)), regen = H.fruitRegen ? H.fruitRegen(s, a, regen0) : regen0;   // Sinkerfruit: no regen while damped
@@ -466,7 +467,7 @@
         if (effect.kind === "heal") {
           const before = target.lf; target.lf = Math.min(target.maxLF || target.lf, target.lf + effect.amount);
           if (effect.amount || target.lf > before) log(s, { kind: "heal", actor: summon.id, target: target.id, tiles: [[target.x,target.y]], text: `${target.name} recovers ${target.lf-before} LF from ${summon.name}'s ultimate.` });
-          if (status.shareDamage) target.status.sharedBurden = { label: "Shared Burden", owner: target.id, expiresAt: target.ownerTurns + ttl, group: summon.summon.owner };
+          if (status.shareDamage) target.status.sharedBurden = { label: "Shared Burden", owner: target.id, expiresAt: target.ownerTurns + ttl, group: summon.summon.owner, ...(status.carry ? { carrier: summon.id } : {}) };
         } else if (effect.kind === "status") {
           if (status.damageTakenMul) target.status.lawsProtection = { label: "The King's Law", owner: target.id, expiresAt: target.ownerTurns + ttl, multiplier: status.damageTakenMul };
           if (status.rooted) target.status.rooted = { label: "Bound by the Law", owner: target.id, expiresAt: target.ownerTurns + ttl };
@@ -474,7 +475,7 @@
           if (status.resistSeenChannels) target.status.rememberedThreats = { label: "Remembered Threats", owner: target.id, expiresAt: target.ownerTurns + ttl, multiplier: status.resistSeenChannels };
           if (status.damageMul || status.lockTarget) target.status.onePossession = { label: "One Possession", owner: summon.id, expiresAt: summon.ownerTurns + ttl, multiplier: status.damageMul || 1, targetId: status.lockTarget ? (effect.targetId || s.playerTarget || null) : null };
           if (status.routeBudgetAdd) target.status.routeBudget = { label: "Open Horizon", owner: target.id, expiresAt: target.ownerTurns + ttl, amount: status.routeBudgetAdd };
-          if (status.shareDamage) target.status.sharedBurden = { label: "Shared Burden", owner: target.id, expiresAt: target.ownerTurns + ttl, group: summon.summon.owner };
+          if (status.shareDamage) target.status.sharedBurden = { label: "Shared Burden", owner: target.id, expiresAt: target.ownerTurns + ttl, group: summon.summon.owner, ...(status.carry ? { carrier: summon.id } : {}) };
         } else if (effect.kind === "damage") {
           hit(s, summon, target, { name: summonRules.data.summons[summon.summon.key].ultimate.name, ability: `summonUltimate:${summon.summon.key}`, tier: "ultimate", damageType: effect.channel || "nigredo" }, effect.potency, ["The committed summon ultimate resolves after its announced response window."], { label: summonRules.data.summons[summon.summon.key].ultimate.name });
         } else if (effect.kind === "stun") {
@@ -581,10 +582,14 @@
         if (a.lf > before) log(s, { kind: "heal", actor: maturePatch.owner, target: a.id, tiles: [[a.x, a.y]], text: `${a.name} recovers ${a.lf - before} LF in the mature Succession patch.` });
       }
       if (a.summon && summonRules) {
-        if (dreamSpaceRules && !dreamSpaceRules.summonTurnTicks(dreamSpaceRules.contains(s.dreamSpace,a.x,a.y) ? s.dreamSpace : null)) log(s, { kind: "summon", actor: a.id, text: `${a.name}'s stay is suspended while the Dream Space holds.` });
-        else {
+        const frozen = dreamSpaceRules && !dreamSpaceRules.summonTurnTicks(dreamSpaceRules.contains(s.dreamSpace, a.x, a.y) ? s.dreamSpace : null);
+        const extra = OG()?.extraTicks(s.arena.objects, a.x, a.y) || 0;
+        const ticks = (frozen ? 0 : 1) + extra;
+        if (frozen && !extra) log(s, { kind: "summon", actor: a.id, text: `${a.name}'s stay is suspended while the Dream Space holds.` });
+        if (extra) log(s, { kind: "summon", actor: a.id, text: `${a.name}'s ${OG().COPY.thin}.` });
+        for (let i = 0; i < ticks && !a.defeated; i++) {
           const r = summonRules.afterOwnTurn(a); Object.assign(a, r.actor);
-          if (r.expired) { a.defeated = true; if (a.summon?.pact && s.pactActive?.line === a.summon.pact.line) { (s.pactCodes ||= []).push({ type: "pactEnded", line: a.summon.pact.line, how: "expired" }); s.pactActive = null; } log(s, { kind: "summon", actor: a.id, text: `${a.name} returns to the palace.` }); Spirit()?.onExit?.(s, a, H); }
+          if (r.expired) { a.defeated = true; if (a.summon?.pact && s.pactActive?.line === a.summon.pact.line) { (s.pactCodes ||= []).push({ type: "pactEnded", line: a.summon.pact.line, how: "expired" }); s.pactActive = null; } log(s, { kind: "summon", actor: a.id, text: `${a.name} returns to the palace.` }); Spirit()?.onExit?.(s, a, H); break; }
         }
       }
       if (a.awakened && !a.defeated) {   // Tsukumogami: four of its own turns, then it settles back
@@ -644,8 +649,12 @@
         if(success) enemy.dazzleApLoss=Math.max(enemy.dazzleApLoss || 0,effect.fraction);
         log(s,{kind:"dazzle",actor:actor.id,target:enemy.id,text:success ? `${actor.name}'s beauty dazzles ${enemy.name}: −25% AP next turn.` : `${enemy.name} resists Mitsuko's Dazzle.`,why:["40% chance per enemy, once on reveal."]});
       }
-      if(effect.kind==="arrows") for(const enemy of enemies) hit(s,actor,enemy,{name:"Rain of Arrows",concept:"sightline",delivery:"field",damageType:"nigredo"},effect.potency,["True-form reveal: 14 base LF damage to every enemy on the field."],{revealField:true});
+      if(effect.kind==="arrows") for(const enemy of enemies) hit(s,actor,enemy,{name:"Rain of Arrows",concept:"sightline",delivery:"field",damageType:"nigredo"},effect.potency,[`${actor.summon.maxForm?"MAX":"True-form"} reveal: ${effect.potency} base LF damage to every enemy on the field.`],{revealField:true});
       if(effect.kind==="bombardment") for(const enemy of enemies) hit(s,actor,enemy,{name:"Opening Bombardment",concept:"threshold",delivery:"field",damageType:"citrinitas"},effect.potency,[`MAX reveal: ${effect.potency} base LF damage to every enemy on the field.`],{revealField:true});
+      if(effect.kind==="petalWard") {   // Mitsuko MAX (MX1): a petal ward on every living ally but herself
+        const allies=Object.values(s.actors).filter(u=>!u.defeated && u.lf>0 && u.side===actor.side && u.id!==actor.id && H.astralSameRegion(s,actor.x,actor.y,u.x,u.y));
+        H.applyTrueFormEffects(s,actor,allies.map(u=>({kind:"ward",target:u.id,protection:effect.protection,turns:effect.turns})),{id:"petalWard",name:"Petal Ward"},"MAX");
+      }
       if(effect.kind==="fullCourtPress") {
         for(const ally of Object.values(s.actors).filter(u=>!u.defeated && u.side===actor.side)) ally.fullCourtPress={source:actor.id};
         log(s,{kind:"fullCourtPress",actor:actor.id,text:"Full Court Press: every living ally receives one free relocation to any open map tile. Movement vows still apply."});

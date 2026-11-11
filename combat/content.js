@@ -216,7 +216,7 @@
     // The Animal Tamer (Mala, 2026-10-14/15; docs/animal-tamer.md, engine/tamer.js): tame an adjacent wild animal (it
     // fights at his side for the battle), mark one as his vessel, and when he falls he wakes in its body. Taming is
     // the beast's communion and is made strong on purpose. ai: what the desires table pays for a mark and a tame.
-    tamer: { trait: "beastTamer", tameAp: 30, never: ["gaia"], maxTamed: 3, markAp: 30, markRange: 3, vigor: { ward: 5, ap: 50 }, burst: 8,
+    tamer: { trait: "beastTamer", tameAp: 30, never: ["gaia", "chicken"], maxTamed: 3, markAp: 30, markRange: 3, vigor: { ward: 5, ap: 50 }, burst: 8,
       chance: { base: 0.55, hurtBonus: 0.4, hostileMul: 0.75, kind: { sasquatch: 0.5 } }, pack: { count: 2, ap: 20 },
       ai: { mark: 30, tame: 40, pack: 15, packLow: 50 } },
     // Houses (Mala, 2026-10-15; docs/houses.md, engine/houses.js): a contested building on the open tile nearest the
@@ -434,7 +434,7 @@
     // Mystery layer (Muse W2.5, docs/mystery.md): face-down set intents + concealed stakes. Budget 3 face-downs
     // per side per battle; set intents expire after 2 rounds unrevealed (no refund); triggers on-attacked /
     // on-turn-start / manual. Opponent view is count-only; reveals announce at T1+. Numbers provisional.
-    mystery: { budget: 3, expiry: 2, triggers: ["on-attacked", "on-turn-start", "manual"], ai: { ripPerCard: 3, setWaitMul: 0.7, ripRiskMul: 1, setMaxPerTrigger: 1, setPatienceMul: 0.6, braveUltSet: 2 } },   // ripPerCard (Muse AI-half-1): what the AI adds to an Observe it already wants when the target holds any face-down card (Observe rips one); set* (Muse AI-S1): the wait discount and the per-setter per-trigger cap (the trigger outlook has no knob of its own: it is aiLedger.threatRangeSelf, the same threatening-foe range the AI prices worn protection over); ripRiskMul retained for S3's manual risk (S1/S2 price no watcher discount: a live rip holds the card); setPatienceMul (Muse AI-S2): the longer-wait discount of an on-turn-start set; braveUltSet (AI-S2): what a brave setter adds to burying a full bar; all provisional
+    mystery: { budget: 3, expiry: 2, triggers: ["on-attacked", "on-turn-start", "manual"], triggerWords: { "on-attacked": "when attacked", "on-turn-start": "at turn start", manual: "at will" }, ai: { ripPerCard: 3, setWaitMul: 0.7, ripRiskMul: 1, setMaxPerTrigger: 1, setPatienceMul: 0.6, braveUltSet: 2 } },   // ripPerCard (Muse AI-half-1): what the AI adds to an Observe it already wants when the target holds any face-down card (Observe rips one); set* (Muse AI-S1): the wait discount and the per-setter per-trigger cap (the trigger outlook has no knob of its own: it is aiLedger.threatRangeSelf, the same threatening-foe range the AI prices worn protection over); ripRiskMul retained for S3's manual risk (S1/S2 price no watcher discount: a live rip holds the card); setPatienceMul (Muse AI-S2): the longer-wait discount of an on-turn-start set; braveUltSet (AI-S2): what a brave setter adds to burying a full bar; all provisional   // triggerWords (Investigate I4b, R-20261109-11 (2)): what the player reads for a trigger, in the read lines, the Set dropdown and the face-down tray
     repositionTiles: 2,                          // defensive reposition after an announcement
     delayedResponseWindow: true,                 // a landing delayed area effect lets its target spend the reaction (guard/reposition)
     lensChangeInCombat: "tempoCost",

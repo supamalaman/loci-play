@@ -18,6 +18,7 @@
 //   battleOpts(account)            → { id, ripe } for engine create (opts.fruit), or null
 //   returnToTide(account)          → { account, line } (a saga close: the eaten fruit goes back to the pool; the Locusfruit goes back to the palace)
 //   grantLocus(account)            → { account, granted, line } (S6a: a perfect-recall walk puts the Locusfruit in the stash once; behind RULES.respec)
+//   studyNotesOf / mergeStudyNotes → Perfect Recall S6c: plant/structure study notes on the account (battleOpts carries them; settleFruit merges; returnToTide clears)
 // Wanted + sale (OP1 §6-7, codex-sinkerfruit-wanted; Mala OP-Q1: Wanted rides inside OP1):
 //   posted(account)                → the live player bounty or null
 //   hunterFor(account, { seed })   → a hunter roster id (~1 battle in 8 while posted), or null
@@ -148,11 +149,34 @@
       line: RULES.respec || kitless ? `You eat ${FRUITS[id].name}. The Record posts your head: ${RULES.respec ? bountyFor(next) : RULES.wantedPost} Seeds. Hunters will come.`   // S5: the rite's two beats speak the taste and the curse
         : `You eat ${FRUITS[id].name}. A power wakes in you, and the water will never hold you up again. The Record posts your head: ${RULES.wantedPost} Seeds. Hunters will come.` };
   }
-  const battleOpts = (account) => (eaten(account) ? { id: eaten(account).id, ripe: ripe(account), ...(RULES.respec ? { respec: true, shapes: masteryOf(account).shapes, awakened: stage(account) === "awakened" } : {}) } : null);
+  // Perfect Recall (S6c): study notes the Locusfruit eater earned (Observe teaches plant/structure clues), keyed by question id (a note shows only when a later battle asks the same question), persist on the account across battles.
+  const emptyStudyNotes = () => ({ plant: {}, structure: {} });
+  function studyNotesOf(account) {
+    const n = account?.fruitStudyNotes;
+    if (!n || typeof n !== "object" || Array.isArray(n)) return emptyStudyNotes();
+    const copy = (side) => {
+      const src = n[side]; if (!src || typeof src !== "object" || Array.isArray(src)) return {};
+      return Object.fromEntries(Object.entries(src).filter(([, c]) => typeof c === "string" && c));
+    };
+    return { plant: copy("plant"), structure: copy("structure") };
+  }
+  function mergeStudyNotes(account, notes) {
+    if (!notes || typeof notes !== "object") return account;
+    const cur = studyNotesOf(account);
+    for (const kind of ["plant", "structure"]) for (const [t, c] of Object.entries(notes[kind] || {})) if (typeof c === "string" && c) cur[kind][t] = c;
+    return { ...account, fruitStudyNotes: cur };
+  }
+  const battleOpts = (account) => {
+    const f = eaten(account); if (!f) return null;
+    const base = { id: f.id, ripe: ripe(account), ...(RULES.respec ? { respec: true, shapes: masteryOf(account).shapes, awakened: stage(account) === "awakened" } : {}) };
+    if (RULES.respec && f.id === "locus") base.studyNotes = studyNotesOf(account);   // Perfect Recall: the notes ride into the next battle
+    return base;
+  };
   function returnToTide(account) {
     const f = eaten(account); if (!f) return { account, line: "" };
     const next = { ...account, fruit: null, fruitPool: { ...poolOf(account), [f.id]: homeState(f.id) } };
     if (RULES.respec) { delete next.fruitMastery; delete next.fruitDeeds; }   // a closed saga is a new story: the feats go with it (spec section 2)
+    if (f.id === "locus") next.fruitStudyNotes = emptyStudyNotes();   // Perfect Recall leaves with the palace: a new eater starts fresh
     if (next.bingo?.bounties?.player) {   // a closed saga is a new story: the Record strikes your name, hunters stop
       delete next.bingo.bounties.player;
       next.bingo.log.push("your saga closes: the Record strikes your name. The sea forgets you.");
@@ -204,10 +228,11 @@
     return { ok: true, account: { ...account, fruitPool: { ...poolOf(account), [id]: "sold" }, fruitSales: sales },
       line: `You sell ${FRUITS[id].name} by the tide: ${RULES.salePrice} Seeds, ${RULES.installment} a battle. The tide pays slow but pays.` };
   }
-  function settleFruit(account, { test = false, hunterDown = false, hunterName = "a hunter", lost = false, submitted = false, bossesDown = 0 } = {}) {
+  function settleFruit(account, { test = false, hunterDown = false, hunterName = "a hunter", lost = false, submitted = false, bossesDown = 0, studyNotes = null } = {}) {
     const lines = [];
     if (test) return { account, lines };
     let a = account;
+    if (RULES.respec && eaten(a)?.id === "locus" && studyNotes) a = mergeStudyNotes(a, studyNotes);   // Perfect Recall S6c: battle notes land on the account
     const n = a?.battles || 0, MK = marketLib(), B = bingoLib(), M = mintLib();
     for (const [id, sale] of Object.entries(a.fruitSales || {})) {   // §7: installments share the 55 stall cap, stall income first
       const room = Math.max(0, (M?.PER_SOURCE ?? 55) - (MK.marketOf(a).daySales || 0));
@@ -254,5 +279,5 @@
     }
     return { account: a, lines };
   }
-  return { RULES, FEATS, masteryOf, stage, settleFeats, bountyFor, tierOf, purseFor, deedsOf, FRUITS, HUNTERS, poolOf, stashOf, eaten, ripe, rollDrop, afterBattle, eat, battleOpts, returnToTide, grantLocus, posted, hunterFor, encounterFor, settleRival, rivalBeaten, sellFruit, settleFruit };
+  return { RULES, FEATS, masteryOf, stage, settleFeats, bountyFor, tierOf, purseFor, deedsOf, FRUITS, HUNTERS, poolOf, stashOf, eaten, ripe, rollDrop, afterBattle, eat, battleOpts, returnToTide, grantLocus, posted, hunterFor, encounterFor, settleRival, rivalBeaten, sellFruit, settleFruit, studyNotesOf, mergeStudyNotes };
 });

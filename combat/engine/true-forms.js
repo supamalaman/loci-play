@@ -105,11 +105,26 @@
             s.trueFormFields = s.trueFormFields.filter(f => !(f.kind === "trash" && f.x === x && f.y === y));
             s.trueFormFields.push({ id: "tf" + (++s.seq), kind: "trash", x, y, owner: summon.id, hazard: effect.hazard, expiresRound: s.round + effect.rounds });
           }
-        } else if (effect.kind === "mushroom") {
+        } else if (effect.kind === "ward") petalWard(s, summon, target, effect.protection, effect.turns);
+        else if (effect.kind === "knock") {   // MAX Khan's Charge (MX2): the shared knock, so massive, braced and golden targets resist as they always do
+          if (!s.outcome) H.knock(s, summon, target, effect.tiles, { name: technique.name, ability: `trueForm:${technique.id}`, delivery: "field", damageType: technique.channel || "nigredo" }, "push");
+        }
+        else if (effect.kind === "mushroom") {
           const [x, y] = effect.at;
           s.trueFormFields.push({ id: "tf" + (++s.seq), kind: "mushroom", x, y, owner: summon.id, heal: effect.heal, expiresRound: s.round + effect.rounds });
         }
       }
+    }
+    // Mitsuko MAX (MX1): a petal ward. What she stores never protects her. It replaces only a weaker petal ward or a
+    // weaker flow-state ward (the flow ward is residual and yields); armour, a hide or a cast ward is never touched.
+    // Held for `turns` of the ally's own turns.
+    function petalWard(s, by, target, protection, turns) {
+      if (!target || target.defeated || target.id === by.id) return false;
+      const held = target.status.ward;
+      if (held && (!(held.petal || held.flow) || held.protection >= protection)) return false;
+      target.status.ward = { label: "Petal ward", owner: target.id, protection, petal: true, by: by.id, expiresAt: target.ownerTurns + turns + (currentId(s) === target.id ? 0 : 1) };
+      log(s, { kind: "status", actor: by.id, target: target.id, tiles: [[target.x, target.y]], text: `${target.name} is wrapped in a ${protection}-point petal ward.`, why: [`${by.name}'s petal ward: what she stores never protects her.`] });
+      return true;
     }
     // A damaged unit that enters a mushroom tile eats it; an unhurt one leaves it for someone who needs it.
     function eatMushroom(s, unit, x, y) {
@@ -130,7 +145,7 @@
       for (const id of field?.summons || []) {
         const summon = s.actors[id]; if (!summon || summon.defeated) continue;
         Object.assign(summon, dreamSpaceRules.onCloseSummon(summon));
-        log(s, { kind: "summon", actor: summon.id, text: `${summon.name} will linger for one more turn as the Dream Space closes.` });
+        log(s, { kind: "summon", actor: summon.id, text: summon.summon?.maxForm ? `${summon.name} stays: a MAX form outlives the dream.` : `${summon.name} will linger for one more turn as the Dream Space closes.` });   // MAX keeps its doubled turns (dreamspace.js onCloseSummon)
       }
     }
     function closeDreamTreeants(s, field = s.dreamSpace) {

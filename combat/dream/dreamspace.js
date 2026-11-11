@@ -31,9 +31,9 @@
 //   drain per caster turn = 25 − 10 × placeFamiliarity
 // Enemies dream too: an enemy's Dream Space calls monsters from ITS pool (enemy-dreams-data.js), not the player's.
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./dream.js"), require("./enemy-dreams-data.js"), require("./enemy-monsters.js"), require("./psyche.js"));
-  else root.ConceptCombatDreamSpace = factory(root.ConceptCombatDream, root.ConceptCombatEnemyDreams, root.ConceptCombatEnemyMonsters, root.ConceptCombatDreamPsyche);
-})(typeof self !== "undefined" ? self : this, function (DM, ED, EM, PS) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./dream.js"), require("./enemy-dreams-data.js"), require("./enemy-monsters.js"), require("./psyche.js"), (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })());
+  else root.ConceptCombatDreamSpace = factory(root.ConceptCombatDream, root.ConceptCombatEnemyDreams, root.ConceptCombatEnemyMonsters, root.ConceptCombatDreamPsyche, root.ConceptCombatOrgonite);
+})(typeof self !== "undefined" ? self : this, function (DM, ED, EM, PS, OG) {
   const rules = {
     cost: "fullUltimateCharge", apCost: 50, drainPerCasterTurn: 25, chargeFrozen: true,
     summons: { apCost: 40, phiCost: 4, durationFrozen: true, lingerOnClose: 1, damageTakenMul: 0.8 },   // half the outside cost (80 AP since 2026-10-10)
@@ -55,7 +55,8 @@
   }
 
   // knowledge = { placeFamiliarity, selfKnowledge }; omitted, it costs a full bar (as before).
-  function canOpen(caster, engineRules = { ultimateChargeMax: 100 }, field = null, knowledge = {}) {
+  function canOpen(caster, engineRules = { ultimateChargeMax: 100 }, field = null, knowledge = {}, objects = []) {
+    if (OG && OG.inField(objects, caster.x, caster.y)) return { ok: false, reason: OG.COPY.refusal };
     if (field && field.type === "dreamSpace") return { ok: false, reason: "A Dream Space is already open." };
     const { required } = openCost(knowledge, engineRules.ultimateChargeMax, hasHole(caster));
     if ((caster.ultimateCharge ?? 0) < required) return { ok: false, reason: required >= engineRules.ultimateChargeMax ? "Opening a Dream Space takes a full ultimate charge." : `Opening a Dream Space here takes ${required}% charge.`, required };
@@ -133,7 +134,8 @@
   const hasHole = (actor) => (actor?.traits || []).some((t) => ((t && t.id) || t) === "trepanation");
   const WAKING = { potencyMul: 0.8, apPerTurnAdd: -10, pfRegenAdd: 0, dreamObservePointBonus: 0 };
   const INSIDE = { potencyMul: 1.4, apPerTurnAdd: 15, pfRegenAdd: 3, dreamObservePointBonus: 1 };
-  function modsFor(actor, field) {
+  function modsFor(actor, field, objects) {
+    if (field && field.type === "dreamSpace" && actor?.id === field.owner && OG && OG.inField(objects || [], actor.x, actor.y)) return {};
     if (!field || field.type !== "dreamSpace") return hasHole(actor) ? { ...WAKING } : {};
     if (!contains(field, actor.x, actor.y)) return hasHole(actor) ? { ...WAKING } : {};
     if (hasHole(actor)) {
@@ -159,6 +161,7 @@
       const d = Math.abs(x - caster.x) + Math.abs(y - caster.y);
       if (!contains(field, x, y) || d < (field?.region ? 1 : lo) || d > hi || taken.has(`${x},${y}`) || /[#~T]/.test(map[y][x])) continue;
       if ((snapshot.arena.objects || []).some((o) => o.x === x && o.y === y && o.blocksMove)) continue;
+      if (OG && OG.inField(snapshot.arena.objects, x, y)) continue;
       const r = roll(seed, `ds:${x},${y}`);
       if (!best || r > best.r) best = { r, at: [x, y] };
     }

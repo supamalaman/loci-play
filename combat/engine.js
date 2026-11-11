@@ -378,6 +378,7 @@
         actors: {}, order: (opts.participants || enc.actors).map((a) => a.id), turnIndex: 0, round: 0, phase: "action",
         barriers: clone(opts.initialBarriers || arena.initialBarriers || []), scheduled: [], pending: null, disclosures: {}, knowledge: {}, observedAbilities: {}, turnDamageCounts: {}, growthMarks: [], pruneBraces: [], terrainEffects: [], successionPatches: [],
         summonUsed: [], unlockedSummons: Array.isArray(opts.unlockedSummons) ? opts.unlockedSummons.slice() : [], deathDoorUsed: false, communion: { familiarity: {}, closed: {}, communed: 0 }, tsukumogami: { familiarity: {}, warned: false, awakened: 0 }, summonQuestionBoost: 0, summonCorrectAnswers: 0, fragments: [], dreamSpace: null, roundEnvironmentProcessed: false, pactCodes: [], pactActive: null, pactBook: clone(opts.contracts || null),
+        orgonite: { player: Math.max(0, opts.orgonite?.player ?? opts.account?.orgonite ?? 0), enemy: Math.max(0, opts.orgonite?.enemy ?? 0) },
         victories: clone(opts.victories || {}),   // the account's victory ledger, for Contains Multitudes
         emissaryMemory: clone(opts.emissaryMemory || {}),   // what the Emissary remembers of this account (account.js recordEmissary)
         insight: { decks: {}, knowledge: {}, cognitive: opts.cognitive || insightRules?.emptyCognitive?.() || { subjects: {}, kinds: {} } },
@@ -389,7 +390,7 @@
         earthworksMoved: 0, gaiaWarned: false, gaiaAwakeningPending: false, gaiaInvoked: false,
         seq: 0, log: [], outcome: null, learning: [], stats: { edges: {}, abilityUses: {}, multiHits: 0 },
       };
-      if (pickupRules) {
+      if (pickupRules && opts.pickups !== false) {   // pickups:false: a field with none (Forum, R-20261111-04)
         // Scripted vignette arenas can omit map-generator spawn metadata. Pickups
         // still need occupied spawn tiles excluded, so derive it from the authored
         // participant positions before placing any items.
@@ -558,6 +559,7 @@
         ? { kind: "dream", name: b.name, maxLF: b.maxLF || 40, mind: { ...b.mind, dream: { ...(b.mind.dream || {}), key: b.mind.key } } }   // a tamed monster of the mind, kept between battles (2026-10-14)
         : { kind: b.kind, name: b.name || wildRules.data.monsters[b.kind].name, maxLF: b.maxLF || wildRules.data.monsters[b.kind].lf }); }
       if (opts.tourist || (opts.randomizeNPCs && opts.tourist !== false && (s.seed % 5 === 0))) Tourist?.spawn(s,touristH(),typeof opts.tourist === "object" ? opts.tourist : {});
+      H.scenarioCivilians(s, opts);   // SCENARIOS.md slice 5: authored customers and afterCreate (engine/factions.js)
       if (opts.kaiba || (opts.randomizeNPCs && opts.kaiba !== false && H.seededChance(`${s.seed}:kaiba:arrives`) < 0.15)) H.Kaiba.spawn(s,kaibaH(),typeof opts.kaiba === "object" ? opts.kaiba : {}); H.Cards?.init(s,opts);
       H.States?.battleStart(s); H.openCourt?.(s, opts); beginRound(s);   // States: startStates + presence breakers
       startTurn(s);
@@ -800,7 +802,7 @@
       const q = [{ at: [fromX, fromY], cost: 0 }];
       const flyer = kind === "move" && ClassRuntime && ClassRuntime.flies(actorAt(s, fromX, fromY)) ? actorAt(s, fromX, fromY) : null;   // ClassRuntime: Flight
       const mover = actorAt(s, fromX, fromY);   // hoisted: the swim check, self-exclusion and big-body pathing share it
-      const big = mover?.awakened && ((mover.size?.w || 1) > 1 || (mover.size?.h || 1) > 1);
+      const big = H.sized(mover);
       while (q.length) {
         q.sort((a, b) => a.cost - b.cost); const { at: [x, y], cost: dd } = q.shift();
         if (dd !== d.get(key(x, y)) || dd >= budget) continue;
@@ -818,7 +820,7 @@
           if (kind !== "route-open" && obstacle && !obstacle.passable) continue;
           const occ = unitAt(s, nx, ny);
           if (occ && occ.id !== mover?.id && !(goal && goal[0] === nx && goal[1] === ny)) continue;
-          if (big && !H.footOpen(s, mover, nx, ny, kind, goal)) continue;   // a big awakened body fits its whole footprint through
+          if (big && !H.footOpen(s, mover, nx, ny, kind, goal)) continue;   // a big body (woken or a sized summon) fits its whole footprint through
           const garden=(s.terrainEffects||[]).some(e=>e.kind==="rainGarden"&&e.tiles.includes(k)&&s.actors[e.owner]?.ownerTurns<e.expiresAt);
           const dam=(s.terrainEffects||[]).some(e=>e.kind==="checkDam"&&e.x===nx&&e.y===ny&&s.actors[e.owner]?.ownerTurns<e.expiresAt);
           const thornTax=kind==="route"&&(s.terrainEffects||[]).some(e=>e.kind==="thorn"&&e.tiles?.some(([tx,ty])=>tx===nx&&ty===ny)&&s.actors[e.owner]?.ownerTurns<e.expiresAt&&s.actors[e.owner]?.side!==actorAt(s,fromX,fromY)?.side);
@@ -1429,7 +1431,7 @@
       moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, aiLastWorkflow, shownTrait,
       aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, approach, retreat, lessonsOf, lessonMul, cannotDodge
     } = H;
-    return { cards: H.Cards, warfareEventOptions, eventParticipantsFor, create, apply, preview, targeting, moveOptions, jumpOptions, climbOptions, movementBudget: (s, id) => moveBudgetFor(s, s.actors[id]), movementStepCost: (...a) => H.stepCost(...a), availableAbilities, randomEncounterOptions, manifest: (s, id, abId) => manifest(s, s.actors[id], abId),
+    return { cards: H.Cards, warfareEventOptions, eventParticipantsFor, create, apply, preview, targeting, moveOptions, jumpOptions, climbOptions, movementBudget: (s, id) => moveBudgetFor(s, s.actors[id]), movementStepCost: (...a) => H.stepCost(...a), maxRoomFor: (...a) => H.maxRoomFor(...a), availableAbilities, randomEncounterOptions, manifest: (s, id, abId) => manifest(s, s.actors[id], abId),
       waterState: (s,x,y) => H.waterState(s,x,y), updateWater: s => H.updateWater(s), recoverWater: (s,id) => H.waterRecovery(s,s.actors[id]),
       abilitiesOf: (s, id) => abilitiesOf(s.actors[id]), riteDraws: (def) => H.riteDraws(def), decider, aiAction, inspectAiAction: (s, options) => H.withAiTrace(() => aiAction(s), options), replay, answerTransfer, progress, report, mysteryFoeView: (s, side) => H.mysteryFoeCount(s, side), mysteryOwnView: (s, side) => (s.mystery?.[side] || []).map((c) => ({ ...c })),
       // For tests and sims: land a hit or a stun through the real pipeline, and read the monster context.

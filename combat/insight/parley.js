@@ -73,7 +73,7 @@
   const DUTY = { soldier: 0.2, knight: 0.4, samurai: 0.3, policeOfficer: 0.5, mma_fighter: 0.6 };   // how much fear of dying still counts
   const fallenAllies = (s, t) => Object.values(s.actors || {}).filter((u) => u.id !== t.id && u.side === t.side && u.defeated
     && !u.escaped && !u.noXp && !u.persuaded && !u.leaveReason).length;
-  function willingness(s, t) {
+  function willingness(s, t, speaker = null) {
     const fallen = fallenAllies(s, t), loyal = has(t, "loyal");
     const B = bonds(), friend = B && Object.values(s.actors || {}).find((u) => u.id !== t.id && u.side === t.side && u.defeated && !u.escaped && !u.persuaded && B.maxFriends(t, u));
     if (friend) return { add: 0, unforgiving: true, fallen, note: `${name(t)} will never forgive what happened to ${name(friend)}: they'd rather fight to the end.` };   // max friendship
@@ -81,8 +81,9 @@
       note: `${name(t)} won't forgive ${fallen === 1 ? "a fallen ally" : `${fallen} fallen allies`}${loyal && fallen === 1 ? " (loyal)" : ""}: they'd rather fight to the end.` };
     const hurt = 1 - hp(t), duty = DUTY[t.character] ?? 1;
     const add = 0.35 * hurt * duty - (fallen ? 0.2 : 0);
+    // A18: the note's crowd × must match the chance (pass the speaker so COMPANY_BY_RANK applies).
     return { add, unforgiving: false, fallen,
-      note: [stillFighting(s, t) ? `${stillFighting(s, t)} of their allies still fighting: ×${companyMul(s, t)}` : "", hurt > 0.3 ? `hurt (${Math.round(hp(t) * 100)}% LF)${duty < 1 ? ", but duty outweighs fear" : ": they'd rather not die"}` : "", fallen ? "an ally has fallen: −20%" : ""].filter(Boolean).join("; ") };
+      note: [stillFighting(s, t) ? `${stillFighting(s, t)} of their allies still fighting: ×${companyMul(s, t, speaker)}` : "", hurt > 0.3 ? `hurt (${Math.round(hp(t) * 100)}% LF)${duty < 1 ? ", but duty outweighs fear" : ": they'd rather not die"}` : "", fallen ? "an ally has fallen: −20%" : ""].filter(Boolean).join("; ") };
   }
   // Mala: "talking down only works if you can speak their language, so trying to talk down a boar wouldnt work, unless
   // you had a speak with animals trait, and most monsters are mindless beasts as well except maybe the vampire but the
@@ -108,11 +109,30 @@
   }
   // Mala: "talk does feel overpowered … the chances should be greatly reduced if multiple enemies are on the field,
   // because you would have to essentially convince them to not help their friends fight you". One-on-one is unchanged.
+  // A18 Crowd Work (perks S1a): the speaker's crowdWork rank softens the table (still multiplies).
   const COMPANY = [1, 0.4, 0.2, 0.1];   // × by allies still fighting beside them (0, 1, 2, 3+)
+  const COMPANY_BY_RANK = { 0: COMPANY, 1: [1, 0.5, 0.3, 0.15], 2: [1, 0.6, 0.4, 0.2] };
   const stillFighting = (s, t) => Object.values(s.actors || {}).filter((u) => u.id !== t.id && u.side === t.side && !u.defeated
     && !u.notArrived && !u.persuaded).length;
-  const companyMul = (s, t) => COMPANY[Math.min(COMPANY.length - 1, stillFighting(s, t))];
+  const companyMul = (s, t, speaker = null) => {
+    const rank = Math.min(2, Math.max(0, Math.floor(speaker?.perkMods?.ranks?.crowdWork || 0)));
+    const table = COMPANY_BY_RANK[rank] || COMPANY;
+    return table[Math.min(table.length - 1, stillFighting(s, t))];
+  };
   const lean = (u, stubborn, agreeable) => (has(u, "stubborn") ? -stubborn : 0) + (has(u, "agreeable") ? agreeable : 0);
+
+  // I-03 Valence → Parley (perks S1a; Chef S2 reuses). Factions registers the reader at install via useValence.
+  // Formula (R-20261109-12 + A01): min(0.25 + 0.04×rank, valence×(0.04 + 0.02×rank)); valence is target→speaker; ≤0 gives 0.
+  let valenceFn = null;
+  const useValence = (fn) => { valenceFn = typeof fn === "function" ? fn : null; };
+  function valenceAdd(s, speaker, subject) {
+    if (!valenceFn || !speaker || !subject) return 0;
+    const v = Math.max(0, Number(valenceFn(s, subject, speaker)) || 0);
+    if (v <= 0) return 0;
+    const rank = Math.max(0, Math.floor(speaker?.perkMods?.ranks?.warmReception || 0));
+    const cap = 0.25 + 0.04 * rank;
+    return Math.min(cap, v * (0.04 + 0.02 * rank));
+  }
 
   const key = (a, b) => [a, b].sort().join("|");
   const P = (s) => (s.parley ||= { locked: {}, holds: {}, offers: {}, lastTalk: {} });
@@ -123,16 +143,16 @@
   // Chance that Talk makes the subject stand down (replaces the flat 50% / guarded 25%).
   function talkChance(s, observer, subject, guarded = has(subject, "guarded")) {
     if (language(observer, subject)) return 0;
-    const w = willingness(s, subject); if (w.unforgiving) return 0;
-    return clamp((guarded ? 0.25 : 0.5) + persuasion(observer) + lean(subject, 0.25, 0.2) + w.add) * companyMul(s, subject);
+    const w = willingness(s, subject, observer); if (w.unforgiving) return 0;
+    return clamp((guarded ? 0.25 : 0.5) + persuasion(observer) + lean(subject, 0.25, 0.2) + w.add + valenceAdd(s, observer, subject)) * companyMul(s, subject, observer);
   }
   // Why Talk can't even be tried right now (language, a closed conversation, a grudge), or null.
   function cannotTalk(s, a, t) {
     return language(a, t) || (locked(s, a.id, t.id) ? `${name(t)} decided this has to be fought; talk is closed between you.` : null)
-      || (willingness(s, t).unforgiving ? willingness(s, t).note : null);
+      || (willingness(s, t, a).unforgiving ? willingness(s, t, a).note : null);
   }
   function resolveTalk(s, observer, subject, guarded) {
-    const w = willingness(s, subject);
+    const w = willingness(s, subject, observer);
     if (w.unforgiving) return { outcome: "nothing", chance: 0, effects: [], text: `Talk: ${w.note}` };
     const p = talkChance(s, observer, subject, guarded), ok = roll(s.seed, `talk:${observer.id}>${subject.id}:${s.round}`) < p;
     return { outcome: ok ? "standDown" : "nothing", chance: p, effects: ok ? [{ kind: "standDown", target: subject.id, rounds: 2 }] : [],
@@ -142,8 +162,8 @@
   // Come to terms: the player (or anyone) with someone standing down.
   function termsChance(s, a, t) {
     if (language(a, t)) return 0;
-    const w = willingness(s, t); if (w.unforgiving) return 0;
-    return clamp(0.35 + persuasion(a) + lean(t, 0.3, 0.25) + w.add) * companyMul(s, t);
+    const w = willingness(s, t, a); if (w.unforgiving) return 0;
+    return clamp(0.35 + persuasion(a) + lean(t, 0.3, 0.25) + w.add + valenceAdd(s, a, t)) * companyMul(s, t, a);
   }
   function canTerms(s, a, t) {
     if (!t || t.defeated || t.side === a.side) return "There's no one to come to terms with.";
@@ -151,7 +171,7 @@
     const tongue = language(a, t); if (tongue) return tongue;
     if (locked(s, a.id, t.id)) return `${name(t)} decided this has to be fought; talk is closed between you.`;
     if (!standingDown(s, t)) return `${name(t)} isn't standing down; there's nothing to build terms on yet.`;
-    const w = willingness(s, t); if (w.unforgiving) return w.note;
+    const w = willingness(s, t, a); if (w.unforgiving) return w.note;
     if (a.tempo < rules.termsCost) return `Coming to terms needs ${rules.termsCost} action points.`;
     return null;
   }
@@ -160,7 +180,7 @@
     if (s.parley) { delete s.parley.offers[u.id]; for (const k of Object.keys(s.parley.holds)) if (k.endsWith(`>${u.id}`)) delete s.parley.holds[k]; }
   }
   function comeToTerms(s, a, t, H) {
-    const p = termsChance(s, a, t), w = willingness(s, t), ok = roll(s.seed, `terms:${a.id}>${t.id}:${s.round}`) < p;
+    const p = termsChance(s, a, t), w = willingness(s, t, a), ok = roll(s.seed, `terms:${a.id}>${t.id}:${s.round}`) < p;
     if (ok) {
       persuade(s, t, a);
       H.log(s, { kind: "parley", actor: a.id, target: t.id, text: `${name(a)} and ${name(t)} come to terms. ${name(t)} is out of the fight.`,
@@ -252,7 +272,7 @@
     if (!a || a.defeated) return out;
     for (const t of Object.values(s.actors)) {
       if (t.side === a.side || t.defeated) continue;
-      if (standingDown(s, t) && !t.persuaded && !locked(s, a.id, t.id) && !language(a, t)) { const w = willingness(s, t); out.terms.push({ target: t.id, name: name(t), chance: termsChance(s, a, t), cost: rules.termsCost, off: a.tempo < rules.termsCost || w.unforgiving, note: w.note }); }
+      if (standingDown(s, t) && !t.persuaded && !locked(s, a.id, t.id) && !language(a, t)) { const w = willingness(s, t, a); out.terms.push({ target: t.id, name: name(t), chance: termsChance(s, a, t), cost: rules.termsCost, off: a.tempo < rules.termsCost || w.unforgiving, note: w.note }); }
       const o = s.parley?.offers?.[t.id];
       if (o && o.to === a.id && o.until >= s.round && !t.persuaded) out.offers.push({ from: t.id, name: name(t) });
     }
@@ -266,6 +286,6 @@
 
   // Immortal: still knocked out like anyone, but never dies (no kill for Assassinate; the win is non-lethal).
   const isImmortal = (u) => has(u, "immortal") || IMMORTALS.has(u?.character);
-  return { rules, COMPANY, stillFighting, companyMul, PERSUADERS, DUTY, IMMORTALS, isImmortal, speech, language, cannotTalk, willingness, fallenAllies, persuasion, persuasionBreakdown, traitsOf, talkChance, resolveTalk, termsChance, canTerms, comeToTerms, npcTalkTarget, npcTalkOdds, npcTalk,
+  return { rules, COMPANY, COMPANY_BY_RANK, stillFighting, companyMul, useValence, valenceAdd, PERSUADERS, DUTY, IMMORTALS, isImmortal, speech, language, cannotTalk, willingness, fallenAllies, persuasion, persuasionBreakdown, traitsOf, talkChance, resolveTalk, termsChance, canTerms, comeToTerms, npcTalkTarget, npcTalkOdds, npcTalk,
     answerOffer, blocks, options, locked, lock, allPersuaded, standingDown };
 });

@@ -3296,7 +3296,7 @@
   const FLYERS = ["super_hero", "super_heroine", "ornithopter"];
   // Flying also ignores every terrain movement cost (climbs, cliffs, water, hazards) unless the flyer has been knocked
   // into water: then it's grounded (wings soaked) and moves like anyone else until it starts a turn on dry land.
-  const isFlyer = (a) => FLYERS.some((c) => pairIs(a, CLASS_PAIRS[c][0], CLASS_PAIRS[c][1])) || hasTr(a, "ascended");   // Ascended: the gold form flies
+  const isFlyer = (a) => FLYERS.some((c) => pairIs(a, CLASS_PAIRS[c][0], CLASS_PAIRS[c][1])) || hasTr(a, "ascended") || !!a?.winged;   // Ascended: the gold form flies; winged: a MAX form whose data flies (MX2, the Khan's rhino)
   const flies = (a) => isFlyer(a) && !a.status?.grounded;
   // Aloft: a flying ornithopter counts as height +2 on both ends of a sight line (INVENTION-ORN-7: sees and is seen
   // as +2). Generic hook for any future flyer; only the ornithopter's pair claims the bonus today.

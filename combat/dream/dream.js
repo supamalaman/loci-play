@@ -6,15 +6,15 @@
 //   wakeQuestion(key, seed)      → { prompt, choices (seed-shuffled), answer }
 //   nameIt(actor, choiceText)    → { actor, correct, event }   correct: fades at round end; wrong: fear feeds it
 //   endOfRound(actor, round)     → { actor, fades, reason }
-//   damageMul(attacker, target)  → 1.25 when the Perimeter Guardian hits a dream monster
+//   damageMul(attacker, target, objects)  orgonite field ×1.25 when OG.dreamDamageMul says so; live Guardian ×1.25 is unused by hit()
 //
 // snap = { seed, round, mode, arena (terrain-module shape), units: [{ id, side, x, y, lf, maxLF, defeated, status }],
 //          heroId, wild: [ ... ], recent: { bridgeCollapse, heroFell, heroStaggered, announcements, tells,
 //          plantsDestroyed, flood, cisternBurst } }
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./dream-data.js"));
-  else root.ConceptCombatDream = factory(root.ConceptCombatDreamData);
-})(typeof self !== "undefined" ? self : this, function (DD) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./dream-data.js"), (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })());
+  else root.ConceptCombatDream = factory(root.ConceptCombatDreamData, root.ConceptCombatOrgonite);
+})(typeof self !== "undefined" ? self : this, function (DD, OG) {
   const R = DD.rules;
   function roll(seed, tag) {
     let h = 2166136261;
@@ -69,6 +69,7 @@
     for (let y = 0; y < map.length; y++) for (let x = 0; x < map[0].length; x++) {
       if (/[#~T]/.test(map[y][x]) || occupied.has(`${x},${y}`)) continue;
       if ((snap.arena.objects || []).some((o) => o.x === x && o.y === y && o.blocksMove)) continue;
+      if (OG && OG.inField(snap.arena.objects, x, y)) continue;
       const d = hero ? Math.abs(hero.x - x) + Math.abs(hero.y - y) : 0;
       if (d < 3) continue;                                         // it surfaces at the edge of attention, not on top of you
       const score = -Math.abs(d - 4) + roll(snap.seed, `tile:${x},${y}`) * 0.5;
@@ -132,12 +133,15 @@
     return { actor, fades: false };
   }
 
-  function damageMul(attacker, target) {
+  function damageMul(attacker, target, objects) {
     let m = 1;
-    if (target?.dream && attacker?.summon?.key === "perimeter_guardian") m *= R.perimeterGuardianDamageMul;
+    if (target?.dream) {
+      if (OG && OG.dreamDamageMul) m *= OG.dreamDamageMul(attacker, target, objects);
+      else if (attacker?.summon?.key === "perimeter_guardian") m *= R.perimeterGuardianDamageMul;
+    }
     if (attacker?.dream) { const pm = attacker.dream.potencyMul || 1; m *= attacker.dream.potencyCap ? Math.min(attacker.dream.potencyCap, pm) : pm; }
     return m;
   }
 
-  return { checkAppear, makeDreamActor, wakeQuestion, nameIt, endOfRound, damageMul, facts, data: DD };
+  return { checkAppear, makeDreamActor, wakeQuestion, nameIt, endOfRound, damageMul, spawnTile, facts, data: DD };
 });

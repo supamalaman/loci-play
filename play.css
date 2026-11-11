@@ -1,5 +1,5 @@
-/* Loci · Random Battle start page (tools/web-build). Built on the game's own look: style.css tokens (--bg, --panel,
-   --accent gold, --muted), the home hero's painted sky and pixel sprites, mono kickers. */
+/* Loci · Random Battle start page (tools/web-build). Built on the game's own look: Palace Night tokens
+   (web/palace-night.css: --bg, --panel, --accent gold, --muted), the home hero's painted sky and pixel sprites, mono kickers. */
 html, body { overflow: auto; }
 body { background: radial-gradient(1200px 600px at 70% -10%, #2b2540 0%, transparent 60%), var(--bg); min-height: 100%; }
 .pk-start { max-width: 1060px; margin: 0 auto; padding: 26px 22px 48px; }
@@ -46,6 +46,8 @@ body { background: radial-gradient(1200px 600px at 70% -10%, #2b2540 0%, transpa
 .pk-go:disabled { background: #3a3d44; border-color: #3a3d44; color: #9a9ea8; box-shadow: none; cursor: default; }
 .pk-inv { background: #2e2938e6; border: 1px solid #5d5472; color: var(--text); font-size: 16px; }
 .pk-inv:hover { border-color: var(--accent); transform: translateY(-1px); }
+.pk-go.pk-forum { background: #2e2938e6; color: var(--text); border-color: var(--accent); box-shadow: none; min-width: 0; }   /* Forum (FORUM.md section 5): beside Fight, second in weight */
+.pk-go.pk-forum:disabled { background: #3a3d44; border-color: #3a3d44; color: #9a9ea8; }
 
 /* ── roster ── */
 .pk-section { font: 700 12px ui-monospace, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; display: flex; align-items: center; gap: 12px; }

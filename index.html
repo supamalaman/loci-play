@@ -5,10 +5,12 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Loci · Random Battle</title>
+<link rel="stylesheet" href="palace-night.css">
 <link rel="stylesheet" href="walk/walk-engine.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="combat/combat.css">
 <link rel="stylesheet" href="combat/ai/decision-inspector.css">
+<link rel="stylesheet" href="combat/surface/surface.css">
 <link rel="stylesheet" href="play.css">
 </head>
 <body>
@@ -26,6 +28,7 @@
       <div id="detail" class="pk-detail"></div>
       <div class="pk-actions">
         <button type="button" id="fight" class="pk-go">Fight ▶<small>a random arena, foes and weather</small></button>
+        <button type="button" id="forum" class="pk-go pk-forum">Forum ▶<small>face to face; open the map when you want more control</small></button>
         <button type="button" id="invOpen" class="pk-inv"><span>Inventory</span><small id="invCount"></small></button>
       </div>
     </div>
@@ -132,9 +135,9 @@
 <script src="combat/modes/themed-battles.js"></script>
 <script src="combat/modes/scenarios-data.js"></script>
 <script src="combat/modes/scenarios.js"></script>
+<script src="combat/threat-board.js"></script>
 <script src="combat/random-events.js"></script>
 <script src="combat/visitors/visitors.js"></script>
-<script src="combat/threat-board.js"></script>
 <script src="combat/wild/monsters-data.js"></script>
 <script src="combat/wild/monsters.js"></script>
 <script src="combat/account/items-data.js"></script>
@@ -173,6 +176,7 @@
 <script src="combat/summons/questions.js"></script>
 <script src="combat/summons/contracts.js"></script>
 <script src="combat/dream/dream-data.js"></script>
+<script src="combat/orgonite/orgonite.js"></script>
 <script src="combat/dream/dream.js"></script>
 <script src="combat/dream/enemy-dreams-data.js"></script>
 <script src="combat/dream/enemy-monsters.js"></script>
@@ -203,10 +207,10 @@
 <script src="combat/mirror/mirror.js"></script>
 <script src="combat/classes/president.js"></script>
 <script src="combat/emergent/postures.js"></script>
+<script src="combat/ai/workflow.js"></script>
 <script src="combat/terrain/sight.js"></script>
 <script src="combat/graph/live.js"></script>
 <script src="combat/auras/auras.js"></script>
-<script src="combat/ai/workflow.js"></script>
 <script src="combat/ai/utility.js"></script>
 <script src="combat/engine/ledgers.js"></script>
 <script src="combat/engine/conditions.js"></script>
@@ -284,6 +288,8 @@
 <script src="combat/npc/keeper-lines.js"></script>
 <script src="combat/npc/keeper-ui.js"></script>
 <script src="combat/loading.js"></script>
+<script src="combat/surface/surface.js"></script>
+<script src="combat/surface/surface-ui.js"></script>
 <script src="combat/ui.js"></script>
 <script src="combat/emergent/engine.js?v=1.2.4"></script>
 <script src="combat/emergent/content.js?v=1.2.4"></script>

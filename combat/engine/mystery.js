@@ -6,7 +6,8 @@
 // { unitId, side, ability, trigger, target, setRound, age }.
 // Budget 3 per side per battle; expiry after 2 rounds unrevealed, no refund.
 // Opponent view is COUNT ONLY (seeFoe) — no leaks, ever. The AI never reads
-// contents (its only readers are the counts-only mysteryUnitCount/mysteryBudgetLeft/mysteryOwnCount; sealed by tests/mystery-ai.test.mjs + tests/mystery-ai-s1.test.mjs).
+// contents (its only readers are the counts-only mysteryUnitCount/mysteryBudgetLeft/mysteryOwnCount/mysterySalvageCount; sealed by tests/mystery-ai.test.mjs + tests/mystery-ai-s1.test.mjs).
+// mysteryUnitView reads contents for Investigate (I4b), a paid look by a unit, never for ai.js.
 // Concealed stakes ride s.stakes.faceDown (engine/ante.js + account/ante.js).
 (function (root, install) {
   if (typeof module === "object" && module.exports) module.exports = install;
@@ -43,7 +44,7 @@
       if (freeFirst === "turn") (a.freeTurns ||= {})[ability] = a.ownerTurns;   // free-first stamps at set, like commit
       if (freeFirst === "battle") (a.freeBattle ||= {})[ability] = true;
       spent[a.side] = (spent[a.side] || 0) + 1;
-      mine.push({ unitId: a.id, side: a.side, ability, trigger, target: target ?? null, setRound: s.round || 1, age: 0 });
+      mine.push({ unitId: a.id, side: a.side, ability, trigger, target: target ?? null, setRound: s.round || 1, age: 0, n: (spent.player || 0) + (spent.enemy || 0) });   // n (Investigate I4b): this battle's set count at placement, so each face-down card has its own identity for a read
       log(s, { kind: "mystery", actor: a.id, text: `${a.name} sets a face-down card (${mine.length} down).`, why: ["Paid now, triggers later. The table sees a count, never contents."] });
       return null;
     }
@@ -98,10 +99,13 @@
     };
 
     // Manual reveal + fire (Techniques ▸ Reveal): the setter's oldest manual card.
-    function mysteryReveal(s, a, target) {
+    // RIK R1: an AI reveal names its reason in the log (why: "for the kill", "before it fades", "seizes the exchange"); the player's stays
+    // "revealed by hand". An exchange reveal marks the setter for this turn so its next decide commits to the finisher (ai.js exchangeFinisher).
+    function mysteryReveal(s, a, target, why = "revealed by hand", exchange = null) {
       const card = oldest(s, a.side, a.id, "manual");
       if (!card) return "No manual face-down card to reveal.";
-      const err = fireCard(s, card, target, "revealed by hand");
+      const err = fireCard(s, card, target, why);
+      if (!err && exchange && s.actors[exchange]) a.heldExchange = { victim: exchange, turn: a.ownerTurns };
       if (err) { log(s, { kind: "mystery", actor: a.id, text: `${a.name}'s set card holds.`, why: ["The table sees a count, never contents — the setter reads why privately."] }); return `The card holds: ${err}`; }
       return null;
     }
@@ -177,7 +181,7 @@
     function mysteryPlace(s, a, entry) {
       if (!mysteryRoom(s, a.side)) return `Face-down budget spent (${RULES(s).budget} per side).`;
       const spent = (s.mysterySpent ||= { player: 0, enemy: 0 }); spent[a.side] = (spent[a.side] || 0) + 1;
-      (lists(s)[a.side] ||= []).push(entry);
+      entry.n = (spent.player || 0) + (spent.enemy || 0); (lists(s)[a.side] ||= []).push(entry);   // n: as mysterySet
       return null;
     }
     const mysteryFoeCount = (s, side) => ({ count: (lists(s)[side] || []).filter((c) => c.kind !== "card").length });   // the foe view of Mystery: a card set counts only through Cards.viewFor (aware viewers)
@@ -193,6 +197,22 @@
     const mysteryBudgetLeft = (s, side) => Math.max(0, (RULES(s).budget ?? 3) - (s.mysterySpent?.[side] || 0));
     const mysteryOwnCount = (s, unitId, trigger) => ["player", "enemy"].reduce((n, side) => n + (s.mystery?.[side] || []).filter((c) => c.kind !== "card" && c.unitId === unitId && (!trigger || c.trigger === trigger)).length, 0);
 
-    return { mysterySet, mysteryReveal, mysteryForce, mysteryTick, mysteryTurnStart, mysteryAttacked, mysteryBeforeHit, mysteryRoom, mysteryPlace, mysteryCardCount, mysteryFoeCount, mysteryMigrate, mysteryUnitCount, mysteryBudgetLeft, mysteryOwnCount };
+    // S3's one more number (still counts only): how many of one setter's manual PLANS fade at the next round start (mysteryTick drops a plan
+    // once its age passes the expiry), across both lists for MCR-06. The AI's reveal policy salvages on it; ages and contents stay unread.
+    const mysterySalvageCount = (s, unitId) => ["player", "enemy"].reduce((n, side) => n + (s.mystery?.[side] || []).filter((c) => c.kind !== "card" && c.unitId === unitId && c.trigger === "manual" && c.age >= (RULES(s).expiry ?? 2)).length, 0);
+
+    // Investigate I4b (INVESTIGATE.md 11.2, re-cited on live: the foe view is side-based and count-only, so the paid read is
+    // this unit view). One unit's face-down cards, technique or Battle Card and trigger, across both lists (a converted
+    // setter's cards are read wherever they sit; nothing migrates). Read-only: it fires nothing and logs nothing; the
+    // caller records private findings. Never a reader for ai.js (the seal tests forbid it there).
+    const cardLib = () => (typeof module === "object" && module.exports ? require("../cards/cards.js") : globalThis.ConceptCombatCards);
+    function mysteryUnitView(s, unitId) {
+      if (!s.actors?.[unitId]) return [];
+      return ["player", "enemy"].flatMap((side) => (s.mystery?.[side] || []).filter((c) => c.unitId === unitId)).map((c) => c.kind === "card"
+        ? { kind: "card", cardId: c.cardId, trigger: c.trigger, n: c.n ?? null, name: cardLib()?.byId?.(c.cardId)?.name || "a card" }
+        : { kind: "ability", ability: c.ability, trigger: c.trigger, n: c.n ?? null, name: ab(c.ability)?.name || c.ability });
+    }
+
+    return { mysterySet, mysteryReveal, mysteryForce, mysteryTick, mysteryTurnStart, mysteryAttacked, mysteryBeforeHit, mysteryRoom, mysteryPlace, mysteryCardCount, mysteryFoeCount, mysteryMigrate, mysteryUnitCount, mysteryBudgetLeft, mysteryOwnCount, mysterySalvageCount, mysteryUnitView };
   })();
 });

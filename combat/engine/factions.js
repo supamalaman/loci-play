@@ -126,6 +126,13 @@
         return v && stanceFor(s, v, subject) === "enemy";
       });
     }
-    return { Factions, stanceFor, hostileSidesFor };
+    // Perks S1a / Chef S2: Parley.valenceAdd reads Factions.valence (natural now; meal valenceBonus later).
+    if (H.Parley?.useValence) H.Parley.useValence((s, a, b) => Factions.valence(s, a, b));
+    // Scenario afterCreate (SCENARIOS.md slice 5): place authored customers before the first turn (Market Day, Hostage Hall), then the scenario's own hook. Moved here from engine.js at merge (engine cap).
+    function scenarioCivilians(s, opts) {
+      if (Array.isArray(opts.civilians)) for (const c of opts.civilians) H.Civilian.present(s, c);
+      if (typeof opts.afterCreate === "function") opts.afterCreate(s, { placeCivilian: (spec) => H.Civilian.present(s, spec) });
+    }
+    return { Factions, stanceFor, hostileSidesFor, scenarioCivilians };
   })();
 });

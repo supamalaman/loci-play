@@ -11,6 +11,7 @@
     const Sage = () => (typeof module === "object" && module.exports ? require("../castings/sage.js") : globalThis.ConceptCombatSage) || null;
     const Spirit = () => (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null;
     const Orders = () => (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null;
+    const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
     const { Auras, Affinity, Bonds, ClassRuntime, Climate, INTERDICT, Imitation, MED, MindDuel, Parley, REVEAL, RITUAL, Traps, Vows, VK, WX, Workflow, ab, accountItems,
       actorAt, apply, auraH, availableAbilities, beliefSummonCandidate, chanted, classH, decider, dist, edgeDistance, fullCourtPressOptions, hasTrait,
       insightRules, isMonster, knownEnemyTraps, log, manifest, moduleArena, monsterCtx, moveOptions, onEdge, paths, presidentCanRecognize, presidentRules,
@@ -240,6 +241,14 @@
         return traceAiReturn("aiDecide:L211", ({ type: "resolveSummonUltimate", actor: a.id }));
       if (dc.kind === "turn" && a.status?.detained && (a.status.detained.until == null || a.status.detained.until >= a.ownerTurns)) return traceAiReturn("aiDecide:L212", ({ type: "end", actor: a.id }));   // Detained: beforeAbility, Strike and Move all refuse (previews skip those checks), but end/stall stay open — bank it and wait (end auto-stalls when tempo remains)
       if (dc.kind === "turn" && H.States?.blocksAll(s, a)) return traceAiReturn("aiDecide:states", ({ type: "end", actor: a.id }));   // States: shut out of everything but ending the turn
+      // RIK R1, the exchange's promise (the RIK spec; R-20261105-04, R-20261105-05, R-20261110-31): after a reveal that "seizes the
+      // exchange", the setter's next decides this turn commit to the cheap finisher, never the ultimate, ahead of every optional branch below
+      // (cards, hires, the Sage), so nothing spends the tempo first. The promise lapses at the turn's end (the marker names the turn) or when no
+      // finisher is left (the victim answered or fell): then the ordinary decide runs.
+      if (dc.kind === "turn" && a.heldExchange?.turn === a.ownerTurns) {
+        const f = exchangeFinisher(s, a, a.heldExchange.victim);
+        if (f) return traceAiReturn("aiDecide:exchangeFinish", f);
+      }
       if (dc.kind === "turn" && H.Cards) { const pick = H.Cards.aiPick(s, a); if (pick && apply(s, pick.act, { preview: true }).ok) { traceAiTerm("cardNecessity", pick.necessity); traceAiTerm("cardGoal", pick.goal); return traceAiReturn("aiDecide:cards", pick.act); } }   // Battle Cards (C5): one card, then the ordinary action on the next call; the one-card stamp stops a second
       if (dc.kind === "turn" && H.Instinct.lying(a)) {   // Survival Instincts: a lying unit stands once its rest is spent or it is no longer hurt; otherwise it keeps still
         const R = s.rules.survivalInstincts, st = a.status.playingDead;
@@ -450,6 +459,17 @@
         const marks = Object.values(s.actors).filter((t) => !t.defeated && !H.Tourist?.is(t) && t.side !== a.side && !t.notArrived)
           .sort((x, y) => (H.hasSight(s, a.x, a.y, x.x, x.y) ? 1 : 0) - (H.hasSight(s, a.x, a.y, y.x, y.y) ? 1 : 0) || dist(s, a.x, a.y, x.x, x.y) - dist(s, a.x, a.y, y.x, y.y));
         for (const t of marks) { const act = { type: "ability", actor: a.id, ability: "readSign", target: [t.x, t.y] }; if (apply(s, act, { preview: true }).ok) return traceAiReturn("aiDecide:L395", (act)); }
+      }
+      // Mystery S3, the held card (spec section 3): the reveal policy is a commitment, not a bid. A manual plan is revealed when it would fade
+      // unfired at the next round start (salvage over silence) or when the reveal kills now (lethal-now), and never into nothing. The reveal is
+      // free (prepaid at set) and does not end the turn, so the ordinary decide follows on the next call.
+      // RIK R1, the exchange: the reveal itself is chosen with the held-card commitment below (S3 and R1).
+      if (dc.kind === "turn" && s.rules.mystery?.ai && (H.mysteryOwnCount?.(s, a.id, "manual") || 0) > 0) {
+        const tries = revealTries(s, a), ro = bestReveal(tries), salvage = (H.mysterySalvageCount?.(s, a.id) || 0) > 0;
+        if (ro?.kill) return traceAiReturn("aiDecide:heldReveal", ({ ...ro.act, why: "for the kill" }));
+        const ex = exchangeReveal(s, a, tries);
+        if (ex) return traceAiReturn("aiDecide:exchange", ex);
+        if (ro && salvage) return traceAiReturn("aiDecide:heldReveal", ({ ...ro.act, why: "before it fades" }));
       }
 const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !to || !faithfulRetreat(s, a, to));   // Faithful: while its oath holds, no step that ends farther from the nearest foe than it stood at its last turn start (the oath's retreat term)
       const LA = !!s.rules.aiLedger?.lookahead, scored = [];
@@ -937,6 +957,9 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           const q = summonQuestions.pickQuestion(key, `${s.seed}:${s.round}:${id}:${key}`, { hintCount: summonQuestionHints ? summonQuestionHints(s, id, key) : 0 });
           if (!q) continue;
           const act = { type: "summon", actor: id, summon: key, unlocked: unlocked.slice(), questionId: q.id, answer: q.answer };
+          const occupied = new Set(Object.values(s.actors).filter((u) => !u.defeated).map((u) => `${u.x},${u.y}`));
+          const at = summonRules.placeSummon(s.arena, [a.x, a.y], occupied);
+          if (at && OG()?.inField(s.arena.objects, at[0], at[1])) continue;
           if (apply(s, act, { preview: true }).ok) out.push(act);
         }
       }
@@ -961,7 +984,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       if (Auras && !a.wild && Auras.aiValue(s, a, auraH()) != null) out.push({ type: "aura", actor: id });   // Auras
       { const MR = s.rules.mystery?.ai;   // Mystery S1 + S2: face-down sets for a setter with a foe in its trigger outlook. S1, counter-first: an on-attacked attack, never an ultimate (spec section 1). S2, patient: an on-turn-start attack, ultimates included (the set call's own gate: a full bar, or Mastery). First-come side budget, one plan per setter per trigger; the decide-time preview re-validates. No coin and no jitter (R-20261103-18: sets come from traits and necessity): a full bar plus an outlook offers the patient set every decide, and the cast comparison spends the bar whenever the cast is worth more.
         if (MR && (H.mysteryBudgetLeft?.(s, a.side) || 0) > 0 && setOutlook(s, a).length)
-          for (const trigger of ["on-attacked", "on-turn-start"]) {
+          for (const trigger of ["on-attacked", "on-turn-start", "manual"]) {   // S3, the held card: a manual plan is the same pool held for the reveal policy (revealTries) instead of a trigger; never an ultimate (the line below: ultimates are set on-turn-start only, R-20261109-06)
             if ((H.mysteryOwnCount?.(s, a.id, trigger) || 0) >= (MR.setMaxPerTrigger ?? 1)) continue;
             for (const x of authoredAbilities) {
               if (!x.affordable || x.m.effect !== "damage" || !(x.m.potency > 0)) continue;
@@ -1078,10 +1101,66 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     // is worn protection that hits back: it pays only if one of them attacks the wearer. The range is a judgement, not a proof:
     // a foe farther off may still arrive before the card expires, and the AI does not bet on it (spec section 1: no set with an
     // empty trigger outlook). Distance only, as the ledger counts worn protection: no sight test. Nearest first.
+    const setFoe = (s, a, t) => H.Instinct.standing(t) && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander" && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && H.Factions.atWar(s, a, t) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, t));   // a foe the setter fights (S3 shares it with revealTries)
     function setOutlook(s, a) {
       const R6 = s.rules.aiLedger?.threatRangeSelf ?? 6;
-      return Object.values(s.actors).filter((t) => H.Instinct.standing(t) && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander" && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && H.Factions.atWar(s, a, t) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, t)) && dist(s, a.x, a.y, t.x, t.y) <= R6)
+      return Object.values(s.actors).filter((t) => setFoe(s, a, t) && dist(s, a.x, a.y, t.x, t.y) <= R6)
         .sort((p, q) => dist(s, a.x, a.y, p.x, p.y) - dist(s, a.x, a.y, q.x, q.y));
+    }
+    // Mystery S3, the reveal policy's eyes: the best reveal of the setter's oldest manual plan, observed, never read. An AI plan stores no
+    // target (S2), so the reveal aims now: at each foe in the trigger outlook, nearest first, then at nothing (a self-centred blow). Each try
+    // is a preview settled with every answer "none" (the way reactChoice settles answers), so a kill here is a kill if the foe does not answer.
+    // A try counts only when it harms a foe the setter fights and nobody else: an ally, a civilian or a bystander losing any LF refuses it (a free
+    // card is not worth a wound to the setter's own side or a crime). Null when no try qualifies (re-validation refused, nothing to hit): silence.
+    // RIK R1 splits it in two so the exchange reads the same tries: revealTries (every qualifying try, with its settled state) and bestReveal.
+    const settleNone = (st) => { for (let n = 0; st.phase === "response" && n < 16; n++) { const who = decider(st)?.actor; const q = who && apply(st, { type: "respond", actor: who, response: "none" }, { preview: true }); if (!q?.ok) break; st = q.state; } return st; };
+    function revealTries(s, a) {
+      const out = [];
+      for (const target of [...setOutlook(s, a).map((t) => [t.x, t.y]), null]) {
+        const act = target ? { type: "revealIntent", actor: a.id, target } : { type: "revealIntent", actor: a.id };
+        const r = apply(s, act, { preview: true }); if (!r.ok) continue;
+        const st = settleNone(r.state);
+        let harm = 0, other = 0, kill = false, wrong = false;
+        for (const t of Object.values(s.actors)) {
+          const after = st.actors[t.id]; if (!after || t.defeated) continue;
+          const lost = Math.max(0, t.lf - after.lf), fell = !!after.defeated, foe = setFoe(s, a, t);
+          if (foe) { harm += lost; kill ||= fell; } else { other += lost; wrong ||= fell; }
+        }
+        if (wrong || other > 0 || harm <= 0) continue;
+        out.push({ act, kill, st, sc: (kill ? 1e6 : 0) + harm });
+      }
+      return out;
+    }
+    const bestReveal = (tries) => tries.reduce((b, x) => (!b || x.sc > b.sc ? x : b), null);
+    // RIK R1, the exchange's eyes. Same victim only (R-20261105-04 decision 1): the victim is the foe the reveal is aimed at (an AI plan stores
+    // no target, S3 departure 2, so the aim stands in for R-20261105-05's stored tile and no fifth seal reader is needed). The aimed try must
+    // wound the victim without felling it, and leave the setter to act next with tempo left; then a cheap finisher must fell that same victim.
+    // Observed outcomes only, answers settled "none" (decision 3). Null: no exchange, and the S3 rules decide alone.
+    function exchangeReveal(s, a, tries) {
+      for (const x of tries) {
+        const v = x.act.target && actorAt(s, x.act.target[0], x.act.target[1]);
+        if (!v || !setFoe(s, a, v) || x.st.actors[v.id]?.defeated || !(x.st.actors[v.id]?.lf < v.lf)) continue;
+        if (exchangeFinisher(x.st, a, v.id)) return { ...x.act, why: "seizes the exchange", exchange: v.id };
+      }
+      return null;
+    }
+    // The finisher: the cheapest strike or non-ultimate ability that fells the victim (fewest PhiF, then fewest AP), with nobody the setter
+    // does not fight hurt. No ultimate ever finishes an exchange (R1 decision 2) and the bar stays unspent (R-20261110-31). Null when none.
+    function exchangeFinisher(s, a, victimId) {
+      const me = s.actors[a.id], v = s.actors[victimId];
+      if (!me || !v || v.defeated || decider(s)?.actor !== a.id || !(me.tempo > 0)) return null;
+      let best = null;
+      for (const f of candidates(s, a.id, false, false)) {
+        if (f.type !== "strike" && f.type !== "ability") continue;
+        if (f.type === "ability" && manifest(s, me, f.ability)?.tier === "ultimate") continue;
+        const p = apply(s, f, { preview: true }); if (!p.ok) continue;
+        const st = settleNone(p.state);
+        if (!st.actors[victimId]?.defeated) continue;
+        if (Object.values(s.actors).some((t) => !t.defeated && !setFoe(s, me, t) && t.id !== me.id && (st.actors[t.id]?.lf ?? t.lf) < t.lf)) continue;
+        const after = st.actors[a.id] || me, cost = [me.pf - (after.pf ?? me.pf), me.tempo - (after.tempo ?? me.tempo)];
+        if (!best || cost[0] < best.cost[0] || (cost[0] === best.cost[0] && cost[1] < best.cost[1])) best = { f, cost };
+      }
+      return best?.f || null;
     }
     function threatValue(s, a, cand, def) {
       const L = s.rules.aiLedger, frac = def && L?.cover?.[def.effect];
@@ -1489,10 +1568,11 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         return (firstFor(cand.type) ? Math.max(v, COMMUNE_FIRST) : v) + ripOf(v);
       }
       if (cand.type === "setIntent") {   // Mystery S1 + S2: a delayed blow — the attack's value at the likeliest attacker (the nearest foe in the trigger outlook), discounted for the wait. On the damage scale (ΦF ×0.3), so casting now wins when it can. S2: an on-turn-start set waits longer (setPatienceMul), and a brave setter commits a full bar (braveUltSet). No watcher discount: a live rip holds the plan (Mystery.js hold), so no loss is priced.
-        const MR = s.rules.mystery?.ai; if (!MR || (cand.trigger !== "on-attacked" && cand.trigger !== "on-turn-start")) return 0;
+        const MR = s.rules.mystery?.ai; if (!MR || (cand.trigger !== "on-attacked" && cand.trigger !== "on-turn-start" && cand.trigger !== "manual")) return 0;
         const m = manifest(s, a, cand.ability, {}); if (!m || m.effect !== "damage" || !(m.potency > 0)) return 0;   // manifest opts mirror the set call's
         const victim = setOutlook(s, a)[0]; if (!victim) return 0;
-        const patient = cand.trigger === "on-turn-start", wait = patient ? (MR.setPatienceMul ?? 0.6) : (MR.setWaitMul ?? 0.7);
+        const patient = cand.trigger === "on-turn-start", held = cand.trigger === "manual", pm = MR.setPatienceMul ?? 0.6;
+        const wait = held ? pm * pm : patient ? pm : (MR.setWaitMul ?? 0.7);   // S3: a held plan fires at the latest one round before it fades (salvage), two round starts out, so it waits two patience ticks; that keeps it below the patient set whenever both are open
         return Math.min(m.potency, victim.lf) * wait - m.cost * 0.3 + (patient && m.tier === "ultimate" && H.hasTrait?.(a, "brave") ? (MR.braveUltSet ?? 2) : 0);   // no kill bonus, even when the blow would be lethal: the bonus is for kills the caller already believes in, and a delayed strike is not covered (kill-beats-all below, Mala 2026-10-19). A kill on the table now (a cast, or the oath that opens one) must outrank a counter that waits on the foe's choice.
       }
       { const o = cand.type === "strike" && cand.target && anchorsOf(s, a).find((p) => p.x === cand.target[0] && p.y === cand.target[1]);
@@ -1533,7 +1613,10 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         if (foeBld && (cand.type === "strike" || cand.type === "ability")) {   // break their works: what the building loses, and the aura with it
           const after = apply(s, cand, { preview: true }); if (!after.ok) return -1;
           const left = (after.state.arena.objects || []).find((p) => p.id === foeBld.id)?.hp ?? 0;
-          const dmg = foeBld.hp - left; if (dmg > 0) return dmg * 0.8 + (left <= 0 ? 10 : 0); } }
+          const dmg = foeBld.hp - left; if (dmg > 0) {
+            const orgoniteBonus = foeBld.type === "orgonite" && ((s.unlockedSummons || []).length || H.C?.characters?.[a.character]?.dreamer) ? 20 : 0;
+            return dmg * 0.8 + (left <= 0 ? 10 : 0) + orgoniteBonus;
+          } } }
       if (cand.type === "tameBeast" || cand.type === "markVessel" || cand.type === "callPack") return H.tamerValue(s, a, cand);
       if (cand.type === "communeIngredient") return totemWakeScore(s, a, cand);   // need only: 0 when no ally needs what the totem gives
       if (cand.type === "catchFish") { const R = s.rules.fish, room = s.rules.ultimateChargeMax - (a.ultimateCharge ?? 0), near = Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "civilian" && u.side !== "bystander" && Math.abs(u.x - a.x) + Math.abs(u.y - a.y) <= 3);

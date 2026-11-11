@@ -1,0 +1,49 @@
+/* Palace Night: the shared token file (Mala, 2026-11-10). The look's one source for
+   colours, fonts and label style. Two grounds: Palace (the game, Redux) on :root,
+   Observatory (the Atlas, the Observatory, orbit tools) under [data-pn-ground].
+   Existing token names are kept as aliases, so no existing rule is rewritten and
+   no value changes anywhere (Decision 2: no pixel changes). */
+
+@font-face { font-family: "Silkscreen"; src: url("combat/fonts/silkscreen-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Outfit"; src: url("combat/fonts/outfit-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Outfit"; src: url("combat/fonts/outfit-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+
+:root {
+  /* Roles. Palace values here; the Observatory block below overrides its own.
+     Roles the Palace ground has no step for (surface-2/3, faint, line-2) fall
+     back to the nearest Palace step; no game rule reads the tool-only names. */
+  --pn-ground: #1c1a21; --pn-surface: #26232c; --pn-surface-2: #26232c; --pn-surface-3: #26232c;
+  --pn-line: #3a3642; --pn-line-2: #3a3642;
+  --pn-text: #f3eee2; --pn-muted: #b3aabd; --pn-faint: #b3aabd;
+  --pn-accent: #e9c46a;
+  /* Defined once, available to both grounds, used by one today. */
+  --pn-focus: #7aa2ff;
+  --pn-good: #0ca30c; --pn-warn: #fab219; --pn-serious: #ec835a; --pn-critical: #e66767; --pn-blue: #3987e5;
+  --pn-r: 14px;
+  --pn-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --pn-pixel: "Silkscreen", ui-monospace, Menlo, monospace;
+  --pn-mono: ui-monospace, Menlo, monospace;
+  /* Game-name aliases: every value below is what web/style.css :root held. */
+  --bg: var(--pn-ground); --panel: var(--pn-surface); --line: var(--pn-line);
+  --text: var(--pn-text); --muted: var(--pn-muted); --accent: var(--pn-accent); --focus: var(--pn-focus);
+}
+
+/* Observatory ground. Same specificity as :root, later in the file, so it wins
+   where data-pn-ground="observatory" is set (PN2's tool pages; unset in PN1). */
+[data-pn-ground="observatory"] {
+  --pn-ground: #14141a; --pn-surface: #1b1b22; --pn-surface-2: #23232c; --pn-surface-3: #2c2c37;
+  --pn-line: rgba(255,255,255,.07); --pn-line-2: rgba(255,255,255,.13);
+  --pn-text: #f0efec; --pn-muted: #c3c2b7; --pn-faint: #8d8c86;
+  --pn-accent: #f0efec;
+  /* Tool-name aliases: every value below is what the Atlas inline :root and
+     the Observatory common.css :root hold today. */
+  --surface: var(--pn-ground); --surface-2: var(--pn-surface); --surface-3: var(--pn-surface-2); --surface-4: var(--pn-surface-3);
+  --line: var(--pn-line); --line-2: var(--pn-line-2);
+  --ink: var(--pn-text); --ink-2: var(--pn-muted); --ink-3: var(--pn-faint);
+  --accent: var(--pn-accent);
+  --good: var(--pn-good); --warn: var(--pn-warn); --serious: var(--pn-serious); --critical: var(--pn-critical); --blue: var(--pn-blue);
+  --r: var(--pn-r);
+}
+
+/* The small uppercase label, both grounds. */
+.pn-label { font: 600 11px var(--pn-mono); letter-spacing: .12em; text-transform: uppercase; }

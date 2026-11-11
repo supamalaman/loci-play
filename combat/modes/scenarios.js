@@ -85,6 +85,25 @@
     found.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
     return found[0] || [Math.min(1, w - 1), Math.min(1, h - 1)];
   }
+  // Far from the player (Sasquatch Sighting SC14): the walkable tile that maximises Manhattan distance from the player's spawn / tile.
+  function farSpot(arena, ctx, taken, participants) {
+    const map = arena.map || [], h = map.length, w = (map[0] || "").length;
+    const player = (participants || []).find((p) => p.id === "player"), px = player?.at?.[0] ?? arena.spawns?.player?.[0]?.[0] ?? 1, py = player?.at?.[1] ?? arena.spawns?.player?.[0]?.[1] ?? 1;
+    let best = null, bestD = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!walkable(arena, ctx, x, y) || taken.has(K(x, y))) continue;
+      const d = Math.abs(x - px) + Math.abs(y - py);
+      if (d > bestD) { bestD = d; best = [x, y]; }
+    }
+    return best || foeSpot(arena, ctx, taken, null);
+  }
+  // Hostages in the middle of the hall (SC12): walkable tiles nearest the map centre, skipping taken ones.
+  function middleSpots(arena, ctx, n, taken) {
+    const map = arena.map || [], h = map.length, w = (map[0] || "").length, mx = (w - 1) / 2, my = (h - 1) / 2, found = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (walkable(arena, ctx, x, y) && !taken.has(K(x, y))) found.push([x, y, Math.abs(x - mx) + Math.abs(y - my)]);
+    found.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+    return found.slice(0, n).map(([x, y]) => [x, y]);
+  }
   // Put every participant on the arena the way engine.js randomEncounterOptions does: player on the first player spawn,
   // the foes on the enemy spawns, the ally beside the player (or the second spawn), event arrivals on edge tiles.
   // foesOnly (the map is unchanged): the others keep their tiles and the foes are placed on what is left, so no foe lands on the ally or an arrival.
@@ -211,12 +230,21 @@
       parts = [...parts, ...ctx.eventParticipantsFor(fresh, parts, out.arenaData)];
       result = { ...result, randomEventSchedule: kept, participants: parts };
     }
-    // Wolf Season (SC06): unit-form wild animals laid on open ground at the foes' edge, the way wild/monsters.js spawn makes one (a wild unit is its own side and never holds the battle open).
-    for (const pack of (S.wild || []).filter((w) => w.kind === "wolf")) {
-      const def = ctx.W?.data?.monsters?.wolf; if (!def || !out.arenaData?.map) continue;
+    // Unit-form wild animals (Wolf Season SC06; Photo Safari SC13; Sasquatch Sighting SC14): laid on open ground at the foes' edge (or the far edge when `far`), the way wild/monsters.js spawn makes one (a wild unit is its own side and never holds the battle open).
+    // Pond Patrol (Wild Food Web W1) adds `near` and `closeTo` (lay it as close as possible to an animal of that kind laid before it). `near`: "water" lays the animal on open ground beside water, "host" beside a plant its kind feeds on (W.monsters[kind].hosts); the foes' edge (or the far edge) stays the fallback.
+    for (const pack of (S.wild || []).filter((w) => w.kind && ctx.W?.data?.monsters?.[w.kind]?.form === "unit")) {
+      const def = ctx.W.data.monsters[pack.kind], A = out.arenaData; if (!A?.map) continue;
       const taken = new Set((result.participants || []).filter((p) => p.at).map((p) => K(...p.at)).concat((result.initialWild || []).filter((u) => u.x != null).map((u) => K(u.x, u.y))));
+      const beside = (test) => { const found = []; A.map.forEach((row, y) => [...row].forEach((_, x) => { if (walkable(A, ctx, x, y) && !taken.has(K(x, y)) && !(A.objects || []).some((o) => o.x === x && o.y === y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => test(x + dx, y + dy))) found.push([x, y]); })); return found.sort((p, q) => p[1] - q[1] || p[0] - q[0]); };
+      const nearTo = pack.near === "water" ? (x, y) => ["w", "~"].includes(A.map[y]?.[x]) : pack.near === "host" ? (x, y) => (A.objects || []).some((o) => o.kind === "plant" && o.x === x && o.y === y && (def.hosts || []).includes(o.type)) : null;
       const units = [];
-      for (let i = 0; i < (pack.count || 1); i++) { const at = foeSpot(out.arenaData, ctx, taken, null); taken.add(K(...at)); units.push({ id: `wild-wolf-0-${i + 1}`, kind: "wolf", form: def.form, name: def.name, reason: "down from the ridge for the same reason you came", born: 0, x: at[0], y: at[1], lf: def.lf, maxLF: def.lf, status: {}, ...(def.sprite ? { sprite: def.sprite } : {}) }); }
+      for (let i = 0; i < (pack.count || 1); i++) {
+        const anchor = pack.closeTo && (result.initialWild || []).find((u) => u.kind === pack.closeTo), d = (q) => Math.abs(q[0] - anchor.x) + Math.abs(q[1] - anchor.y);   // closeTo: the spot nearest an animal already laid
+        const spots = nearTo ? beside(nearTo) : [], room = (q) => Math.min(99, ...(result.participants || []).filter((u) => u.at).map((u) => Math.abs(q[0] - u.at[0]) + Math.abs(q[1] - u.at[1])));   // else away from every fighter, so the scene has room to play
+        const at = !spots.length ? (pack.far ? farSpot(A, ctx, taken, result.participants) : foeSpot(A, ctx, taken, null)) : anchor ? spots.slice().sort((p, q) => d(p) - d(q))[0] : spots.slice().sort((p, q) => room(q) - room(p))[0]; taken.add(K(...at));
+        units.push({ id: `wild-${pack.kind}-0-${i + 1}`, kind: pack.kind, form: def.form, name: def.name, reason: pack.reason || (pack.kind === "sasquatch" ? "waiting in the trees" : "down from the ridge for the same reason you came"), born: 0, x: at[0], y: at[1], lf: def.lf, maxLF: def.lf, status: {}, ...(def.sprite ? { sprite: def.sprite } : {}),
+          ...(pack.kind === "moa" ? { nest: at.slice() } : {}), ...(pack.kind === "sasquatch" ? { home: at.slice() } : {}), ...(["sasquatch", "kraken"].includes(pack.kind) ? { traits: (def.traits || []).slice() } : {}) });   // the fields wild/monsters.js spawn() sets
+      }
       result = { ...result, initialWild: [...(result.initialWild || []), ...units] };
     }
     // A flash flood front (Hold the Ford, tier 3): a front-form wild thing starting on the highest open ground, the way the wild's own downpour places one (wild/monsters.js).
@@ -258,7 +286,7 @@
     const sideOf = (character) => (groups ? groups.find((g) => g.ids.includes(character)).crew : "enemy");
     const ids = warfare ? [] : groups ? groups.flatMap((g) => g.ids) : fixed ? fixed.slice() : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : pickFoes(S, base, seed, tier, ctx).ids;
     const n = warfare ? (base.participants || []).filter((p) => p.side === "enemy").length : ids.length, maxLF = LF_BY_COUNT[n];
-    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF, ...(S.foes?.traits?.[character] ? { traits: S.foes.traits[character].slice() } : {}) }));   // foes.traits: a scenario grants a class a trait (Spilled Pot)
+    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF, ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF, ...(S.foes?.traits?.[character] ? { traits: S.foes.traits[character].slice() } : {}), ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) }));   // foes.traits: a scenario grants a class a trait (Spilled Pot); foes.aggressive: Hostage Hall
     const others = warfare ? base.participants : (base.participants || []).filter((p) => !/^random-foe-/.test(p.id));
     let out = warfare ? { ...base } : { ...base, participants: [others[0], ...foes, ...others.slice(1)] };   // the player first, the foes, then the ally and event arrivals (the engine's order)
     if (S.quiet && !warfare) out = { ...out, participants: (out.participants || []).filter((p) => !p.eventActor && p.id !== "random-ally-1"), randomEventSchedule: (out.randomEventSchedule || []).filter((e) => e.type === "weather"), scenario: { ...(out.scenario || {}), ally: null } };   // teaching: a quiet duel — no ally, no event arrivals; weather stands
@@ -285,9 +313,24 @@
     if (S.phase) out.startPhase = S.phase;
     if (S.weather) out.randomEventSchedule = (out.randomEventSchedule || []).filter((e) => e.type !== "weather");   // a rolled weather event would re-roll the forced sky at round 1
     if (S.weather && ctx.Climate) out.weatherState = { ...ctx.Climate.rollWeather(out.arenaData, { seed: out.seed ?? seed, archetype: out.arenaData?.archetype }), id: S.weather };
+    // Photo Safari (SC13): one of two wild packs, seeded. Sasquatch Sighting and Wolf Season author a fixed list.
+    const pickedWild = Array.isArray(S.wildPick) && S.wildPick.length ? S.wildPick[Math.floor(hash(seed, "scenario:wild") * S.wildPick.length)] : (S.wild || null);
     // Tier 3 adds the scenario's one extra hazard (spec 3.3; Mala approved the list 2026-11-02): authored events, checkpoints and wild forms merged over the base ones.
-    const T = tier >= 3 && S.hazard ? { ...S, force: { ...(S.force || {}), ...(S.hazard.force || {}) }, checkpoints: [...(S.checkpoints || []), ...(S.hazard.checkpoints || [])], wild: [...(S.wild || []), ...(S.hazard.wild || [])] } : S;
+    const T = tier >= 3 && S.hazard ? { ...S, force: { ...(S.force || {}), ...(S.hazard.force || {}) }, checkpoints: [...(S.checkpoints || []), ...(S.hazard.checkpoints || [])], wild: [...(pickedWild || []), ...(S.hazard.wild || [])] } : { ...S, ...(pickedWild ? { wild: pickedWild } : {}) };
     if (T.force || T.wild) out = authorEvents(out, T, seed, ctx);
+    // Ward slice (SC11–SC14): Tourist via the engine's opts.tourist spawn; civilians via opts.civilians placed after create (engine afterCreate).
+    if (S.tourist) out = { ...out, tourist: true };
+    if (Array.isArray(S.civilians) && S.civilians.length) {
+      const taken = new Set((out.participants || []).filter((p) => p.at).map((p) => K(...p.at)));
+      const mids = S.civilians.some((c) => c.middle) ? middleSpots(out.arenaData, ctx, S.civilians.filter((c) => c.middle).length, taken) : [];
+      let mi = 0;
+      const civilians = S.civilians.map((c) => {
+        if (c.at) return { id: c.id, name: c.name, at: c.at.slice() };
+        if (c.middle && mids[mi]) { const at = mids[mi++]; taken.add(K(...at)); return { id: c.id, name: c.name, at }; }
+        return { id: c.id, name: c.name };
+      });
+      out = { ...out, civilians };
+    }
     const objective = { ...S.objective };
     // Spec 3.3: tier 1 gets two more rounds, tier 3 one fewer (floor 5); never past the 14-round ceiling objectives.js enforces.
     if (objective.deadline != null) objective.deadline = Math.min(14, tier <= 1 ? objective.deadline + 2 : tier >= 3 ? Math.max(5, objective.deadline - 1) : objective.deadline);

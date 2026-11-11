@@ -164,7 +164,7 @@
     const summonsMod = () => (typeof module === "object" && module.exports ? require("../summons/summons.js") : globalThis.ConceptCombatSummons);
     const familiarRules = () => dat().rules.familiar;
     function familiarSpot(s, a) {
-      const occupied = new Set(Object.values(s.actors).filter((x) => !x.defeated).map((x) => `${x.x},${x.y}`)), blocked = H.arrivalBlocked?.(s);
+      const occupied = new Set(Object.values(s.actors).filter((x) => !x.defeated).flatMap((x) => H.footprint(x).map(([fx, fy]) => `${fx},${fy}`))), blocked = H.arrivalBlocked?.(s);
       if (blocked) for (const k of blocked) occupied.add(k);
       const at = summonsMod().placeSummon(H.moduleArena(s.arena), [a.x, a.y], occupied, null);
       return at && H.dreamSame(s, a.x, a.y, at[0], at[1]) ? at : null;

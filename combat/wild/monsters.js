@@ -166,8 +166,34 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
 
   // ── telegraph (public intent, shown at round start) ─────────────────────
   const edible = (w) => (w.arena.objects || []).filter((o) => o.kind === "plant" && o.hp > 0 && !o.dead && !o.protected);
+  // ── the food web (Wild Food Web W1, claude-wild-food-web-spec; Mala R-20261108-01) ──
+  // A kind with `eats` hunts the wild kinds it lists before people (D1); prey runs from what eats it (scatter); a kill
+  // leaves the hunter eating for rules.hunt.fedRounds rounds (D2). Wild-on-wild damage goes through hurtIn, the same
+  // body hurtMonster uses. Grudges stay with the kinds that have them (the caterpillar, the Sasquatch): neither hunts.
+  const HUNT = () => W.rules.hunt || {};
+  const wildLive = (w) => w.wild.filter((x) => x.form === "unit" && !x.done && !x.fleeing && x.lf > 0);
+  const eating = (w, m) => !!m.fed && w.round <= m.fed.until;
+  const preyName = (kind) => W.monsters[kind].name.toLowerCase();
+  const strikeOf = (def) => def.bite ?? def.peck ?? def.slam ?? def.ram ?? def.kick ?? def.nip ?? def.strike ?? def.sting ?? 0;
+  const threatsTo = (w, m) => { const mine = W.monsters[m.kind]; return wildLive(w).filter((h) => h !== m && !eating(w, h)
+    && (W.monsters[h.kind].eats?.[m.kind] || (mine.fears || []).includes(h.kind)) && man(h.x, h.y, m.x, m.y) <= (HUNT().fearRange ?? 4)); };
+  function huntFor(w, m) {
+    const def = W.monsters[m.kind]; if (!def.eats || eating(w, m)) return null;
+    const reach = def.seekPrey ?? def.seekUnits ?? HUNT().seekRange ?? 6,   // seekPrey (W2): a kind that hunts farther than it bothers people (the flock)
+      d = (p) => man(p.x, p.y, m.x, m.y);
+    const meals = wildLive(w).filter((p) => p !== m && def.eats[p.kind] && d(p) <= reach)
+      .sort((a, b) => def.eats[b.kind] / d(b) - def.eats[a.kind] / d(a) || (a.id < b.id ? -1 : 1));
+    for (const p of meals) {
+      if (d(p) === 1) return { wild: p.id, tile: [m.x, m.y], why: `the ${preyName(p.kind)}` };
+      const r = route(w, [m.x, m.y], (x, y) => man(x, y, p.x, p.y) === 1 && !unitAt(w, x, y) && !wildAt(w, x, y), 99, !!def.waterOnly, !!def.deepWater);
+      if (r) return { wild: p.id, tile: r.path[r.path.length - 1], why: `the ${preyName(p.kind)}` };
+    }
+    return null;
+  }
   function targetFor(w, m) {
     const def = W.monsters[m.kind];
+    if (eating(w, m)) return null;
+    { const h = huntFor(w, m); if (h) return h; }
     if (m.kind === "gaia") {
       let unit = living(w).find(u => u.id === m.target && !isGaia(u));
       if (!unit) unit = prey(w).slice().sort((a, b) => man(a.x, a.y, m.x, m.y) - man(b.x, b.y, m.x, m.y) || (a.id < b.id ? -1 : 1))[0];
@@ -218,6 +244,10 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       const drift = waterTiles(w).filter(([x, y]) => !(x === m.x && y === m.y) && open([x, y]) && man(x, y, m.x, m.y) <= def.move * 3).sort((a, b) => man(a[0], a[1], m.x, m.y) - man(b[0], b[1], m.x, m.y))[0];
       return drift ? { tile: drift, why: "the deep water" } : null;
     }
+    if (m.kind === "chicken") {   // W2: no pest in reach (huntFor above), it pecks at a body that comes close; else it scratches about
+      const u = prey(w).filter((u) => man(u.x, u.y, m.x, m.y) <= def.seekUnits).sort((a, b) => man(a.x, a.y, m.x, m.y) - man(b.x, b.y, m.x, m.y) || (a.id < b.id ? -1 : 1))[0];
+      return u ? { unit: u.id, tile: [u.x, u.y], why: "the nearest body" } : null;
+    }
     if (m.kind === "wolf") {   // the straggler: fewest of its own side within 2, then nearest
       const near = (u) => living(w).filter((v) => v.id !== u.id && v.side === u.side && man(v.x, v.y, u.x, u.y) <= 2).length;
       const u = prey(w).filter((u) => man(u.x, u.y, m.x, m.y) <= def.seekUnits).sort((a, b) => near(a) - near(b) || man(a.x, a.y, m.x, m.y) - man(b.x, b.y, m.x, m.y) || (a.id < b.id ? -1 : 1))[0];
@@ -253,6 +283,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   function telegraph(w) {
     return w.wild.map((m) => {
       const def = W.monsters[m.kind];
+      if (m.form === "unit" && eating(w, m)) return { id: m.id, kind: m.kind, tiles: [], text: `${def.name} is eating.` };
       if (m.form === "unit") { const t = targetFor(w, m); return { id: m.id, kind: m.kind, tiles: t ? [t.tile] : [], text: t ? `${def.name} is heading for ${t.why} at (${t.tile.join(",")}).` : `${def.name} is wandering.` }; }
       if (m.form === "front") { const path = floodPath(w, m); return { id: m.id, kind: m.kind, tiles: path, text: `${def.name} will run ${path.length} tile${path.length === 1 ? "" : "s"} downhill.` }; }
       const front = frontier(w, m); return { id: m.id, kind: m.kind, tiles: front.map((f) => f.at), text: `${def.name} can spread to ${front.length} tile${front.length === 1 ? "" : "s"}.` };
@@ -286,7 +317,29 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     events.push({ kind: "wildHit", actor: sourceId, target: u.id, from: from.slice(), damage: dmg, channel, push: pushTo, sourceKind, ...(W.monsters[sourceKind] ? { monster: W.monsters[sourceKind].name } : {}), text: `${text} ${u.id} takes ${dmg}${pushTo ? ` and is pushed to (${pushTo.join(",")})` : ""}.`.trim() });
   }
 
+  // Prey within fear range of something that eats it moves away, as far as its move allows; cornered (no step farther away), it acts as usual.
+  function scatter(w, m, events) {
+    const def = W.monsters[m.kind], threats = threatsTo(w, m); if (!threats.length || m.curled) return false;
+    const gap = (x, y) => Math.min(...threats.map((h) => man(h.x, h.y, x, y)));
+    const wet = (x, y) => ["w", "~"].includes(w.arena.map[y]?.[x]);
+    const from = [m.x, m.y]; let budget = def.move, moved = false;
+    for (;;) {
+      const opts = DIRS.map(([dx, dy]) => [m.x + dx, m.y + dy]).filter(([x, y]) => inside(w.arena, x, y) && !unitAt(w, x, y) && !wildAt(w, x, y)
+        && (def.waterOnly ? wet(x, y) : walkable(w, x, y)) && gap(x, y) > gap(m.x, m.y))
+        .map(([x, y]) => ({ x, y, c: def.deepWater && w.arena.map[y]?.[x] === "~" ? 2 : G.stepCost(w.arena, m.x, m.y, x, y) }))
+        .filter((o) => o.c != null && o.c <= budget).sort((a, b) => gap(b.x, b.y) - gap(a.x, a.y) || (K(a.x, a.y) < K(b.x, b.y) ? -1 : 1));
+      if (!opts.length) break;
+      budget -= opts[0].c; m.x = opts[0].x; m.y = opts[0].y; moved = true;
+    }
+    if (!moved) return false;
+    const near = threats.slice().sort((a, b) => man(a.x, a.y, from[0], from[1]) - man(b.x, b.y, from[0], from[1]))[0];
+    events.push({ kind: "wildMove", id: m.id, from, to: [m.x, m.y], target: null, targetTile: [m.x, m.y], text: `${def.name} moves to (${m.x},${m.y}).` },   // the walk the battle screen animates (ui.js reads wildMove from/to)
+      { kind: "wildScatter", id: m.id, from, to: [m.x, m.y], threat: near.id, text: `${def.name} scatters from the ${preyName(near.kind)}.` });
+    return true;
+  }
   function actUnit(w, m, events) {
+    if (m.fed) { if (eating(w, m)) return; delete m.fed; }   // a fed hunter rests on its kill (D2), then hunts again
+    if (scatter(w, m, events)) return;
     const def = W.monsters[m.kind], t = targetFor(w, m);
     if (m.kind === "nettleCaterpillar") {
       m.curled = m.lf <= def.curlBelow * m.maxLF;
@@ -320,7 +373,17 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
         }
         if (goal(x, y)) break;
       }
-      if (steps) events.push({ kind: "wildMove", id: m.id, from, to: [m.x, m.y], target: t.unit || null, targetTile: t.tile.slice(), text: `${def.name} moves to (${m.x},${m.y}).` });
+      if (steps) events.push({ kind: "wildMove", id: m.id, from, to: [m.x, m.y], target: t.unit || t.wild || null, targetTile: t.tile.slice(), text: `${def.name} moves to (${m.x},${m.y}).` });
+    }
+    if (t.wild) {   // the hunt: one blow at the prey beside it (its own attack × preyMul), and a kill means a meal
+      const p = w.wild.find((x) => x.id === t.wild && !x.done && x.lf > 0);
+      if (p && man(p.x, p.y, m.x, m.y) === 1) {
+        const amount = Math.round(strikeOf(def) * (HUNT().preyMul ?? 2));
+        events.push({ kind: "wildHunt", id: m.id, target: p.id, tiles: [[p.x, p.y]], text: `${def.name} goes for the ${preyName(p.kind)}.` });
+        hurtIn(w, p, amount, null, events);
+        if (p.done) { m.fed = { until: w.round + (HUNT().fedRounds ?? 2), on: p.kind }; events.push({ kind: "wildFed", id: m.id, text: `${def.name} is eating.` }); }
+      }
+      return;
     }
     // act on whatever is in reach
     if (m.kind === "feralPig") {
@@ -345,8 +408,8 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       else if (bridge) { const t2 = bridge.tiles[0]; const r3 = S.groundImpact(w.arena, [[t2.x, t2.y]], def.eat, {}); w.arena = r3.arena; events.push({ kind: "wildEat", id: m.id, text: "Termites eat into the bridge." }, ...r3.events); }
       else { const v = DIRS.map(([dx, dy]) => biteAt(w, m.x + dx, m.y + dy)).find(Boolean); if (v) damageUnit(w, v, def.bite, def.channel, [m.x, m.y], events, 0, "Termites bite:", m.kind, m.id); }
     }
-    if (["ducks", "wolf", "moa", "porgy"].includes(m.kind)) {   // Muse-2's wild types: one blow at whoever is beside it, its target first
-      const hit = { ducks: [def.peck, "The ducks peck:"], wolf: [def.bite, "The feral dog bites:"], moa: [def.kick, "The moa kicks:"], porgy: [def.nip, "The porgy nips:"] }[m.kind];
+    if (["ducks", "chicken", "wolf", "moa", "porgy"].includes(m.kind)) {   // Muse-2's wild types: one blow at whoever is beside it, its target first
+      const hit = { ducks: [def.peck, "The ducks peck:"], chicken: [def.peck, "The chickens peck:"], wolf: [def.bite, "The feral dog bites:"], moa: [def.kick, "The moa kicks:"], porgy: [def.nip, "The porgy nips:"] }[m.kind];
       const victim = DIRS.map(([dx, dy]) => biteAt(w, m.x + dx, m.y + dy)).filter(Boolean).sort((a, b) => (a.id === t.unit ? -1 : b.id === t.unit ? 1 : a.id < b.id ? -1 : 1))[0];
       if (victim) { damageUnit(w, victim, hit[0], def.channel, [m.x, m.y], events, 0, hit[1], m.kind, m.id); if (def.skittish && roll(w, m.id, "bolt:" + w.round) < def.skittish) m.fleeing = "bolted after biting"; }
     }
@@ -471,6 +534,13 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   function hurtMonster(world, id, amount, by = null) {
     const w = clone(world), m = w.wild.find((x) => x.id === id), events = [];
     if (!m || m.form !== "unit") return { world: w, events };
+    hurtIn(w, m, amount, by, events);
+    return { world: w, events: events.concat(fleeing(w)) };
+  }
+  // The body of a hurt, in place (hurtMonster clones; the hunt runs inside the environment phase's own copy).
+  function hurtIn(w, m, amount, by, events) {
+    const id = m.id;
+    if (m.fed && amount > 0) { delete m.fed; events.push({ kind: "wildWake", id, text: `${m.name} is hurt off its meal.` }); }   // D2: a hurt wakes a feeding hunter
     if (m.kind === "nettleCaterpillar" && by && amount > 0) {            // docile until hurt: now it knows who did it
       if (!m.hostile || m.hostile.target !== by) events.push({ kind: "wildProvoked", id, target: by, text: "The caterpillar rears: it has been hurt, and it has marked who did it." });
       m.hostile = { target: by, until: w.round + W.monsters.nettleCaterpillar.hostileRounds };
@@ -493,7 +563,6 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       }
     }
     else if (m.kind === "feralPig" && m.lf <= 0.4 * m.maxLF) m.fleeing = "badly hurt";
-    return { world: w, events: events.concat(fleeing(w)) };
   }
 
   // ── flee / end ───────────────────────────────────────────────────────────
@@ -529,7 +598,8 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     const tryKind = (kind, cond, at, reason) => {
       if (!cond || !at || !canAppear(w, kind)) return;
       const rule = W.monsters[kind].appear.find((r) => r.when === cond);
-      if (roll(w, kind, "appear:" + cond) < rule.chance) events.push(spawn(w, kind, at, reason));
+      const follows = Object.keys(W.monsters[kind].eats || {}).some((k) => active(w, k)) ? (HUNT().followMul ?? 2) : 1;   // predators follow prey (W1)
+      if (roll(w, kind, "appear:" + cond) < rule.chance * follows) events.push(spawn(w, kind, at, reason));
     };
     // brushfire: repeated ground strikes on dry fuel in a fire-prone biome
     const bf = W.monsters.brushfire.appear[1];
@@ -565,8 +635,8 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       if (w.round >= pr.round && open.length) tryKind("porgy", "inWater", open[Math.floor(roll(w, "porgy", "where") * open.length)], "a salema rises in the shallows"); }
     { const kr = W.monsters.kraken.appear[0], open = waterTiles(w).filter(([x, y]) => !unitAt(w, x, y) && !wildAt(w, x, y));
       if (w.round >= kr.round && open.length) tryKind("kraken", "inWater", open[Math.floor(roll(w, "kraken", "where") * open.length)], "a kraken rises from the deep"); }
-    for (const kind of ["wolf", "moa", "sasquatch"]) { const r = W.monsters[kind].appear[0];
-      if (w.round >= r.round && r.biomes.includes(w.arena.archetype)) tryKind(kind, "roundAtLeast", edgeTileNear(w, [w.arena.map[0].length - 1, Math.floor(w.arena.map.length / 2)], kind), kind === "wolf" ? "a howl, and a feral dog trots in" : kind === "moa" ? "a moa stalks in and settles on a nest" : "something huge steps out of the treeline"); }
+    for (const kind of ["wolf", "moa", "sasquatch", "chicken"]) { const r = W.monsters[kind].appear[0];
+      if (w.round >= r.round && r.biomes.includes(w.arena.archetype)) tryKind(kind, "roundAtLeast", edgeTileNear(w, [w.arena.map[0].length - 1, Math.floor(w.arena.map.length / 2)], kind), kind === "wolf" ? "a howl, and a feral dog trots in" : kind === "moa" ? "a moa stalks in and settles on a nest" : kind === "chicken" ? "a rooster crows, and a feral flock struts in" : "something huge steps out of the treeline"); }
     const disturbance = w.arena.map.join("").split("").filter((c) => c === "*").length + debris.length + (w.disturbed || 0);
     if (disturbance >= W.monsters.creeper.appear[0].atLeast) {
       const soil = []; w.arena.map.forEach((r, y) => [...r].forEach((c, x) => { if ([",", "m"].includes(c) && !objAt(w, x, y) && !unitAt(w, x, y)) soil.push([x, y]); }));
@@ -579,7 +649,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     const w = clone(world), events = [];
     w.bait = w.bait.filter((b) => b.untilRound >= w.round);
     for (const m of [...w.wild]) {
-      if (!w.wild.includes(m)) continue;
+      if (!w.wild.includes(m) || m.done) continue;   // eaten earlier this phase (the food web): it does not act
       if (m.summoned && m.born >= w.round) continue; // newly called creatures begin acting next round
       if (m.suspended) continue;                     // held in a capture ritual's chant (engine.js C18)
       if (m.form === "unit") actUnit(w, m, events);

@@ -1,0 +1,54 @@
+/* Forum S2: the surface screen (surface-ui.js). Palace Night tokens (web/palace-night.css: --pn-*, --accent gold),
+   the Redux hero's painted sky and pixel sprites. While it shows, the map and its command windows step aside. */
+.cc.cc-surface-on .cc-arena, .cc.cc-surface-on .cc-windows { display: none; }
+.cc-surface { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 12px; min-height: 0; min-width: 0;
+  padding: 18px; border: 2px solid #4a4256; border-radius: 18px; overflow: auto;
+  background: linear-gradient(180deg, #1c1a2133 0%, #1c1a2166 55%, #1c1a21f2 100%), url("../sprites/sky/day.png") center / cover, var(--pn-surface);
+  box-shadow: 0 24px 60px -24px #000c, inset 0 1px 0 #ffffff12; font-family: var(--pn-sans); color: var(--pn-text); }
+.cc-surface-stage { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 16px; min-height: 240px; }
+.cc-surface-side { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.cc-surface-side.is-foe { justify-items: end; }
+.cc-surface-figure { position: relative; height: 220px; display: grid; place-items: end center; }
+.cc-surface-figure .cc-duel-art { position: relative; z-index: 1; height: 200px; image-rendering: pixelated; }
+.cc-surface-shadow { position: absolute; bottom: 2px; width: 60%; height: 14px; border-radius: 50%; background: radial-gradient(closest-side, #000a, transparent); }
+.cc-surface-gap { display: grid; gap: 4px; justify-items: center; padding-bottom: 40px; text-align: center; }
+.cc-surface-kicker { font: 400 11px var(--pn-pixel); text-transform: uppercase; letter-spacing: .12em; color: var(--pn-accent); }
+.cc-surface-gap b { font-size: 18px; white-space: nowrap; text-shadow: 0 2px 6px #000c; }
+.cc-surface-plate { display: grid; gap: 4px; min-width: 190px; max-width: 100%; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--pn-line); background: #1c1a21e6; }
+.cc-surface-plate.is-down { opacity: .55; }
+.cc-surface-bar { display: block; height: 6px; border-radius: 3px; background: #ffffff1a; overflow: hidden; }
+.cc-surface-bar i { display: block; height: 100%; background: var(--pn-good); transition: width .3s ease; }
+.cc-surface-stats { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--pn-muted); }
+.cc-surface-stats b { color: var(--pn-text); }
+.cc-surface-status { font-size: 11px; color: var(--pn-warn); }
+.cc-surface-menu { display: grid; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid var(--pn-line); background: #1c1a21f2; }
+.cc-surface-whose { font: 400 12px var(--pn-pixel); text-transform: uppercase; letter-spacing: .1em; color: var(--pn-accent); }
+.cc-surface-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.cc-surface-list button, .cc-surface-ask button, .cc-surface-open { display: inline-grid; gap: 2px; text-align: left; min-width: 0; max-width: 100%;
+  padding: 8px 14px; border-radius: 10px; border: 1px solid #5d5472; background: #2e2938e6; color: var(--pn-text); font: 600 14px var(--pn-sans);
+  overflow-wrap: anywhere; cursor: pointer; transition: transform .12s ease, border-color .12s; }
+.cc-surface-list button:hover:not(:disabled), .cc-surface-open:hover, .cc-surface-ask button:hover { border-color: var(--pn-accent); transform: translateY(-1px); }
+.cc-surface-list button:focus-visible, .cc-surface-open:focus-visible, .cc-surface-ask button:focus-visible { outline: 2px solid var(--pn-focus); outline-offset: 2px; }
+.cc-surface-list button:disabled { opacity: .55; cursor: default; }
+.cc-surface-list small, .cc-surface-open small { font-weight: 400; font-size: 11px; color: var(--pn-muted); }
+.cc-surface-sig { font-weight: 600 !important; }
+.cc-surface-sig.is-in-range, .cc-surface-sig.is-ready { color: var(--pn-good) !important; }
+.cc-surface-sig.is-out-of-range { color: var(--pn-muted) !important; }
+.cc-surface-sig.is-can-t-pay { color: var(--pn-serious) !important; }
+.cc-surface-sig.is-needs-the-map { color: var(--pn-blue) !important; }
+.cc-surface-moves { padding-top: 8px; border-top: 1px solid var(--pn-line); }
+.cc-surface-open { justify-self: start; background: var(--accent); border-color: var(--accent); color: #1c1a21; }
+.cc-surface-open small { color: #1c1a21b0; }
+.cc-surface-ask { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.cc-surface-ask p { flex-basis: 100%; margin: 0; font-size: 15px; }
+.cc-surface-ask .is-go { background: var(--accent); border-color: var(--accent); color: #1c1a21; }
+.cc-surface-wait { margin: 0; color: var(--pn-muted); }
+.cc-surface-hint { margin: 0; padding: 8px 12px; border-radius: 10px; border-left: 3px solid var(--pn-accent); background: #e9c46a14; font-size: 14px; }   /* S3: the first Forum fight's one hint */
+@media (max-width: 650px) {
+  .cc-surface { padding: 10px; }
+  .cc-surface-stage { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 0; }
+  .cc-surface-gap { grid-column: 1 / -1; grid-row: 1; padding-bottom: 0; }
+  .cc-surface-figure { height: 130px; }
+  .cc-surface-figure .cc-duel-art { height: 120px; }
+  .cc-surface-plate { min-width: 0; width: 100%; }
+}

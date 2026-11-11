@@ -125,7 +125,7 @@
       const a = s.actors[id]; if (a.tempo < H.jumpCost(s, a) || grappled(s, a) || H.relocationHold(s, a) || H.States?.refusesKind(s, a, "move") || (H.Injury?.gradeOf(a, "legs") || 0) === 2) return [];
       const kraken = a.kind === "kraken" || a.beast?.kind === "kraken";
       return DIRS.map(([dx, dy]) => [a.x + dx, a.y + dy]).filter(([x, y]) => inside(s, x, y) && dreamSame(s,a.x,a.y,x,y)
-        && heightAt(s, a.x, a.y) - heightAt(s, x, y) >= 2 && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!a.awakened || H.footOpen(s, a, x, y, "move")) && (!kraken || tileAt(s, x, y).tags?.includes("water")))   // TS-01: offer only landings the whole body fits; krakens only wet ones
+        && heightAt(s, a.x, a.y) - heightAt(s, x, y) >= 2 && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!H.sized(a) || H.footOpen(s, a, x, y, "move")) && (!kraken || tileAt(s, x, y).tags?.includes("water")))   // TS-01: offer only landings the whole body fits; krakens only wet ones
         .map((to) => ({ to, drop: heightAt(s, a.x, a.y) - heightAt(s, to[0], to[1]), damage: (heightAt(s, a.x, a.y) - heightAt(s, to[0], to[1]) - 1) * s.rules.fallDamagePerLevel / 2 }));
     }
     function climbOptions(s, id) {
@@ -133,7 +133,7 @@
       const kraken = a.kind === "kraken" || a.beast?.kind === "kraken";
       return DIRS.map(([dx, dy]) => [a.x + dx, a.y + dy]).filter(([x, y]) => inside(s, x, y) && dreamSame(s,a.x,a.y,x,y)
         && heightAt(s, x, y) - heightAt(s, a.x, a.y) >= 2 && !usableRamp(s, a.x, a.y, x, y)
-        && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!a.awakened || H.footOpen(s, a, x, y, "move")) && (!kraken || tileAt(s, x, y).tags?.includes("water")))
+        && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!H.sized(a) || H.footOpen(s, a, x, y, "move")) && (!kraken || tileAt(s, x, y).tags?.includes("water")))
         .map((to) => ({ to, rise: heightAt(s, to[0], to[1]) - heightAt(s, a.x, a.y) }));
     }
     // For the UI: every tile's legality for an ability, plus area/route for legal tiles.

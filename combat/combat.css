@@ -369,9 +369,6 @@
 .cc-hovercard .cc-hc-hint { margin-top: 5px; font-style: italic; }
 
 /* ── Character Studio (2026-10-08), after Grok's Sixfold codex. Fonts are bundled (OFL): combat/fonts/. ── */
-@font-face { font-family: "Silkscreen"; src: url("fonts/silkscreen-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "Outfit"; src: url("fonts/outfit-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "Outfit"; src: url("fonts/outfit-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
 .cc-card.cc-studio2 {
   --st-bg: #0b1224; --st-surface: #121a30; --st-raised: #1a2440; --st-fg: #f4ecdc; --st-muted: #8e97ad; --st-accent: #e2b15a; --st-line: #2c3858;
   --st-display: "Silkscreen", ui-monospace, Menlo, monospace; --st-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;

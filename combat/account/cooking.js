@@ -30,7 +30,10 @@
     coldBrew: { prep: "ready", tags: [] }, waterBottle: { prep: "ready", tags: ["water"] }, electrolytes: { prep: "ready", tags: ["water"] },
     mapoTofu: { prep: "dish", tags: [] }, hotpot: { prep: "dish", tags: [] }, marketBox: { prep: "dish", tags: [] },
     stadiumBloodyMary: { prep: "dish", tags: [] },   // a ballpark novelty: found or bought, never cooked
+    mush: { prep: "ready", tags: [] },   // FX1: the fallback mash — ready (20 AP), never a dish, tags of nothing so it feeds no recipe
   };
+  // Plant-tagged for the tea reserve (tea-refinement.md: herb/flower/greens; fungus excluded — mushroom tea is a future hook).
+  const PLANT_TAGS = ["herb", "flower", "greens"];
   const rules = {
     eatAp: { raw: 30, ready: 20, dish: 10 },   // AP to eat or drink, by preparation: the better prepared, the quicker to eat
     useAp: { common: 20, uncommon: 15, rare: 10, legendary: 5 },   // AP to use any other consumable, by rarity
@@ -79,8 +82,29 @@
   function available(items, { inBattle = false, cook = false } = {}) {
     return Object.keys(recipes).filter((id) => (!inBattle || cook || recipes[id].field) && match(items, id));
   }
+  // FX1 mush (docs/cooking-alchemy.md "Food expansion" #1 + #3): every two ingredients combine when no named
+  // recipe matches. First-fit pair order; categorically worse by construction (the mush item is heal-only).
+  // Reserve: while the tea refinement is un-unlocked, mush never takes the last plant-tagged ingredient —
+  // the pair must leave one plant-tagged item behind. `reserveTeaLeaf` defaults ON (the safe default: the
+  // gateway flag is absent until tea-T2 lands it, and absent means un-unlocked).
+  function mush(items, { reserveTeaLeaf = true } = {}) {
+    const food = items.map((id, k) => ({ id, k })).filter(({ id }) => isFood(id));
+    if (food.length < 2) return { ok: false, reason: "Mush needs two ingredients." };
+    const plant = (id) => tagsOf(id).some((t) => PLANT_TAGS.includes(t));
+    const reserve = reserveTeaLeaf && food.some(({ id }) => plant(id));
+    for (let a = 0; a < food.length; a++) for (let b = a + 1; b < food.length; b++) {
+      const rest = food.filter((_, k) => k !== a && k !== b);
+      if (reserve && !rest.some(({ id }) => plant(id))) continue;
+      const used = [food[a].k, food[b].k];
+      return { ok: true, out: "mush", used, rest: items.filter((_, k) => !used.includes(k)),
+        recipe: { name: "Mush", field: false, teach: "Whatever was in the pot, mashed. Filling, and nothing else." } };
+    }
+    const spared = food.find(({ id }) => plant(id));
+    return { ok: false, reason: `Mush spares the last ${I?.consumables?.[spared.id]?.name || spared.id}: one plant leaf is always kept back.` };   // shown only while the reserve is on; no promise of a rite that is not built yet
+  }
   // Cook from a list of ids: { ok, out, used: [indexes], rest: [ids left] } or { ok: false, reason }.
   function cook(items, recipeId, opts = {}) {
+    if (recipeId === "mush") return mush(items, opts);
     const r = recipes[recipeId];
     if (!r) return { ok: false, reason: "No such recipe." };
     if (opts.inBattle && !opts.cook && !r.field) return { ok: false, reason: `${r.name} is a full recipe: only a cook can make it mid-battle.` };
@@ -89,14 +113,19 @@
     return { ok: true, out: r.out, used, rest: items.filter((_, k) => !used.includes(k)), recipe: r };
   }
   // Between battles: cook from the stash (the ids in the pot), output goes to the stash.
-  function cookAtCamp(account, potIds, recipeId) {
+  // The tea reserve sunsets on the tea refinement's gateway flag (docs/cooking-alchemy.md "Food expansion" #3:
+  // "gated on the gateway flag; sunsets after unlock"). The flag is `account.refinements.hospitality.unlocked`, written
+  // by tea refinement slice T2 (muse-tea-refinement-spec, TEA-REFINEMENT.md section 3). Until T2 lands nothing writes
+  // it, so it reads absent and the reserve stays ON (the safe default); the day T2 writes it, the reserve turns off.
+  const teaReserveOn = (account) => !(account && account.refinements && account.refinements.hospitality && account.refinements.hospitality.unlocked === true);
+  function cookAtCamp(account, potIds, recipeId, { reserveTeaLeaf = teaReserveOn(account) } = {}) {
     const stash = { ...(account.stash || {}) };
     for (const id of potIds) { if (!(stash[id] > 0)) return { ok: false, account, reason: `No ${I.consumables[id]?.name || id} in your stash.` }; stash[id] -= 1; }
-    const r = cook(potIds, recipeId); if (!r.ok) return { ...r, account };
+    const r = cook(potIds, recipeId, recipeId === "mush" ? { reserveTeaLeaf } : {}); if (!r.ok) return { ...r, account };
     const back = { ...account.stash };
     for (const k of r.used) { const id = potIds[k]; back[id] -= 1; if (!back[id]) delete back[id]; }
     back[r.out] = (back[r.out] || 0) + 1;
     return { ok: true, account: { ...account, stash: back }, out: r.out, used: r.used.map((k) => potIds[k]) };
   }
-  return { FOOD, rules, recipes, tagsOf, prepOf, isFood, useCost, isCook, match, available, cook, cookAtCamp };
+  return { FOOD, rules, recipes, tagsOf, prepOf, isFood, useCost, isCook, match, available, cook, cookAtCamp, mush, PLANT_TAGS, teaReserveOn };
 });

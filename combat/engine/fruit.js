@@ -127,8 +127,21 @@
       const hero = s.actors[s.modeSetup?.hero || "player"]; if (!hero) return;
       hero.fruit = { id: f.id, ripe: !!f.ripe, ...(f.respec ? { respec: true, shapes: [...(f.shapes || [])], awakened: !!f.awakened } : {}) };
       if (f.respec) giveTrait(hero);
+      // Perfect Recall (S6c): the eater's study notes ride the fruit into the battle so a later look still has them.
+      if (f.id === "locus" && f.respec && f.studyNotes) s.fruitStudyNotes = { plant: { ...(f.studyNotes.plant || {}) }, structure: { ...(f.studyNotes.structure || {}) } };
       // The curse. sinksLikeAStone (insight-data.js) already sinks a Super ×2.5: the larger multiplier wins, never both.
       hero.passives = { ...(hero.passives || {}), cantSwim: true, drowningDamageMul: Math.max(hero.passives?.drowningDamageMul || 1, RULES.drowningMul) };
+    }
+    // Perfect Recall (S6c): the Locusfruit's passive under the feat model. +1 familiarity on Observe; study notes persist on the account.
+    const perfectRecall = (a) => fruitOf(a)?.id === "locus" && !!a.fruit?.respec;
+    const recallFamiliarity = (a, familiarity) => (perfectRecall(a) ? familiarity + 1 : familiarity);
+    // Notes are kept by question id (Fathom AD batch 8): a note shows only when this battle asks the same question of that
+    // object (Communion/Tsukumogami questionFor: battle seed and object), so "the study note is the question asked" holds.
+    const studyNoteOf = (s, kind, questionId) => (questionId && s.fruitStudyNotes?.[kind]?.[questionId]) || null;
+    function noteStudy(s, a, kind, questionId, clue) {
+      if (!perfectRecall(a) || !clue || !questionId || (kind !== "plant" && kind !== "structure")) return;
+      const notes = (s.fruitStudyNotes ||= { plant: {}, structure: {} });
+      (notes[kind] ||= {})[questionId] = clue;
     }
     const refinedOf = (a) => { const f = fruitOf(a); return f?.respec && f.ripe ? RULES.refined[f.id] || [] : []; };
     const awakenedOf = (a) => { const f = fruitOf(a); return f?.respec && f.awakened ? RULES.awakened[f.id] || [] : []; };
@@ -512,6 +525,6 @@
     function hunterEntrance(s) {
       if (s.actors.hunter) log(s, { kind: "hunter", actor: "hunter", text: `${s.actors.hunter.name} walks in from the edge of the fight: the Record pays for your head, and they mean to collect.`, why: ["Sinkerfruit: a posted head draws a hunter (how often, and who, follows the bounty)."] });
     }
-    return { withHunter, hunterEntrance, markFeat, refinedOf, awakenedOf, fruitTraitChecks, armAnimeFruit, fruitPushBonus, fruitRecoil, fruitAfterHit, fruitKilled, fruitKnocked, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitTurnStart, fruitRelease, fruitReach, fruitSoak, fruitResolve, fruitCast, fruitTurnEnd };
+    return { withHunter, hunterEntrance, markFeat, refinedOf, awakenedOf, fruitTraitChecks, armAnimeFruit, fruitPushBonus, fruitRecoil, fruitAfterHit, fruitKilled, fruitKnocked, fruitRules: RULES, carryFruit, fruitOf, fruitKitOf, damped, fruitBlocked, fruitRegen, fruitTakenMul, fruitDrift, fruitTurnStart, fruitRelease, fruitReach, fruitSoak, fruitResolve, fruitCast, fruitTurnEnd, perfectRecall, recallFamiliarity, studyNoteOf, noteStudy };
   })();
 });

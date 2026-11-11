@@ -126,6 +126,7 @@
     // and a brownie on a pick. Rare, so it can drop and ride the field shop (never dropOnly); not cooked (no recipe, no new ingredients).
     stadiumBloodyMary: { name: "Stadium Bloody Mary", rarity: "rare", biomes: [], dropWeight: 0.4, effect: { heal: 30, phiForce: 10 }, text: "Heal 30 LF and restore 10 ΦF. A tall Bloody Mary piled with a burger stack, a hot dog, an onion ring and a brownie on a pick: a whole ballpark meal and a drink in one glass." },
     // dishes: made, never found or sold (mapo tofu and hot pot)
+    mush: { name: "Mush", rarity: "common", biomes: [], cookOnly: true, effect: { heal: 8 }, text: "Heal 8 LF. Whatever was in the pot, mashed. Filling, and nothing else." },
     mapoTofu: { name: "Mapo tofu", rarity: "uncommon", biomes: [], dropOnly: true, effect: { heal: 14, phiForce: 6 }, text: "Heal 14 LF and restore 6 ΦF. Sichuan tofu in chili and beef." },
     hotpot: { name: "Hot pot", rarity: "uncommon", biomes: [], dropOnly: true, effect: { heal: 10, healAdjacentAllies: 10 }, text: "Heal 10 LF, and 10 LF to each ally beside you. A pot for sharing." },
 

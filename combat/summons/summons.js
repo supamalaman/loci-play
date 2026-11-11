@@ -17,6 +17,10 @@
 })(typeof self !== "undefined" ? self : this, function (SD, G) {
   const R = SD.rules, DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const man = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  // A body's tiles, anchor top-left (engine.js footprint). Technique and ultimate reach is measured from the nearest tile of a
+  // big summon's body (MX2: the two-tile Max Khan); a one-tile summon measures exactly as `man`.
+  const body = (u) => { const w = u.size?.w || 1, h = u.size?.h || 1, out = []; for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) out.push({ x: u.x + dx, y: u.y + dy }); return out; };
+  const reach = (u, me) => Math.min(...body(me).map((p) => man(u, p)));
   function roll(seed, tag) {
     let h = 2166136261;
     for (const c of `${seed}:${tag}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
@@ -145,7 +149,10 @@
   // MAX reveal (Mala, 2026-10-24): a revealed summon with a maxForm goes MAX permanently for this stay.
   // Double the turns left, the MAX body's LF and potency, the MAX technique ready on its next turn, and
   // a fresh ultimate (the new form has its own to give). Nothing here fades when the dream closes.
-  function revealMaxForm(actor) {
+  //
+  // A MAX form with a `size` (MX2: the Khan's winged rhino, {w:2,h:1}) rises into a bigger body. The engine finds the room
+  // first (maxRoom) and passes the anchor; the body never squeezes or overlaps, and with no room the channel is refused.
+  function revealMaxForm(actor, at = null) {
     const form=SD.summons[actor.summon?.key]?.maxForm;
     if(!form || !actor.summon?.trueForm || actor.summon.maxForm || actor.defeated || actor.lf<=0) return {actor,changed:false};
     const maxLF=Math.round(actor.maxLF*form.maxLFMul);
@@ -159,7 +166,22 @@
     const out={...actor,name:form.name,sprite:form.sprite || actor.sprite,maxLF,
       lf:Math.max(1,Math.round(maxLF*actor.lf/actor.maxLF)),passives,summon};
     if(form.traits) out.trueFormTraits=form.traits.map(t=>t.id);
+    if(form.size){ out.size={...form.size}; if(at){ out.x=at[0]; out.y=at[1]; } }
+    if(form.flies) out.winged=true;   // the flight carrier (class-runtime isFlyer): the same Flight rule every flyer uses
     return {changed:true,actor:out,text:form.text};
+  }
+  // Where a sized MAX form's body goes: the anchor of a footprint that covers the summon's own tile, trying the summon's
+  // tile as the anchor first (the body grows east), then one west. `open(x,y)` says whether a tile can take the new body
+  // (inside, walkable, no closed barrier, no other unit). Null = no room: the engine refuses before anything is spent.
+  function maxRoom(actor, open) {
+    const form=SD.summons[actor.summon?.key]?.maxForm, w=form?.size?.w || 1, h=form?.size?.h || 1;
+    if(w===1 && h===1) return [actor.x,actor.y];
+    for(let ax=actor.x; ax>actor.x-w; ax--) {
+      let fits=true;
+      for(let dy=0; dy<h && fits; dy++) for(let dx=0; dx<w && fits; dx++) { const x=ax+dx, y=actor.y+dy; if(!(x===actor.x && y===actor.y) && !open(x,y)) fits=false; }
+      if(fits) return [ax,actor.y];
+    }
+    return null;
   }
 
   // ── true-form techniques ──────────────────────────────────────────────────────────────────
@@ -170,15 +192,16 @@
   // Effects are applied by the engine (applyTrueFormEffects):
   //   damage {target,potency,channel}   stun {target,points}   root {target,turns}
   //   revealCard {target}               trash {tiles,hazard,rounds}   mushroom {at,heal,rounds}
+  //   ward {target,protection,turns}    (a petal ward: never on the summon itself, never over another kind of ward)
   function trueFormTechnique(snap, me) {
     const form=activeForm(me), T=form?.technique, state=me.summon?.technique;
     const idle=(summon=me)=>({fired:false,summon,effects:[],event:null});
     if(!T || !state || !me.summon.trueForm || me.defeated || (me.lf ?? 1)<=0) return idle();
     if(state.cooldown>0) return idle({...me,summon:{...me.summon,technique:{...state,cooldown:state.cooldown-1}}});
     const live=(u)=>u && !u.defeated && (u.lf ?? 1)>0 && !u.notArrived;
-    const hostiles=snap.units.filter(u=>live(u) && u.side!==me.side && !u.wild && u.category!=="bystander"), inRange=hostiles.filter(u=>man(u,me)<=T.range);   // bystanders are never technique targets (Mala: summons tacked the Tourist)
+    const hostiles=snap.units.filter(u=>live(u) && u.side!==me.side && !u.wild && u.category!=="bystander"), inRange=hostiles.filter(u=>reach(u,me)<=T.range);   // bystanders are never technique targets (Mala: summons tacked the Tourist)
     const allies=snap.units.filter(u=>live(u) && u.side===me.side);
-    const preferred=()=>{ const pick=pickTarget({...snap,units:snap.units.filter(u=>!u.wild)},me).target; return inRange.find(u=>u.id===pick) || [...inRange].sort((a,b)=>man(a,me)-man(b,me) || (a.id<b.id?-1:1))[0] || null; };
+    const preferred=()=>{ const pick=pickTarget({...snap,units:snap.units.filter(u=>!u.wild)},me).target; return inRange.find(u=>u.id===pick) || [...inRange].sort((a,b)=>reach(a,me)-reach(b,me) || (a.id<b.id?-1:1))[0] || null; };
     const free=(x,y)=>x>=0 && y>=0 && x<(snap.width ?? 99) && y<(snap.height ?? 99) && (!snap.isFree || snap.isFree(x,y));
     const mul=(me.summon.potencyMul || 1)*(me.summon.trueFormPotencyMul || 1)*(me.summon.maxFormPotencyMul || 1), k=(n)=>Math.round(n*mul);
     let effects=[], text="", tiles=null;
@@ -193,7 +216,7 @@
       effects=[{kind:"damage",target:t.id,potency:k(T.potency+T.perFriend*friends),channel:T.channel}]; tiles=[[t.x,t.y]];
       text=`${me.name} tags ${t.name || t.id}${friends?`, and ${friends} imaginary friend${friends===1?" joins":"s join"} in`:""}.`;
     } else if(T.kind==="decree") {
-      const t=[...inRange].sort((a,b)=>b.lf-a.lf || man(a,me)-man(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
+      const t=[...inRange].sort((a,b)=>b.lf-a.lf || reach(a,me)-reach(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
       effects=[{kind:"root",target:t.id,turns:T.rootTurns},{kind:"stun",target:t.id,points:T.stunPoints}]; tiles=[[t.x,t.y]];
       text=`${me.name} orders ${t.name || t.id} to kneel.`;
     } else if(T.kind==="deed") {
@@ -212,10 +235,11 @@
     } else if(T.kind==="isolate") {
       // Genghis Khan: the enemy with the fewest of its own side near it; ties go to the nearer, then the lower id.
       const near=(u)=>hostiles.filter(o=>o.id!==u.id && o.side===u.side && man(o,u)<=T.radius).length;
-      const t=[...inRange].sort((a,b)=>near(a)-near(b) || man(a,me)-man(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
+      const t=[...inRange].sort((a,b)=>near(a)-near(b) || reach(a,me)-reach(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
       const alone=near(t)===0;
       effects=[{kind:"damage",target:t.id,potency:k(T.potency+(alone?T.aloneBonus:0)),channel:T.channel}]; tiles=[[t.x,t.y]];
-      text=`${me.name} rides down ${t.name || t.id}${alone?", who stands alone":""}.`;
+      if(T.knock) effects.push({kind:"knock",target:t.id,tiles:T.knock});   // MAX Khan's Charge: the rider's weight carries through
+      text=`${me.name} ${T.knock?"charges":"rides down"} ${t.name || t.id}${alone?", who stands alone":""}.`;   // the knock logs its own push or resist
     } else if(T.kind==="streak") {
       // Kobe: the same shot on the same opponent. The count is kept on the technique state.
       const held=inRange.find(u=>u.id===state.streakTarget), t=held || preferred(); if(!t) return idle();
@@ -227,22 +251,29 @@
         event:{kind:"trueFormTechnique",actor:me.id,technique:T.id,tiles,text:`${T.name}: ${text}`,why:[T.text]}};
     } else if(T.kind==="dread") {
       // The least steady enemy in range: lowest ego, then the nearer, then the lower id.
-      const t=[...inRange].sort((a,b)=>(a.ego ?? 0.5)-(b.ego ?? 0.5) || man(a,me)-man(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
+      const t=[...inRange].sort((a,b)=>(a.ego ?? 0.5)-(b.ego ?? 0.5) || reach(a,me)-reach(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
       effects=[{kind:"dread",target:t.id,points:T.stunPoints,egoLoss:T.egoLoss}]; tiles=[[t.x,t.y]];
       text=`${me.name} turns every eye on ${t.name || t.id}.`;
     } else if(T.kind==="syllogism") {
       // Prefer a target that still has something hidden; otherwise the refutation alone.
       const hidden=(u)=>snap.hiddenCards?.[u.id] || 0;
-      const t=[...inRange].sort((a,b)=>(hidden(b)>0)-(hidden(a)>0) || (snap.effectsBy?.[b.id] || 0)-(snap.effectsBy?.[a.id] || 0) || man(a,me)-man(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
+      const t=[...inRange].sort((a,b)=>(hidden(b)>0)-(hidden(a)>0) || (snap.effectsBy?.[b.id] || 0)-(snap.effectsBy?.[a.id] || 0) || reach(a,me)-reach(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
       effects=[{kind:"revealCard",target:t.id},{kind:"stun",target:t.id,points:T.stunPoints}]; tiles=[[t.x,t.y]];
       text=`${me.name} reasons from first principles about ${t.name || t.id}.`;
+    } else if(T.kind==="petalWard") {
+      // Mitsuko MAX: the ward follows need. Lowest LF share first; never herself; it replaces only a weaker petal or flow-state ward.
+      const p=k(T.protection), share=(u)=>(u.lf ?? 1)/(u.maxLF || 1);
+      const t=allies.filter(u=>u.id!==me.id && reach(u,me)<=T.range && (!u.status?.ward || ((u.status.ward.petal || u.status.ward.flow) && u.status.ward.protection<p)))
+        .sort((a,b)=>share(a)-share(b) || reach(a,me)-reach(b,me) || (a.id<b.id?-1:1))[0]; if(!t) return idle();
+      effects=[{kind:"ward",target:t.id,protection:p,turns:T.turns}]; tiles=[[t.x,t.y]];
+      text=`${me.name} lays a ${p}-point petal ward on ${t.name || t.id}.`;
     } else if(T.kind==="sporefall") {
       const planted=(snap.fields || []).filter(f=>f.kind==="mushroom");
       if(planted.length>=T.maxOnField) return idle();
       const open=(u)=>DIRS.map(([dx,dy])=>[u.x+dx,u.y+dy]).filter(([x,y])=>free(x,y) && !planted.some(f=>f.x===x && f.y===y))
         .sort((a,b)=>a[1]-b[1] || a[0]-b[0])[0];
       // Most-hurt ally in range first (by missing share of LF); Zherm himself is always a candidate.
-      const order=allies.filter(u=>man(u,me)<=T.range).sort((a,b)=>a.lf/a.maxLF-b.lf/b.maxLF || man(a,me)-man(b,me) || (a.id<b.id?-1:1));
+      const order=allies.filter(u=>reach(u,me)<=T.range).sort((a,b)=>a.lf/a.maxLF-b.lf/b.maxLF || reach(a,me)-reach(b,me) || (a.id<b.id?-1:1));
       let at=null, beside=null; for(const u of order){ at=open(u); if(at){ beside=u; break; } }
       if(!at) return idle();
       effects=[{kind:"mushroom",at,heal:T.heal,rounds:T.rounds}]; tiles=[at];
@@ -327,6 +358,19 @@
       if (x >= 0 && y >= 0 && x < w && y < h && Math.abs(x - cx) + Math.abs(y - cy) <= radius) tiles.push([x, y]);
     return tiles;
   }
+  // A line ultimate (MX2: You Defended the Wrong Horizon): `length` tiles straight out from the body toward the aim, along
+  // whichever axis is farther (ties go east-west); no aim, or the aim on the body, runs east. Clipped to the board.
+  function lineFrom(summon, [cx, cy], length, snap) {
+    const tiles = body(summon), w = snap.width ?? 99, h = snap.height ?? 99;
+    const from = [...tiles].sort((a, b) => man({ x: cx, y: cy }, a) - man({ x: cx, y: cy }, b))[0];
+    const dx = cx - from.x, dy = cy - from.y;
+    const [sx, sy] = Math.abs(dx) >= Math.abs(dy) ? [dx < 0 ? -1 : 1, 0] : [0, dy < 0 ? -1 : 1];
+    const mine = (x, y) => tiles.some((p) => p.x === x && p.y === y);
+    let ox = from.x, oy = from.y; while (mine(ox + sx, oy + sy)) { ox += sx; oy += sy; }   // start at the body's edge on that side
+    const out = [];
+    for (let i = 1; i <= length; i++) { const x = ox + sx * i, y = oy + sy * i; if (x < 0 || y < 0 || x >= w || y >= h) break; out.push([x, y]); }
+    return out;
+  }
   function centreFor(play, snap, summon) {
     if (play.centre === "playerTarget") {
       if (Array.isArray(snap.playerTarget)) return snap.playerTarget.slice();
@@ -343,7 +387,7 @@
     const play = activeUltimate(summon).play;
     const centre = play.type === "nova" ? centreFor(play, snap, summon) : null;
     const announced = play.type === "nova";
-    const order = { type: play.type, centre, tiles: announced ? areaAround(centre, play.radius, snap) : null, announced,
+    const order = { type: play.type, centre, tiles: announced ? (play.shape === "line" ? lineFrom(summon, centre, play.length, snap) : areaAround(centre, play.radius, snap)) : null, announced,
       potencyMul: announced ? (rules.announceMultiplier ?? R.order.announceMultiplier) : 1,
       targetId: typeof snap.playerTarget === "string" ? snap.playerTarget : null, orderedRound: snap.round };
     return {
@@ -364,7 +408,7 @@
     const hostiles = snap.units.filter((u) => live(u) && u.side !== summon.side);
     const centre = order.centre || [summon.x, summon.y];
     const tiles = order.tiles || areaAround(centre, play.radius, snap);
-    const inArea = (u) => !tiles || tiles.some(([x, y]) => u.x === x && u.y === y);
+    const inArea = (u) => !tiles || body(u).some((p) => tiles.some(([x, y]) => p.x === x && p.y === y));   // any tile of a big body (MX2)
     const effects = [], mul = (summon.summon.potencyMul || 1) * (summon.summon.trueFormPotencyMul || 1) * (summon.summon.maxFormPotencyMul || 1) * (order.announced ? (order.potencyMul || R.order.announceMultiplier) : 1), k = (n) => Math.round(n * mul);
     if (play.type === "heal") for (const u of allies.filter(inArea)) effects.push({ kind: "heal", target: u.id, amount: Math.min(k(play.heal), (u.maxLF ?? u.lf) - u.lf) }), play.status && effects.push({ kind: "status", target: u.id, status: play.status });
     if (play.type === "buff") {
@@ -412,6 +456,6 @@
   // cannot call back: palace summons, bound dreams, monsters, bead beasts and tamed dreams are excluded,
   // as the enemy path excludes its own called actors (enemy-summons.js qualifies).
   const callsPalace = (actor) => actor?.side === "player" && !actor?.summon && !actor?.summonBinding && !actor?.monster && !actor?.beast && !actor?.tamed;
-  return { callsPalace, ownerState, freshen, revealTrueForm, revealMaxForm, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
+  return { callsPalace, ownerState, freshen, revealTrueForm, revealMaxForm, maxRoom, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
     canOrderUltimate, orderUltimate, resolveUltimate, orderLost, data: SD };
 });

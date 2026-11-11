@@ -80,8 +80,8 @@
     $("record").innerHTML = saveBroken ? "Your save could not be read" : a ? `Level <b>${a.level}</b> · ${a.wins}/${a.battles} won · ${a.seeds} Seeds` : "New player · level <b>1</b>";
     const gear = a ? new Set(a.gear.owned || []).size : 0;
     $("invCount").textContent = gear ? `${gear} piece${gear === 1 ? "" : "s"} of gear` : "win battles to find gear";
-    $("fight").disabled = saveBroken;
-    $("fight").title = saveBroken ? "Fighting now would start a new save over the one that could not be read." : "";
+    $("fight").disabled = saveBroken; $("forum").disabled = saveBroken;
+    $("fight").title = $("forum").title = saveBroken ? "Fighting now would start a new save over the one that could not be read." : "";
   }
 
   // ── inventory: equip the gear you have won ──
@@ -137,14 +137,16 @@
     const ch = Content.characters[id], config = ch.configs?.[0] || ch;
     write(CHAR_KEY, { classId: id, primary: ch.primary || config.primary, secondary: ch.secondary ?? config.secondary ?? "", lens: { ...(ch.lens || config.lens || {}) } });
   }
-  function fight() {
+  let lastStart = "quickBattle";   // Again replays the button that started this fight
+  function fight(how = "quickBattle") {
+    lastStart = how;
     loadAccount(); if (saveBroken) { renderDetail(); return; }
     selectCharacter(pick);
     if (game) { game.destroy(); game = null; }
     $("start").hidden = true; $("battle").hidden = false;
     try {
       game = UI.mount($("duelHost"), { onExit: home, town: false });
-      game.quickBattle();
+      if (how === "surfaceBattle") game.surfaceBattle(); else game.quickBattle();   // Forum (FORUM.md section 5) or Fight
     } catch (e) {
       console.error("Battle failed to start", e);
       $("duelHost").innerHTML = `<pre class="pk-error">The battle failed to start: ${esc(e?.stack || e)}</pre>`;
@@ -162,13 +164,14 @@
     const again = b.dataset.cmd === "again", leave = b.dataset.cmd === "exit" || b.id === "ccExit";
     if (!again && !leave) return;
     ev.preventDefault(); ev.stopImmediatePropagation();
-    again ? fight() : home();
+    again ? fight(lastStart) : home();
   }, true);
   new MutationObserver(() => {   // say "Fighters" where the game says "Library"
     $("duelHost").querySelectorAll('button[data-cmd="exit"]').forEach((b) => { if (/Library/.test(b.textContent)) b.textContent = b.textContent.replace("Library", "Fighters"); });
   }).observe($("duelHost"), { childList: true, subtree: true });
 
-  $("fight").onclick = fight;
+  $("fight").onclick = () => fight("quickBattle");
+  $("forum").onclick = () => fight("surfaceBattle");
   $("invOpen").onclick = openInventory;
   $("invClose").onclick = closeInventory;
   $("inventory").addEventListener("click", (ev) => { if (ev.target === $("inventory")) closeInventory(); });

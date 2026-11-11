@@ -94,7 +94,22 @@
 
     mitsuko: { name: "Mitsuko", trueForm: { name:"Mitsuko · True Form", sprite:"mitsuko-true-form", provisional:true,
       maxLFMul:1.5, potencyMul:1.25, pfRegenAdd:2, revealEffect:{kind:"dazzle",chance:0.4,fraction:0.25},
-      text:"Dream Space reveals Mitsuko's armored true form: +50% maximum LF, +25% technique potency and +2 ΦF regeneration per turn. She retains it until she disappears." }, source: "Mind palace", attitude: "protective", room: "garden-of-care", pact: { call: { pf: 4, seeds: 35 }, duration: 3 },
+      text:"Dream Space reveals Mitsuko's armored true form: +50% maximum LF, +25% technique potency and +2 ΦF regeneration per turn. She retains it until she disappears." },
+      // MAX (Mala, 2026-11-09, R-20261109-14 hot build; MX1): strength allocated by another's vulnerability. Her wards go to
+      // whoever needs them most and never to her; her MAX link sends the most-hurt ally's share to her.
+      maxForm: { sprite: "mitsuko-max", name: "Mitsuko · Sun Blossom MAX",
+        maxLFMul: 1.2, potencyMul: 1.25, turnsMul: 2, revealEffect: { kind: "petalWard", protection: 10, turns: 2 },
+        traits: [
+          { id: "fullBloom", name: "Full Bloom", text: "The dream becomes the garden: twice the turns on the field, and the form outlives the dream, returning to the palace when its turns end." },
+          { id: "petalWard", name: "Petal Ward", text: "+20% maximum LF and +25% technique potency. On rising she lays a 10-point petal ward on every ally in her region but herself, for 2 of their turns (it replaces only a weaker petal or flow-state ward). What she stores never protects her." } ],
+        technique: { id: "wardFollowsNeed", name: "The Ward Follows Need", kind: "petalWard", cooldown: 2, range: 4, protection: 8, turns: 2,
+          text: "The ally within 4 with the lowest share of its LF gets a petal ward of 8 base protection for 2 of its turns. Never Mitsuko herself, and it replaces only a weaker petal or flow-state ward, never armour, a hide or a cast ward. Every other turn." },
+        ultimate: { name: "No One Falls Alone, Unbroken", status: "spec", mechanism: "A consenting damage-sharing network that she carries for its weakest member.",
+          constraint: "Stored protection cannot protect Mitsuko herself; she takes the weakest share in full.",
+          play: { type: "heal", radius: 4, heal: 20, status: { id: "sharedBurden", shareDamage: true, carry: true, duration: 3 },
+          text: "Heals allies within 4 for 20 base LF and links them for 3 turns (the link ends as each one starts its third turn from now): damage to any linked ally is split evenly across the links, and while Mitsuko is on the field she takes the most-hurt linked ally's share herself." } },
+        text: "The dream pours into Mitsuko and she rises in full bloom: twice the turns, petal wards for everyone but herself, and a link she carries for the weakest." },
+      source: "Mind palace", attitude: "protective", room: "garden-of-care", pact: { call: { pf: 4, seeds: 35 }, duration: 3 },
       standIn: { primary: "adaptation", secondary: "barrier" },
       proposed: { primary: "Symbiosis", secondary: "Resilience", reserve: "Reciprocity", personal: "Care" },
       signature: { name: "I Will Carry It", status: "spec", mechanism: "Redirect part of an ally's incoming LF damage to herself; convert a bounded portion into protective capacity.", constraint: "Stored protection cannot protect Mitsuko herself.", counters: ["Sever the transfer route", "Separate allies", "Exhaust capacity"] },
@@ -247,7 +262,22 @@
         { id: "theOpenSteppe", name: "The Open Steppe", text: "He fights where the enemy is thin: +25% maximum LF and +15% technique potency, and The Unoccupied Route hits a lone enemy harder." } ],
       technique: { id: "unoccupiedRoute", name: "The Unoccupied Route", kind: "isolate", cooldown: 2, range: 6, radius: 2, potency: 9, aloneBonus: 5, channel: "nigredo",
         text: "Rides down the most isolated enemy within 6 (the one with the fewest of its own side within 2): 9 base impact damage, +5 if it stands entirely alone. Every other turn." },
-      text: "Dream Space reveals the Khan at the head of the horde: arrows for everyone, then the rider goes for whoever stands apart." }, source: "The Council; fictional game adaptation", attitude: "roaming", room: "council-genghis", pact: { call: { pf: 6, seeds: 50 }, duration: 3 }, realPerson: true,
+      text: "Dream Space reveals the Khan at the head of the horde: arrows for everyone, then the rider goes for whoever stands apart." },
+      // MAX (Mala, 2026-11-09, R-20261109-14 hot build; MX2): "a large two tile sprite". Distributed mobility: a winged
+      // rhino two tiles wide (east of him, else west; no room = the channel is refused, nothing spent), the shared Flight rule.
+      maxForm: { sprite: "max-khan", name: "Genghis Khan · Winged Horizon MAX",
+        maxLFMul: 1.2, potencyMul: 1.25, turnsMul: 2, size: { w: 2, h: 1 }, flies: true, revealEffect: { kind: "arrows", potency: 20 },
+        traits: [
+          { id: "wingedHorizon", name: "Winged Horizon", text: "The dream becomes the sky: twice the turns on the field, and the form outlives the dream, returning to the palace when its turns end. He rides a winged rhino two tiles wide, so he rises only where the tile east or west of him is open. He flies: +3 move, half the AP per step, and every step costs one move whatever the ground." },
+          { id: "heavierRain", name: "Heavier Rain", text: "+20% maximum LF and +25% technique potency. On rising, 20 base damage to every enemy on the field." } ],
+        technique: { id: "theCharge", name: "The Charge", kind: "isolate", cooldown: 2, range: 8, radius: 2, potency: 12, aloneBonus: 6, knock: 1, channel: "nigredo",
+          text: "Charges the most isolated enemy within 8 of his body (the one with the fewest of its own side within 2): 12 base impact damage, +6 if it stands entirely alone, and a knock back of 1 tile unless it holds its ground. Every other turn." },
+        ultimate: { name: "You Defended the Wrong Horizon", status: "spec", mechanism: "The approach nobody guarded: lion-fire down one open line.",
+          constraint: "The line is announced when ordered; it runs toward the player's target, so enemies can step off it.",
+          play: { type: "nova", shape: "line", length: 6, centre: "playerTarget", potency: 22, channel: "rubedo",
+          text: "Lion-fire down a line of 6 tiles straight out from his body toward the player's current target (along the longer axis; east with no target): 22 base LF damage to every hostile on it." } },
+        text: "The dream pours into the Khan and the rhino spreads its wings: twice the turns, a heavier rain of arrows, The Charge, and a line of lion-fire nobody defended." },
+      source: "The Council; fictional game adaptation", attitude: "roaming", room: "council-genghis", pact: { call: { pf: 6, seeds: 50 }, duration: 3 }, realPerson: true,
       standIn: { primary: "pathway", secondary: "elasticity" },
       proposed: { primary: "Connectivity", secondary: "Momentum", reserve: "Dispersion", personal: null },
       signature: { name: "The Unoccupied Route", status: "spec", mechanism: "Use connected, unoccupied space to expand delegated deployment routes.", constraint: "Benefits diminish as forces concentrate together.", counters: ["Close routes", "Compress the arena", "Force a narrow confrontation"] },

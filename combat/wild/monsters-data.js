@@ -16,11 +16,15 @@
 })(typeof self !== "undefined" ? self : this, function () {
 
   const rules = {
-    side: "wild",                 // hostile to every non-wild unit; wild monsters ignore each other
+    side: "wild",                 // hostile to every non-wild unit; wild monsters ignore each other, except along the food web (eats, below)
     phase: "environment",         // monsters act once per round, after every owner turn
     telegraph: true,              // next action is shown at round start (public), so players can bait them
     maxActive: 3,                 // at most 3 monsters, and at most one of each kind
     noAppearBeforeRound: 2,
+    // Wild Food Web W1 (claude-wild-food-web-spec, Mala R-20261108-01; numbers provisional, Mala 2026-11-09 "prov numbers good"):
+    // a kind's `eats` lists the wild kinds it hunts (weight = preference) before people; prey within fearRange of a kind that
+    // eats it scatters; a kill feeds the hunter for fedRounds rounds; a hunter is followMul likelier to appear while its prey is out.
+    hunt: { preyMul: 2, fearRange: 4, fedRounds: 2, followMul: 2, seekRange: 6 },
   };
 
   // form: "unit" (a body that moves and attacks), "front" (a moving surge), "field" (a set of tiles that spreads)
@@ -71,6 +75,8 @@
       teaches: "A fence is a boundary that works because it is continuous: one gap and the pig is through.",
       counters: ["barrier", "boundary"],
       lf: 30, move: 4, ram: 8, knockback: 1, rootsTo: { ",": "m" }, baitRange: 6,
+      eats: { termites: 1 },   // the food web (W1); eatsBasis cites each edge (.edu or agency; Kedge BD, 2026-11-09)
+      eatsBasis: "USDA APHIS, Managing Wild Pigs (aphis.usda.gov/sites/default/files/managing-feral-pigs.pdf): pigs root for earthworms and grubs, and insects show up in their stomach contents.",
       appear: [
         { when: "item", item: "bait", chance: 1 },
         { when: "roundAtLeast", round: 3, biomes: ["grove", "wetland"], chance: 0.08 },
@@ -126,6 +132,8 @@
       teaches: "The flock is the invasion: spare the koloa, remove the ferals.",
       counters: ["selectivity", "preservation"],
       lf: 10, move: 3, peck: 2, seekUnits: 4, seekWater: 6, skittish: 0,
+      eats: { nettleCaterpillar: 2, termites: 1 },
+      eatsBasis: "Mallards eat insects and insect larvae (Pennsylvania Game Commission mallard note; U. Michigan BioKIDS, Anas platyrhynchos); ducklings and adult ducks eat termites and their larvae (FAO, Small-scale poultry production). A caterpillar is a larva: the game reads it as insect larvae.",
       appear: [{ when: "nearWater", round: 2, chance: 0.12 }], ends: ["LF 0"],
     },
     porgy: {
@@ -148,6 +156,8 @@
       teaches: "Deep water hides big teeth. It cannot follow you ashore: the sand is the wall.",
       counters: ["movement", "selectivity"],
       lf: 70, move: 6, slam: 10, knockback: 1, seekUnits: 6, waterOnly: true, deepWater: true,
+      eats: { porgy: 2, ducks: 1 },
+      eatsBasis: "Giant Pacific octopus middens are mostly clams, crabs, fish and squid (Animal Diversity Web, U. Michigan); octopuses have been seen catching gulls and other seabirds (Anderson & Shimek, American Malacological Bulletin 32(2), 2014). The kraken is the myth at that scale.",
       traits: ["swimmer"], skittish: 0, ready: true,   // art landed with muse-kraken-cut (1.3.541, Bollard IN): ambient appear and summons are live
       appear: [{ when: "inWater", round: 3, chance: 0.10 }], ends: ["LF 0"],
     },
@@ -158,7 +168,23 @@
       teaches: "Predators single out the isolated: stay grouped.",
       counters: ["adjacency", "barrier"],
       lf: 24, move: 5, bite: 6, seekUnits: 8, skittish: 0.1,
+      eats: { ducks: 2, chicken: 2, moa: 1, feralPig: 1 },
+      eatsBasis: "Dogs kill nēnē (Hawaiʻi DLNR DOFAW) and take koloa eggs and ducklings (DLNR State Wildlife Action Plan 2025, waterbirds); dogs frequently kill adult kiwi, a large flightless bird (NZ Department of Conservation); feral dogs kill and eat juvenile wild pigs (Texas A&M NRI, Helcel et al. 2018). The chicken edge (W2) carries no citation yet: owed before the Codex shows eatsBasis (Tamarind BD, 2026-11-10).",
       appear: [{ when: "roundAtLeast", round: 3, biomes: ["grove", "rim", "quarry"], chance: 0.08 }], ends: ["LF 0", "flees at 40% LF"],
+    },
+    // Wild Food Web W2 (claude-wild-food-web-spec section 5; Tamarind BD, 2026-11-10; numbers provisional, the spec's "about"):
+    // a feral flock, prey for the dog (and the tiger, W3) and a hunter of termites and caterpillars: the player's living
+    // pest control. Small, quick, skittish. Art: cursor-wild-chicken-cut (sprites/wild-chicken; peck = punch, scatter = dodge).
+    chicken: {
+      name: "Feral chicken flock", form: "unit", wave: false, concept: "diffusion", channel: "citrinitas", sprite: "wild-chicken",
+      sci: "Gallus gallus (feral)",
+      basis: "Feral chickens, descended from the junglefowl Polynesians brought and from farm birds set loose by storms, roam Kauaʻi in flocks (Gering et al., Molecular Ecology 2015, Michigan State University).",
+      teaches: "A flock that eats your pests is help you did not plant: leave it room to forage and it clears the bugs for you.",
+      counters: ["selectivity", "barrier"],
+      lf: 10, move: 4, peck: 2, seekUnits: 2, seekPrey: 6, skittish: 0.3,   // it forages for pests across 6 tiles but pecks only at a body within 2
+      eats: { termites: 2, nettleCaterpillar: 1 },
+      eatsBasis: "Red junglefowl and their feral kin forage on seeds and invertebrates (Animal Diversity Web, U. Michigan, Gallus gallus); scavenging village chickens eat termites and insect larvae (FAO, Small-scale poultry production). A caterpillar is a larva.",
+      appear: [{ when: "roundAtLeast", round: 2, biomes: ["terrace", "grove"], chance: 0.10 }], ends: ["LF 0", "bolts after pecking (skittish)"],
     },
     moa: {
       name: "Moa", form: "unit", wave: false, concept: "berm", channel: "nigredo", sprite: "moa",

@@ -26,6 +26,7 @@
     const sealedNext = () => (typeof module === "object" && module.exports ? require("../sealed-next.js") : globalThis.ConceptCombatSealedNext);
     const DreamData = () => (typeof module === "object" && module.exports ? require("../dream/dream-data.js") : globalThis.ConceptCombatDreamData) || null;   // O2a: a dream monster's teaches for the observe result
     const Dream = () => (typeof module === "object" && module.exports ? require("../dream/dream.js") : globalThis.ConceptCombatDream) || null;   // O2b: naming the dream from Rituals
+    const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
     // defined by parts installed after this one: reached through H when called
     const aiAction = (...args) => H.aiAction(...args);
     const candidates = (...args) => H.candidates(...args);
@@ -115,6 +116,16 @@
     }
     // Why a unit cannot move at all, whatever the destination (shared by `move` and Scramble so the two cannot drift).
     // ── movement costs (moved verbatim from engine.js core, tsukumogami cap K3 2026-10-29)
+    // A big body that must fit its whole footprint where it moves or lands: a woken Tsukumogami, or a sized summon (MX2: the
+    // two-tile Max Genghis Khan). Big bosses keep their own rules (they are neither).
+    const sized = (u) => !!u && !!(u.awakened || u.summon) && ((u.size?.w || 1) > 1 || (u.size?.h || 1) > 1);
+    // Where a MAX form's bigger body goes (MX2: the Khan's winged rhino, 2x1): east of him, else west; null = no room, and
+    // the channel is refused before anything is spent. Open = inside, walkable, no water, no closed barrier, no unit, the
+    // same dream side and astral region. Never a squeeze or an overlap. The action and the menu ask this one question.
+    function maxRoomFor(s, t) {
+      const open = (x, y) => inside(s, x, y) && dreamSame(s, t.x, t.y, x, y) && (!H.astralSameRegion || H.astralSameRegion(s, t.x, t.y, x, y)) && !tileAt(s, x, y).blocksMove && !waterAt(s, x, y) && !(barrierAt(s, x, y) && !barrierAt(s, x, y).passable) && !unitAt(s, x, y);
+      return summonRules?.maxRoom ? summonRules.maxRoom(t, open) : [t.x, t.y];
+    }
     // Tsukumogami: every non-anchor tile of a big awakened body's footprint must be open at the new anchor.
     function footOpen(s, mover, nx, ny, kind, goal) {
       const w = mover.size?.w || 1, h = mover.size?.h || 1;
@@ -503,11 +514,11 @@
         if (!dreamSpaceRules) return "Dream Space is unavailable.";
         const result = dreamSpaceRules.focus(s.dreamSpace,a,act.radius,s.arena); if(result.error) return result.error;
         if (a.tempo<20) return "Compressing a dream needs 20 AP.";
-        const old = dreamSpaceRules.modsFor(a,s.dreamSpace);
+        const old = dreamSpaceRules.modsFor(a,s.dreamSpace,s.arena.objects);
         const error=spendTempo(s,a,20,"Compress Dream Space"); if(error) return error;
         s.dreamSpace=result.field;
         if (a.aura?.imbued && !a.aura.burning && s.dreamSpace.region) { a.aura.region = { ...s.dreamSpace.region }; a.aura.power = s.dreamSpace.concentration || 1; }   // folded aura tracks the compression
-        const next=dreamSpaceRules.modsFor(a,s.dreamSpace), add=next.apPerTurnAdd-old.apPerTurnAdd;
+        const next=dreamSpaceRules.modsFor(a,s.dreamSpace,s.arena.objects), add=(next.apPerTurnAdd||0)-(old.apPerTurnAdd||0);
         a.tempo+=add; a.tempoCapacity+=add;
         log(s,{kind:"dreamSpace",actor:a.id,text:`${a.name} compresses the dream to radius ${act.radius}: ×${next.potencyMul.toFixed(2)} potency, +${next.pfRegenAdd} ΦF regen, +${next.apPerTurnAdd} AP per turn; aura efficacy ×${s.dreamSpace.concentration}. Ambient intrusion chance ${Math.round(s.dreamSpace.appearChance*100)}% per round.`,why:["The centre stays fixed. Movement, ordinary attacks and summons cannot cross; an applicable boundary-penetrating technique can attack through."]});
       },
@@ -749,7 +760,7 @@
         const drop = heightAt(s, a.x, a.y) - heightAt(s, tx, ty);
         if (drop < 2) return "Jump is only needed for a drop of 2 or more levels.";
         if (tileAt(s, tx, ty).blocksMove || (barrierAt(s, tx, ty) && !barrierAt(s, tx, ty).passable) || unitAt(s, tx, ty)) return "The landing tile is blocked.";
-        if (a.awakened && !footOpen(s, a, tx, ty, "move")) return "The landing has no room for the whole body.";   // TS-01: a big awakened body must fit its footprint where it lands
+        if (sized(a) && !footOpen(s, a, tx, ty, "move")) return "The landing has no room for the whole body.";   // TS-01: a big body must fit its footprint where it lands
         const from = [a.x, a.y], fromHeight = heightAt(s, a.x, a.y); spendTempo(s, a, jumpCost(s, a), "Jump"); a.x = tx; a.y = ty; a.moved = true; if (!s.preview) ClassRuntime?.mise?.moved(s, a, classH());
         applyFall(s, a, a, fromHeight, heightAt(s, tx, ty), true, "jumping"); applyEntryEffects(s, a, a, tx, ty);
         if (!a.defeated) provokeOpportunity(s, a, from, [tx, ty]);
@@ -1086,7 +1097,7 @@
         if (a.tempo < cost.apCost + summonTax) return `Calling needs ${cost.apCost + summonTax} action points.`;
         if (a.pf < pf) return `Calling needs ${pf} ΦF.`;
         if ((s.seeds || 0) < seeds) return `Calling needs ${seeds} Seeds.`;
-        const at = summonRules.placeSummon(moduleArena(s.arena), [a.x, a.y], new Set(Object.values(s.actors).filter(x => !x.defeated).map(x => `${x.x},${x.y}`)), act.at || null);
+        const at = summonRules.placeSummon(moduleArena(s.arena), [a.x, a.y], new Set(Object.values(s.actors).filter(x => !x.defeated).flatMap(x => footprint(x).map(([fx, fy]) => `${fx},${fy}`))), act.at || null);   // every tile of a big body (MX2)
         if (!at) return "There is no open tile nearby for the summon.";
         if (!dreamSame(s,a.x,a.y,at[0],at[1])) return "Summons cannot cross the sealed Dream Space.";
         const spend = spendTempo(s, a, cost.apCost + summonTax, `Call ${def.name}`); if (spend) return spend;
@@ -1208,7 +1219,7 @@
         const born = C.characters[a.character]?.dreamer || {};   // a born dreamer (Sita): less charge, fewer AP, a longer dream
         const openLess = (Vows && act.vow?.boon ? Vows.BOONS[act.vow.boon].effect.openLess || 0 : 0) + (born.openLess || 0);   // Vows: Early Dream
         const opening = H.dreamOpening(s, openLess);   // by night: less charge needed and fewer action points (rules.time)
-        const check = dreamSpaceRules.canOpen(a, opening.rules, s.dreamSpace, knowledge);
+        const check = dreamSpaceRules.canOpen(a, opening.rules, s.dreamSpace, knowledge, s.arena.objects);
         if (!check.ok) return check.reason;
         const cost = Math.round(opening.ap * (born.apMul ?? 1));
         if (a.tempo < cost) return `Opening a Dream Space needs ${cost} action points.`;
@@ -1216,7 +1227,7 @@
         const opened = dreamSpaceRules.open(a, { round: s.round, ...knowledge });
         s.dreamSpace = opened.field;
         Object.assign(a, opened.caster);
-        const mods = dreamSpaceRules.modsFor(a, s.dreamSpace);
+        const mods = dreamSpaceRules.modsFor(a, s.dreamSpace, s.arena.objects);
         if (mods.apPerTurnAdd) { a.tempo += mods.apPerTurnAdd; a.tempoCapacity += mods.apPerTurnAdd; }
         log(s, { ...opened.event, kind: "dream_opened" });   // cutscene kind (dreamScenes still matches it)
         H.Inspiration.roll(s, a, "opensDream");
@@ -1257,7 +1268,8 @@
       },
       revealIntent(s, a, act) {   // Mystery (Muse W2.5): reveal + fire the oldest manual card (T1+ announce). Free: prepaid at set.
         if (!H.mysteryReveal) return "No mystery here.";
-        return H.mysteryReveal(s, a, act.target) || undefined;
+        const why = ["for the kill", "before it fades", "seizes the exchange"].includes(act.why) ? act.why : undefined;   // RIK R1: the AI's three reasons; the UI sends none, so a player reveal reads "revealed by hand"
+        return H.mysteryReveal(s, a, act.target, why, why === "seizes the exchange" ? act.exchange : null) || undefined;
       },
       myol(s, a, act) {   // MYOL (W5.3): buy the failed trick back after seeing the roll. No AP; Seeds leave the account in the UI.
         if (!H.myolApply) return "No luck to make here.";
@@ -1666,6 +1678,16 @@
         const before = a.pf; a.pf = Math.min(a.maxPF, a.pf + s.rules.recover.amount);
         log(s, { kind: "act", actor: a.id, text: `${a.name} recovers ${a.pf - before} ΦF (${a.pf}/${a.maxPF}). Not again next turn.` });
       },
+      plantOrgonite(s, a, act) {
+        const O = OG(); if (!O) return "Orgonite is unavailable.";
+        const at = act.at || [];
+        const no = O.plantError(s, a, at); if (no) return no;
+        const spend = spendTempo(s, a, O.RULES.ap, O.COPY.plant); if (spend) return spend;
+        s.orgonite = s.orgonite || { player: 0, enemy: 0 };
+        s.orgonite[a.side] = Math.max(0, (s.orgonite[a.side] || 0) - 1);
+        s.arena.objects.push(O.makeTower(s, a, at[0], at[1]));
+        log(s, { kind: "build", actor: a.id, tiles: [at], text: `${a.name} plants an ${O.RULES.name} at (${at[0]},${at[1]}) (${O.RULES.hp} HP).`, why: [O.COPY.help] });
+      },
       catchFish(s, a, act) {   // dream fish (engine/conditions.js fishRound): from beside the water, or standing in it
         const R = s.rules.fish; if (!R) return "There are no fish in this battle.";
         const f = H.fishNear(s, a).find((x) => !act.at || (x.x === act.at[0] && x.y === act.at[1])); if (!f) return "Stand beside a fish in the water.";
@@ -1707,11 +1729,28 @@
         const know = bySubject[t.id] || insightRules.spawnKnowledge(s.insight.decks[t.id]);
         const spent = a.tempo, ap = spent - woundTax;   // current AP only: never tempo debt, overclock, a Survey Flag or a codex look; a wounded head loses the tax from the study, not from the spend
         const detail = a.focus?.target === t.id && (a.focus.expiresAt ?? 0) > a.ownerTurns && a.focus.detail;   // retained detail: +1 point free, as Observe
-        const result = insightRules.investigate({ focusPointBonus: (hasTrait(a, "perfectConcentration") ? s.rules.concentration?.perfect?.observePoints || 0 : 0) + (detail ? 1 : 0), demonstrated: demonstratedTraits(s, t.id), demonstratedBonus: REVEAL.observeBonus, deck: s.insight.decks[t.id], know, cognitive: H.Observation.cognitive(s, a), subjectKey: t.id, ap, name: t.name, focusKind: act.focus || null, directorsVision: hasTrait(a, "directorsVision"),
+        let result = insightRules.investigate({ focusPointBonus: (hasTrait(a, "perfectConcentration") ? s.rules.concentration?.perfect?.observePoints || 0 : 0) + (detail ? 1 : 0), demonstrated: demonstratedTraits(s, t.id), demonstratedBonus: REVEAL.observeBonus, deck: s.insight.decks[t.id], know, cognitive: H.Observation.cognitive(s, a), subjectKey: t.id, ap, name: t.name, focusKind: act.focus || null, directorsVision: hasTrait(a, "directorsVision"),
           visualPointBonus: (hasTrait(a, "twentyTwentyVision") ? insightRules.data.rules.observe.twentyTwentyBonus : 0) + (hasTrait(a, "spiritSight") ? 1 : 0),
           shared: s.scoutShare?.[a.id]?.[t.id] || 0, seesSpirits: insightRules.seesSpirits(a) });
-        if (result.error) return result.error;
+        // I4b (INVESTIGATE.md 11.2): Investigate also reads the target's face-down cards, technique and trigger, without
+        // firing any, and the duel partner's concealed lot. Unread ones are something left to find, so they lift the
+        // empty-deck refusal (that one only). A card or lot already read is not read again.
+        const mine = s.findings?.holders?.[a.id] || {}, words = s.rules.mystery?.triggerWords || {};
+        const down = (H.mysteryUnitView?.(s, t.id) || []).map((c, i) => ({ ...c, id: `facedown:${t.id}:${c.n ?? `i${i}`}:${c.kind === "card" ? `card:${c.cardId}` : c.ability}:${c.trigger}` })).filter((c) => !mine[c.id]);   // one id per card (its set number n), so twins are each read and a re-set card is a new read
+        const lot = s.stakes?.faceDown && s.stakes.state === "agreed" && s.stakes.leaderId === t.id && !mine[`lot:${t.id}`] ? (s.stakes.foeLot || []) : null;
+        if (result.error && !(result.empty && (down.length || lot))) return result.error;
+        if (result.error) result = { know, cognitive: result.cognitive, revealed: [], unlocked: [], lines: [] };
         const spend = spendTempo(s, a, spent, "Investigate"); if (spend) return spend;
+        for (const c of down) {
+          const text = `${t.name} is holding ${c.name}, set to fire ${words[c.trigger] || c.trigger}.`;
+          H.Observation.recordFact(s, a, { id: c.id, kind: "facedown", subject: t.id, n: c.n, ability: c.ability || null, cardId: c.cardId || null, trigger: c.trigger, text }, "investigate");
+          result.lines.push(text);
+        }
+        if (lot) {
+          const text = `${t.name}'s concealed lot: ${lot.map((it) => it.kind).join(", ") || "nothing"}.`;
+          H.Observation.recordFact(s, a, { id: `lot:${t.id}`, kind: "lot", subject: t.id, text }, "investigate");
+          result.lines.push(text);
+        }
         observedFx(s, a, t);   // only once the look is paid for: a refused Investigate shows nothing
         if (detail) { a.focus.detail = false; log(s, { kind: "observe", actor: a.id, target: t.id, text: `${a.name}'s retained detail on ${t.name} adds +1 point to the study.` }); }
         observeTail(s, a, t, result, { bySubject, invest: ap, free: false, aiText: `${a.name} studies ${t.name} closely, and ends the turn.` });
@@ -1746,9 +1785,9 @@
           const snap = { round: s.round, units: Object.values(s.actors), wild: s.wild, playerSeeds: s.seeds || 0,
             alliesOf: Object.fromEntries(Object.values(s.actors).map((u) => [u.id, Object.values(s.actors).filter((v) => v.side === u.side && v.id !== u.id && !v.defeated).map((v) => v.id)])),
             fire: s.arena.map.some((row) => row.includes("f")) };
-          const result = insightRules.observe({ focusPointBonus: hasTrait(a, "perfectConcentration") ? s.rules.concentration?.perfect?.observePoints || 0 : 0, dreamerPointBonus: hasTrait(a, "trepanation") ? dreamSpaceRules?.modsFor(a, s.dreamSpace)?.dreamObservePointBonus || 0 : 0,   /* TP-02: only the hole reads the extra point; plain dreamers (casterMods also carries 1) are unchanged */ demonstrated: demonstratedTraits(s, t.id), demonstratedBonus: REVEAL.observeBonus, deck: s.insight.decks[t.id], know, cognitive: H.Observation.cognitive(s,a), subjectKey: t.id, invest: invest + (detail ? 10 : 0), inDreamSpace: !!s.dreamSpace && dreamSpaceRules.contains(s.dreamSpace,a.x,a.y), seed: s.seed + s.round,
+          const result = insightRules.observe({ focusPointBonus: hasTrait(a, "perfectConcentration") ? s.rules.concentration?.perfect?.observePoints || 0 : 0, dreamerPointBonus: hasTrait(a, "trepanation") ? dreamSpaceRules?.modsFor(a, s.dreamSpace, s.arena.objects)?.dreamObservePointBonus || 0 : 0,   /* TP-02: only the hole reads the extra point; plain dreamers (casterMods also carries 1) are unchanged */ demonstrated: demonstratedTraits(s, t.id), demonstratedBonus: REVEAL.observeBonus, deck: s.insight.decks[t.id], know, cognitive: H.Observation.cognitive(s,a), subjectKey: t.id, invest: invest + (detail ? 10 : 0), inDreamSpace: !!s.dreamSpace && dreamSpaceRules.contains(s.dreamSpace,a.x,a.y), seed: s.seed + s.round,
             visualPointBonus: (hasTrait(a, "twentyTwentyVision") ? insightRules.data.rules.observe.twentyTwentyBonus : 0) + (hasTrait(a, "directorsVision") ? 2 : 0) + (hasTrait(a, "spiritSight") ? 1 : 0),   // Spirit Sight (Oni-blooded): one more
-            shared: s.scoutShare?.[a.id]?.[t.id] || 0, seesSpirits: insightRules.seesSpirits(a) });
+            shared: (s.scoutShare?.[a.id]?.[t.id] || 0) + (H.perfectRecall?.(a) ? 1 : 0), seesSpirits: insightRules.seesSpirits(a) });   // Perfect Recall (S6c): +1 familiarity on every Observe
           if (result.error) return result.error;
           if (free) spendFree(); else { const spend=spendTempo(s,a,invest+woundTax,"Observe");if(spend)return spend; }
           if (detail) { a.focus.detail = false; log(s, { kind: "observe", actor: a.id, target: t.id, text: `${a.name}'s retained detail on ${t.name} adds +1 point to the study.` }); }
@@ -1788,7 +1827,7 @@
         bySubject[deck.subject.key] = result.know; H.Observation.setCognitive(s,a,result.cognitive);
         (s.observationTurns ||= {})[a.id]=a.ownerTurns;
         scoutNoted(s, a, deck.subject.key);
-        const place={key:deck.subject.key,grants:result.grants,familiarity:result.familiarity};
+        const place={key:deck.subject.key,grants:result.grants,familiarity:H.recallFamiliarity?.(a, result.familiarity) ?? result.familiarity};   // Perfect Recall (S6c): +1 familiarity on every Observe
         if(a.id==="player")s.placeObservation=place;else(s.placeObservations ||= {})[a.id]=place;
         for (const line of result.lines) log(s, { kind: "observePlace", actor: a.id, text: line });
         const forecast = Climate.forecast(s.weatherState, moduleArena(s.arena), { seed: s.seed, round: s.round, rounds: result.grants.forecastRounds });
@@ -1830,19 +1869,22 @@
           : Communion.observe(before, act.invest || Communion.rules.observeStep, bonusNow);
         const spend = spendTempo(s, a, result.spend, deep ? "Investigate a plant" : "Observe a plant"); if (spend) return spend;
         if (deep) deep.spent = true;
-        book.familiarity[obj.id] = result.familiarity; scoutNoted(s, a, null); H.Exposure.looked(s, a);
-        const ready = result.familiarity >= prof.need, fam = Math.min(result.familiarity, prof.need);
+        const gained = H.recallFamiliarity?.(a, result.familiarity) ?? result.familiarity;   // Perfect Recall (S6c): +1 familiarity on every Observe
+        book.familiarity[obj.id] = gained; scoutNoted(s, a, null); H.Exposure.looked(s, a);
+        const ready = gained >= prof.need, fam = Math.min(gained, prof.need);
         H.Observation.recordFact(s,a,{id:`plant:${obj.id}:${fam}`,kind:"plant",subject:obj.id,type:obj.type,familiarity:fam,text:`${prof.common}: familiarity ${fam}/${prof.need}.`},"observePlant");
         // Observe teaches (Mala, 2026-10-31): the observe that makes a plant ready (Field Botany: the first look) shows the
-        // study note for the question it will ask, and every result names the next step.
+        // study note for the question it will ask, and every result names the next step. Perfect Recall also restores a note kept on the account.
         const q = (ready || botanist) ? Communion.questionFor(obj, s.seed) : null;
-        if (q?.clue) { (book.clues ||= {})[obj.id] = true; H.Observation.recordFact(s,a,{id:`plant:${obj.id}:clue`,kind:"plant",subject:obj.id,type:obj.type,familiarity:fam,clue:true,text:`${prof.common}: study note: ${q.clue}`},"observePlant"); }
-        const d = dist(s, a.x, a.y, obj.x, obj.y), phi = Math.max(0, prof.phi - communeDiscount(a)), bonus = (hiker ? Communion.rules.hikerBonus : 0) + (botanist ? BT.observeBonus : 0);
+        const saved = H.perfectRecall?.(a) ? H.studyNoteOf?.(s, "plant", (q || Communion.questionFor(obj, s.seed))?.id) : null;   // only this battle's question
+        const clue = q?.clue || (H.perfectRecall?.(a) && saved) || null;
+        if (clue) { (book.clues ||= {})[obj.id] = true; H.Observation.recordFact(s,a,{id:`plant:${obj.id}:clue`,kind:"plant",subject:obj.id,type:obj.type,familiarity:fam,clue:true,text:`${prof.common}: study note: ${clue}`},"observePlant"); if (q?.clue) H.noteStudy?.(s, a, "plant", q.id, q.clue); }
+        const d = dist(s, a.x, a.y, obj.x, obj.y), phi = Math.max(0, prof.phi - communeDiscount(a)), bonus = (hiker ? Communion.rules.hikerBonus : 0) + (botanist ? BT.observeBonus : 0) + (H.perfectRecall?.(a) ? 1 : 0);
         const forYou = a.id === "player";   // the next-step line addresses the player: a foe's or an ally's study must not tell you to approach and perform the ritual
         const step = forYou ? H.Observation.nextStep({ kind: "plant", ready, closed: !!book.closed?.[obj.id], need: prof.need, fam, step: Communion.rules.observeStep, bonus, dist: d, range: Communion.rules.range, deed: "perform the ritual", ritual: "Commune", ap: Communion.rules.communeAp, phi, common: prof.common }) : null;   // O2a: the one next-step vocabulary (same strings O1 printed)
         const next = step ? ` ${step.text}` : "";
-        log(s, { kind: "observePlant", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${fam}/${prof.need}.${q?.clue ? ` Study note: ${q.clue}` : ""}${next}`,
-          why: [`As an ally: ${prof.name}, ${prof.hp} LF, ${conceptName(prof.primary)} with ${conceptName(prof.secondary)}.`, `Communing costs ${Communion.rules.communeAp} action points and ${prof.phi} ΦF from an adjacent tile.`, ...(hiker ? ["Hiker: +1 familiarity for reading the ground."] : []), ...(botanist ? [`Field Botany: +${BT.observeBonus} familiarity for knowing what they are looking at.`] : [])] });
+        log(s, { kind: "observePlant", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${fam}/${prof.need}.${clue ? ` Study note: ${clue}` : ""}${next}`,
+          why: [`As an ally: ${prof.name}, ${prof.hp} LF, ${conceptName(prof.primary)} with ${conceptName(prof.secondary)}.`, `Communing costs ${Communion.rules.communeAp} action points and ${prof.phi} ΦF from an adjacent tile.`, ...(hiker ? ["Hiker: +1 familiarity for reading the ground."] : []), ...(botanist ? [`Field Botany: +${BT.observeBonus} familiarity for knowing what they are looking at.`] : []), ...(H.perfectRecall?.(a) ? ["Perfect Recall: +1 familiarity; study notes stay with you."] : [])] });
       },
       communeIngredient(s, a, act) {   // Ingredient totems (spec claude-ingredient-totems-spec T1): wake an ingredient from the pack or an adjacent pickup
         if (!Communion?.canCommuneIngredient) return "Ingredient communion is unavailable.";
@@ -1946,19 +1988,22 @@
           : Tsukumogami.observe(before, act.invest || Tsukumogami.rules.observeStep);
         const spend = spendTempo(s, a, result.spend, deep ? "Investigate a structure" : "Study a structure"); if (spend) return spend;
         if (deep) deep.spent = true;
-        book.familiarity[obj.id] = result.familiarity; scoutNoted(s, a, null); H.Exposure.looked(s, a);
-        const ready = result.familiarity >= prof.need, fam = Math.min(result.familiarity, prof.need);
+        const gained = H.recallFamiliarity?.(a, result.familiarity) ?? result.familiarity;   // Perfect Recall (S6c): +1 familiarity on every Observe
+        book.familiarity[obj.id] = gained; scoutNoted(s, a, null); H.Exposure.looked(s, a);
+        const ready = gained >= prof.need, fam = Math.min(gained, prof.need);
         const matDef = insightRules?.data?.traits?.[Tsukumogami.materialTrait(prof.material)] || null;
         H.Observation.recordFact(s, a, { id: `structure:${obj.id}:${fam}`, kind: "structure", subject: obj.id, type: obj.type, familiarity: fam, text: `${prof.common}: familiarity ${fam}/${prof.need}.` }, "observeStructure");
-        // Observe teaches O2a: the study that makes a structure ready shows the study note for the question it will ask, and every result names the next step.
+        // Observe teaches O2a: the study that makes a structure ready shows the study note for the question it will ask, and every result names the next step. Perfect Recall also restores a note kept on the account.
         const q = ready ? Tsukumogami.questionFor(obj, s.seed) : null;
-        if (q?.clue) { (book.clues ||= {})[obj.id] = true; H.Observation.recordFact(s, a, { id: `structure:${obj.id}:clue`, kind: "structure", subject: obj.id, type: obj.type, familiarity: fam, clue: true, text: `${prof.common}: study note: ${q.clue}` }, "observeStructure"); }
+        const saved = H.perfectRecall?.(a) ? H.studyNoteOf?.(s, "structure", (q || Tsukumogami.questionFor(obj, s.seed))?.id) : null;   // only this battle's question
+        const clue = q?.clue || (H.perfectRecall?.(a) && saved) || null;
+        if (clue) { (book.clues ||= {})[obj.id] = true; H.Observation.recordFact(s, a, { id: `structure:${obj.id}:clue`, kind: "structure", subject: obj.id, type: obj.type, familiarity: fam, clue: true, text: `${prof.common}: study note: ${clue}` }, "observeStructure"); if (q?.clue) H.noteStudy?.(s, a, "structure", q.id, q.clue); }
         const d = dist(s, a.x, a.y, obj.x, obj.y), phi = Math.max(0, prof.phi - communeDiscount(a, "structure"));
         const forYou = a.id === "player";   // the next-step line addresses the player: a foe's or an ally's study must not tell you to approach and wake it
-        const step = forYou ? H.Observation.nextStep({ kind: "structure", ready, need: prof.need, fam, step: Tsukumogami.rules.observeStep, dist: d, range: Tsukumogami.rules.range, deed: "wake it", ritual: "Wake", ap: Tsukumogami.rules.communeAp, phi, common: prof.common }) : null;
+        const step = forYou ? H.Observation.nextStep({ kind: "structure", ready, need: prof.need, fam, step: Tsukumogami.rules.observeStep, bonus: H.perfectRecall?.(a) ? 1 : 0, dist: d, range: Tsukumogami.rules.range, deed: "wake it", ritual: "Wake", ap: Tsukumogami.rules.communeAp, phi, common: prof.common }) : null;
         const next = step ? ` ${step.text}` : "";
-        log(s, { kind: "observeStructure", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${fam}/${prof.need}${ready ? ". It will answer if you wake it." : "."}${q?.clue ? ` Study note: ${q.clue}` : ""}${next}`,
-          why: [`As an ally: ${prof.name}, ${Math.max(1, obj.hp * 2)} LF.`, `Waking costs ${Tsukumogami.rules.communeAp} action points and ${phi} ΦF from an adjacent tile.`, ...(matDef ? [`Material: ${matDef.text}`] : [])] });
+        log(s, { kind: "observeStructure", actor: a.id, ready, tiles: [[obj.x, obj.y]], text: `${a.name} ${deep ? "investigates" : "studies"} the ${prof.common}: familiarity ${fam}/${prof.need}${ready ? ". It will answer if you wake it." : "."}${clue ? ` Study note: ${clue}` : ""}${next}`,
+          why: [`As an ally: ${prof.name}, ${Math.max(1, obj.hp * 2)} LF.`, `Waking costs ${Tsukumogami.rules.communeAp} action points and ${phi} ΦF from an adjacent tile.`, ...(matDef ? [`Material: ${matDef.text}`] : []), ...(H.perfectRecall?.(a) ? ["Perfect Recall: +1 familiarity; study notes stay with you."] : [])] });
       },
       communeStructure(s, a, act) {   // Tsukumogami step 2: answer its question; a right answer wakes it as an ally
         if (!Tsukumogami) return "Tsukumogami is unavailable.";
@@ -2011,10 +2056,12 @@
         if (t.summon.order) return "Let the ordered ultimate fire first; MAX waits its turn.";
         const max = s.rules.ultimateChargeMax ?? 100;
         if ((a.ultimateCharge ?? 0) < max) return "Channeling MAX takes a full ultimate bar.";
+        const at = maxRoomFor(s, t);   // a bigger MAX body needs its room before anything is paid
+        if (!at) return `There is no room beside ${t.name} for the winged mount: clear a tile east or west.`;
         const MC = summonRules.data.rules.maxChannel;
         const spend = spendTempo(s, a, MC.actionCost, "Channel MAX"); if (spend) return spend;
         a.ultimateCharge = 0;
-        const result = summonRules.revealMaxForm(t);
+        const result = summonRules.revealMaxForm(t, at);
         Object.assign(t, result.actor);
         if (H.applyRevealEffect) H.applyRevealEffect(s, t);
         const field = s.dreamSpace, closed = dreamSpaceRules.close(field, `poured into ${t.name}`);
@@ -2022,7 +2069,7 @@
         for (const ev of closed.events) log(s, { ...ev, kind: "dreamSpace" });
         H.closeDreamSummons(s, field); H.closeDreamTreeants?.(s, field);
         if (a.aura?.imbued) a.aura = null;
-        log(s, { kind: "summonMaxForm", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${a.name} channels MAX: ${result.text}`,
+        log(s, { kind: "summonMaxForm", actor: a.id, target: t.id, tiles: footprint(t), text: `${a.name} channels MAX: ${result.text}`,
           why: ["The dream is consumed: it closes as if the clock ran out.", "MAX is permanent for this stay — double turns, the MAX technique, a new ultimate — and it never sinks back."] });
         checkOutcome(s);
       },
@@ -2587,7 +2634,7 @@
         if (m.effect === "damage" && a.status?.woozy) {   // still woozy from surgery (account/surgery.js)
           mult *= a.status.woozy.damageMul || 0.9; why.push(`Woozy from surgery: ability damage ×${a.status.woozy.damageMul || 0.9}.`);
         }
-        const dreamMods = dreamSpaceRules?.modsFor(a, s.dreamSpace) || {};
+        const dreamMods = dreamSpaceRules?.modsFor(a, s.dreamSpace, s.arena.objects) || {};
         if (dreamMods.potencyMul) { mult *= dreamMods.potencyMul; const hole = hasTrait(a, "trepanation") && (!s.dreamSpace || !dreamSpaceRules.contains(s.dreamSpace, a.x, a.y)); why.push(`${hole ? "Trepanation" : "Dream Space"} potency ×${dreamMods.potencyMul}.`); }
         if (a.summon?.trueFormPotencyMul) { mult*=a.summon.trueFormPotencyMul;why.push(`Summon's true form strengthens technique potency ×${a.summon.trueFormPotencyMul}.`); }
         if (a.committed?.potencyMul && a.committed.expiresAt > a.ownerTurns) { mult *= a.committed.potencyMul; why.push(`Burn the Boats commitment strengthens the technique ×${a.committed.potencyMul}.`); }
@@ -2735,6 +2782,6 @@
       }
     }
 
-    return { scoutNoted, talksToAttack, talkCost, reportCheck, strongGrip, climbCost, jumpCost, squeeze, aiFailure, aiSnapshot, aiLearnResult, apply, stallPreview, handlers, resolvePrune, imitateComplete, moveRefusal, footOpen, stepCost, moveCost, movementTempoCost, usableRamp, waterAt };
+    return { scoutNoted, talksToAttack, talkCost, reportCheck, strongGrip, climbCost, jumpCost, squeeze, aiFailure, aiSnapshot, aiLearnResult, apply, stallPreview, handlers, resolvePrune, imitateComplete, moveRefusal, footOpen, sized, maxRoomFor, stepCost, moveCost, movementTempoCost, usableRamp, waterAt };
   })();
 });

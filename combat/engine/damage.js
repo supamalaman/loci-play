@@ -14,6 +14,7 @@
       presidentContext, presidentRules, presidentUnits, recordMirrorEvent, refreshDrowning, saveWildWorld, springTraps, structures, summonRules,
       syncPickup, tileAt, tryDeathDoor, vegetation, wildRules, wildSnapshot } = H;
     // Holy (docs/holy.md): the fell are dream creatures, summons, the undead and demons by name (Mala 2026-11-02: Ravana and his Lanka court count, Mandodari too; his summoned horde already does) (a short anchored list, not the belief module's loose mythic regex).
+    const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
     const FELL = /\b(vampire|mummy|skeleton|ghost|zombie|demon|wraith|lich|revenant|wight|ghoul|rakshasa|ravana|kumbhakarna|indrajit|surpanakha|mandodari)s?\b/i;
     const isFell = (t) => !!(t.dream || t.summoned || t.summon || t.ai === "dream" || t.ai === "summon" || FELL.test(`${t.character || ""} ${t.name || ""} ${t.monster || ""}`));
     // defined by parts installed after this one: reached through H when called
@@ -476,7 +477,8 @@
       if (tgt.status.rememberedThreats?.expiresAt > tgt.ownerTurns && s.mirror?.channelsUsed?.includes(damageType)) { mult *= tgt.status.rememberedThreats.multiplier; notes.push(`Remembered Threats resists a previously seen channel ×${tgt.status.rememberedThreats.multiplier}.`); }
       if (opts.damageMul && opts.damageMul !== 1) { mult *= opts.damageMul; notes.push(`Equipment changes this hit ×${opts.damageMul}.`); }
       if (inst?.holy && s.rules.holy && isFell(tgt)) { mult *= s.rules.holy.fellMul; notes.push(`Holy power: ${tgt.name} is a dream creature, a summon or one of the fell ×${s.rules.holy.fellMul}.`); }   // docs/holy.md
-      const dreamMods = dreamSpaceRules?.modsFor(tgt, s.dreamSpace) || {};
+      const dreamMods = dreamSpaceRules?.modsFor(tgt, s.dreamSpace, s.arena.objects) || {};
+      { const ogMul = tgt.dream ? (OG()?.dreamDamageMul?.(src, tgt, s.arena.objects) || 1) : 1; if (ogMul !== 1) { mult *= ogMul; notes.push(`Orgonite grounds the dream: damage ×${ogMul}.`); } }
       if (dreamMods.damageTakenMul && dreamMods.damageTakenMul !== 1) { mult *= dreamMods.damageTakenMul; notes.push(`Dream Space shields its summon: damage ×${dreamMods.damageTakenMul}.`); }
       if (tgt.form?.golden) { const gm = bossRules?.data?.integratedSelf?.damageTakenMul ?? 0.75; mult *= gm; notes.push(`The Integrated Self takes ×${gm} damage.`); }
       let formFlat = 0;
@@ -540,17 +542,26 @@
         const members = Object.values(s.actors).filter(u => !u.defeated && u.side === tgt.side && u.status.sharedBurden?.group === burden.group && u.status.sharedBurden.expiresAt > u.ownerTurns);
         if (members.length > 1) {
           const total = dmg, each = Math.floor(total / members.length), extra = total % members.length;
-          sharedVictims = members.filter(u => u !== tgt);
-          dmg = each + (members.indexOf(tgt) < extra ? 1 : 0);
+          const shareOf = new Map(members.map((u, i) => [u.id, each + (i < extra ? 1 : 0)]));
+          // Mitsuko MAX (MX1): a carried link sends its most-hurt member's share to the carrier (never the other way).
+          const carrier = burden.carrier && members.find(u => u.id === burden.carrier);
+          const weakest = carrier && members.filter(u => u !== carrier).sort((a, b) => a.lf / (a.maxLF || 1) - b.lf / (b.maxLF || 1) || (a.id < b.id ? -1 : 1))[0];
+          const carried = !!(weakest && shareOf.get(weakest.id) > 0);
+          if (carried) {
+            shareOf.set(carrier.id, shareOf.get(carrier.id) + shareOf.get(weakest.id)); shareOf.set(weakest.id, 0);
+            notes.push(`${carrier.name} carries ${weakest.name}'s share of the link.`);
+          }
+          sharedVictims = members.filter(u => u !== tgt && !(carried && u === weakest));   // as before, every other member takes its share (even 0); only the carried member is skipped
+          dmg = shareOf.get(tgt.id);
           sharedVictims.forEach((u, i) => {
-            const share = each + (members.indexOf(u) < extra ? 1 : 0), beforeShare = u.lf;
+            const share = shareOf.get(u.id), beforeShare = u.lf;
             u.lf = Math.max(0, u.lf - share); u.lastDamageType = damageType; concentrationCheck(s, u, beforeShare - u.lf); H.Instinct.painCheck(s, u, beforeShare - u.lf);
             if (src?.id && src.id !== u.id && beforeShare > u.lf) u.lastHit = { by: src.id, round: s.round };   // C6 retaliation: remember who hurt you
             if (potency > 0 && beforeShare > u.lf) u.ego = Math.min(1, Math.max(0, (u.ego ?? 0.5) - (mult >= 0.99 ? 0.12 : 0.03)));   // C7 ego
             if(beforeShare>u.lf) u.pain={v:Math.min(1,(u.pain?.v||0)*Math.pow(0.5,Math.max(0,s.round-(u.pain?.round||s.round)))+(beforeShare-u.lf)/(u.maxLF||30)),round:s.round};
             log(s, { kind: "damage", actor: src?.id || null, target: u.id, at: [u.x,u.y], amount: beforeShare-u.lf, damageType,
-              text: `${u.name} shares ${beforeShare-u.lf} LF of the blow through ${summonRules?.data?.summons?.mitsuko?.name || "Mitsuko"}'s link.`,
-              why: [`${total} post-mitigation LF was split among ${members.length} linked allies.`] });
+              text: carried && u === carrier ? `${u.name} carries ${beforeShare-u.lf} LF of the blow through the link, ${weakest.name}'s share included.` : `${u.name} shares ${beforeShare-u.lf} LF of the blow through ${summonRules?.data?.summons?.mitsuko?.name || "Mitsuko"}'s link.`,
+              why: [`${total} post-mitigation LF was split among ${members.length} linked allies${carried ? `; ${carrier.name} took ${weakest.name}'s share` : ""}.`] });
           });
           notes.push(`Shared Burden distributes ${total} damage across ${members.length} linked allies.`);
         }

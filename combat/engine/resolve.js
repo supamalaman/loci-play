@@ -1338,7 +1338,7 @@
       // TS-01 (forced relocation): a woken body must fit its whole footprint where it lands. A foe inside the new footprint is a
       // collision like an occupied landing tile; any other obstacle inside it is a slam and the body stays put (it braces).
       let footBlock = null;
-      if (!occupant && t.awakened && ((t.size?.w || 1) > 1 || (t.size?.h || 1) > 1) && inside(s, nx, ny) && !H.footOpen(s, t, nx, ny, "move")) {
+      if (!occupant && H.sized(t) && inside(s, nx, ny) && !H.footOpen(s, t, nx, ny, "move")) {
         for (let fy = 0; fy < (t.size?.h || 1) && !occupant; fy++) for (let fx = 0; fx < (t.size?.w || 1) && !occupant; fx++) { const u = inside(s, nx + fx, ny + fy) ? unitAt(s, nx + fx, ny + fy) : null; if (u && u.id !== t.id) occupant = u; }
         if (!occupant) footBlock = true;
       }
