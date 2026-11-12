@@ -217,7 +217,7 @@
     // fights at his side for the battle), mark one as his vessel, and when he falls he wakes in its body. Taming is
     // the beast's communion and is made strong on purpose. ai: what the desires table pays for a mark and a tame.
     tamer: { trait: "beastTamer", tameAp: 30, never: ["gaia", "chicken"], maxTamed: 3, markAp: 30, markRange: 3, vigor: { ward: 5, ap: 50 }, burst: 8,
-      chance: { base: 0.55, hurtBonus: 0.4, hostileMul: 0.75, kind: { sasquatch: 0.5 } }, pack: { count: 2, ap: 20 },
+      chance: { base: 0.55, hurtBonus: 0.4, hostileMul: 0.75, kind: { sasquatch: 0.5, tiger: 0.5 } }, pack: { count: 2, ap: 20 },
       ai: { mark: 30, tame: 40, pack: 15, packLow: 50 } },
     // Houses (Mala, 2026-10-15; docs/houses.md, engine/houses.js): a contested building on the open tile nearest the
     // center. Rolled per battle: `chance` by arena id (default otherwise). Buy it, bank action points in it, collect a
@@ -373,7 +373,29 @@
         ritualStart: { perfectConcentration: 1.5, focused: 1.25, scattered: 0.6, adhd: 0.5 }, variety: { adhd: 1 } }, foeMemory: false, regretProbe: false, setupBonus: 0, readyUltimate: 8, animeKitFloor: 6,   // anime kit options (soul verbs/arts, fruit, Bird Mountain) score at least Observe here, or this when Observe is not offered (docs/anime-orbit.md §5a)
           // a full bar means it is time to use it (Mala, 2026-10-27): a ready damage ultimate scores this much more (simmed on/off)
         regretAbility: {}, threatRangeSelf: 6, threatRangePlaced: 3, hitChance: 0.7, perThreat: 1, infoPerCard: 1.5, infoCap: 6, focusCoverBonus: 2, focusDurationBonus: 1, attentionBase: 6, attentionCrowdCost: 3, develop: 2.5, developNurseEdge: 0.5,
-      cover: { guard: 0.5, immovable: 0.3, barrier: 1, berm: 1, contourBerm: 1, bermRing: 1, swale: 0.5, rainGarden: 0.75, architectDesign: 1, anchor: 0.5, membrane: 0.5, aura: 0.4 } },
+      cover: { guard: 0.5, immovable: 0.3, barrier: 1, berm: 1, contourBerm: 1, bermRing: 1, swale: 0.5, rainGarden: 0.75, architectDesign: 1, anchor: 0.5, membrane: 0.5, aura: 0.4 },
+      // Sight arms (AI Sight H1; SPEC claude-ai-sight-spec): sim-only blind/keen
+      // per system family. families maps a family name to its action types (and
+      // effect ids when the spec names any; none yet), plus `prop` for the
+      // announce family (any candidate carrying it). blind lists families a
+      // side never plays; keen maps family to score bonus (default 6 when the
+      // value is not a number); sides lists the sides the arms apply to, null
+      // for all. Shipped blind [] and keen {} match nothing (T-H1d).
+      sight: {
+        families: {
+          communion: { types: ["commune", "observePlant"], effects: [] },
+          observation: { types: ["observe", "observePlace", "insight"], effects: [] },
+          announce: { types: [], effects: [], prop: "announce" },
+          traps: { types: ["placeTrap", "disarm"], effects: [] },
+          "summons and dreams": { types: ["summon", "callDream", "dreamSpace"], effects: [] },
+          rites: { types: ["ritual", "bead"], effects: [] },
+          vows: { types: ["vow"], effects: [] },
+          auras: { types: ["aura"], effects: [] },
+          grapple: { types: ["grapple", "pressSubmission", "throw"], effects: [] },
+          items: { types: ["useItem", "takeFromCart"], effects: [] },
+        },
+        blind: [], keen: {}, sides: null,
+      } },
     // Forced movement (Mala, 2026-10-30): a holder or a held unit moved by anything but its own Move, Jump or Climb (knockback, pull,
     // throw, dash, swap, teleport, dodge, terrain) loses the hold at once, beside each other or not. Seams: engine/conditions.js settleHolds, breakHoldsApart.
     spirit: { stage: 3, outAt: 1.5, winAt: 1.5, lfLine: 0.6, focusBonus: 2, protectBonus: 2, spiritCap: 4, dangerNear: 6, dangerFoe: 0.25, spacingAlly: 2, spacingFoe: 1, tempoHold: 2 },   // group spirit (SPIRIT-ORDER SPEC): stage 0 = off, 1 = Focus+Protect, 2 = +Spacing+Tempo, 3 = +roles (Halves measured per stage on the sim pipeline)
@@ -1980,7 +2002,7 @@
     anime_protagonist: "cosmic", arantxa: "cosmic", astronaut: "cosmic", starfarer: "cosmic", teleporter: "cosmic", visitor_grey: "cosmic", visitor_scientist: "cosmic", visitor_ship: "cosmic",
     oil_billionaire: "money", student: "money", tech_billionaire: "money",
     super_hero: "masks", super_heroine: "masks", super_villain: "masks", telekinetic_hero: "masks",
-    deepsea_warrior: "wake", sailor: "wake", ferryman: "wake", pearl_diver: "wake",
+    deepsea_warrior: "wake", sailor: "wake", ferryman: "wake", pearl_diver: "wake", teal_eel: "wake", remora_adventurer: "wake",
     hanuman: "ayodhya", jambavan: "ayodhya", rama: "ayodhya", lakshmana: "ayodhya", sita: "ayodhya", jatayu: "ayodhya", ravana: "lanka", maricha: "lanka", kumbhakarna: "lanka", indrajit: "lanka", mandodari: "lanka", surpanakha: "lanka",
     hot_pot_berserker: "interdimensional",
     chef: "street",
@@ -2242,8 +2264,12 @@
       lakshmana: ["indrajit"], ravana: ["rama"], hanuman: ["monkey_king"], rapper: ["cyph"], detective: ["thief"], samurai: ["ninja"],
       tech_billionaire: ["oil_billionaire"], jpop_idol: ["neon_idol"] })) if (characters[id]) characters[id].rivals = rivals;
     if (characters.paladin) characters.paladin.traits = ["consecrated", "faithful", "compassionate", "zealous"];   // the Paladin re-spec (PALADIN.md), whoever controls him
+    if (characters.teal_eel) characters.teal_eel.traits = ["gills", "proud", "loyal"];   // gills: drowning does not start (Mala, 2026-11-11)
+    if (characters.remora_adventurer) characters.remora_adventurer.traits = ["gills", "curious", "ambitious"];
     // Mala, 2026-11-01: the Paladin's default sprite is the newer Crusader cut; the October art is the Oathbound outfit. An ally Paladin rolls one of the two (engine allyLook); the Neon outfit (level 200) is briefs/paladin-costumes-build.md.
     if (characters.paladin) Object.assign(characters.paladin, { sprite: "paladin-crusader", variants: ["paladin-crusader", "paladin"], spritePackageNames: { "paladin-crusader": "Crusader", paladin: "Oathbound" } });
+    // Mala, 2026-11-11 (to Shackle IN): the feathered shaman sheet (grok-feathered-shaman-cut) is an alternate look for the Shaman; the classic cut stays the default.
+    if (characters.shaman) Object.assign(characters.shaman, { variants: ["shaman", "feathered-shaman"], spritePackageNames: { shaman: "Classic", "feathered-shaman": "Feathered" } });
     if (characters.rapper) characters.rapper.traits = [...new Set([...(characters.rapper.traits || []), "rivalrous"])];   // the rap battle (no insight profile)
     if (characters.mandodari) characters.mandodari.traits = ["honest", "loyal", "truthSeeker"];   // Mandodari (docs/mandodari-build.md)
     if (characters.indrajit) Object.assign(characters.indrajit, { traits: ["ambitious", "rivalrous", "proud"], learned: ["vanish"] });   // Indrajit (docs/indrajit-build.md): he fights from the clouds

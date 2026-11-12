@@ -139,12 +139,19 @@
   const locked = (s, a, b) => !!s.parley?.locked?.[key(a, b)];
   function lock(s, a, b) { P(s).locked[key(a, b)] = s.round; for (const id of [a, b]) if (s.parley.offers[id]) delete s.parley.offers[id]; }
   const standingDown = (s, u) => !!u?.standDownUntil && u.standDownUntil >= s.round;
+  // C6b (R-20261109-27): Listening on the subject adds 10 points for anyone on the caster's side. 0 when it has lapsed.
+  function listeningAdd(s, speaker, subject) {
+    const L = subject?.status?.listening;
+    if (!L || !speaker || speaker.side !== L.side || s.round > L.until) return 0;
+    return (L.points || 0) / 100;
+  }
+  const withListening = (s, speaker, subject, p) => Math.min(0.9, p + listeningAdd(s, speaker, subject));
 
   // Chance that Talk makes the subject stand down (replaces the flat 50% / guarded 25%).
   function talkChance(s, observer, subject, guarded = has(subject, "guarded")) {
     if (language(observer, subject)) return 0;
     const w = willingness(s, subject, observer); if (w.unforgiving) return 0;
-    return clamp((guarded ? 0.25 : 0.5) + persuasion(observer) + lean(subject, 0.25, 0.2) + w.add + valenceAdd(s, observer, subject)) * companyMul(s, subject, observer);
+    return withListening(s, observer, subject, clamp((guarded ? 0.25 : 0.5) + persuasion(observer) + lean(subject, 0.25, 0.2) + w.add + valenceAdd(s, observer, subject)) * companyMul(s, subject, observer));
   }
   // Why Talk can't even be tried right now (language, a closed conversation, a grudge), or null.
   function cannotTalk(s, a, t) {
@@ -163,7 +170,7 @@
   function termsChance(s, a, t) {
     if (language(a, t)) return 0;
     const w = willingness(s, t, a); if (w.unforgiving) return 0;
-    return clamp(0.35 + persuasion(a) + lean(t, 0.3, 0.25) + w.add + valenceAdd(s, a, t)) * companyMul(s, t, a);
+    return withListening(s, a, t, clamp(0.35 + persuasion(a) + lean(t, 0.3, 0.25) + w.add + valenceAdd(s, a, t)) * companyMul(s, t, a));
   }
   function canTerms(s, a, t) {
     if (!t || t.defeated || t.side === a.side) return "There's no one to come to terms with.";
@@ -181,14 +188,19 @@
   }
   function comeToTerms(s, a, t, H) {
     const p = termsChance(s, a, t), w = willingness(s, t, a), ok = roll(s.seed, `terms:${a.id}>${t.id}:${s.round}`) < p;
+    const ear = listeningAdd(s, a, t) ? ` Listening: +${Math.round(listeningAdd(s, a, t) * 100)}.` : "";
     if (ok) {
       persuade(s, t, a);
       H.log(s, { kind: "parley", actor: a.id, target: t.id, text: `${name(a)} and ${name(t)} come to terms. ${name(t)} is out of the fight.`,
-        why: [`Chance ${Math.round(p * 100)}%: persuasion, ${name(t)}'s temperament${has(t, "stubborn") ? " (stubborn)" : has(t, "agreeable") ? " (agreeable)" : ""}${w.note ? `; ${w.note}` : ""}.`] });
+        why: [`Chance ${Math.round(p * 100)}%: persuasion, ${name(t)}'s temperament${has(t, "stubborn") ? " (stubborn)" : has(t, "agreeable") ? " (agreeable)" : ""}${w.note ? `; ${w.note}` : ""}.${ear}`] });
+    } else if (t.status?.oliveBranch) {
+      delete t.status.oliveBranch; t.standDownUntil = 0;
+      H.log(s, { kind: "parley", actor: a.id, target: t.id, text: `${name(t)} won't come to terms, and the olive branch keeps the talk open.`,
+        why: [`Chance was ${Math.round(p * 100)}%. The next failure does not close talk.${ear}`] });
     } else {
       lock(s, a.id, t.id); t.standDownUntil = 0;
       H.log(s, { kind: "parley", actor: a.id, target: t.id, text: `${name(t)} won't come to terms: "Then we have to fight." Talk is closed between ${name(a)} and ${name(t)} for the rest of the battle.`,
-        why: [`Chance was ${Math.round(p * 100)}%.${w.note ? ` ${w.note[0].toUpperCase()}${w.note.slice(1)}.` : ""}`] });
+        why: [`Chance was ${Math.round(p * 100)}%.${w.note ? ` ${w.note[0].toUpperCase()}${w.note.slice(1)}.` : ""}${ear}`] });
     }
     return ok;
   }
@@ -272,7 +284,11 @@
     if (!a || a.defeated) return out;
     for (const t of Object.values(s.actors)) {
       if (t.side === a.side || t.defeated) continue;
-      if (standingDown(s, t) && !t.persuaded && !locked(s, a.id, t.id) && !language(a, t)) { const w = willingness(s, t, a); out.terms.push({ target: t.id, name: name(t), chance: termsChance(s, a, t), cost: rules.termsCost, off: a.tempo < rules.termsCost || w.unforgiving, note: w.note }); }
+      if (standingDown(s, t) && !t.persuaded && !locked(s, a.id, t.id) && !language(a, t)) {
+        const w = willingness(s, t, a), add = listeningAdd(s, a, t);
+        const note = [w.note, add ? `Listening: +${Math.round(add * 100)}` : ""].filter(Boolean).join("; ");
+        out.terms.push({ target: t.id, name: name(t), chance: termsChance(s, a, t), cost: rules.termsCost, off: a.tempo < rules.termsCost || w.unforgiving, note });
+      }
       const o = s.parley?.offers?.[t.id];
       if (o && o.to === a.id && o.until >= s.round && !t.persuaded) out.offers.push({ from: t.id, name: name(t) });
     }

@@ -1,0 +1,289 @@
+{
+ "source": "Bengal Tiger Pixel Art Sprite Sheet.png (~/Downloads/CUT - ...)",
+ "size_class": "person",
+ "world_height": 1.0,
+ "footprint_tiles": [
+  2,
+  1
+ ],
+ "minimum_pixel_size_px": 96,
+ "world_height_definition": "PROPOSED by Mainstay AP (cc:78faa10e), art lead, 2026-11-10 re-cut; Mala's confirmation asked. A person (the Warden) = 1.0 and the idle's alpha height is drawn at world_height x a person's height. Chosen from qa-evidence/lineup-size-options.png: at 1.0 the standing tiger's head is at the Warden's head and its body is 1.5 persons long, already larger than a real tiger; at 1.5 (class large) it is about 4 m long. 'person' is the class of its HEIGHT only; the long body is carried by the footprint.",
+ "footprint_definition": "PROPOSED: 2 tiles along its facing, 1 across. Whether a wild creature may hold 2 tiles is the W3 builder's to check in the engine; on 1 tile the sprite overhangs its neighbours by about half a tile each side.",
+ "minimum_pixel_size_definition": "The class table in ROLES.md Art sizing (tiny 24, small 48, person 96, large 144, giant 192 px, where a person draws at 96 px).",
+ "facing": "every pose faces right except knockback and dodge, which face left (ROLES.md Cutter)",
+ "runtime_consumed": false,
+ "items": {
+  "block.png": {
+   "pixel_size": [
+    240,
+    153
+   ],
+   "alpha_box": [
+    4,
+    4,
+    236,
+    149
+   ],
+   "foot_point_px": [
+    120.0,
+    149
+   ],
+   "sha256": "fae7732c9f0f35d628451223a614adae897d3839f95bd8fe964da3c1d622df2a"
+  },
+  "cast-def.png": {
+   "pixel_size": [
+    261,
+    220
+   ],
+   "alpha_box": [
+    4,
+    4,
+    257,
+    216
+   ],
+   "foot_point_px": [
+    130.5,
+    216
+   ],
+   "sha256": "ca65a1a91c5b4040688eb8f5326a43a7c7bd9791385c3f461a8e4f8a3172a37d"
+  },
+  "cast-off.png": {
+   "pixel_size": [
+    281,
+    217
+   ],
+   "alpha_box": [
+    4,
+    4,
+    277,
+    213
+   ],
+   "foot_point_px": [
+    140.5,
+    213
+   ],
+   "sha256": "5758cc348f7f02912629ce9684be0eed9c81a0e426d4bc761653120349dbfb66"
+  },
+  "cast.png": {
+   "pixel_size": [
+    281,
+    217
+   ],
+   "alpha_box": [
+    4,
+    4,
+    277,
+    213
+   ],
+   "foot_point_px": [
+    140.5,
+    213
+   ],
+   "sha256": "5758cc348f7f02912629ce9684be0eed9c81a0e426d4bc761653120349dbfb66"
+  },
+  "dodge.png": {
+   "pixel_size": [
+    242,
+    211
+   ],
+   "alpha_box": [
+    4,
+    4,
+    238,
+    207
+   ],
+   "foot_point_px": [
+    121.0,
+    207
+   ],
+   "sha256": "a6736be8d9026dc309194b211288ceb7f5fe63876ad17be428840acbc55cd8b0"
+  },
+  "idle.png": {
+   "pixel_size": [
+    278,
+    201
+   ],
+   "alpha_box": [
+    4,
+    4,
+    274,
+    197
+   ],
+   "foot_point_px": [
+    139.0,
+    197
+   ],
+   "sha256": "feb815ec7a358c7926cc320a8d9d0ccf28e5c326ab00f129437d3aa22545c89d"
+  },
+  "knockback.png": {
+   "pixel_size": [
+    252,
+    160
+   ],
+   "alpha_box": [
+    4,
+    4,
+    248,
+    156
+   ],
+   "foot_point_px": [
+    126.0,
+    156
+   ],
+   "sha256": "e06c85d6dc864e5bd37d2fcd79ddc4d7e21a2c576af00e9f5e6dfef5c23854b6"
+  },
+  "knocked-out.png": {
+   "pixel_size": [
+    276,
+    105
+   ],
+   "alpha_box": [
+    4,
+    4,
+    272,
+    101
+   ],
+   "foot_point_px": [
+    138.0,
+    101
+   ],
+   "sha256": "d93b5930b827173f01b0990b44781d7e6dc8145790163ecfb2f5a06f671dd65e"
+  },
+  "portrait-angry.png": {
+   "pixel_size": [
+    284,
+    259
+   ],
+   "alpha_box": [
+    4,
+    4,
+    280,
+    255
+   ],
+   "foot_point_px": [
+    142.0,
+    255
+   ],
+   "sha256": "252bfd3ae32799196453b86bc4205722510ad007ebe1a1b4ce8fb137cbbb195b"
+  },
+  "portrait-happy.png": {
+   "pixel_size": [
+    284,
+    267
+   ],
+   "alpha_box": [
+    4,
+    4,
+    280,
+    263
+   ],
+   "foot_point_px": [
+    142.0,
+    263
+   ],
+   "sha256": "acb4a2bf64eb5c60026be1758538826f71917a034d5752ac97c3efe9e6d826d7"
+  },
+  "portrait-neutral.png": {
+   "pixel_size": [
+    283,
+    261
+   ],
+   "alpha_box": [
+    4,
+    4,
+    279,
+    257
+   ],
+   "foot_point_px": [
+    141.5,
+    257
+   ],
+   "sha256": "233d21428f713b00c6247435fcb09ca766dc73f532e234f5df1284d87a9093c2"
+  },
+  "portrait-sad.png": {
+   "pixel_size": [
+    266,
+    248
+   ],
+   "alpha_box": [
+    4,
+    4,
+    262,
+    244
+   ],
+   "foot_point_px": [
+    133.0,
+    244
+   ],
+   "sha256": "33b0e6f3affb40cb019f7a4a9d89f4c3c55e929ed95a638a495cc60f29fcdda2"
+  },
+  "portrait-surprised.png": {
+   "pixel_size": [
+    281,
+    261
+   ],
+   "alpha_box": [
+    4,
+    4,
+    277,
+    257
+   ],
+   "foot_point_px": [
+    140.5,
+    257
+   ],
+   "sha256": "e7a4698cbd9805a69cef08a3abdf87b7792a6c57bb762e9b6eb8d0d5d666f912"
+  },
+  "punch.png": {
+   "pixel_size": [
+    292,
+    157
+   ],
+   "alpha_box": [
+    4,
+    4,
+    288,
+    153
+   ],
+   "foot_point_px": [
+    146.0,
+    153
+   ],
+   "sha256": "7b0f022afa77b786c48747409fb708dfe741d98c661391be99af3fa033730d3d"
+  },
+  "ultimate.png": {
+   "pixel_size": [
+    291,
+    218
+   ],
+   "alpha_box": [
+    4,
+    4,
+    287,
+    214
+   ],
+   "foot_point_px": [
+    145.5,
+    214
+   ],
+   "sha256": "883a4caad572a920e0ac9d44443a792f63c79891b5dbf63810ccf9c6716a4cd7"
+  },
+  "walk.png": {
+   "pixel_size": [
+    281,
+    153
+   ],
+   "alpha_box": [
+    4,
+    4,
+    277,
+    149
+   ],
+   "foot_point_px": [
+    140.5,
+    149
+   ],
+   "sha256": "ce401b2e55dbd17bc773ebda1e7c6f71b2608cf21b9b4e8710e62cefcb971211"
+  }
+ }
+}

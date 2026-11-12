@@ -429,6 +429,16 @@
       first_weave: { trigger: "first classEffect setup each battle", effect: { refundAp: true, refundPhi: true, inspiration: 1 }, bound: "once; Assign the Task", counter: "None: the first charge is cheap." },
       suit_brace: { trigger: "a ranged shot from 2+ tiles, once a round, while a reaction remains", effect: { damageMul: 0.65 }, bound: "one reaction a round", counter: "Spend their reaction first, or fight in contact." },
     }, "manavu-space-admin-crimson-horned"),
+    // Teal Eel (Boundary + Preservation) and Remora Adventurer (Leverage + Extraction), Mala 2026-11-11.
+    // Wake: "The ground of the fight is the water." Gills is the live passive (engine/conditions.js).
+    teal_eel: B(["reefNip", "closeTheCoil", "deadWeight", "lairWeight", "theSpiral"], { primaryBasic: "reefNip", primaryRefined: "closeTheCoil", secondaryBasic: "deadWeight", secondaryRefined: "lairWeight" }, {
+      gills_breath: { trigger: "water contact, including surprise immersion and cannot-swim", effect: { drowningStarts: false }, bound: "the holder only", counter: "Fight them on dry ground. The trait does nothing there." },
+      gills_clear: { trigger: "a drowning mark is already on them", effect: { clearDrowning: true }, bound: "the next water refresh, and the turn-start tick does not land", counter: "The mark does not stay. Dry ground is the fight." },
+    }, "teal-eel"),
+    remora_adventurer: B(["tridentJab", "pryLoose", "hitchBite", "stripAScale", "theHost"], { primaryBasic: "tridentJab", primaryRefined: "pryLoose", secondaryBasic: "hitchBite", secondaryRefined: "stripAScale" }, {
+      gills_breath: { trigger: "water contact, including surprise immersion and cannot-swim", effect: { drowningStarts: false }, bound: "the holder only", counter: "Fight them on dry ground. The trait does nothing there." },
+      gills_clear: { trigger: "a drowning mark is already on them", effect: { clearDrowning: true }, bound: "the next water refresh, and the turn-start tick does not land", counter: "The mark does not stay. Dry ground is the fight." },
+    }, "remora-adventurer"),
     rogue: B(["cutPurse", "disarm", "pocket", "fenceIt", "heist"], {}, {
       light_fingers: { trigger: "your turn starts beside a mark you haven't cased", effect: { revealCarried: 1 }, bound: "one reveal per mark per battle", counter: "Travel light: there is nothing to case." },
       clean_cut: { trigger: "a pruning cut removes something", effect: { victimUnawareTurns: 1, takeUnnamed: true }, bound: "1 round; pocketing names the take", counter: "Holds keep the Rogue off; what was never carried can't be cut." },

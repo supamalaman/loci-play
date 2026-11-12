@@ -15,6 +15,12 @@
     const candidates = (...args) => H.candidates(...args);
 
     // ── queries for UI / AI ────────────────────────────────────────────────
+    // Orgonite 2b (merged 1.3.563, moved out of engine.js summonProfile for the size cap): a worn charm's
+    // summonPhiAdd raises the ΦF a summon costs.
+    function summonPhiAdd(actor, cost) {
+      const extraPhi = actor?.passives?.summonPhiAdd || 0;
+      return extraPhi ? { ...cost, phiCost: (cost.phiCost || 0) + extraPhi } : cost;
+    }
     // The Actor's costumes alternate: a live actor-m means the next spawn is actor-f and vice versa;
     // the first of the battle is a seeded coin flip (mirror rule in director.js deliverCameo).
     function actorLook(s, a, ch, seed) {
@@ -321,6 +327,6 @@
         participants: [{ id: "player", character: "warden", side: "player", at: [3,3] }, { id: "student", character: "student", side: "enemy", at: [9,3] }],
         loadouts: { player: { primary: "barrier", secondary: "imagination", reserve: ["elasticity"], traits: ["fullBeliever"] } } };
     }
-    return { decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints, freeFirstFree, fixedFoe, fixedFoes, dreamReadiness, proficientSummonerTestOptions };
+    return { summonPhiAdd, decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints, freeFirstFree, fixedFoe, fixedFoes, dreamReadiness, proficientSummonerTestOptions };
   })();
 });

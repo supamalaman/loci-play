@@ -479,6 +479,7 @@
       if (inst?.holy && s.rules.holy && isFell(tgt)) { mult *= s.rules.holy.fellMul; notes.push(`Holy power: ${tgt.name} is a dream creature, a summon or one of the fell ×${s.rules.holy.fellMul}.`); }   // docs/holy.md
       const dreamMods = dreamSpaceRules?.modsFor(tgt, s.dreamSpace, s.arena.objects) || {};
       { const ogMul = tgt.dream ? (OG()?.dreamDamageMul?.(src, tgt, s.arena.objects) || 1) : 1; if (ogMul !== 1) { mult *= ogMul; notes.push(`Orgonite grounds the dream: damage ×${ogMul}.`); } }
+      { const charmMul = src?.dream ? (OG()?.charmDamageMul?.(tgt) || 1) : 1; if (charmMul !== 1) { mult *= charmMul; notes.push(`The orgonite charm softens the dream: damage ×${charmMul}.`); } }
       if (dreamMods.damageTakenMul && dreamMods.damageTakenMul !== 1) { mult *= dreamMods.damageTakenMul; notes.push(`Dream Space shields its summon: damage ×${dreamMods.damageTakenMul}.`); }
       if (tgt.form?.golden) { const gm = bossRules?.data?.integratedSelf?.damageTakenMul ?? 0.75; mult *= gm; notes.push(`The Integrated Self takes ×${gm} damage.`); }
       let formFlat = 0;
@@ -577,6 +578,10 @@
         tgt.lf = Math.max(0, left);
         if (tgt.lf === 0 && tgt.passive === "reassemble") tgt.scattered = tgt.drawback === "brittle" && damageType === "nigredo";   // bones scattered by impact stay down
       } else tgt.lf = Math.max(0, tgt.lf - dmg);
+      if (before > tgt.lf && tgt.status?.listening && src && src.side === tgt.status.listening.side) {
+        delete tgt.status.listening;
+        notes.push(`${tgt.name} stops listening: a blow from that side.`);
+      }
       if (s.sealedFight && tgt.boss === "sealednext") {
         s.sealedFight.lf = tgt.lf;
         if (tgt.lf <= 0) {

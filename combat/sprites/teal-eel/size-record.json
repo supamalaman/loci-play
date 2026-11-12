@@ -1,0 +1,287 @@
+{
+  "size_class": "small",
+  "minimum_pixel_size_px": 48,
+  "person_reference_px": 96,
+  "warden_idle_opaque_px": 435,
+  "idle_opaque_px": 201,
+  "idle_draw_px": 48,
+  "reared_draw_px": 57,
+  "world_height": 0.5,
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "note": "Coiled idle draws at 48px beside the Warden, at the small floor (Shackle IN, 2026-11-11, answering Ratline AD batch 16's BROKEN: world height raised 0.462 -> 0.5; was 44px). The reared ultimate draws at 57px. The coil is the idle on the sheet. Footprint 1 tile.",
+  "poses": {
+    "block.png": {
+      "pixel_size": [
+        225,
+        200
+      ],
+      "opaque_box": [
+        4,
+        4,
+        220,
+        195
+      ],
+      "opaque_h": 192,
+      "foot": [
+        112,
+        195
+      ],
+      "sha256": "da7f5cf7a102ad4b3da680df240238005d60424fa016c1f023dedfe64f207076"
+    },
+    "cast-off.png": {
+      "pixel_size": [
+        227,
+        222
+      ],
+      "opaque_box": [
+        4,
+        4,
+        222,
+        217
+      ],
+      "opaque_h": 214,
+      "foot": [
+        113,
+        217
+      ],
+      "sha256": "fd804d9298ba5590b4fe0ff77c5e9c07b365425c8bf88628eefe8ec346f2d2a5"
+    },
+    "cast.png": {
+      "pixel_size": [
+        198,
+        211
+      ],
+      "opaque_box": [
+        4,
+        4,
+        193,
+        206
+      ],
+      "opaque_h": 203,
+      "foot": [
+        98,
+        206
+      ],
+      "sha256": "97f0f44cf66238b0d6eaf8877bd6db5b6e81f8e75431097a89e1eecc465a0a5e"
+    },
+    "dodge.png": {
+      "pixel_size": [
+        263,
+        223
+      ],
+      "opaque_box": [
+        4,
+        4,
+        258,
+        218
+      ],
+      "opaque_h": 215,
+      "foot": [
+        131,
+        218
+      ],
+      "sha256": "030613c9ba6d9ee6c5dadab74b228b1f8a29e7af01040d664d6292c565836004"
+    },
+    "idle.png": {
+      "pixel_size": [
+        217,
+        209
+      ],
+      "opaque_box": [
+        4,
+        4,
+        212,
+        204
+      ],
+      "opaque_h": 201,
+      "foot": [
+        108,
+        204
+      ],
+      "sha256": "4b494fc38f5ed18e7f0b5aa5aff024ae7c7fc2df1a975b6763b6a42cae2e85b5"
+    },
+    "knockback.png": {
+      "pixel_size": [
+        175,
+        183
+      ],
+      "opaque_box": [
+        4,
+        4,
+        170,
+        178
+      ],
+      "opaque_h": 175,
+      "foot": [
+        87,
+        178
+      ],
+      "sha256": "238524e2a529022fa09e234ba56ff847ddb147b9dd618d73c91dc558c4d3550d"
+    },
+    "knocked-out.png": {
+      "pixel_size": [
+        266,
+        82
+      ],
+      "opaque_box": [
+        4,
+        4,
+        261,
+        77
+      ],
+      "opaque_h": 74,
+      "foot": [
+        132,
+        77
+      ],
+      "sha256": "2243c4a52a7cf4e8efd2d891a0df8a9ca41ff0d4a11c2d73e495da1e30f73fac"
+    },
+    "portrait-angry.png": {
+      "pixel_size": [
+        244,
+        233
+      ],
+      "opaque_box": [
+        4,
+        4,
+        239,
+        228
+      ],
+      "opaque_h": 225,
+      "foot": [
+        121,
+        228
+      ],
+      "sha256": "d2bd754ce28f58070df993e2bcf6c693e39eb4dde562bc09d850eddd61910dff"
+    },
+    "portrait-happy.png": {
+      "pixel_size": [
+        248,
+        233
+      ],
+      "opaque_box": [
+        4,
+        4,
+        243,
+        228
+      ],
+      "opaque_h": 225,
+      "foot": [
+        123,
+        228
+      ],
+      "sha256": "51f8c11c7e7f0e03ced57fe34c26c8f508c2f8a8e9cbc9eef241c4360d674de3"
+    },
+    "portrait-neutral.png": {
+      "pixel_size": [
+        244,
+        231
+      ],
+      "opaque_box": [
+        4,
+        4,
+        239,
+        226
+      ],
+      "opaque_h": 223,
+      "foot": [
+        121,
+        226
+      ],
+      "sha256": "25b418a2465fd8985a6228757f97e9596b6da157e22872a2a4ff1a1be96940fe"
+    },
+    "portrait-sad.png": {
+      "pixel_size": [
+        242,
+        226
+      ],
+      "opaque_box": [
+        4,
+        4,
+        237,
+        221
+      ],
+      "opaque_h": 218,
+      "foot": [
+        120,
+        221
+      ],
+      "sha256": "ed31c4029d968ae4c3df0676d96800059723be3b3fb53125e9f15da91c6bf5d5"
+    },
+    "portrait-surprised.png": {
+      "pixel_size": [
+        239,
+        233
+      ],
+      "opaque_box": [
+        4,
+        4,
+        234,
+        228
+      ],
+      "opaque_h": 225,
+      "foot": [
+        119,
+        228
+      ],
+      "sha256": "f3ea9f887ee824d338995ff7aa90dede20aa833edd055eb312234606b00bdfb3"
+    },
+    "punch.png": {
+      "pixel_size": [
+        274,
+        170
+      ],
+      "opaque_box": [
+        4,
+        4,
+        269,
+        165
+      ],
+      "opaque_h": 162,
+      "foot": [
+        136,
+        165
+      ],
+      "sha256": "b9bba7bc545cd252ecd4d716e8356a6563c98994254906d367a3220dcc9c398f"
+    },
+    "ultimate.png": {
+      "pixel_size": [
+        247,
+        247
+      ],
+      "opaque_box": [
+        4,
+        4,
+        242,
+        242
+      ],
+      "opaque_h": 239,
+      "foot": [
+        123,
+        242
+      ],
+      "sha256": "51abfa35397729f72b201589b38d3d43c62a151a93aa3e06ab4090d18ea10d53"
+    },
+    "walk.png": {
+      "pixel_size": [
+        279,
+        117
+      ],
+      "opaque_box": [
+        4,
+        4,
+        274,
+        112
+      ],
+      "opaque_h": 109,
+      "foot": [
+        139,
+        112
+      ],
+      "sha256": "35c2831967f33050f240213aeea7afdf602c8f8754b7a8dd45f981064cb67e4b"
+    }
+  }
+}

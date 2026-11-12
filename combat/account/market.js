@@ -40,6 +40,7 @@
     partPrice: { common: 3, uncommon: 8, rare: 20 },
     orgoniteBase: 6,                               // codex-orgonite §2: under the 10-Seed cast fee at EV
     orgoniteMax: 9,                                // hard ceiling under the fee: standing 100 x top drift x haggle reaches the 2.0 cap (12), which would print
+    charmBase: 12,                                 // orgonite charm resale; ×2 cap is 24, under the 40-Seed cost (3 pucks + 10 Seeds)
     battleParts: { common: 1, uncommonWin: 1 },    // ruling 7: 1c+1u per win until salvage routes parts (loops 1a17c4b1310, 1a17ce1c4d1)
     orderPool: ["thief", "rogue", "hacker", "orc", "feralPig", "vampire", "zombie", "tier:shard", "tier:bead", "tier:orb"],
   };
@@ -128,6 +129,23 @@
     if (seeds <= 0) return { ok: false, reason: `Day tally full (${RULES.stallDayCap}/${RULES.stallDayCap}) — the stall pays no more today.` };
     const out = withMarket({ ...a, seeds: (a.seeds || 0) + seeds, orgonite: a.orgonite - 1 }, { ...flood(bumpStanding(m, vendor, RULES.standingPerSale), "orgonite", vendor), daySales: r.daySales });
     const lines = [`Sold a puck of orgonite to the ${VENDORS[vendor].name}: +${seeds} Seeds${haggled ? " (haggled up)" : " (talked down)"}.`];
+    if (r.flag) lines.push(`Mint: ${r.flag}.`);
+    if (r.capped) lines.push(`Day tally ${r.daySales}/${RULES.stallDayCap} — the stall pays no more today.`);
+    return { ok: true, account: out, seeds, haggled, lines };
+  }
+  function sellOrgoniteCharm(a, vendor, roll01 = Math.random(), persuasion = null) {
+    if (vendor !== "orcish") return { ok: false, reason: vendor === "bank" ? "The Monster Bank buys vessels only. An orgonite charm is not a vessel." : "The beggars have no price for an orgonite charm." };
+    const owned = a?.gear?.owned || [];
+    if (!owned.includes("orgoniteCharm")) return { ok: false, reason: "No orgonite charm to sell." };
+    const m = marketOf(a), haggled = roll01 < haggleChance(m.standing[vendor], persuasion);
+    const quoted = vendorPrice(RULES.charmBase, vendor, null, { day: m.day, kind: "orgonite-charm", floods: m.floods, campaign: m.campaign, standing: m.standing[vendor], haggled });
+    const r = pay(quoted, m), seeds = r.paid;
+    if (seeds <= 0) return { ok: false, reason: `Day tally full (${RULES.stallDayCap}/${RULES.stallDayCap}) — the stall pays no more today.` };
+    const equipped = { ...(a.gear?.equipped || {}) };
+    if (equipped.charm === "orgoniteCharm") delete equipped.charm;
+    const gear = { ...a.gear, owned: owned.filter((id) => id !== "orgoniteCharm"), equipped };
+    const out = withMarket({ ...a, seeds: (a.seeds || 0) + seeds, gear }, { ...flood(bumpStanding(m, vendor, RULES.standingPerSale), "orgonite-charm", vendor), daySales: r.daySales });
+    const lines = [`Sold an orgonite charm to the ${VENDORS[vendor].name}: +${seeds} Seeds${haggled ? " (haggled up)" : " (talked down)"}.`];
     if (r.flag) lines.push(`Mint: ${r.flag}.`);
     if (r.capped) lines.push(`Day tally ${r.daySales}/${RULES.stallDayCap} — the stall pays no more today.`);
     return { ok: true, account: out, seeds, haggled, lines };
@@ -228,5 +246,5 @@
     const m = marketOf(a), r = pay(Math.max(0, seeds), m);
     return { account: { ...a, market: { ...m, daySales: r.daySales } }, paid: r.paid, flag: r.flag };
   }
-  return { RULES, PART_NAME, VENDORS, marketOf, driftFor, priceOf, vendorPrice, haggleChance, catchTier, catchBase, sellVessel, sellCatch, sellOrgonite, swallowPen, advertise, fillOrder, refreshOrders, battleParts, tickMarket, stallPayout };
+  return { RULES, PART_NAME, VENDORS, marketOf, driftFor, priceOf, vendorPrice, haggleChance, catchTier, catchBase, sellVessel, sellCatch, sellOrgonite, sellOrgoniteCharm, swallowPen, advertise, fillOrder, refreshOrders, battleParts, tickMarket, stallPayout };
 });

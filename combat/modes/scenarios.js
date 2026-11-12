@@ -125,6 +125,31 @@
   }
   const arenaName = (arena, id, ctx) => id ? (ctx.G?.arenas?.[id]?.name || id) : `${String(arena?.name || arena?.archetype || "Open").split(" · ")[0]} (generated)`;
 
+  // SC16: place the sluice near the enemy edge on open ground nobody stands on (ground-targeting already hits objects via structures.js).
+  function placeScenarioObject(arena, object, participants) {
+    if (!arena?.map || !object) return arena;
+    const h = arena.map.length, w = (arena.map[0] || "").length, stood = new Set((participants || []).filter((p) => p.at).map((p) => K(...p.at)));
+    const free = (x, y) => x >= 0 && y >= 0 && y < h && x < w && arena.map[y][x] !== "#" && arena.map[y][x] !== "~" && !stood.has(K(x, y)) && !(arena.objects || []).some((o) => o.x === x && o.y === y);
+    const preferred = (arena.spawns?.enemy || []).map(([x, y]) => [Math.min(w - 1, x + 1), y]).concat([[w - 1, Math.floor(h / 2)], [w - 1, 2], [w - 1, h - 3]]);
+    let at = preferred.find(([x, y]) => free(x, y));
+    if (!at) { for (let col = w - 1; col >= 0 && !at; col--) for (let y = 0; y < h && !at; y++) if (free(col, y)) at = [col, y]; }
+    if (!at) { for (let col = w - 1; col >= 0 && !at; col--) for (let y = 0; y < h && !at; y++) if (y < h && col < w && arena.map[y][col] !== "#" && arena.map[y][col] !== "~") at = [col, y]; }   // last resort: any ground, even occupied, so break cannot win at once on a missing object
+    if (!at) return arena;
+    const obj = { ...object, x: at[0], y: at[1] };
+    return { ...arena, objects: [...(arena.objects || []).filter((o) => o.id !== obj.id), obj] };
+  }
+
+  // SC17: guarantee at least min contested pickups before E.create's own placePickups appends more (spec: n+2 with n ≤ 3).
+  function ensureSalvagePickups(arena, seed, min, ctx) {
+    let Pickups = ctx.Pickups;
+    if (!Pickups && typeof require === "function") { try { Pickups = require("../terrain/pickups.js"); } catch { /* browser */ } }
+    if (!Pickups && typeof globalThis !== "undefined") Pickups = globalThis.ConceptCombatPickups;
+    if (!Pickups?.placePickups || !arena?.map) return arena;
+    let A = arena, guard = 0;
+    while (((A.pickups || []).length < min) && guard++ < 6) A = Pickups.placePickups(A, { seed: (seed + guard * 0x9e3779b9) >>> 0 });
+    return A;
+  }
+
   // A new map under an already-rolled battle: designed id, or "random" for a generated map (the engine's own seeds for each).
   function reArena(base, choice, seed, ctx) {
     let arena = choice === "random" ? ctx.G.generate({ seed: (seed + 0x9e3779b9) >>> 0 }) : ctx.G.designed(choice);
@@ -237,10 +262,12 @@
       const taken = new Set((result.participants || []).filter((p) => p.at).map((p) => K(...p.at)).concat((result.initialWild || []).filter((u) => u.x != null).map((u) => K(u.x, u.y))));
       const beside = (test) => { const found = []; A.map.forEach((row, y) => [...row].forEach((_, x) => { if (walkable(A, ctx, x, y) && !taken.has(K(x, y)) && !(A.objects || []).some((o) => o.x === x && o.y === y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => test(x + dx, y + dy))) found.push([x, y]); })); return found.sort((p, q) => p[1] - q[1] || p[0] - q[0]); };
       const nearTo = pack.near === "water" ? (x, y) => ["w", "~"].includes(A.map[y]?.[x]) : pack.near === "host" ? (x, y) => (A.objects || []).some((o) => o.kind === "plant" && o.x === x && o.y === y && (def.hosts || []).includes(o.type)) : null;
+      // Tall Grass (W3) adds near: "cover" (the tile itself is turf or mulch, where the tiger hides) and `gap` (with closeTo: the spot whose distance to that animal is nearest `gap`, not nearest 0).
+      const onCover = () => { const found = []; A.map.forEach((row, y) => [...row].forEach((ch, x) => { if ([",", "m"].includes(ch) && walkable(A, ctx, x, y) && !taken.has(K(x, y)) && !(A.objects || []).some((o) => o.x === x && o.y === y)) found.push([x, y]); })); return found.sort((p, q) => p[1] - q[1] || p[0] - q[0]); };
       const units = [];
       for (let i = 0; i < (pack.count || 1); i++) {
-        const anchor = pack.closeTo && (result.initialWild || []).find((u) => u.kind === pack.closeTo), d = (q) => Math.abs(q[0] - anchor.x) + Math.abs(q[1] - anchor.y);   // closeTo: the spot nearest an animal already laid
-        const spots = nearTo ? beside(nearTo) : [], room = (q) => Math.min(99, ...(result.participants || []).filter((u) => u.at).map((u) => Math.abs(q[0] - u.at[0]) + Math.abs(q[1] - u.at[1])));   // else away from every fighter, so the scene has room to play
+        const anchor = pack.closeTo && (result.initialWild || []).find((u) => u.kind === pack.closeTo), d = (q) => Math.abs(Math.abs(q[0] - anchor.x) + Math.abs(q[1] - anchor.y) - (pack.gap || 0));   // closeTo: the spot nearest an animal already laid (at `gap` tiles when given)
+        const spots = pack.near === "cover" ? onCover() : nearTo ? beside(nearTo) : [], room = (q) => Math.min(99, ...(result.participants || []).filter((u) => u.at).map((u) => Math.abs(q[0] - u.at[0]) + Math.abs(q[1] - u.at[1])));   // else away from every fighter, so the scene has room to play
         const at = !spots.length ? (pack.far ? farSpot(A, ctx, taken, result.participants) : foeSpot(A, ctx, taken, null)) : anchor ? spots.slice().sort((p, q) => d(p) - d(q))[0] : spots.slice().sort((p, q) => room(q) - room(p))[0]; taken.add(K(...at));
         units.push({ id: `wild-${pack.kind}-0-${i + 1}`, kind: pack.kind, form: def.form, name: def.name, reason: pack.reason || (pack.kind === "sasquatch" ? "waiting in the trees" : "down from the ridge for the same reason you came"), born: 0, x: at[0], y: at[1], lf: def.lf, maxLF: def.lf, status: {}, ...(def.sprite ? { sprite: def.sprite } : {}),
           ...(pack.kind === "moa" ? { nest: at.slice() } : {}), ...(pack.kind === "sasquatch" ? { home: at.slice() } : {}), ...(["sasquatch", "kraken"].includes(pack.kind) ? { traits: (def.traits || []).slice() } : {}) });   // the fields wild/monsters.js spawn() sets
@@ -318,6 +345,8 @@
     // Tier 3 adds the scenario's one extra hazard (spec 3.3; Mala approved the list 2026-11-02): authored events, checkpoints and wild forms merged over the base ones.
     const T = tier >= 3 && S.hazard ? { ...S, force: { ...(S.force || {}), ...(S.hazard.force || {}) }, checkpoints: [...(S.checkpoints || []), ...(S.hazard.checkpoints || [])], wild: [...(pickedWild || []), ...(S.hazard.wild || [])] } : { ...S, ...(pickedWild ? { wild: pickedWild } : {}) };
     if (T.force || T.wild) out = authorEvents(out, T, seed, ctx);
+    if (S.object && out.arenaData) out = { ...out, arenaData: placeScenarioObject(out.arenaData, S.object, out.participants) };   // SC16 sluice
+    if (S.salvage?.minPickups && out.arenaData) out = { ...out, arenaData: ensureSalvagePickups(out.arenaData, seed, S.salvage.minPickups, ctx) };   // SC17 contested scrap
     // Ward slice (SC11–SC14): Tourist via the engine's opts.tourist spawn; civilians via opts.civilians placed after create (engine afterCreate).
     if (S.tourist) out = { ...out, tourist: true };
     if (Array.isArray(S.civilians) && S.civilians.length) {
@@ -361,11 +390,23 @@
     if (state.encounter !== "randomEncounter") return null;
     return state.themedBattle ? `theme:${state.themedBattle}` : "plain";
   }
+  // Slice 7, the scenario mint (R-20261103-03 D8): the Seeds bonus a scenario pays on a win, from its
+  // `bonus` row evaluated against the battle just fought. Face value (no band scaling: bands are undefined);
+  // the mint's 55 cap backstops it. cleanHands reads the faction log (engine.js); sasquatchPhoto reads the
+  // Tourist's own sprite rule (bystanders/tourist.js isSasquatch).
+  function bonusFor(scenarioId, evidence = {}) {
+    if (!evidence.won) return 0;
+    const bonus = scenarioId && SCENARIOS[scenarioId] ? SCENARIOS[scenarioId].bonus : null;
+    if (!bonus || !(bonus.seeds > 0)) return 0;
+    if (bonus.cleanHands && (evidence.log || []).some((e) => e && e.kind === "faction" && /civilians are now hostile/.test(e.text || ""))) return 0;
+    if (bonus.sasquatchPhoto && !(evidence.photos || []).some((p) => p && p.sprite === "sasquatch")) return 0;
+    return bonus.seeds;
+  }
   // The cooldown's memory: only battles the Random Encounter button made (history entries flagged `random`), newest last; a campaign or test
   // battle between two random ones does not reset it. `scenario` holds a scenario id, "theme:<id>" or "plain".
   const recentTags = (history) => (history || []).filter((h) => h && h.random).slice(-MAX_RECENT).map((h) => h.scenario || "plain");
   const isRandomBattle = (state) => tagOf(state) !== null;
   const arenaOf = (state) => state?.arena?.id || (state?.arena?.generated ? "generated" : null);
 
-  return { SHARE, TIER_WINS, COOLDOWN, SCENARIOS, hash, tierOf, coolFactor, candidates, choose, prepare, apply, midDue, tagOf, arenaOf, recentTags, isRandomBattle };
+  return { SHARE, TIER_WINS, COOLDOWN, SCENARIOS, hash, tierOf, coolFactor, candidates, choose, prepare, apply, midDue, tagOf, arenaOf, recentTags, isRandomBattle, bonusFor };
 });

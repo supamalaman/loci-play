@@ -315,7 +315,16 @@
           const got = Math.max(0, Math.min(a.maxLF - a.lf, e.lf)); a.lf += got;
           log(s, { kind: "heal", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} recovers ${got} LF.` });
           if (got > 0) H.States?.healed(s, a, got);
-        } else if (e.key === "familiar") spawnFamiliar(s, a, card, e);
+        }         else if (e.key === "familiar") spawnFamiliar(s, a, card, e);
+        else if (e.key === "listening") {
+          if (!t || t.defeated) continue;
+          t.status.listening = { until: s.round + (e.rounds || 2), side: a.side, by: a.id, points: e.points || 10 };
+          log(s, { kind: "effect", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name} is listening for ${e.rounds || 2} rounds.` });
+        } else if (e.key === "oliveBranch") {
+          if (!t || t.defeated) continue;
+          t.status.oliveBranch = { by: a.id };
+          log(s, { kind: "effect", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${a.name} offers ${t.name} an olive branch.` });
+        }
         else throw new Error(`card effect ${e.key} is not part of the instant menu`);
       }
     }
@@ -611,6 +620,8 @@
         }
         else if (e.key === "root" || e.key === "stagger" || e.key === "push") n = Math.max(n, controlNeed(s, a));
         else if (e.key === "reveal") n = Math.max(n, row.targets.length ? 1 : 0);
+        else if (e.key === "listening") n = Math.max(n, row.targets.some((p) => { const u = actorAtTile(s, p); return u && !(u.status?.listening && u.status.listening.until >= s.round); }) ? 0.7 : 0);
+        else if (e.key === "oliveBranch") n = Math.max(n, row.targets.length ? 0.4 : 0);
       }
       return n;
     }
@@ -634,6 +645,20 @@
         }
       }
       return best && { act: best.act, necessity: best.necessity, goal: best.goal };
+    }
+    // C6b: a talkative NPC plays Listening on the person they are about to talk to, before the talk (R-20261109-27).
+    function listeningPlay(s, a, foe) {
+      if (!foe || foe.defeated) return null;
+      const on = foe.status?.listening;
+      if (on && on.until >= s.round && on.side === a.side) return null;
+      const L = lib();
+      for (const r of options(s, a.id)) {
+        if (r.state !== "ready") continue;
+        const card = L.byId(r.id);
+        if (!card?.effects.some((e) => e.key === "listening")) continue;
+        if (r.targets.some((p) => p[0] === foe.x && p[1] === foe.y)) return { type: "playCard", actor: a.id, card: r.index, target: [foe.x, foe.y] };
+      }
+      return null;
     }
 
     // ── battle start (section 3.6) ──
@@ -665,6 +690,6 @@
       }
     }
 
-    return { Cards: { init, options, check, play, resolveSet, sweep, zoneTick, zoneTiles, familiarTurn, glimpse, ripAp, showHand, showOptions, viewFor, logFor, aware, aiPick, buildEnemyDeck, eligible: deckEligible } };
+      return { Cards: { init, options, check, play, resolveSet, sweep, zoneTick, zoneTiles, familiarTurn, glimpse, ripAp, showHand, showOptions, viewFor, logFor, aware, aiPick, listeningPlay, buildEnemyDeck, eligible: deckEligible } };
   })();
 });

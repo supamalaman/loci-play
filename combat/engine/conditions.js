@@ -32,6 +32,7 @@
         flow:standing ? flood?.flow || 0 : 0,level:flood?.level ?? null};
     }
     const isSwimmer=a=>(a?.traits||[]).some(t=>H.traitKey(t)==="swimmer");
+    const hasGills=a=>(a?.traits||[]).some(t=>H.traitKey(t)==="gills");
     function refreshWaterDrowning(s,a,cause="water opens beneath them",surprise=false) {
       if(!a || a.defeated || a.notArrived)return;
       const wet=H.waterAt(s,a.x,a.y) && !H.ClassRuntime?.flies(a), at=H.key(a.x,a.y);
@@ -41,6 +42,10 @@
       a.waterContact=wet?at:null;a.waterDepth=depth;
       const tideHeld = !!(s.sealedFight && a.side === "enemy" && s.sealedFight.slackFrom != null && s.sealedFight.round >= s.sealedFight.slackFrom && s.sealedFight.round < s.sealedFight.slackUntil);
       if (tideHeld && a.status.drowning) a.status.drowning = null;
+      if (hasGills(a)) {
+        if (a.status.drowning) { a.status.drowning = null; H.log(s,{kind:"drowning",actor:a.id,target:a.id,text:`${a.name} breathes the water. The drowning ends.`}); }
+        return;
+      }
       if(!tideHeld && wet && !a.status.drowning && ((H.cannotSwim(a) && a.waterSafeAt!==at) || (s.rules.water?.enabled !== false && (surprise || opened) && !isSwimmer(a)))) {
         a.status.drowning={label:"Drowning",nextTickAtOwnerTurn:(a.ownerTurns||0)+1,surprise:!H.cannotSwim(a)};
         H.log(s,{kind:"drowning",actor:a.id,target:a.id,tiles:[[a.x,a.y]],text:`${a.name} starts drowning: ${cause}.`,why:["Unexpected immersion submerges anyone without Swimmer. Regain footing in shallow water or surface in deep water on your turn; leaving water also ends it."]});

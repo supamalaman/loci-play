@@ -213,7 +213,7 @@
     napoleon: "napoleon", kobe: "kobe", aristotle: "aristotle", genghis_khan: "genghis_khan", zherm: "zherm", little_king: "little_king", "monkey-king": "monkey-king", director: "director", barbarian: "barbarian", clockwork: "clockwork", rogue: "rogue", medusa: "medusa", cleric: "cleric", steam_walker: "steam_walker", ornithopter: "ornithopter", engineer: "engineer",
     mycologist: "mycologist", hacker: "hacker", sailor: "sailor", astronaut: "astronaut", "ritual-chanter": "ritual-chanter", mangaka: "mangaka", "aviator-hero": "aviator-hero", "jiang-qing": "jiang-qing", "android-maker": "android-maker", origamist: "origamist", starfarer: "starfarer", pioneer: "pioneer",
     celestial_priestess: "celestial_priestess", cyanotype_artist: "cyanotype_artist", new_oni: "new_oni", artemesia: "artemesia", fbi_agent: "fbi_agent", telekinetic_hero: "telekinetic_hero", deepsea_warrior: "deepsea_warrior", black_armor: "black_armor", oni_yokozuna: "oni_yokozuna", black_swan_warrior: "black_swan_warrior", forest_spirit: "forest_spirit", neon_dj: "neon_dj", cloaked_drifter: "cloaked_drifter", neon_idol: "neon_idol", jpop_idol: "jpop_idol", mao_zedong: "mao_zedong", ember_judge: "ember_judge", devouring_mother: "devouring_mother", tactical_operative: "tactical_operative", celest_crystal: "celest-crystal", "celest-crystal": "celest-crystal", cuban_rooster: "cuban-rooster", "cuban-rooster": "cuban-rooster",
-    frogan: "frogan", shaman: "shaman", hedge_witch: "hedge_witch", robot_mechanic: "robot_mechanic",
+    frogan: "frogan", shaman: "shaman", "feathered-shaman": "feathered-shaman", hedge_witch: "hedge_witch", robot_mechanic: "robot_mechanic",
     "visitor-grey": "visitor-grey", "visitor-ship": "visitor-ship", "visitor-scientist": "visitor-scientist", "warden-symbiote": "warden-symbiote", "kaiju-form": "kaiju-form", "oni-form": "oni-form", "neo-warden-dragon": "neo-warden-dragon", "neo-warden-cyberpunk": "neo-warden-cyberpunk", "neo-warden-purple-neon": "neo-warden-purple-neon",   // learned forms (2026-10-17): both face left (the default)
     "hooded-cyber-rogue": "hooded-cyber-rogue", "child-of-the-future": "child-of-the-future", "futuristic-armored-ninja": "futuristic-armored-ninja",   // Longtermism (2026-10-22): the rogue faces right; the Child faces right; the ninja reads left (default)
     "martial-artist": "martial-artist", "martial-artist-ascended": "martial-artist-ascended",   // Martial Artist (2026-10-22): base + gold ascended form
@@ -221,6 +221,7 @@
     storm_mage: "storm_mage", tree_spirit: "tree_spirit", disheveled_politician: "disheveled_politician", astral_security: "astral_security", mesoamerican_priestess: "mesoamerican_priestess",
     celestial_astral: "celestial_astral", moonflower: "moonflower", archivist_elf: "archivist_elf", bard_elf: "bard_elf", lying_lawyer: "lying_lawyer",   // hot builds wave 4 (2026-10-23)
     "hot-pot-berserker": "hot-pot-berserker", chef: "chef", seedkeeper: "seedkeeper", memorialist: "memorialist", pearl_diver: "pearl_diver", ferryman: "ferryman",   // hot builds wave 5 (2026-10-24): Posterity + Wake 3v3 buildup
+    "teal-eel": "teal-eel", "remora-adventurer": "remora-adventurer",   // Wake hot builds (2026-11-11): sheets cut the same day; the eel faces left, the remora faces right (eye-checked at the 1.3.563 ship)
     orgonite_trooper: "manavu-anti-gravity-soldier", leviathan_suit: "manavu-anti-gravity-blue", scale_firmware: "manavu-future-warrior-crimson-reptilian", white_jacket_gunner: "manavu-future-warrior-white-jacket-gunner", bronze_admin: "manavu-space-admin-bronze-hooded", horned_suit: "manavu-space-admin-crimson-horned",
     "manavu-anti-gravity-soldier": "manavu-anti-gravity-soldier", "manavu-anti-gravity-blue": "manavu-anti-gravity-blue", "manavu-future-warrior-crimson-reptilian": "manavu-future-warrior-crimson-reptilian", "manavu-future-warrior-white-jacket-gunner": "manavu-future-warrior-white-jacket-gunner", "manavu-space-admin-bronze-hooded": "manavu-space-admin-bronze-hooded", "manavu-space-admin-crimson-horned": "manavu-space-admin-crimson-horned",
     hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", hypnotist: "hypnotist", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
@@ -312,6 +313,7 @@
   Object.assign(SPRITE, { fbi_agent: "#9be15a", telekinetic_hero: "#5a8ee6", deepsea_warrior: "#3c6fd6", black_armor: "#2e3138", oni_yokozuna: "#c7473a", black_swan_warrior: "#1f1d24", forest_spirit: "#6fae4a", neon_dj: "#e05ad0", cloaked_drifter: "#7d8a86", neon_idol: "#b45ae6", jpop_idol: "#e88ab6", mao_zedong: "#7b8796", ember_judge: "#d9732e", devouring_mother: "#e8c9d6", tactical_operative: "#5b5a3e" });   // walk/strike art faces left (idles face front; verify per-pose at flesh-out)
   Object.assign(SPRITE, { celestial_priestess: "#cfd8ff", cyanotype_artist: "#5a86d6", new_oni: "#c7584a", artemesia: "#d6a94f", celest_crystal: "#9fd8e8", cuban_rooster: "#d67a4f" });
   for (const sprite of ["shaman", "hedge_witch", "robot_mechanic"]) SPRITE_FACES_RIGHT[sprite] = true;   // wave-2 sheets strike right
+  SPRITE["feathered-shaman"] = SPRITE.shaman; SPRITE_FACES_RIGHT["feathered-shaman"] = true;   // the Shaman's Feathered look (Mala, 2026-11-11)
   SPRITE_FACES_RIGHT.frogan = false;   // the manticore's blade sweeps left
   Object.assign(SPRITE, { frogan: "#6ab86a", shaman: "#7a6fd0", hedge_witch: "#4f8f4f", robot_mechanic: "#d08a3e" });
   for (const sprite of ["storm_mage", "tree_spirit", "disheveled_politician", "astral_security", "mesoamerican_priestess", "celestial_astral", "moonflower", "archivist_elf", "bard_elf", "lying_lawyer"]) SPRITE_FACES_RIGHT[sprite] = true;   // hot builds wave 4 (2026-10-23): all strike right; left-facing idles/walks/dodges mirrored at import
@@ -338,7 +340,7 @@
     "ember_judge", "defective-machine", "director", "doctor", "gaia", "gaia-accord", "gaia-wounded", "kaiba", "oil-billionaire", "tech-billionaire",
     "oni", "emissary", "tallyman", "dream_hound", "dream_salt", "dream_witness"]) SPRITE_FACES_RIGHT[sprite] = true;
   SPRITE_FACES_RIGHT.deepsea_warrior = true;   // art strikes right in all 10 poses (muse eye-check 2026-10-19, contact sheet); registry default false drew it unflipped, facing away in battle.
-  for (const sprite of ["magistrate", "kaikeyi", "hermes", "control", "sasquatch", "cactusguard", "cactuswar", "pixel_treant", "burlesque_dancer", "burlesque-dancer", "mma_fighter_alternate", "mma-fighter-alternate", "treeant-bristlecone"]) SPRITE_FACES_RIGHT[sprite] = true;   // eye-checked right on contact sheets (Marlin BD, 2026-11-07; Mala: the Magistrate idled facing away in combat)
+  for (const sprite of ["magistrate", "kaikeyi", "hermes", "control", "sasquatch", "cactusguard", "cactuswar", "pixel_treant", "burlesque_dancer", "burlesque-dancer", "mma_fighter_alternate", "mma-fighter-alternate", "treeant-bristlecone", "remora-adventurer"]) SPRITE_FACES_RIGHT[sprite] = true;   // eye-checked right on contact sheets (Marlin BD, 2026-11-07; Mala: the Magistrate idled facing away in combat)
   function shouldFlipSprite(sprite, targetIsRight) {
     return (SPRITE_FACES_RIGHT[sprite] ?? true) !== targetIsRight;
   }
@@ -548,6 +550,7 @@
   const FACE_ART = { "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "dream-frankenstein":["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
   for (const key of ["tofu-yokai", "tofu-archer", "tofu-warden"]) FACE_ART[key] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Tofu trio (claude-bestiary-art-spec B2): the same five portraits a bark shows from heads/
   FACE_ART["brood-mite"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the mite's five portraits were cut as portrait-<x>.png, a name nothing reads; face-<x>.png are the same files (claude-bestiary-art-spec B1-a)
+  FACE_ART["feathered-shaman"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Shaman's Feathered look: the cut's portrait-<x>.png land as face-<x>.png (Mala, 2026-11-11)
   const faceFile = (sprite, expression = "neutral") => {
     if (sprite && sprite.startsWith("tsukumogami")) {   // Tsukumogami: every type shares the house mecha's five faces
       const has = ["neutral", "happy", "angry", "sad", "surprised"];
@@ -946,6 +949,19 @@
     // the file falls down the slot's chain, and while an optional file is still loading the fallback art is shown.
     const POSES = root.ConceptCombatPoses;
     const SPRITE_EXTRAS = root.ConceptCombatSpriteManifest?.extras || {};
+    // Popup-only special art (Paladin Holy Arts): packages whose manifest lists a
+    // special slot load it with the required poses, so the first special scene does
+    // not flash the fallback while the file loads.
+    for (const [character, set] of Object.entries(poseSprites)) {
+      const folder = SPRITE_DIR[character];
+      for (const pose of (SPRITE_EXTRAS[folder] || []).filter((f) => POSES?.SPECIAL?.includes(f))) {
+        if (!set[pose]) {
+          const img = new Image(); img.src = new URL(`combat/sprites/${folder}/${pose}.png`, document.baseURI).href;
+          img.onload = () => { if (U.s) draw(); };
+          set[pose] = img;
+        }
+      }
+    }
     // A communed plant is drawn as commune-<species>; every species with a communion profile ships art except A'ali'i
     // (communable, shrub form, but no commune-aalii folder), which has no commune- or treeant- folder and falls back to
     // the shared treant art (RETURN-2 T-1).
@@ -970,8 +986,12 @@
     }
     // The pose name and image a unit actually shows for a slot, after fallbacks.
     // variantKey picks between alternates (block.png / block-2.png): the same key always shows the same drawing.
-    function resolvePose(spriteKey, slot, variantKey = "") {
+    function resolvePose(spriteKey, slot, variantKey = "", special = null) {
       const extras = SPRITE_EXTRAS[folderOf(spriteKey)] || [];
+      if (special) {   // popup-only special art (Paladin Holy Arts): the file if the package has it loaded, else the generic chain
+        const simg = poseFile(spriteKey, special);
+        if (simg && simg.complete && simg.naturalWidth) return { pose: special, img: simg };
+      }
       for (const pose of (POSES ? POSES.chain(slot) : [slot, "idle"])) {
         const img = poseFile(spriteKey, pose);
         if (!(img && img.complete && img.naturalWidth)) continue;
@@ -1002,7 +1022,7 @@
     }
     const wildPoseImages = new Map();
     function wildSprite(kind, pose) {
-      const folder = kind === "feralPig" ? "feral-pig" : kind === "termites" ? "termites" : kind === "gaia" ? "gaia-wounded" : kind === "nettleCaterpillar" ? "nettle-caterpillar" : kind === "wolf" ? "wolf" : kind === "ducks" ? "ducks" : kind === "sasquatch" ? "sasquatch" : kind === "moa" ? "moa" : kind === "porgy" ? "porgy" : kind === "kraken" ? "kraken" : kind === "chicken" ? "wild-chicken" : null;   // kraken: muse-kraken-cut + muse-kraken-build (1.3.541, Bollard IN)
+      const folder = kind === "feralPig" ? "feral-pig" : kind === "termites" ? "termites" : kind === "gaia" ? "gaia-wounded" : kind === "nettleCaterpillar" ? "nettle-caterpillar" : kind === "wolf" ? "wolf" : kind === "ducks" ? "ducks" : kind === "sasquatch" ? "sasquatch" : kind === "moa" ? "moa" : kind === "porgy" ? "porgy" : kind === "kraken" ? "kraken" : kind === "chicken" ? "wild-chicken" : kind === "tiger" ? "bengal-tiger" : null;   // kraken: muse-kraken-cut + muse-kraken-build (1.3.541, Bollard IN)
       if (!folder) return null;
       const key = `${folder}/${pose}`;
       if (!wildPoseImages.has(key)) {
@@ -1191,9 +1211,12 @@
       const soulBtn = soul ? (soul.state === "Speaking" ? `<button type="button" disabled>Speaking</button>` : `<button type="button" data-speak="${id}">Let this soul speak</button>`) : "";
       const soulWord = soul ? ` · soul ${soul.state.toLowerCase()}` : "";
       const careLine = care ? `<p class="cc-care-line"><b>Care ${care.score}</b>${care.title ? ` · ${esc(care.title)}` : ""}${care.next ? ` · next: ${esc(care.next.name)} at ${care.next.at}` : ""} · ${esc(care.line)}</p>` : "";
+      const fenceOnly = id === "orgoniteCharm";
       const action = equipped
         ? `<button type="button" data-unequip="${esc(it.slot)}">Remove</button>`
-        : `<button type="button" data-equip="${id}">Equip</button><button type="button" data-sell="${id}">Sell · ${gearSellValue(id)} Seeds${(Loot.careOf && (Loot.careOf(U.account, id).awakened || Loot.careOf(U.account, id).rarity !== it.rarity)) ? " (sentimental: sells as born)" : ""}</button>`;
+        : fenceOnly
+          ? `<button type="button" data-equip="${id}">Equip</button><span class="cc-muted">The Orcish fence is the only buyer.</span>`
+          : `<button type="button" data-equip="${id}">Equip</button><button type="button" data-sell="${id}">Sell · ${gearSellValue(id)} Seeds${(Loot.careOf && (Loot.careOf(U.account, id).awakened || Loot.careOf(U.account, id).rarity !== it.rarity)) ? " (sentimental: sells as born)" : ""}</button>`;
       const svcCost = Math.max(5, Math.round(Loot.data.rarities[(care && care.rarity) || it.rarity].price / 2));
       const svcBtn = now < max ? `<button type="button" data-service="${id}">Mend · ${svcCost}</button>` : "";
       const wornMix = (U.account.trackMixes || {})[id];
@@ -1382,7 +1405,7 @@
         ${root.ConceptCombatPracticeTrial ? cx("court", "The court", "practice", `<p class="cc-muted">Practice a trial on a made-up case, tried by the real court rules. Nothing you do here counts: no record, no Fame, no cost.</p><button type="button" class="cc-primary" id="ccPracticeTrial">Practice a trial ↗</button>`) : ""}
         ${PF && CM ? (() => { const rows = PF.species().map((t) => ({ t, pr: CM.profile(t), nt: PF.notes(U.account.plantFacts, t) })).filter((r) => r.pr && r.nt.N), heard = rows.reduce((n, r) => n + r.nt.n, 0), all = rows.reduce((n, r) => n + r.nt.N, 0);
           return cx("plantnotes", "Plant field notes", `${heard}/${all}`, `<p class="cc-muted">What each plant has told you when it answered a commune. A fact you have not heard yet shows as a numbered blank. Each time a plant answers a commune you hear one of its facts, a new one first until you have heard them all.</p>${rows.map((r) => `<details class="cc-fn-species"><summary><b>${esc(r.pr.common)}</b> <small>${r.nt.n} of ${r.nt.N} heard${r.nt.cycles ? ` · ${r.nt.n >= r.nt.N ? "all" : "the earlier facts"} ${r.nt.cycles > 1 ? `${r.nt.cycles} times` : "once"}` : ""}</small></summary><ol>${r.nt.bank.map((f, i) => r.nt.heard.includes(f.id) ? `<li><span>${esc(f.text)}</span> <small class="cc-muted">Source: ${esc(f.source)}</small></li>` : `<li class="cc-fn-blank" aria-label="Not heard yet">Not heard yet</li>`).join("")}</ol></details>`).join("")}`); })() : ""}
-        ${CardsUI?.almanac ? (() => { const al = CardsUI.almanac(); return cx("cardalmanac", "Card almanac", `${al.playable}/${al.total}`, al.html); })() : ""}
+        ${CardsUI?.almanac ? (() => { const al = CardsUI.almanac(U.account); return cx("cardalmanac", "Card almanac", `${al.playable}/${al.total}`, al.html); })() : ""}
         ${cx("books", "The Magistrate's books", books.length, `${books.length ? books.map((b) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(b.technique))}</b> <small>${esc(b.tier)} · ${b.price} Seeds</small><p>Practice +1 toward memorizing it.</p></div><button type="button" data-book="${esc(b.id)}" ${U.account.seeds < b.price ? "disabled" : ""}>Buy · ${b.price}</button></div>`).join("") : `<p class="cc-muted">The shelves stock what the codex holds: found a tradition or donate a study.</p>`}`)}
         ${cx("memory", "Memory", `${lg.memory.held.length}/${lg.memory.slots}`, `<p class="cc-muted">Held techniques come into every battle with you. A fourth pushes out the oldest; relearning it takes half the practice.</p>${lg.memory.held.map((id) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(id))}</b><small>${esc(takeInfo(id))}</small></div>${LB.partsOf(id, C) ? `<button type="button" data-take="${esc(id)}" ${lg.parts.some(p=>p.source===id)?"disabled":""}>Take apart</button>` : `<small class="cc-muted">resists analysis</small>`}</div>`).join("") || `<p class="cc-muted">Nothing held.</p>`}`)}
         ${cx("scribing", "Scribing desk", `${lg.parts.length} parts`, `<button type="button" class="cc-primary" id="ccOpenWorkshop">Open scribing desk ↗</button>${lg.parts.length >= 1 ? `<p class="cc-muted">Shape recovered parts into a technique at the desk: draft, test, inscribe, equip. Parts come from taking a held technique apart (above).</p>` : `<p class="cc-muted">Take apart a held technique to get its parts (the notebook copy is used up). With no parts the desk lends you training parts.</p>`}
@@ -1985,6 +2008,7 @@
       const back = () => { if (returnMode === "busk") showBusk("town"); else showTown(); };
       if (!CardsLoot || !CardsUI) { ov.innerHTML = `<div class="cc-card"><p>The table is bare.</p><button type="button" id="ccTableBack">Back</button></div>`; $("ccTableBack").onclick = back; return; }
       const seed = U.account.battles || 0, stock = CardsLoot.tableStock(U.account, { seed });
+      if (Cardbook?.markSeen) { const next = Cardbook.markSeen(U.account, stock.map((s) => s.id)); if (next !== U.account) { U.account = next; saveAccount(); } }
       const have = Object.entries(U.account.cardbook?.owned || {}).filter(([id, n]) => n > 0 && CardsLoot.byId(id)).sort((a, b) => CardsLoot.cardName(a[0]).localeCompare(CardsLoot.cardName(b[0])));
       const KU = root.ConceptCombatKeeperUI, KM = root.ConceptCombatKeeperMemory;
       const faces = stock.map((s) => { const c = CardsLoot.byId(s.id); return c ? CardsUI.face(c, { attr: `data-table-buy="${esc(s.id)}"`, disabled: !!s.sold, note: s.sold ? "SOLD." : `${s.price} Seeds · click to buy.` }) : ""; }).join("");
@@ -2109,7 +2133,9 @@
       // Orgonite (codex-orgonite slice 1): cast 5 common + 10 Seeds into a puck; with Flux on, each puck waives one firing's fee.
       const og = U.account.orgonite || 0, gotO = KR.refinable ? KR.refinable(U.account) : { max: 0, short: "seeds" }, flux = !!U.kilnFlux && og > 0;
       const orgRow = KR.ORGONITE ? `<li><b>Orgonite</b> <small>${KR.ORGONITE.parts.common} common + ${KR.ORGONITE.fee} Seeds · stash ${og}</small> <button type="button" class="cc-item" data-kiln-cast="1" ${gotO.max < 1 ? "disabled" : ""}>Cast orgonite ×1</button> <button type="button" class="cc-item" data-kiln-cast="5" ${gotO.max < 2 ? "disabled" : ""}>Cast ×${Math.min(5, gotO.max)}</button>${gotO.max < 1 ? ` <span class="cc-muted">short: ${esc(gotO.short)}</span>` : ""} <button type="button" class="cc-item" data-kiln-flux ${og < 1 ? "disabled" : ""} aria-pressed="${flux}">Flux: ${flux ? "on" : "off"}</button></li>` : "";
-      return `<section class="cc-gaia-regard cc-kiln" data-counter="kiln"><h3>Kiln · parts ${p.common || 0}c/${p.uncommon || 0}u/${p.rare || 0}r</h3><ul>${rows}${orgRow}</ul>${flux ? `<p class="cc-muted">Flux on: each firing spends 1 orgonite instead of its Seeds fee (${og} left).</p>` : ""}<p class="cc-muted">Parts come from battlefield salvage and the field shop. Firing is exact — no luck, just ledger.</p></section>`;
+      const ch = KR.CHARM, gotC = ch && KR.charmable ? KR.charmable(U.account) : { max: 0, short: "seeds" };
+      const charmRow = ch ? `<li><b>Orgonite charm</b> <small>${ch.orgonite} orgonite + ${ch.fee} Seeds</small> <button type="button" class="cc-item" data-kiln-charm="1" ${gotC.max < 1 ? "disabled" : ""} title="${esc(OG ? OG.COPY.charmHelp : "")}">Cast orgonite charm</button>${gotC.max < 1 ? ` <span class="cc-muted">short: ${esc(gotC.short)}</span>` : ""}</li>` : "";
+      return `<section class="cc-gaia-regard cc-kiln" data-counter="kiln"><h3>Kiln · parts ${p.common || 0}c/${p.uncommon || 0}u/${p.rare || 0}r</h3><ul>${rows}${orgRow}${charmRow}</ul>${flux ? `<p class="cc-muted">Flux on: each firing spends 1 orgonite instead of its Seeds fee (${og} left).</p>` : ""}<p class="cc-muted">Parts come from battlefield salvage and the field shop. Firing is exact — no luck, just ledger.</p></section>`;
     }
     function stallBoard() {
       if (!MK || !SL) return "";
@@ -2128,9 +2154,11 @@
         const vfill = tierOrder && (v[tierOrder] || 0) > 0 ? `<button type="button" class="cc-item" data-stall-order-v="${i}:${tierOrder}">Fill with ${tierOrder} · +${Math.max(1, Math.round(MK.RULES.resale[tierOrder] * MK.RULES.orderMul))}</button>` : "";
         return `<li><b>Order: ${esc(o.kind)}</b> <small>${esc(MK.VENDORS[o.vendor]?.name || o.vendor)} · ×${MK.RULES.orderMul}</small> ${fills}${vfill}${!fills && !vfill ? `<span class="cc-muted">nothing fits — catch or craft it</span>` : ""}</li>`; }).join("") : `<li class="cc-muted">No orders today.</li>`;
       const og = U.account.orgonite || 0, orgRows = MK.sellOrgonite ? `<li><b>Orgonite</b> <small>stash ${og} · the Orcish fence only</small> <button type="button" class="cc-item" data-stall-orgonite="orcish" ${og < 1 ? "disabled" : ""} title="Orgonite sells to the fence only, never above ${MK.RULES.orgoniteMax} Seeds">Sell ▸ ${esc(MK.VENDORS.orcish.name)} · ~${Math.min(MK.RULES.orgoniteMax, px(MK.RULES.orgoniteBase, "orgonite", "orcish"))}</button></li>` : "";
+      const hasCharm = (U.account.gear?.owned || []).includes("orgoniteCharm");
+      const charmStall = MK.sellOrgoniteCharm ? `<li><b>Orgonite charm</b> <small>the Orcish fence only · resale ${MK.RULES.charmBase}</small> <button type="button" class="cc-item" data-stall-charm="orcish" ${hasCharm ? "" : "disabled"} title="Sells to the Orcish fence only. The price stays under 40 Seeds.">Sell ▸ ${esc(MK.VENDORS.orcish.name)} · ~${px(MK.RULES.charmBase, "orgonite-charm", "orcish")}</button></li>` : "";
       const FR = root.ConceptCombatFruit, held = FR ? FR.stashOf(U.account) : [];
       const fruitRows = held.length ? held.map((id) => `<li><b>${esc(FR.FRUITS[id].name)}</b> <small>${esc(FR.FRUITS[id].line)}</small> <button type="button" class="cc-item" data-fruit-sell="${id}">Sell by the tide · 400 Seeds (50 a battle)</button></li>`).join("") : `<li class="cc-muted">No fruit in the stash. Won battles sometimes wash one up.</li>`;
-      return `<section class="cc-gaia-regard cc-stall" data-counter="stall"><h3>Stall · market day ${m.day}</h3><p class="cc-muted">Drift ${esc(driftLine)} · standing ${esc(standLine)} · haggle ${Math.round(MK.haggleChance(0, stallTalk()) * 100)}%+ (free with every sale)</p><h4>Vessels</h4><ul>${vesselRows}${orgRows}</ul><h4>Pens · ${pens.length}</h4><ul>${penRows}</ul><h4>Strange fruit</h4><ul>${fruitRows}</ul><h4>Advertise</h4><p>${camp}</p><h4>Buy orders</h4><ul>${orderRows}</ul></section>`;
+      return `<section class="cc-gaia-regard cc-stall" data-counter="stall"><h3>Stall · market day ${m.day}</h3><p class="cc-muted">Drift ${esc(driftLine)} · standing ${esc(standLine)} · haggle ${Math.round(MK.haggleChance(0, stallTalk()) * 100)}%+ (free with every sale)</p><h4>Vessels</h4><ul>${vesselRows}${orgRows}${charmStall}</ul><h4>Pens · ${pens.length}</h4><ul>${penRows}</ul><h4>Strange fruit</h4><ul>${fruitRows}</ul><h4>Advertise</h4><p>${camp}</p><h4>Buy orders</h4><ul>${orderRows}</ul></section>`;
     }
     // Sinkerfruit (OP1; account/fruit.js): fruits in the stash, the one you ate, and Eat as a two-click confirm, because it
     // can't be undone. A second fruit is refused (Mala, 2026-10-27: "refuse the second fruit").
@@ -2294,8 +2322,12 @@
       ov.querySelectorAll("[data-kiln-cast]").forEach(b => b.onclick = () => { const r = KR.refine(U.account, +b.dataset.kilnCast);
         if (!r.ok) { U.keeperCounter = "kiln"; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: "kiln" }); root.ConceptCombatKeeperUI?.say(/^(parts:|seeds$)/.test(String(r.short)) ? "refuse" : "err"); return flashTip(r.reason || r.short); }
         U.keeperCounter = "kiln"; redo({ ...r, lines: [`Cast ${r.n} × orgonite.`] }); root.ConceptCombatKeeperUI?.say("buy"); });
+      ov.querySelectorAll("[data-kiln-charm]").forEach(b => b.onclick = () => { const r = Loot.castOrgoniteCharm(U.account);
+        if (!r.ok) { U.keeperCounter = "kiln"; mountKeeper(ov, "ledgerHouse", { ...ledgerCounterFacts(), counter: "kiln" }); root.ConceptCombatKeeperUI?.say(/^(orgonite|seeds|owned)$/.test(String(r.short)) ? "refuse" : "err"); return flashTip(r.reason || r.short); }
+        U.keeperCounter = "kiln"; redo({ ...r, lines: ["Cast 1 × orgonite charm."] }); root.ConceptCombatKeeperUI?.say("buy"); });
       ov.querySelectorAll("[data-kiln-flux]").forEach(b => b.onclick = () => { U.kilnFlux = !U.kilnFlux; U.keeperCounter = "kiln"; showAccount(); });
       ov.querySelectorAll("[data-stall-orgonite]").forEach(b => b.onclick = () => redo(MK.sellOrgonite(U.account, b.dataset.stallOrgonite, Math.random(), stallTalk()), ["stall", "buy", "refuse"]));   // Kaikeyi (S3)
+      ov.querySelectorAll("[data-stall-charm]").forEach(b => b.onclick = () => redo(MK.sellOrgoniteCharm(U.account, b.dataset.stallCharm, Math.random(), stallTalk()), ["stall", "buy", "refuse"]));
       ov.querySelectorAll("[data-stall-vessel]").forEach(b => b.onclick = () => { const [id, t] = b.dataset.stallVessel.split(":"); redo(MK.sellVessel(U.account, id, t, Math.random(), stallTalk()), ["stall", "buy", "refuse"]); });
       ov.querySelectorAll("[data-stall-pen]").forEach(b => b.onclick = () => { const [id, i] = b.dataset.stallPen.split(":"); redo(MK.sellCatch(U.account, id, +i, Math.random(), stallTalk()), ["stall", "buy", "refuse"]); });
       ov.querySelectorAll("[data-stall-keep]").forEach(b => b.onclick = () => redo(MK.swallowPen(U.account, +b.dataset.stallKeep), ["stall", null, "err"]));
@@ -2766,7 +2798,7 @@
         const def = W.data.monsters[kind]; return { id: `warfare-wild-${i+1}`, kind, form: def.form, name: def.name, reason: "the three-faction clash", born: 1, x: at[0], y: at[1], lf: def.lf, maxLF: def.lf, status: {} };
       }) : undefined;
       const presetParticipants = encounter === "warfare" ? C.encounters.warfare.actors : escape ? C.encounters.escapeShip.actors : sealed ? sealed.participants : rush ? BR.battleOptions(U.rush).participants : participants;
-      const scnCtx = () => ({ wins: U.account.wins || 0, recent: SCN ? SCN.recentTags(U.account.history) : [], lastArena: (U.account.history || []).slice(-1)[0]?.arena || null, G, V, Climate, rules: C.rules, characters: C.characters, mainCharacter: mainClass(), RandomEvents: root.ConceptCombatRandomEvents, eventParticipantsFor: E.eventParticipantsFor, W, encounters: C.encounters, warfareEventOptions: E.warfareEventOptions, foughtBeside: U.account.foughtBeside || [] });
+      const scnCtx = () => ({ wins: U.account.wins || 0, recent: SCN ? SCN.recentTags(U.account.history) : [], lastArena: (U.account.history || []).slice(-1)[0]?.arena || null, G, V, Climate, rules: C.rules, characters: C.characters, mainCharacter: mainClass(), RandomEvents: root.ConceptCombatRandomEvents, eventParticipantsFor: E.eventParticipantsFor, W, Pickups: root.ConceptCombatPickups, encounters: C.encounters, warfareEventOptions: E.warfareEventOptions, foughtBeside: U.account.foughtBeside || [] });
       const chosen = o && o.randomEncounter ? (SCN ? SCN.choose(seed, scnCtx()) : { kind: THB?.roll(seed) ? "theme" : "plain", id: THB?.roll(seed) || null }) : null;   // one draw per battle: theme (one in five, unchanged), scenario, or plain
       const themeRoll = chosen?.kind === "theme" ? chosen.id : null;   // themed battles: the roll keeps the hero side, terrain and weather
       U.theme = null; U.themeMidShown = false; U.dispatchPlayed = false;
@@ -2905,13 +2937,15 @@
       }
     }
 
-    function popupSprite(unit,pose) {
+    function popupSprite(unit,pose,ability=null) {
       const key=communeArt(unit.form?.golden?"gold-form":unit.form?.formId==="one_with_nature"?"gaia-form":unit.sprite), tkey=tsukumogamiArt(key);
       if((unit.communed||unit.awakened)&&tkey&&!SPRITE_DIR[tkey]&&SPRITE_FOLDERS.has(tkey))loadSpritePackage(tkey);
       const folder=SPRITE_DIR[tkey] || (tkey==="gaia-form"?tkey:null) || W?.data?.monsters?.[unit.kind]?.sprite;
       if(!folder)return spriteImg(tkey,unit.name,"cc-duel-art");
       const big=(unit.size?.w||1)>1||(unit.size?.h||1)>1;   // a multi-tile unit stands taller in the scene too (Mala, 2026-10-27, wounded Gaia)
-      return `<img class="cc-duel-art${big?" cc-duel-big":""}" data-key="${esc(tkey||"")}" src="combat/sprites/${folder}/${resolvePose(tkey,pose).pose}.png" alt="${esc(unit.name)}">`;
+      const special=ability&&POSES?.special?POSES.special(ability):null;
+      const rp=resolvePose(tkey,pose,"",special), isSpecial=!!special&&rp.pose===special;
+      return `<img class="cc-duel-art${big?" cc-duel-big":""}${isSpecial?` cc-duel-special cc-duel-special-${special}`:""}" data-key="${esc(tkey||"")}"${isSpecial?` data-special="${special}"`:""} src="combat/sprites/${folder}/${rp.pose}.png" alt="${esc(unit.name)}">`;
     }
     function openAttackPopup(scenes) {
       if(!scenes.length)return;
@@ -2934,7 +2968,7 @@
       const scene=U.closeup.scenes[U.closeup.index],popup=$("ccAttackPopup");popup.hidden=false;
       popup.setAttribute("aria-label",scene.kind==="conversation"?`Conversation: ${scene.name}`:scene.kind==="learning"?"Genius learns a technique":"Attack close-up");
       const tile=u=>E.geometry.tileAt(U.s,u.x,u.y);
-      const fighter=(u,side,pose="idle")=>{const terrain=tile(u);return `<div class="cc-duel-fighter ${side}" style="--tile-color:${esc(terrain?.color||"#345447")}"><div class="cc-duel-name">${esc(u.name)}</div><div class="cc-duel-figure">${popupSprite(u,pose)}</div><div class="cc-duel-tile"></div><small>(${u.x}, ${u.y}) · ${esc(terrain?.name||"terrain")}</small></div>`;};
+      const fighter=(u,side,pose="idle",ability=null)=>{const terrain=tile(u);return `<div class="cc-duel-fighter ${side}" style="--tile-color:${esc(terrain?.color||"#345447")}"><div class="cc-duel-name">${esc(u.name)}</div><div class="cc-duel-figure">${popupSprite(u,pose,ability)}</div><div class="cc-duel-tile"></div><small>(${u.x}, ${u.y}) · ${esc(terrain?.name||"terrain")}</small></div>`;};
       const actorPose=scene.pose||"idle";
       if(scene.kind==="conversation" || scene.kind==="learning"){
         popup.classList.remove("is-leaving","is-cast","is-hit","is-vacated","is-miss","is-landed");
@@ -2954,7 +2988,7 @@
       }
       if(scene.kind==="boon"){
         const others=scene.targets.filter(t=>t.before.id!==scene.source.id),selfT=scene.targets.find(t=>t.before.id===scene.source.id);
-        popup.innerHTML=`<section class="cc-duel is-boon${scene.selfOnly?" is-self":""}"><header><div><small>${scene.selfOnly?"SELF":"SUPPORT"}</small><h2>${esc(scene.name)}</h2></div><button type="button" id="ccAttackSkip" title="Skip this scene (Escape)">Skip ›</button></header><div class="cc-duel-stage">${fighter(scene.source,"attacker caster"+(selfT?" receives":""),actorPose)}${others.length?`<div class="cc-duel-flight" aria-hidden="true"><span>✚</span></div><div class="cc-duel-targets">${others.map(t=>fighter(t.before,"defender ally receives")).join("")}</div>`:""}</div><div class="cc-duel-results cc-boon-results" aria-live="polite">${scene.targets.map(t=>`<span>${esc(t.before.name)} <b>${esc(boonLine(t))}</b>${t.lf?` · ${Math.round(t.before.lf)} → ${Math.round(t.after.lf)}`:""}</span>`).join("")}</div></section>`;
+        popup.innerHTML=`<section class="cc-duel is-boon${scene.selfOnly?" is-self":""}"><header><div><small>${scene.selfOnly?"SELF":"SUPPORT"}</small><h2>${esc(scene.name)}</h2></div><button type="button" id="ccAttackSkip" title="Skip this scene (Escape)">Skip ›</button></header><div class="cc-duel-stage">${fighter(scene.source,"attacker caster"+(selfT?" receives":""),actorPose,scene.ability)}${others.length?`<div class="cc-duel-flight" aria-hidden="true"><span>✚</span></div><div class="cc-duel-targets">${others.map(t=>fighter(t.before,"defender ally receives")).join("")}</div>`:""}</div><div class="cc-duel-results cc-boon-results" aria-live="polite">${scene.targets.map(t=>`<span>${esc(t.before.name)} <b>${esc(boonLine(t))}</b>${t.lf?` · ${Math.round(t.before.lf)} → ${Math.round(t.after.lf)}`:""}</span>`).join("")}</div></section>`;
         $("ccAttackSkip").onclick=closeAttackPopup;
         popup.querySelectorAll(".cc-duel-art[data-key]").forEach(img=>{const isCaster=!!img.closest(".caster");img.style.transform=`scaleX(${shouldFlipSprite(img.dataset.key,isCaster)?-1:1})`;});
         return;
@@ -2975,12 +3009,12 @@
       }
       if(scene.kind==="dodge"){
         const d=scene.dodger,from=tile(d.before),to=tile(d.after);
-        popup.innerHTML=`<section class="cc-duel is-dodge ${scene.melee?"melee":"ranged"}"><header><div><small>DODGE</small><h2>${esc(d.before.name)} avoids ${esc(scene.name)}</h2></div><button type="button" id="ccAttackSkip" title="Skip this animation (Escape)">Skip ›</button></header><div class="cc-duel-stage">${fighter(scene.source,"attacker",actorPose)}<div class="cc-duel-flight" aria-hidden="true"><span>✦</span></div><div class="cc-duel-targets"><div class="cc-duel-fighter defender dodger" style="--tile-color:${esc(from?.color||"#345447")}"><div class="cc-duel-name">${esc(d.before.name)}</div><div class="cc-duel-figure">${popupSprite(d.before,"idle")}</div><div class="cc-duel-tile"></div><div class="cc-duel-miss" aria-hidden="true">MISS</div><small>(${d.before.x}, ${d.before.y}) · attacked</small></div><div class="cc-duel-fighter cc-duel-landing" style="--tile-color:${esc(to?.color||"#345447")}"><div class="cc-duel-name">&nbsp;</div><div class="cc-duel-figure"></div><div class="cc-duel-tile"></div><small>(${d.after.x}, ${d.after.y}) · ${esc(to?.name||"terrain")}</small></div></div></div><div class="cc-duel-results" aria-live="polite"><span>${esc(d.before.name)} leaves (${d.before.x}, ${d.before.y}) before ${esc(scene.name)} lands, and comes down at (${d.after.x}, ${d.after.y}). <b>No damage.</b></span></div></section>`;
+        popup.innerHTML=`<section class="cc-duel is-dodge ${scene.melee?"melee":"ranged"}"><header><div><small>DODGE</small><h2>${esc(d.before.name)} avoids ${esc(scene.name)}</h2></div><button type="button" id="ccAttackSkip" title="Skip this animation (Escape)">Skip ›</button></header><div class="cc-duel-stage">${fighter(scene.source,"attacker",actorPose,scene.ability)}<div class="cc-duel-flight" aria-hidden="true"><span>✦</span></div><div class="cc-duel-targets"><div class="cc-duel-fighter defender dodger" style="--tile-color:${esc(from?.color||"#345447")}"><div class="cc-duel-name">${esc(d.before.name)}</div><div class="cc-duel-figure">${popupSprite(d.before,"idle")}</div><div class="cc-duel-tile"></div><div class="cc-duel-miss" aria-hidden="true">MISS</div><small>(${d.before.x}, ${d.before.y}) · attacked</small></div><div class="cc-duel-fighter cc-duel-landing" style="--tile-color:${esc(to?.color||"#345447")}"><div class="cc-duel-name">&nbsp;</div><div class="cc-duel-figure"></div><div class="cc-duel-tile"></div><small>(${d.after.x}, ${d.after.y}) · ${esc(to?.name||"terrain")}</small></div></div></div><div class="cc-duel-results" aria-live="polite"><span>${esc(d.before.name)} leaves (${d.before.x}, ${d.before.y}) before ${esc(scene.name)} lands, and comes down at (${d.after.x}, ${d.after.y}). <b>No damage.</b></span></div></section>`;
         $("ccAttackSkip").onclick=closeAttackPopup;
         popup.querySelectorAll(".cc-duel-art[data-key]").forEach(img=>{const isAttacker=!!img.closest(".attacker");img.style.transform=`scaleX(${shouldFlipSprite(img.dataset.key,isAttacker)?-1:1})`;});
         return;
       }
-      popup.innerHTML=`<section class="cc-duel ${scene.melee?"melee":"ranged"}"><header><div><small>${scene.melee?"MELEE":"RANGED"}</small><h2>${esc(scene.name)}</h2></div><button type="button" id="ccAttackSkip" title="Skip this attack animation (Escape)">Skip ›</button></header><div class="cc-duel-stage">${fighter(scene.source,"attacker",actorPose)}<div class="cc-duel-flight" aria-hidden="true"><span>✦</span></div><div class="cc-duel-targets">${scene.targets.slice(0,3).map(t=>fighter(t.before,"defender")).join("")}</div></div><div class="cc-duel-results" aria-live="polite">${scene.targets.map(t=>`<span${t.warded?' class="is-warded"':""}>${esc(t.before.name)} ${t.warded?`<b class="cc-ward-took">WARD −${Math.round(t.warded)}</b> · `:""}<b>${t.amount>0?`−${Math.round(t.amount)} LF`:"No damage"}</b> · ${Math.round(t.before.lf)} → ${Math.round(t.after.lf)}${t.wardBroke?" · Ward broken":""}${t.after.defeated?" · Down":""}</span>`).join("")}</div></section>`;
+      popup.innerHTML=`<section class="cc-duel ${scene.melee?"melee":"ranged"}"><header><div><small>${scene.melee?"MELEE":"RANGED"}</small><h2>${esc(scene.name)}</h2></div><button type="button" id="ccAttackSkip" title="Skip this attack animation (Escape)">Skip ›</button></header><div class="cc-duel-stage">${fighter(scene.source,"attacker",actorPose,scene.ability)}<div class="cc-duel-flight" aria-hidden="true"><span>✦</span></div><div class="cc-duel-targets">${scene.targets.slice(0,3).map(t=>fighter(t.before,"defender")).join("")}</div></div><div class="cc-duel-results" aria-live="polite">${scene.targets.map(t=>`<span${t.warded?' class="is-warded"':""}>${esc(t.before.name)} ${t.warded?`<b class="cc-ward-took">WARD −${Math.round(t.warded)}</b> · `:""}<b>${t.amount>0?`−${Math.round(t.amount)} LF`:"No damage"}</b> · ${Math.round(t.before.lf)} → ${Math.round(t.after.lf)}${t.wardBroke?" · Ward broken":""}${t.after.defeated?" · Down":""}</span>`).join("")}</div></section>`;
       $("ccAttackSkip").onclick=closeAttackPopup;
       popup.querySelectorAll(".cc-duel-art[data-key]").forEach(img=>{const isAttacker=!!img.closest(".attacker");img.style.transform=`scaleX(${shouldFlipSprite(img.dataset.key,isAttacker)?-1:1})`;});
     }
@@ -3000,9 +3034,8 @@
       const dodging=scene.kind==="dodge",T=scene.timeline||{};
       if(scene.kind==="boon"){   // the caster casts, the gift arrives, the scene leaves; nobody flinches
         popup.classList.toggle("is-cast",phase>=300);popup.classList.toggle("is-hit",phase>=850);popup.classList.toggle("is-leaving",phase>=leaveAt);
-        const img=popup.querySelector(".caster img.cc-duel-art"),key=scene.source.sprite,folder=SPRITE_DIR[key];
-        if(img&&folder){const url=`combat/sprites/${folder}/${resolvePose(key,phase>=300?scene.pose:"idle",`${c.started}:boon:${scene.source.id}`).pose}.png`;if(img.getAttribute("src")!==url)img.setAttribute("src",url);}
-        popup.querySelectorAll("img.cc-duel-art").forEach(i=>{const idle=poseSprites[i.dataset.key]?.idle;if(idle?.naturalHeight&&i.naturalHeight)i.style.height=`${Math.max(1,i.closest(".cc-duel-figure").clientHeight-5)*i.naturalHeight/idle.naturalHeight}px`;});
+        {const element=popup.querySelector(".caster img.cc-duel-art"),unit=scene.source,pose=phase>=300?scene.pose:"idle";const key=unit.sprite,folder=SPRITE_DIR[key];if(element&&folder){const special=scene.ability&&POSES?.special?POSES.special(scene.ability):null;const rp=resolvePose(key,pose,`${c.started}:boon:${unit.id}`,special).pose;const url=`combat/sprites/${folder}/${rp}.png`;if(element.getAttribute("src")!==url)element.setAttribute("src",url);const prev=element.dataset.special;if(prev){element.classList.remove("cc-duel-special",`cc-duel-special-${prev}`);delete element.dataset.special;}if(special&&rp===special){element.classList.add("cc-duel-special",`cc-duel-special-${special}`);element.dataset.special=special;}}}
+        popup.querySelectorAll("img.cc-duel-art").forEach(i=>{if(i.dataset.special)return;const idle=poseSprites[i.dataset.key]?.idle;if(idle?.naturalHeight&&i.naturalHeight)i.style.height=`${Math.max(1,i.closest(".cc-duel-figure").clientHeight-5)*i.naturalHeight/idle.naturalHeight}px`;});
         return;
       }
       if(["postcard","conversation","learning"].includes(scene.kind))return;
@@ -3017,12 +3050,13 @@
       popup.classList.toggle("is-cast",phase>=(dodging?T.attack:300));popup.classList.toggle("is-hit",!dodging&&phase>=850);popup.classList.toggle("is-leaving",phase>=leaveAt);
       // Dodge order: vacated (in transit) → the attack misses the empty square → landed.
       popup.classList.toggle("is-vacated",dodging&&phase>=T.vacate);popup.classList.toggle("is-miss",dodging&&phase>=T.miss);popup.classList.toggle("is-landed",dodging&&phase>=T.land);
-      const setPose=(element,unit,pose)=>{const key=unit.form?.golden?"gold-form":unit.form?.formId==="one_with_nature"?"gaia-form":unit.sprite;const folder=SPRITE_DIR[key]||(key==="gaia-form"?key:null);if(element&&folder){const url=`combat/sprites/${folder}/${resolvePose(key,pose,`${c.started}:${index}:${unit.id}`).pose}.png`;if(element.getAttribute("src")!==url)element.setAttribute("src",url);}};
-      setPose(popup.querySelector(".attacker img"),scene.source,phase>=(dodging?T.attack:300)?scene.pose:"idle");
+      const setPose=(element,unit,pose,ability=null)=>{const key=unit.form?.golden?"gold-form":unit.form?.formId==="one_with_nature"?"gaia-form":unit.sprite;const folder=SPRITE_DIR[key]||(key==="gaia-form"?key:null);if(element&&folder){const special=ability&&POSES?.special?POSES.special(ability):null;const rp=resolvePose(key,pose,`${c.started}:${index}:${unit.id}`,special).pose;const url=`combat/sprites/${folder}/${rp}.png`;if(element.getAttribute("src")!==url)element.setAttribute("src",url);const prev=element.dataset.special;if(prev){element.classList.remove("cc-duel-special",`cc-duel-special-${prev}`);delete element.dataset.special;}if(special&&rp===special){element.classList.add("cc-duel-special",`cc-duel-special-${special}`);element.dataset.special=special;}}};
+      setPose(popup.querySelector(".attacker img"),scene.source,phase>=(dodging?T.attack:300)?scene.pose:"idle",scene.ability);
       if(dodging){setPose(popup.querySelector(".dodger img"),scene.dodger.before,phase>=T.land?"idle":phase>=T.vacate?"dodge":"idle");}
       else popup.querySelectorAll(".defender img").forEach((img,i)=>{const t=scene.targets[i];setPose(img,t.before,phase>=850?(POSES?POSES.hitPose({defeated:t.after.defeated,status:t.before.status,warded:t.warded,amount:t.amount}):t.after.defeated?"knocked-out":"block"):"idle");});
       // Every pose shares idle's pixel scale; horizontal knockout art must stay low.
       popup.querySelectorAll("img.cc-duel-art").forEach(img=>{
+        if(img.dataset.special)return;   // special art keeps its class height (ratio-scaled), not the canvas ratio
         const idle=poseSprites[img.dataset.key]?.idle;
         if(idle?.naturalHeight && img.naturalHeight) img.style.height=`${Math.max(1,img.closest(".cc-duel-figure").clientHeight-5)*img.naturalHeight/idle.naturalHeight}px`;
       });
@@ -3093,12 +3127,20 @@
           U.transformAnimations[event.actor] = { sequence: event.sequence, started: performance.now(), sprites: event.sprites,
             sourceSprite: fxBefore.actors[event.actor]?.sprite || "warden" };
         }
-        if (event.kind === "wildMove" && event.from && event.to) {
-          U.facing[event.id] = FX?.facingRight?.(across(event.from), across(event.to), U.facing[event.id] ?? true) ?? (across(event.to)[0] > across(event.from)[0]);
-          U.poseUntil[event.id] = { pose: "walk", until: performance.now() + 600 }; setTimeout(() => { if (U.s) draw(); }, 650);   // wild animals show their own walk, not a sliding idle
+        // The battle log keeps a wild event's text and names the animal as `actor` (engine.js runWildEnvironment); from/to and a wild
+        // hit's "wildHit" kind are the wild module's own and never reach here, so poses read the actor and the states before and after (W3).
+        const wildId = event.id || event.actor, wildThen = (fxBefore.wild || []).find((m) => m.id === wildId), wildNow = (U.s.wild || []).find((m) => m.id === wildId);
+        const wildFrom = event.from || (wildThen && [wildThen.x, wildThen.y]), wildTo = event.to || (wildNow && [wildNow.x, wildNow.y]);
+        if (event.kind === "wildMove" && wildId && wildFrom && wildTo) {
+          U.facing[wildId] = FX?.facingRight?.(across(wildFrom), across(wildTo), U.facing[wildId] ?? true) ?? (across(wildTo)[0] > across(wildFrom)[0]);
+          U.poseUntil[wildId] = { pose: "walk", until: performance.now() + 600 }; setTimeout(() => { if (U.s) draw(); }, 650);   // wild animals show their own walk, not a sliding idle
+        } else if (event.kind === "wildPounce" && wildId) {   // W3: the tiger's leap plays its ultimate (claws out), facing what it leaps at
+          const prey = U.s.actors[event.target] || (U.s.wild || []).find((m) => m.id === event.target) || fxBefore.actors?.[event.target], to = wildTo || event.tiles?.[0];
+          if (prey && to) U.facing[wildId] = FX?.facingRight?.(across(to), across([prey.x, prey.y]), U.facing[wildId] ?? true) ?? (across([prey.x, prey.y])[0] > across(to)[0]);
+          U.poseUntil[wildId] = { pose: "ultimate", until: performance.now() + 900 }; setTimeout(() => { if (U.s) draw(); }, 950);
         } else if (event.kind === "wildScatter" && event.actor) {
           U.poseUntil[event.actor] = { pose: "dodge", until: performance.now() + 700 }; setTimeout(() => { if (U.s) draw(); }, 750);   // W2: prey that scatters shows its dodge (chicken, ducks)
-        } else if (event.kind === "wildHit" && event.actor && event.target) {
+        } else if ((event.kind === "wildHit" || (event.kind === "damage" && wildNow)) && event.actor && event.target && !(U.poseUntil[event.actor]?.pose === "ultimate" && U.poseUntil[event.actor].until > performance.now())) {
           const target = U.s.actors[event.target] || fxBefore.actors[event.target];
           const from = event.from || U.s.wild?.find((m) => m.id === event.actor);
           U.poseUntil[event.actor] = { pose: "punch", until: performance.now() + 800 }; setTimeout(() => { if (U.s) draw(); }, 850);   // Mala, 2026-10-26: the feral pig's ram showed its idle; it has its own attack art
@@ -4074,12 +4116,12 @@
       }
       for (const m of s.wild || []) {
         if (m.form !== "unit" || unseen(m.x, m.y)) continue;
-        upright(m.x, m.y, () => { const [cx, cy] = centre(m.x, m.y), recent = U.poseUntil[m.id], pose = m.lf <= 0 || m.done ? "knocked-out" : recent && recent.until > performance.now() ? recent.pose : "idle", img = wildSprite(m.kind, pose) || wildSprite(m.kind, "idle");
+        upright(m.x, m.y, () => { const [cx, cy] = centre(m.x, m.y), recent = U.poseUntil[m.id], pose = m.lf <= 0 || m.done ? "knocked-out" : recent && recent.until > performance.now() ? recent.pose : m.kind === "tiger" && m.fed && s.round <= m.fed.until ? "block" : "idle", img = wildSprite(m.kind, pose) || wildSprite(m.kind, "idle");
         g.fillStyle = "#0008"; g.beginPath(); g.ellipse(cx, cy + th * .12, tw * .30, th * .2, 0, 0, Math.PI * 2); g.fill();
         if (m.lf > 0 && !m.done) { const glow = m.side === "player" ? "#5ee08a" : m.side === "enemy" ? "#ef6f6c" : "#e8c85a";
           g.save(); g.strokeStyle = glow; g.globalAlpha = .6; g.lineWidth = 2.5; g.beginPath(); g.ellipse(cx, cy + th * .12, tw * .4, th * .28, 0, 0, Math.PI * 2); g.stroke(); g.restore(); }
         if (img) {
-          const maxW = m.kind === "gaia" ? tw * 2.3 : m.kind === "feralPig" ? tw * 1.28 : tw * 1.02, maxH = m.kind === "gaia" ? th * 2.4 : th * 1.28;
+          const maxW = m.kind === "gaia" ? tw * 2.3 : m.kind === "feralPig" ? tw * 1.28 : m.kind === "tiger" ? tw * 1.9 : tw * 1.02, maxH = m.kind === "gaia" ? th * 2.4 : th * 1.28;
           const kindScale = m.kind === "nettleCaterpillar" ? 0.72 : m.kind === "chicken" ? 0.5 : 1;   // Mala, 2026-10-27: "it doesnt take much for a caterpillar to be giant"
           const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight) * kindScale, dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
           g.save(); g.imageSmoothingEnabled = false; g.globalAlpha = pose === "knocked-out" ? .76 : 1;
@@ -4810,7 +4852,7 @@
           (s.weatherState && Climate ? `<span class="cc-pip" title="Weather changes can alter propagation, sight and exposure">${esc(Climate.data.weather[s.weatherState.id]?.name || s.weatherState.id)}</span>` : "") +
           (s.randomDreamRift ? `<span class="cc-pip cc-dream-pip">Dream Rift · ${s.randomDreamRift.turnsRemaining} wave${s.randomDreamRift.turnsRemaining === 1 ? "" : "s"}</span>` : "") +
           (s.vignette ? `<span class="cc-pip" title="${esc(s.vignette.objective.kind)}">${esc(s.vignette.objective.label)} · ${s.vignette.objectiveProgress}/${s.vignette.objective.turns} · defeat ${esc(s.actors[`boss-${s.vignette.branch}`]?.name || s.vignette.branch)} or break objective</span>` : "") +
-          (s.modeSetup && MD ? `<span class="cc-pip">${esc(MD.objectiveText(s.modeSetup, { round: s.round, units: Object.values(s.actors), wild: s.wild, rules: s.rules }))}</span>` : "") +
+          (s.modeSetup && MD ? `<span class="cc-pip">${esc(MD.objectiveText(s.modeSetup, { round: s.round, units: Object.values(s.actors), wild: s.wild, arena: s.arena, rules: s.rules, mirror: s.mirror }))}</span>` : "") +
           (d.actor === controlledId(s) && d.kind === "turn" ? `<span class="cc-ap-status" title="Action points available for your current turn"><b>AP</b><strong>${p.tempo}</strong><small>/${p.tempoCapacity}</small></span>${p.bankedTempo ? `<span class="cc-pip">Banked ${p.bankedTempo} AP</span>` : ""}${E.heldCostMul(s, controlledId(s)) !== 1 ? `<span class="cc-pip" title="Contact Reading: while you are in this hold every action costs you this multiple of its action points, breaking out included.">Held · costs ×${E.heldCostMul(s, controlledId(s))}</span>` : ""}${p.tempoDebt ? `<span class="cc-warn">Debt ${p.tempoDebt} AP</span>` : ""}${(() => { const t = E.tallyStatus?.(s, controlledId(s)); return t && (t.owed || t.call) ? `<span class="cc-warn" title="What you owe him: tempo debt plus loans not yet due. At ${t.threshold} or more, your highest-cost technique is held as collateral.">Owed ${t.owed}/${t.threshold}${t.held ? ` · ${esc(t.heldName)} held` : ""}${t.call ? " · CALL DUE" : ""}</span>` : ""; })()}` : "") +
           (p.character==="cyph" ? `<span class="cc-pip">Service · ${p.status.cyphStock??3}/3</span><span class="cc-pip">Pocket · ${esc(p.status.cyphPocket?.until>=p.ownerTurns ? C.abilities[p.status.cyphPocket.id]?.name||"held bar" : "empty")}</span>` : "") +
           (p.inventory?.length ? `<span class="cc-pip cc-pack-status" title="Carried battle items">Pack · ${p.inventory.map(id => esc(Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id)).join(", ")}</span>` : "") +
@@ -5004,7 +5046,7 @@
         const t = SM.data.summons[id]?.pact; if (!t) return false;
         if ((s.summonUsed || []).includes(id)) return false;
         const rate = PC.rateFor(store.standing[id]?.clean || 0);
-        return p.tempo >= E.summonProfile(s, p.id).apCost && p.pf >= Math.ceil(t.call.pf * (1 - rate)) && (s.seeds || 0) >= Math.ceil(t.call.seeds * (1 - rate));
+        return p.tempo >= E.summonProfile(s, p.id).apCost && p.pf >= Math.ceil(t.call.pf * (1 - rate)) + (p.passives?.summonPhiAdd || 0) && (s.seeds || 0) >= Math.ceil(t.call.seeds * (1 - rate));
       });
     }
     function contractRows(s,p) {
@@ -5066,7 +5108,7 @@
           const def = SM.data.summons[id], t = def.pact, st = U.account.contracts.standing[id] || { clean: 0 };
           const rate = PC.rateFor(st.clean || 0), cost = E.summonProfile(s, p.id);
           const tax = (p.traits || []).some((x) => (typeof x === "string" ? x : x?.id) === "attentionToDetail") ? 5 : 0;   // sturdier craft costs slightly (engine/actions.js summonTax)
-          const pf = Math.ceil(t.call.pf * (1 - rate)), seeds = Math.ceil(t.call.seeds * (1 - rate));
+          const pf = Math.ceil(t.call.pf * (1 - rate)) + (p.passives?.summonPhiAdd || 0), seeds = Math.ceil(t.call.seeds * (1 - rate));
           const at = [[p.x + 1, p.y], [p.x - 1, p.y], [p.x, p.y + 1], [p.x, p.y - 1]].find(([x, y]) => x >= 0 && y >= 0 && x < s.arena.w && y < s.arena.h && !E.geometry.actorAt(s, x, y) && !E.geometry.tileAt(s, x, y).blocksMove && !(s.wild || []).some((w) => w.form === "unit" && w.x === x && w.y === y));
           const no = s.pactActive ? `${SM.data.summons[s.pactActive.line]?.name || "A summon"} already answers.` : (s.summonUsed || []).includes(id) ? "It has answered once this battle." : !at ? "No open tile beside you." : p.tempo < cost.apCost + tax ? `Needs ${cost.apCost + tax} action points.` : p.pf < pf ? `Needs ${pf} ΦF.` : (s.seeds || 0) < seeds ? `Needs ${seeds} Seeds.` : "";
           return { id: `pact:${id}`, pactLine: id, at, label: `Call: ${def.name} · ${cost.apCost + tax} AP · ${pf} ΦF · ${seeds} S`, why: no || `Pacted: no question, full bond, ${t.duration + (SM.data.rules.bondBonusDuration || 0) + (p.passives?.summonDurationAdd || 0)} turns.${rate ? ` Standing rate −${Math.round(rate * 100)}%.` : ""}`, off: !!no };
@@ -6306,17 +6348,19 @@
                 ...(A.deedsFrom ? A.deedsFrom(U.s) : {}) };   // interaction perks S0: the deed fields (persuaded, sealed, weather, verbs, cook, commune, boss)
                 const boardJob = Board && U.account.board?.accepted ? (U.account.board.postings || []).find((m) => m.id === U.account.board.accepted) : null;
                 const boardSeeds = boardJob ? Board.settle(boardJob, boardRecord) : 0;
+                const scenarioBonusSeeds = SCN?.bonusFor(SCN?.tagOf(U.s) ?? null, { won: U.s.outcome.winner === "player", log: U.s.log || [], photos: Object.values(U.s.actors || {}).flatMap((a) => (a.tourist && a.tourist.photos) || []) }) ?? 0;   // S7 the mint (R-20261103-03 D8)
                 const boardCard = !testBattle() && boardJob?.card && Board.verify(boardJob, boardRecord).ok ? boardJob.card : null;   // Battle Cards (C6a): a constrained job pays its card in kind (test battles pay nothing)
                 const boardRoster = () => Object.entries(C.characters).filter(([id, ch]) => id !== "warden" && id !== "police_officer" && !ch.permanentAlly && !ch.randomEventOnly && Array.isArray(ch.configs)).map(([id]) => id);
                 const preNodes = (U.account.ownedNodes || []).length;
                 const result = Loot.finishBattle(U.account, { winner: U.s.outcome.winner, mode: U.s.mode, scenario: SCN?.tagOf(U.s) ?? null, random: !!SCN?.isRandomBattle(U.s), arena: SCN?.arenaOf(U.s) ?? null, jackpotSeeds: E.jackpotMeter ? E.jackpotMeter(U.s) : 0, vowsKept, showboat: dopeVoid > 0 ? 0 : showboat, enemiesDefeated: defeated.filter(a => !a.monster).length, foes: defeated.filter((a) => !a.mirrorOf && !a.soulOf && !a.clone && !a.summon).map((a) => a.character).filter(Boolean),   // copies drop no relics
           monstersDefeated, correctAnswers: (U.answered?.correct ? 1 : 0) + (U.s.summonCorrectAnswers || 0), round: U.s.round, foughtBeside, royalTribute: U.s.royalTribute || null,
-          pvSeeds: pv.seeds, pvXp: pv.xp, pvCredits: pv.credits, pvMarks: pv.marks, pvLines: pv.lines, boardSeeds, titleTransfer, weighing, dopeLines, convertMarks: U.s.convertMarks || [], fragments: U.s.fragments || [] },
+          pvSeeds: pv.seeds, pvXp: pv.xp, pvCredits: pv.credits, pvMarks: pv.marks, pvLines: pv.lines, boardSeeds, scenarioBonusSeeds, titleTransfer, weighing, dopeLines, convertMarks: U.s.convertMarks || [], fragments: U.s.fragments || [] },
           { seed: U.s.seed, biome: U.s.arena?.biome || null, stakes: U.s.stakes?.state === "agreed" ? { ...U.s.stakes, held: U.stakeHeld } : null });
         U.account = { ...result.account, stakeEscrow: null }; U.reward = result; U.stakeHeld = null;   // the escrow is settled by finishBattle
         if (CardsLoot && Cardbook && !testBattle()) {   // Battle Cards (C6a): a battle can leave a card; a constrained board job pays its card in kind (test battles: neither)
-          const cs = CardsLoot.settleCard(U.account, { winner: U.s.outcome.winner, foes: defeated.filter((a) => !a.mirrorOf && !a.soulOf && !a.clone && !a.summon).map((a) => a.character).filter(Boolean) }, { seed: U.s.seed });
-          for (const id of [cs.card, cs.relic, boardCard]) if (id) U.account = Cardbook.grant(U.account, id, 1);
+          const cs = CardsLoot.settleCard(U.account, { winner: U.s.outcome.winner, foes: defeated.filter((a) => !a.mirrorOf && !a.soulOf && !a.clone && !a.summon).map((a) => a.character).filter(Boolean), persuaded: Object.values(U.s.actors).filter((a) => a.persuaded && a.side !== "player" && a.character).map((a) => ({ character: a.character, name: a.name })) }, { seed: U.s.seed });
+          for (const id of [cs.card, cs.relic, boardCard, ...(cs.gifts || [])]) if (id) U.account = Cardbook.grant(U.account, id, 1);
+          if (cs.seen) U.account = { ...U.account, cardbook: { ...(U.account.cardbook || {}), seen: { ...((U.account.cardbook || {}).seen || {}), ...cs.seen } } };
           U.reward.lines.push(...cs.lines);
           if (boardCard) U.reward.lines.push(`Contract paid in kind: ${CardsLoot.cardName(boardCard)}.`);
         }

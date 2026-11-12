@@ -60,6 +60,8 @@
     weakToCitrinitas:{ name: "Critical weakness: propagation", text: "What spreads, gets in: Citrinitas ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { citrinitas: 1.75 } } } },
     weakToRubedo:    { name: "Critical weakness: resonance", text: "The right frequency undoes them: Rubedo ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { rubedo: 1.75 } } } },
     swimmer: { name: "Swimmer", text: "Keeps their head above water during unexpected immersion.", difficulty: 1, open: true },
+    // Lab record (docs/concept-design-brief.md 4b), 2026-11-11. Reference Strong 520, not sold. Comparison: Swimmer (difficulty 1, not sold) only skips surprise immersion. Sinks Like a Stone is the opposite weakness. Gills also skips the cannot-swim start and clears a drowning mark already on the holder. Dry fights are unchanged, so the reference stays Strong. Drawback: nothing on dry ground. If it were sold, removal would be 1040. Not form-only. Biology, so not imitable. Born on the Teal Eel and the Remora Adventurer. Left out of the graft catalog as what those two are, until Mala says the Lab grafts it onto other bodies.
+    gills: { name: "Gills", text: "Breathes the water. Drowning does not start, and a drowning mark already on them ends, including when they also cannot swim.", difficulty: 2, open: true },
     sinksLikeAStone: { name: "Critical weakness: can't swim", text: "Sinks like a stone: water drowns them, and drowning hits ×2.5.", difficulty: 2, combat: { extra: { cantSwim: true, drowningDamageMul: 2.5 } } },
     dreamFragile:    { name: "Critical weakness: dreams", text: "Comes apart in someone else's dream: ×1.6 damage while another's Dream Space is open.", difficulty: 2, combat: { extra: { dreamFragile: 1.6 } } },
     supernaturalWeakness: { name: "Critical weakness: the supernatural", text: "Monsters and summons do double damage to them.", difficulty: 2, combat: { extra: { supernaturalDamageTakenMul: 2 } } },
@@ -330,7 +332,7 @@
     atlasBones: { name: "Atlas Bones", category: "biology", text: "Mapped in marrow: falls cost no LF (the stagger still lands).", open: true, planned: "Tree travel (chain D unlanded)." },
   });
   const traitCategories = {
-    biology: ["swimmer", "superStrength", "superSpeed", "superDurability", "superHealing", "weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone",
+    biology: ["swimmer", "gills", "superStrength", "superSpeed", "superDurability", "superHealing", "weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone",
       "dreamFragile", "supernaturalWeakness", "immortal", "catNap", "touchedByMagic",
       "survivalInstincts", "keenSenses", "twentyTwentyVision", "nightSighted", "hardy", "fleetFooted", "cavalry", "heavyArmor", "plantKin", "ironStomach", "frail", "resonantVoice", "dreamTouched", "reach", "strongGrip",
       "telepathy", "telekinetic", "denseMuscle", "vegetativePropagation", "highTolerance", "robot", "ceaselessAdaptation", "insaneReflexes", "cybernetic", "distributedIntelligence", "stickyFingers", "visage", "godlyAgility", "theLook", "perfectConcentration", "adhd", "fireblooded", "territorial", "quenchable", "spiritSight", "ruleOfTheThreshold", "purified", "exoskeleton", "broodmind", "molting", "faceless", "unbearable", "hollow", "rootbound", "greenblood", "woundedLand", "takeoff", "overheat", "platform", "goldenParachute", "burnRate"   /* form traits (learned forms, 2026-10-17; formOnly) */, "aerodynamic", "lightFrame", "ascended",
@@ -877,6 +879,14 @@
       { kind: "tell", text: "Tests the water with one finger before every descent.", difficulty: 1 },
       { kind: "tell", text: "Never takes the same way out of the water twice.", difficulty: 1 },
     ] },
+    teal_eel: { traits: ["gills", "proud", "loyal"], obs: [
+      { kind: "tell", text: "The gill slits keep working when the hole floods. A drowning mark does not stay.", difficulty: 1 },
+      { kind: "weakness", channel: "nigredo", text: "On dry stone the coil has nothing to brace against. Fight them off the water.", difficulty: 1 },
+      { kind: "realization", text: "The wall and the weight are the same body. Dry ground is the opening.", difficulty: 2 } ] },
+    remora_adventurer: { traits: ["gills", "curious", "ambitious"], obs: [
+      { kind: "tell", text: "The gill slits stay open in the splash. A drowning mark does not stay.", difficulty: 1 },
+      { kind: "weakness", channel: "albedo", text: "The trident is the reach. Step inside it, on dry ground.", difficulty: 1 },
+      { kind: "realization", text: "They hitch, then take a piece. Dry ground drops the hitch.", difficulty: 2 } ] },
     orgonite_trooper: { traits: ["heavyArmor", "dutiful", "steward"], obs: [
       { kind: "tell", text: "Taps the chest plate once before the first shot: the suit is already the tool.", difficulty: 1 },
       { kind: "weakness", channel: "nigredo", text: "Break the woven site on their body. Without it the lance refuses.", difficulty: 1 },

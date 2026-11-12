@@ -1,0 +1,287 @@
+{
+  "size_class": "person",
+  "minimum_pixel_size_px": 96,
+  "person_reference_px": 96,
+  "warden_idle_opaque_px": 435,
+  "idle_opaque_px": 237,
+  "idle_draw_px": 96,
+  "ultimate_draw_px": 106,
+  "world_height": 1.0,
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "note": "Feathered shaman, a person: the Shaman's Feathered look (Mala, 2026-11-11). Drawn at person height, the idle is 96px beside the Warden, at the person floor (Shackle IN raised world height 0.545 -> 1.0 on Mala's word; the source idle is 237px tall, so no pixel is invented; was 52px native). Portraits land as face-<x>.png. Live sprites/shaman is the Classic look.",
+  "poses": {
+    "block.png": {
+      "pixel_size": [
+        249,
+        245
+      ],
+      "opaque_box": [
+        4,
+        4,
+        245,
+        241
+      ],
+      "opaque_h": 237,
+      "foot": [
+        124.5,
+        241
+      ],
+      "sha256": "47b817276199f3bc02ec4a1892b337d67c9a03041f2ff3e971e54db9f0c46abc"
+    },
+    "cast-off.png": {
+      "pixel_size": [
+        272,
+        268
+      ],
+      "opaque_box": [
+        4,
+        4,
+        268,
+        264
+      ],
+      "opaque_h": 260,
+      "foot": [
+        136.0,
+        264
+      ],
+      "sha256": "902cc65184d398267bf0c3af4dd150661f7de75ed5ca9d858d930a5dc3262ceb"
+    },
+    "cast.png": {
+      "pixel_size": [
+        236,
+        268
+      ],
+      "opaque_box": [
+        4,
+        4,
+        232,
+        264
+      ],
+      "opaque_h": 260,
+      "foot": [
+        118.0,
+        264
+      ],
+      "sha256": "5bfbc5a2599e98c9f95f6888e97d44ca8420d59bba5cbfa9ca39af2807562530"
+    },
+    "dodge.png": {
+      "pixel_size": [
+        252,
+        197
+      ],
+      "opaque_box": [
+        4,
+        4,
+        248,
+        193
+      ],
+      "opaque_h": 189,
+      "foot": [
+        126.0,
+        193
+      ],
+      "sha256": "01e0525a87fbf8c3092d970ce16f16e1fc75579a7fb9d422ca6f5135cd56cca1"
+    },
+    "idle.png": {
+      "pixel_size": [
+        195,
+        245
+      ],
+      "opaque_box": [
+        4,
+        4,
+        191,
+        241
+      ],
+      "opaque_h": 237,
+      "foot": [
+        97.5,
+        241
+      ],
+      "sha256": "38fc80dd0f0fbf9f895a9873e2af52ecb01878dafefc65895c3c65629e72083a"
+    },
+    "knockback.png": {
+      "pixel_size": [
+        238,
+        222
+      ],
+      "opaque_box": [
+        4,
+        4,
+        234,
+        218
+      ],
+      "opaque_h": 214,
+      "foot": [
+        119.0,
+        218
+      ],
+      "sha256": "f212c24fcc724a639f31d7ba78dd99bedb58b8c4fe416e72fbc019b367321a5d"
+    },
+    "knocked-out.png": {
+      "pixel_size": [
+        245,
+        144
+      ],
+      "opaque_box": [
+        4,
+        4,
+        241,
+        140
+      ],
+      "opaque_h": 136,
+      "foot": [
+        122.5,
+        140
+      ],
+      "sha256": "ffd3b9ab23e5e36dcd53ee6f3974755551b34413ed0ef34a3ea24e7b566bb6f3"
+    },
+    "face-angry.png": {
+      "pixel_size": [
+        284,
+        282
+      ],
+      "opaque_box": [
+        4,
+        4,
+        280,
+        278
+      ],
+      "opaque_h": 274,
+      "foot": [
+        142.0,
+        278
+      ],
+      "sha256": "05e5e3af7faa0d4c5b86ae2e0feb583c3d4ae2c4b4c832fd5b864dfc85ff60fa"
+    },
+    "face-happy.png": {
+      "pixel_size": [
+        292,
+        282
+      ],
+      "opaque_box": [
+        4,
+        4,
+        288,
+        278
+      ],
+      "opaque_h": 274,
+      "foot": [
+        146.0,
+        278
+      ],
+      "sha256": "9bc066b98df522ce6b399cf41a1b43f0aa586eabb59dabff8818beb1183725ae"
+    },
+    "face-neutral.png": {
+      "pixel_size": [
+        306,
+        282
+      ],
+      "opaque_box": [
+        4,
+        4,
+        302,
+        278
+      ],
+      "opaque_h": 274,
+      "foot": [
+        153.0,
+        278
+      ],
+      "sha256": "96971bcfdf6e6c2e150604c1f4cdcfca7f20cba918837c9adb14168af1fb940a"
+    },
+    "face-sad.png": {
+      "pixel_size": [
+        282,
+        282
+      ],
+      "opaque_box": [
+        4,
+        4,
+        278,
+        278
+      ],
+      "opaque_h": 274,
+      "foot": [
+        141.0,
+        278
+      ],
+      "sha256": "4da5e6660f0280de121abec26785b1e374f800a4d941dbecab763aff800007f3"
+    },
+    "face-surprised.png": {
+      "pixel_size": [
+        300,
+        282
+      ],
+      "opaque_box": [
+        4,
+        4,
+        296,
+        278
+      ],
+      "opaque_h": 274,
+      "foot": [
+        150.0,
+        278
+      ],
+      "sha256": "c344c81b2a7b2608e10af0923f958ba583b2f452aed093481cd30fadffd27c59"
+    },
+    "punch.png": {
+      "pixel_size": [
+        391,
+        241
+      ],
+      "opaque_box": [
+        4,
+        4,
+        387,
+        237
+      ],
+      "opaque_h": 233,
+      "foot": [
+        195.5,
+        237
+      ],
+      "sha256": "ee75392fd6376e9adf992f512eeb625c60d4248d50220be9eb318d63e40287ff"
+    },
+    "ultimate.png": {
+      "pixel_size": [
+        406,
+        269
+      ],
+      "opaque_box": [
+        4,
+        4,
+        402,
+        265
+      ],
+      "opaque_h": 261,
+      "foot": [
+        203.0,
+        265
+      ],
+      "sha256": "4721ee990a1eab40656c0d5652f769f5bca94cad9c597d870fc1577fe5cdd7f1"
+    },
+    "walk.png": {
+      "pixel_size": [
+        217,
+        226
+      ],
+      "opaque_box": [
+        4,
+        4,
+        213,
+        222
+      ],
+      "opaque_h": 218,
+      "foot": [
+        108.5,
+        222
+      ],
+      "sha256": "0306d05d8011b3129e24da6f1fcb23ea938891fd1f4818258e786225214ef56e"
+    }
+  }
+}

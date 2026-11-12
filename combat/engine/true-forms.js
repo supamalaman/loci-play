@@ -563,7 +563,7 @@
       }
       const stoodDown = (a) => !!a.standDownUntil && a.standDownUntil >= s.round;
       if (modeRules && s.modeSetup) {
-        const result = modeRules.outcome(s.modeSetup, { round: s.round, units: Object.values(s.actors), wild: s.wild, arena: s.arena, rules: s.rules });   // arena and rules: the scenario objective (modes/objectives.js)
+        const result = modeRules.outcome(s.modeSetup, { round: s.round, units: Object.values(s.actors), wild: s.wild, arena: s.arena, rules: s.rules, mirror: s.mirror });   // arena, rules, mirror: the scenario objective (modes/objectives.js); salvage reads mirror.salvagePicked
         if (result && !s.outcome) { s.outcome = { ...result, round: s.round }; s.phase = "over"; log(s, { kind: "outcome", text: result.reason }); }
         recordBattleMirrorOutcome(s);
         return;

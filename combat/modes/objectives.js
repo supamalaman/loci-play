@@ -11,11 +11,13 @@
 //   hold      win at the clock if a player unit stands in the zone and no enemy does; or at any time when no enemy stands; lose at the clock
 //             when the zone is not held ("pushed off": a loss at the clock, nobody has to be dead; the outcome carries no nonLethal flag)
 //   ward      win when the ward has escaped, or is alive at the clock, or no enemy stands; lose if the ward falls without escaping, or any named civilian falls (slice 5)
+//   break     win when the named object's hp is gone, or no enemy stands; lose at the clock (slice 4, SC16)
+//   salvage   win when player-side carriers have gained n items this battle (event-counted pickups in mirror.salvagePicked, n = min(3, 2 × carriers)), or no enemy stands; lose at the clock (slice 4, SC17)
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatObjectives = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  const KINDS = ["survive", "hold", "ward"];
+  const KINDS = ["survive", "hold", "ward", "break", "salvage"];
   const MAX_DEADLINE = 14;
   const alive = (u) => u && !u.defeated && (u.lf == null || u.lf > 0);
   const objectiveOf = (rules) => rules?.scenario?.objective || null;
@@ -24,6 +26,12 @@
   const riftStanding = (snap) => snap.units.some((u) => u.dream?.source === "randomEvent" && alive(u) && u.side !== "player");
   const wardOf = (snap, o) => (o.wardId ? snap.units.find((u) => u.id === o.wardId) : null);
   const namedCivilians = (snap, o) => (o.civilians || []).map((id) => snap.units.find((u) => u.id === id)).filter(Boolean);
+  const playerStanding = (snap) => snap.units.filter((u) => u.side === "player" && alive(u));
+  // Salvage n counts only carriers (inventoryCapacity > 0): summons, plants and 0-slot hires do not raise the need.
+  const carriers = (snap) => playerStanding(snap).filter((u) => (u.inventoryCapacity || 0) > 0);
+  const objectOf = (snap, o) => (snap.arena?.objects || []).find((q) => q.id === (o.objectId || "scenario-sluice"));
+  const salvageGot = (snap) => Number(snap.mirror?.salvagePicked) || 0;   // event-counted pickups by player-side carriers (engine.js syncPickup); a packed pouch never counts, and useItem splices and carrier defeats cannot undercount it
+  const salvageNeed = (snap) => Math.min(3, 2 * Math.max(1, carriers(snap).length || 1));
   const lose = (reason) => ({ winner: "enemy", reason });
   const win = (reason) => ({ winner: "player", reason });
 
@@ -51,6 +59,21 @@
       if (over) return o.onDeadline === "lose" ? lose(`Not clear by round ${deadline}.`) : win(`They made it to round ${deadline}.`);
       return null;
     }
+    if (o.kind === "break") {
+      if (!snap.arena) return null;   // HUD callers without arena must not read a missing object as "broken"
+      const obj = objectOf(snap, o), broken = !obj || (obj.hp != null && obj.hp <= 0);
+      if (broken) return win("The gate gives.");
+      if (!enemyStanding(snap)) return win("No one is left to guard the gate.");
+      if (over) return lose("The water takes the camp.");
+      return null;
+    }
+    if (o.kind === "salvage") {
+      const need = salvageNeed(snap), got = salvageGot(snap);
+      if (got >= need) return win(`You walk out with ${got} of what fell.`);
+      if (!enemyStanding(snap)) return win("No one is left to contest the scrap.");
+      if (over) return lose("The scrap is gone before you got to it.");
+      return null;
+    }
     return null;
   }
 
@@ -68,8 +91,17 @@
       const civBit = o.civilians?.length ? ` · civilians ${civs.filter((u) => !u.defeated || u.escaped).length}/${o.civilians.length}` : "";
       return `${rules.scenario.name || "Ward"}: ${left} round${left === 1 ? "" : "s"} left${wardBit ? ` · ward ${wardBit}` : ""}${civBit}`;
     }
+    if (o.kind === "break") {
+      if (!snap.arena) return `${rules.scenario.name || "Break"}: ${left} round${left === 1 ? "" : "s"} left`;
+      const obj = objectOf(snap, o), hp = obj && obj.hp != null ? obj.hp : 0;
+      return `${rules.scenario.name || "Break"}: ${left} round${left === 1 ? "" : "s"} left · gate ${!obj || hp <= 0 ? "broken" : `${hp} HP`}`;
+    }
+    if (o.kind === "salvage") {
+      const need = salvageNeed(snap), got = salvageGot(snap);
+      return `${rules.scenario.name || "Salvage"}: ${left} round${left === 1 ? "" : "s"} left · ${got}/${need} gained`;
+    }
     return "";
   }
 
-  return { KINDS, MAX_DEADLINE, outcome, text };
+  return { KINDS, MAX_DEADLINE, outcome, text, salvageNeed };
 });

@@ -130,9 +130,14 @@
     if (H.Parley?.useValence) H.Parley.useValence((s, a, b) => Factions.valence(s, a, b));
     // Scenario afterCreate (SCENARIOS.md slice 5): place authored customers before the first turn (Market Day, Hostage Hall), then the scenario's own hook. Moved here from engine.js at merge (engine cap).
     function scenarioCivilians(s, opts) {
+      if (s.mirror) s.mirror.salvagePicked = 0;   // SC17 salvage count starts at zero (slice 4; moved from engine.js at merge, engine cap)
       if (Array.isArray(opts.civilians)) for (const c of opts.civilians) H.Civilian.present(s, c);
       if (typeof opts.afterCreate === "function") opts.afterCreate(s, { placeCivilian: (spec) => H.Civilian.present(s, spec) });
     }
-    return { Factions, stanceFor, hostileSidesFor, scenarioCivilians };
+    // SC17 salvage (slice 4): a pickup by a player-side unit counts toward Salvage Run's n. Moved here from engine.js at merge (engine cap).
+    function scenarioPickup(s, unit, got) {
+      if (s.mirror && got.event?.kind === "pickup" && unit.side === "player") s.mirror.salvagePicked = (s.mirror.salvagePicked || 0) + 1;
+    }
+    return { Factions, stanceFor, hostileSidesFor, scenarioCivilians, scenarioPickup };
   })();
 });

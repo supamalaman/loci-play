@@ -20,11 +20,20 @@
     sprite: "fence",
     name: "Orgonite tower",
   };
+  // Worn charm (ORGONITE.md §10.3). The kiln recipe (3 orgonite + 10 Seeds) lives in crafting.js.
+  const CHARM = {
+    id: "orgoniteCharm",
+    damageMul: 0.8,
+    summonPhiAdd: 2,
+    dreamDrainAdd: 10,
+  };
   const COPY = {
     plant: "Plant orgonite",
     refusal: "Orgonite grounds the dream here.",
     help: "Plant orgonite · 40 AP · 1 puck. Raises a 24 HP tower on an adjacent open tile. Its r=2 field (5×5, two tiles in any direction including diagonals) stops Dream Space from opening, stops dream monsters from surfacing, hits dream monsters ×1.25 inside the field, and costs any summon 1 extra turn at turn end (overrides a frozen Dream Space clock; two fields still cost 1 extra, not 2). One tower per side. Neutral: it grounds your own dream and summons too.",
     thin: "stay thins in the orgonite field",
+    charm: "Orgonite charm",
+    charmHelp: "Dream monsters hit you ×0.8. A wrong name does not feed the dream. Summons and pact calls cost +2 ΦF. A called dream keeps its own price. Your Dream Space drains +10 more per turn.",
   };
 
   const cheb = (x0, y0, x1, y1) => Math.max(Math.abs(x0 - x1), Math.abs(y0 - y1));
@@ -41,6 +50,16 @@
   function dreamDamageMul(attacker, target, objects) {
     if (!target?.dream) return 1;
     return inField(objects, target.x, target.y) ? RULES.damageMul : 1;
+  }
+  function charmDamageMul(target) {
+    const m = target?.passives?.dreamMonsterDamageMul;
+    return typeof m === "number" && m > 0 ? m : 1;
+  }
+  function charmChoice(traits) {
+    const ids = (traits || []).map((t) => (typeof t === "string" ? t : t?.id)).filter(Boolean);
+    if (ids.includes("fullBeliever")) return "refuse";
+    if (ids.includes("fearful") || ids.includes("nonBeliever")) return "prefer";
+    return "neutral";
   }
 
   function occupied(s, x, y) {
@@ -98,5 +117,5 @@
     };
   }
 
-  return { RULES, COPY, liveTowers, inField, extraTicks, dreamDamageMul, plantError, plantSites, makeTower };
+  return { RULES, CHARM, COPY, liveTowers, inField, extraTicks, dreamDamageMul, charmDamageMul, charmChoice, plantError, plantSites, makeTower };
 });

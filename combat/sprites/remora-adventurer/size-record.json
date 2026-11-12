@@ -1,0 +1,287 @@
+{
+  "size_class": "small",
+  "minimum_pixel_size_px": 48,
+  "person_reference_px": 96,
+  "warden_idle_opaque_px": 435,
+  "idle_opaque_px": 234,
+  "idle_draw_px": 52,
+  "reared_draw_px": 60,
+  "world_height": 0.538,
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "note": "Person-shaped adventurer. Native idle draws at 52px beside the Warden and meets the small floor. Source pixels are enough to draw larger if a creature spec sets the scale. Footprint 1 tile.",
+  "poses": {
+    "block.png": {
+      "pixel_size": [
+        240,
+        214
+      ],
+      "opaque_box": [
+        4,
+        4,
+        235,
+        209
+      ],
+      "opaque_h": 206,
+      "foot": [
+        119,
+        209
+      ],
+      "sha256": "4d6f8ca0ca2dc1fa70ec4c81229009d8a780ad109e7e490cafc92c57563299f3"
+    },
+    "cast-off.png": {
+      "pixel_size": [
+        230,
+        280
+      ],
+      "opaque_box": [
+        4,
+        4,
+        225,
+        275
+      ],
+      "opaque_h": 272,
+      "foot": [
+        114,
+        275
+      ],
+      "sha256": "97cd901f5ed789ce7634731b30c07d1b1b4149f66f886bd4d162191676d07bd3"
+    },
+    "cast.png": {
+      "pixel_size": [
+        228,
+        232
+      ],
+      "opaque_box": [
+        4,
+        4,
+        223,
+        227
+      ],
+      "opaque_h": 224,
+      "foot": [
+        113,
+        227
+      ],
+      "sha256": "ec03f92f3bbdf428e77ee3a54cb377e45b34efdc7e48a10033cb29ccd8371da5"
+    },
+    "dodge.png": {
+      "pixel_size": [
+        236,
+        230
+      ],
+      "opaque_box": [
+        4,
+        4,
+        231,
+        225
+      ],
+      "opaque_h": 222,
+      "foot": [
+        117,
+        225
+      ],
+      "sha256": "a398dae0ab47862d909a6613d1b35c2571ab04ad379fb26616705b0c354103b2"
+    },
+    "idle.png": {
+      "pixel_size": [
+        179,
+        242
+      ],
+      "opaque_box": [
+        4,
+        4,
+        174,
+        237
+      ],
+      "opaque_h": 234,
+      "foot": [
+        89,
+        237
+      ],
+      "sha256": "9ed6100d1b9b15e01f754210635106660da736fb7573a45351b83a00b6714524"
+    },
+    "knockback.png": {
+      "pixel_size": [
+        207,
+        203
+      ],
+      "opaque_box": [
+        4,
+        4,
+        202,
+        198
+      ],
+      "opaque_h": 195,
+      "foot": [
+        103,
+        198
+      ],
+      "sha256": "d7f84d237682cb20620e730965df1d78cc0a5033c5d908f55bc4616c97174e76"
+    },
+    "knocked-out.png": {
+      "pixel_size": [
+        273,
+        100
+      ],
+      "opaque_box": [
+        4,
+        4,
+        268,
+        95
+      ],
+      "opaque_h": 92,
+      "foot": [
+        136,
+        95
+      ],
+      "sha256": "4c6d12ffb3a135d402c38e560d85f246ffb214df8e17561e14d11eb44932227a"
+    },
+    "portrait-angry.png": {
+      "pixel_size": [
+        262,
+        291
+      ],
+      "opaque_box": [
+        4,
+        4,
+        257,
+        286
+      ],
+      "opaque_h": 283,
+      "foot": [
+        130,
+        286
+      ],
+      "sha256": "0de03134570c7177e51b45eaf7b0a8d51e107e8a30f4c65157d19edb3b82188e"
+    },
+    "portrait-happy.png": {
+      "pixel_size": [
+        268,
+        288
+      ],
+      "opaque_box": [
+        4,
+        4,
+        263,
+        283
+      ],
+      "opaque_h": 280,
+      "foot": [
+        133,
+        283
+      ],
+      "sha256": "5790c7c0013d1cf47c1c26cedfd0a6445c642fd3c6d645420ef5ab46e128a8dd"
+    },
+    "portrait-neutral.png": {
+      "pixel_size": [
+        271,
+        282
+      ],
+      "opaque_box": [
+        4,
+        4,
+        266,
+        277
+      ],
+      "opaque_h": 274,
+      "foot": [
+        135,
+        277
+      ],
+      "sha256": "53b7b679bcffeb3ba095fa2a5b485a09e0b3c60ee2b55a2a03ec83311c45c537"
+    },
+    "portrait-sad.png": {
+      "pixel_size": [
+        248,
+        284
+      ],
+      "opaque_box": [
+        4,
+        4,
+        243,
+        279
+      ],
+      "opaque_h": 276,
+      "foot": [
+        123,
+        279
+      ],
+      "sha256": "bae12dc73883a1c3f47b50eb8276b9da4776daee3e27ca08a424fc1a0c9cdc8e"
+    },
+    "portrait-surprised.png": {
+      "pixel_size": [
+        268,
+        284
+      ],
+      "opaque_box": [
+        4,
+        4,
+        263,
+        279
+      ],
+      "opaque_h": 276,
+      "foot": [
+        133,
+        279
+      ],
+      "sha256": "50b6e421b5dd296e56c7a55c98869af725662b933e7616a698c570e00b96b3de"
+    },
+    "punch.png": {
+      "pixel_size": [
+        282,
+        215
+      ],
+      "opaque_box": [
+        4,
+        4,
+        277,
+        210
+      ],
+      "opaque_h": 207,
+      "foot": [
+        140,
+        210
+      ],
+      "sha256": "d16b601f261b73562e11db76d9a97221f7e393d18d70642fb59443dcc2697958"
+    },
+    "ultimate.png": {
+      "pixel_size": [
+        219,
+        282
+      ],
+      "opaque_box": [
+        4,
+        4,
+        214,
+        277
+      ],
+      "opaque_h": 274,
+      "foot": [
+        109,
+        277
+      ],
+      "sha256": "56bfabb46e1e06a4b0df01bab2916a5541f222ced91539e31213663375f0b6b5"
+    },
+    "walk.png": {
+      "pixel_size": [
+        211,
+        234
+      ],
+      "opaque_box": [
+        4,
+        4,
+        206,
+        229
+      ],
+      "opaque_h": 226,
+      "foot": [
+        105,
+        229
+      ],
+      "sha256": "9abffb7bd13521a7fa307b198f627169db9eb97308db91d2879313e56c141b83"
+    }
+  }
+}

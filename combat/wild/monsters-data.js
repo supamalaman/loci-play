@@ -212,6 +212,22 @@
       friend: { chance: 0.05, fromRound: 2, toRound: 5 },   // once tamed, it may come to your aid in a later battle (Mala, 2026-10-19)
       appear: [{ when: "roundAtLeast", round: 4, biomes: ["grove", "rim", "quarry"], chance: 0.07 }], ends: ["LF 0"],
     },
+    // Wild Food Web W3 (claude-wild-food-web-spec sections 4.5 and 5; Thole BD, 2026-11-11; numbers provisional, the spec's "about"):
+    // the ambush predator. It pounces from up to `leap` tiles (wild/monsters.js leapTo) and, starting its phase in turf or mulch,
+    // is "something" in the telegraph and its first pounce is ×ambushMul. Tame ×0.5 (content.js); never in Call the Pack
+    // (pack: false, R-20261111-06). It eats chickens once W2's flock exists (R-20261111-05). Art: cursor-bengal-tiger-cut
+    // (sprites/bengal-tiger; prowl = walk, pounce = ultimate, bite = punch, eating = block, down = knocked-out).
+    tiger: {
+      name: "Bengal tiger", form: "unit", wave: false, concept: "inertia", channel: "nigredo", sprite: "bengal-tiger",
+      sci: "Panthera tigris tigris",
+      basis: "Tigers kill by ambush: they stalk using every rock, tree and bush as cover (Animal Diversity Web, U. Michigan, Panthera tigris), and their striped coats help them blend in and lie in wait for prey (Smithsonian's National Zoo). No tiger lives wild in Hawaiʻi: this one is the story's.",
+      teaches: "An ambush predator wins from cover: keep out of the tall grass, or make it leap where you can see it coming.",
+      counters: ["pathway", "barrier"],
+      lf: 60, move: 4, pounce: 12, leap: 3, ambushMul: 1.5, seekUnits: 8, skittish: 0, pack: false,
+      eats: { feralPig: 2, moa: 2, chicken: 2, wolf: 1, ducks: 1 },
+      eatsBasis: "Tigers take wild boar and wild pigs, and when larger prey is short, smaller animals: large birds such as pheasants, and other carnivores such as leopards and bears (Animal Diversity Web, U. Michigan, Panthera tigris; Smithsonian's National Zoo). The game reads the moa and the ducks as large birds, the chickens as the pheasants' own family, and the feral dog as a smaller carnivore.",
+      appear: [{ when: "roundAtLeast", round: 4, biomes: ["grove", "rim"], chance: 0.05 }], ends: ["LF 0"],
+    },
 
   };
 

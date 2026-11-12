@@ -33,7 +33,7 @@
     add("What it is", [d.sci ? `${d.sci}` : null, d.basis || null, d.concept ? `Concept: ${cname(d.concept)}` : null]);
     add("Counter", [(d.counters || []).map(cname).join(", ") || null, d.teaches ? `Teaches: ${d.teaches}` : null]);
     const all = data || {}, eaters = Object.keys(all).filter((k) => all[k].eats?.[m.kind]).map((k) => all[k].name.toLowerCase());   // the food web (W1): what it hunts and what hunts it
-    add("Food web", [d.eats ? `Eats: ${Object.keys(d.eats).map((k) => all[k]?.name.toLowerCase() || k).join(", ")}` : null, eaters.length ? `Hunted by: ${eaters.join(", ")}` : null, m.fed && s.round <= m.fed.until ? "Eating: it will not move or strike unless hurt" : null]);
+    add("Food web", [d.eats ? `Eats: ${Object.keys(d.eats).filter((k) => all[k]).map((k) => all[k].name.toLowerCase()).join(", ")}` : null, eaters.length ? `Hunted by: ${eaters.join(", ")}` : null, m.fed && s.round <= m.fed.until ? "Eating: it will not move or strike unless hurt" : null]);
     return { title: m.name || d.name || m.kind, subtitle: "Wild · hostile to everyone", sections, hidden: 0, hint: "", id: m.id, statuses: [], otherConditions: [],
       vitals: { lf: m.lf ?? null, maxLF: m.maxLF ?? null, pf: null, maxPF: null, ultimate: null }, defeated: !(m.lf > 0), intent: tele?.text || null, noticed: 0, hasDeck: false, wild: true };
   }

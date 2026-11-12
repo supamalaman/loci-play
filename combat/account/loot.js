@@ -332,7 +332,8 @@
       a = { ...a, marks: [...(a.marks || []), ...result.convertMarks].slice(-50) };
     }
     const board = MINT ? MINT.capped("board", result.boardSeeds || 0) : { seeds: 0, flag: null };   // W4.2 faucet (W4.1 cap): missions pay through the mint
-    const seeds = seedsFor(account, result) + (result.winner === "player" ? result.jackpotSeeds || 0 : 0) + board.seeds;   // W5.3: the table's pot pays the winner only
+    const scenario = MINT ? MINT.capped("scenario", result.scenarioBonusSeeds || 0) : { seeds: 0, flag: null };   // S7 faucet (R-20261103-03 D8): scenario bonuses pay through the mint
+    const seeds = seedsFor(account, result) + (result.winner === "player" ? result.jackpotSeeds || 0 : 0) + board.seeds + scenario.seeds;   // W5.3: the table's pot pays the winner only
     a = { ...a, seeds: a.seeds + seeds, carried: [] };                 // unused carried items return to the stash below
     for (const id of withBags(account).carried) a = addToStash(a, id).a;
     // wear: every equipped piece loses durability for the battle it was worn in
@@ -365,7 +366,7 @@
     if (earned) a = earned.account;
     const show = Math.max(0, Math.min(40, result.showboat || 0));   // W6.5: the crowd pays for theater (capped, UI-judged)
     if (show > 0) a = { ...a, seeds: a.seeds + show };
-    const lines = [...xpResult.lines, `+${seeds - (result.winner === "player" ? result.jackpotSeeds || 0 : 0)} Seeds`, ...(result.winner === "player" && result.jackpotSeeds > 0 ? [`Jackpot: +${result.jackpotSeeds} Seeds from the table.`] : []), ...stakeLines, ...(earned ? earned.lines : []), ...pvLines, ...(board.seeds ? [`Contract board pays ${board.seeds} Seeds${board.flag ? ` (${board.flag})` : ""}.`] : board.flag ? [board.flag] : []), ...titleLines, ...weighLines, ...(result.dopeLines || []), ...(show > 0 ? [`Showboat: +${show} Seeds from the crowd.`] : []), ...wearLines, ...careLines];
+    const lines = [...xpResult.lines, `+${seeds - (result.winner === "player" ? result.jackpotSeeds || 0 : 0)} Seeds`, ...(result.winner === "player" && result.jackpotSeeds > 0 ? [`Jackpot: +${result.jackpotSeeds} Seeds from the table.`] : []), ...stakeLines, ...(earned ? earned.lines : []), ...pvLines, ...(board.seeds ? [`Contract board pays ${board.seeds} Seeds${board.flag ? ` (${board.flag})` : ""}.`] : board.flag ? [board.flag] : []), ...(scenario.seeds ? [`Scenario bonus pays ${scenario.seeds} Seeds${scenario.flag ? ` (${scenario.flag})` : ""}.`] : scenario.flag ? [scenario.flag] : []), ...titleLines, ...weighLines, ...(result.dopeLines || []), ...(show > 0 ? [`Showboat: +${show} Seeds from the crowd.`] : []), ...wearLines, ...careLines];
     for (const d of drops) {
       const it = catalog(d.kind)[d.id];
       if (d.kind === "equipment" && a.gear.owned.includes(d.id)) {
@@ -452,6 +453,7 @@
     if (!it) return { ok: false, account: a, reason: "Unknown item." };
     let value = I.rarities[it.rarity].sell;   // sold at the born rarity: Jinki care is sentimental, never Seeds (Mala, 2026-10-27; crafting is the money system)
     if (kind === "equipment") {
+      if (id === "orgoniteCharm") return { ok: false, account: a, reason: "The Orcish fence is the only buyer for an orgonite charm." };
       if (!a.gear.owned.includes(id)) return { ok: false, account: a, reason: "You don't own that." };
       if (enshrined(a, id)) return { ok: false, account: a, reason: inMuseum(a, id) };
       if (worn(a, id)) value = Math.round(value * I.rules.durability.brokenSellShare);
@@ -613,6 +615,15 @@
     if (i < 0) return a;
     return { ...a, carried: [...a.carried.slice(0, i), ...a.carried.slice(i + 1)] };
   }
+  function castOrgoniteCharm(account) {
+    const KR = (typeof module === "object" && module.exports) ? require("./crafting.js") : (typeof self !== "undefined" ? self : globalThis).ConceptCombatCrafting;
+    const a = withBags(account);
+    const spent = KR.castCharm(a);
+    if (!spent.ok) return { ok: false, account: a, short: spent.short };
+    const id = KR.CHARM.id;
+    const gear = { ...spent.account.gear, owned: [...spent.account.gear.owned, id], durability: { ...spent.account.gear.durability, [id]: maxDurability(id, spent.account) } };
+    return { ok: true, account: { ...spent.account, gear }, id };
+  }
 
-  return { finishBattle, grantCampaignItem, rollDrops, seedsFor, shopStock, hallStock, hallPrice, hallMult, buy, sell, sellConsumable, trashConsumable, equip, unequip, passives, setSpeaking, speakingLines, soulStrip, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
+  return { finishBattle, grantCampaignItem, castOrgoniteCharm, rollDrops, seedsFor, shopStock, hallStock, hallPrice, hallMult, buy, sell, sellConsumable, trashConsumable, equip, unequip, passives, setSpeaking, speakingLines, soulStrip, museumQualifies, enshrine, withdraw, enshrined, MUSEUM_PLINTHS, battleSlots, stashLimit, packForBattle, useCarried, repair, repairService, buyMix, maxDurability, withBags, tend, tendAll, cherish, careOf, empowerLines, data: I };
 });

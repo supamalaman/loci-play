@@ -174,7 +174,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   const wildLive = (w) => w.wild.filter((x) => x.form === "unit" && !x.done && !x.fleeing && x.lf > 0);
   const eating = (w, m) => !!m.fed && w.round <= m.fed.until;
   const preyName = (kind) => W.monsters[kind].name.toLowerCase();
-  const strikeOf = (def) => def.bite ?? def.peck ?? def.slam ?? def.ram ?? def.kick ?? def.nip ?? def.strike ?? def.sting ?? 0;
+  const strikeOf = (def) => def.pounce ?? def.bite ?? def.peck ?? def.slam ?? def.ram ?? def.kick ?? def.nip ?? def.strike ?? def.sting ?? 0;
   const threatsTo = (w, m) => { const mine = W.monsters[m.kind]; return wildLive(w).filter((h) => h !== m && !eating(w, h)
     && (W.monsters[h.kind].eats?.[m.kind] || (mine.fears || []).includes(h.kind)) && man(h.x, h.y, m.x, m.y) <= (HUNT().fearRange ?? 4)); };
   function huntFor(w, m) {
@@ -189,6 +189,21 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       if (r) return { wild: p.id, tile: r.path[r.path.length - 1], why: `the ${preyName(p.kind)}` };
     }
     return null;
+  }
+  // ── the pounce (Wild Food Web W3, spec 4.5) ──
+  // The tiger leaps up to def.leap tiles onto open ground beside its target, over low things (height, a hedge, a bench, a planter:
+  // anything of sight height 1 or less) but never across terrain that blocks movement (pool, tree, pillar) or a tall object (a tree).
+  // Starting its phase in cover (turf or mulch, the tiles brushfire burns), it is "something" in the telegraph and its first pounce is ×ambushMul.
+  const COVER = [",", "m"];
+  const inCover = (w, m) => COVER.includes(w.arena.map[m.y]?.[m.x]);
+  function leapTo(w, m, at) {
+    const def = W.monsters[m.kind];
+    const clear = ([x, y]) => { const n = Math.max(Math.abs(x - m.x), Math.abs(y - m.y));
+      for (let i = 1; i <= n; i++) { const cx = Math.round(m.x + (x - m.x) * i / n), cy = Math.round(m.y + (y - m.y) * i / n), o = objAt(w, cx, cy);
+        if (!inside(w.arena, cx, cy) || D.terrain[w.arena.map[cy][cx]].blocksMove || (o && (o.sightHeight || 0) > 1)) return false; }
+      return true; };
+    return DIRS.map(([dx, dy]) => [at[0] + dx, at[1] + dy]).filter(([x, y]) => man(x, y, m.x, m.y) <= def.leap && walkable(w, x, y) && !unitAt(w, x, y) && !wildAt(w, x, y) && clear([x, y]))
+      .sort((a, b) => man(a[0], a[1], m.x, m.y) - man(b[0], b[1], m.x, m.y) || (K(...a) < K(...b) ? -1 : 1))[0] || null;
   }
   function targetFor(w, m) {
     const def = W.monsters[m.kind];
@@ -248,7 +263,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       const u = prey(w).filter((u) => man(u.x, u.y, m.x, m.y) <= def.seekUnits).sort((a, b) => man(a.x, a.y, m.x, m.y) - man(b.x, b.y, m.x, m.y) || (a.id < b.id ? -1 : 1))[0];
       return u ? { unit: u.id, tile: [u.x, u.y], why: "the nearest body" } : null;
     }
-    if (m.kind === "wolf") {   // the straggler: fewest of its own side within 2, then nearest
+    if (m.kind === "wolf" || m.kind === "tiger") {   // the straggler (the tiger takes the dog's rule when no prey is near, spec 5): fewest of its own side within 2, then nearest
       const near = (u) => living(w).filter((v) => v.id !== u.id && v.side === u.side && man(v.x, v.y, u.x, u.y) <= 2).length;
       const u = prey(w).filter((u) => man(u.x, u.y, m.x, m.y) <= def.seekUnits).sort((a, b) => near(a) - near(b) || man(a.x, a.y, m.x, m.y) - man(b.x, b.y, m.x, m.y) || (a.id < b.id ? -1 : 1))[0];
       return u ? { unit: u.id, tile: [u.x, u.y], why: "the straggler" } : null;
@@ -284,6 +299,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     return w.wild.map((m) => {
       const def = W.monsters[m.kind];
       if (m.form === "unit" && eating(w, m)) return { id: m.id, kind: m.kind, tiles: [], text: `${def.name} is eating.` };
+      if (m.form === "unit" && def.leap && inCover(w, m)) { const t = targetFor(w, m); return { id: m.id, kind: m.kind, hidden: true, tiles: t ? [t.tile] : [], text: t ? `Something moves in the grass, heading for ${t.why} at (${t.tile.join(",")}).` : "Something moves in the grass." }; }   // W3: the ambusher in cover has no name
       if (m.form === "unit") { const t = targetFor(w, m); return { id: m.id, kind: m.kind, tiles: t ? [t.tile] : [], text: t ? `${def.name} is heading for ${t.why} at (${t.tile.join(",")}).` : `${def.name} is wandering.` }; }
       if (m.form === "front") { const path = floodPath(w, m); return { id: m.id, kind: m.kind, tiles: path, text: `${def.name} will run ${path.length} tile${path.length === 1 ? "" : "s"} downhill.` }; }
       const front = frontier(w, m); return { id: m.id, kind: m.kind, tiles: front.map((f) => f.at), text: `${def.name} can spread to ${front.length} tile${front.length === 1 ? "" : "s"}.` };
@@ -340,7 +356,18 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   function actUnit(w, m, events) {
     if (m.fed) { if (eating(w, m)) return; delete m.fed; }   // a fed hunter rests on its kill (D2), then hunts again
     if (scatter(w, m, events)) return;
-    const def = W.monsters[m.kind], t = targetFor(w, m);
+    const def = W.monsters[m.kind], t = targetFor(w, m), fromCover = !!def.leap && inCover(w, m);
+    let leapt = false, amb = 1;
+    if (def.leap && t) {   // W3: the pounce. From up to `leap` tiles it lands beside its target instead of walking
+      const tgt = t.wild ? w.wild.find((x) => x.id === t.wild && !x.done && x.lf > 0) : living(w).find((u) => u.id === t.unit);
+      const land = tgt && man(tgt.x, tgt.y, m.x, m.y) > 1 ? leapTo(w, m, [tgt.x, tgt.y]) : null;
+      if (land) {
+        const from = [m.x, m.y]; m.x = land[0]; m.y = land[1]; leapt = true;
+        if (fromCover && !m.ambushed) { amb = def.ambushMul || 1; m.ambushed = true; }
+        events.push({ kind: "wildPounce", id: m.id, from, to: land.slice(), target: tgt.id, tiles: [land.slice(), [tgt.x, tgt.y]],
+          text: `${fromCover ? `${def.name} bursts from the grass and pounces` : `${def.name} pounces`} to (${land.join(",")})${amb > 1 ? ": an ambush, ×" + amb : ""}.` });
+      }
+    }
     if (m.kind === "nettleCaterpillar") {
       m.curled = m.lf <= def.curlBelow * m.maxLF;
       if (m.hostile && (w.round > m.hostile.until || !living(w).some((u) => u.id === m.hostile.target))) { delete m.hostile; events.push({ kind: "wildCalm", id: m.id, text: "The caterpillar settles and goes back to feeding." }); }
@@ -358,7 +385,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     }
     if (!t) return;
     const goal = (x, y) => x === t.tile[0] && y === t.tile[1];
-    const r = route(w, [m.x, m.y], goal, 99, !!def.waterOnly, !!def.deepWater);
+    const r = leapt ? null : route(w, [m.x, m.y], goal, 99, !!def.waterOnly, !!def.deepWater);
     if (r) {
       const from = [m.x, m.y];
       let budget = def.move, steps = 0;
@@ -378,7 +405,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     if (t.wild) {   // the hunt: one blow at the prey beside it (its own attack × preyMul), and a kill means a meal
       const p = w.wild.find((x) => x.id === t.wild && !x.done && x.lf > 0);
       if (p && man(p.x, p.y, m.x, m.y) === 1) {
-        const amount = Math.round(strikeOf(def) * (HUNT().preyMul ?? 2));
+        const amount = Math.round(strikeOf(def) * (HUNT().preyMul ?? 2) * amb);
         events.push({ kind: "wildHunt", id: m.id, target: p.id, tiles: [[p.x, p.y]], text: `${def.name} goes for the ${preyName(p.kind)}.` });
         hurtIn(w, p, amount, null, events);
         if (p.done) { m.fed = { until: w.round + (HUNT().fedRounds ?? 2), on: p.kind }; events.push({ kind: "wildFed", id: m.id, text: `${def.name} is eating.` }); }
@@ -412,6 +439,10 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       const hit = { ducks: [def.peck, "The ducks peck:"], chicken: [def.peck, "The chickens peck:"], wolf: [def.bite, "The feral dog bites:"], moa: [def.kick, "The moa kicks:"], porgy: [def.nip, "The porgy nips:"] }[m.kind];
       const victim = DIRS.map(([dx, dy]) => biteAt(w, m.x + dx, m.y + dy)).filter(Boolean).sort((a, b) => (a.id === t.unit ? -1 : b.id === t.unit ? 1 : a.id < b.id ? -1 : 1))[0];
       if (victim) { damageUnit(w, victim, hit[0], def.channel, [m.x, m.y], events, 0, hit[1], m.kind, m.id); if (def.skittish && roll(w, m.id, "bolt:" + w.round) < def.skittish) m.fleeing = "bolted after biting"; }
+    }
+    if (m.kind === "tiger") {   // W3: a pounce, or a bite when it is already beside its target; ×ambushMul on the first pounce from cover
+      const victim = DIRS.map(([dx, dy]) => biteAt(w, m.x + dx, m.y + dy)).filter(Boolean).sort((a, b) => (a.id === t.unit ? -1 : b.id === t.unit ? 1 : a.id < b.id ? -1 : 1))[0];
+      if (victim) damageUnit(w, victim, Math.round(def.pounce * amb), def.channel, [m.x, m.y], events, 0, leapt ? (amb > 1 ? `The tiger pounces from cover (ambush ×${amb}):` : "The tiger pounces:") : "The tiger bites:", m.kind, m.id);
     }
     if (m.kind === "kraken") {
       const victim = DIRS.map(([dx, dy]) => biteAt(w, m.x + dx, m.y + dy)).filter(Boolean).sort((a, b) => (a.id === t.unit ? -1 : b.id === t.unit ? 1 : a.id < b.id ? -1 : 1))[0];
@@ -635,8 +666,8 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       if (w.round >= pr.round && open.length) tryKind("porgy", "inWater", open[Math.floor(roll(w, "porgy", "where") * open.length)], "a salema rises in the shallows"); }
     { const kr = W.monsters.kraken.appear[0], open = waterTiles(w).filter(([x, y]) => !unitAt(w, x, y) && !wildAt(w, x, y));
       if (w.round >= kr.round && open.length) tryKind("kraken", "inWater", open[Math.floor(roll(w, "kraken", "where") * open.length)], "a kraken rises from the deep"); }
-    for (const kind of ["wolf", "moa", "sasquatch", "chicken"]) { const r = W.monsters[kind].appear[0];
-      if (w.round >= r.round && r.biomes.includes(w.arena.archetype)) tryKind(kind, "roundAtLeast", edgeTileNear(w, [w.arena.map[0].length - 1, Math.floor(w.arena.map.length / 2)], kind), kind === "wolf" ? "a howl, and a feral dog trots in" : kind === "moa" ? "a moa stalks in and settles on a nest" : kind === "chicken" ? "a rooster crows, and a feral flock struts in" : "something huge steps out of the treeline"); }
+    for (const kind of ["wolf", "moa", "sasquatch", "chicken", "tiger"]) { const r = W.monsters[kind].appear[0];
+      if (w.round >= r.round && r.biomes.includes(w.arena.archetype)) tryKind(kind, "roundAtLeast", edgeTileNear(w, [w.arena.map[0].length - 1, Math.floor(w.arena.map.length / 2)], kind), kind === "wolf" ? "a howl, and a feral dog trots in" : kind === "moa" ? "a moa stalks in and settles on a nest" : kind === "chicken" ? "a rooster crows, and a feral flock struts in" : kind === "tiger" ? "the grass goes still, and a tiger slips in" : "something huge steps out of the treeline"); }
     const disturbance = w.arena.map.join("").split("").filter((c) => c === "*").length + debris.length + (w.disturbed || 0);
     if (disturbance >= W.monsters.creeper.appear[0].atLeast) {
       const soil = []; w.arena.map.forEach((r, y) => [...r].forEach((c, x) => { if ([",", "m"].includes(c) && !objAt(w, x, y) && !unitAt(w, x, y)) soil.push([x, y]); }));

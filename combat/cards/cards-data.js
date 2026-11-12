@@ -26,7 +26,7 @@
   // The closed effect menu (section 1.3). A card never runs code: it names these keys. `proposed` keys may only sit on staged cards.
   const effects = {
     damage: {}, push: {}, stagger: {}, root: {}, itemLock: {}, reveal: {}, ward: {}, heal: {}, modTaken: {}, modDealt: {}, regen: {}, lethalSave: {}, cardLock: {}, familiar: {},
-    apGain: { proposed: true }, pullTowardWater: {}, spawnFish: {},
+    apGain: { proposed: true }, pullTowardWater: {}, spawnFish: {}, listening: {}, oliveBranch: {},
   };
   const rules = {
     enabled: true, liveKinds: ["instant", "set", "summon", "field", "equip"],   // C1 turned the system on for the instant kind, C2 adds set, C3 summon, C4 field and equip: every kind is live
@@ -38,7 +38,7 @@
     conditionMul: { none: 1, soft: 0.85, hard: 0.7 }, kindMul: { instant: 1, set: 0.85, summon: 1, field: 1, equip: 1 }, floor: 0.6,
     areaMul: { base: 1, r3: 1.2, r4: 1.4 }, defaultRange: 4, foeLfRange: 3,
     points: { damagePer: 5, damageMin: 2, push: 2, stagger: 3, wardPer: 3, rootShort: 3, rootLong: 4, itemLock: 3, reveal: 2, healPer: 3, modScale: 10, regenPer: 3,
-      lethalSave: 4, cardLock: 5, familiarLfPer: 9, familiarPotencyPer: 8, apGainPer: 8, pull: 2, spawnFish: 2 },
+      lethalSave: 4, cardLock: 5, familiarLfPer: 9, familiarPotencyPer: 8, apGainPer: 8, pull: 2, spawnFish: 2, listening: 2, oliveBranch: 4 },
     familiar: { reach: 4, thematicLf: 4, thematicTurns: 1, kits: { strike: ["pathway", "elasticity"], ward: ["boundary", "barrier"] } },   // C3: a card familiar strikes or wards within `reach`; a Warden or a full believer calls it +4 LF and +1 turn; the stand-in concept pairs are the palace summons' (skirmish, ward)
     zone: { reach: 3 },   // C4: a field card's zone is centred on a tile within this many tiles of its owner (CARDS.md 4.4); equip targets are the owner and allies within the same reach
     observe: { kindsAp: 10, allAp: 50 },   // C7 (the Observe-reveal draft, Mala 2026-11-04): a deliberate Observe by an AWARE unit of a unit that carries a deck glimpses its unused cards: from kindsAp the kinds, a name for the card's rip price (rules.rip) in study AP, the whole list at allAp
@@ -168,6 +168,8 @@
     {"id":"harvestMoon","name":"Harvest Moon","kind":"field","rarity":"legendary","cost":7,"copies":1,"condition":{"id":"roundAtLeast","n":6,"tier":"hard"},"target":"tile","effects":[{"key":"modDealt","mult":1.2,"turns":3},{"key":"regen","lf":3,"turns":3}],"zone":{"radius":4,"rounds":3,"side":"own"},"contacts":[{"system":"dream-space","how":"a moon is art only; no Dream Space is opened or advanced"}],"goal":"protect","art":{"key":"harvest-moon","size":"card","source":"Pomology sheet #20 (row 4, col 5)"},"series":"Pomology Almanac","status":"staged"},
     {"id":"ebbGrip","name":"Ebb Grip","kind":"instant","rarity":"common","cost":2,"copies":2,"condition":{"id":"none","tier":"none"},"target":"foe","range":3,"effects":[{"key":"pullTowardWater","tiles":1}],"contacts":[{"system":"wild-creatures","how":"prototype card for the Tidewrestler basic Riptide (TC-KRAKEN-HOTBUILD S1); graduates or retires per D4"}],"goal":"position","art":{"key":"ebb-grip","size":"card","source":"Tidewrestler S1 (no art yet)"},"flavor":"The tide takes hold.","status":"prototype","graduate":{"home":"riptide","into":"class"}},
     {"id":"stillWater","name":"Still Water","kind":"instant","rarity":"common","cost":2,"copies":2,"condition":{"id":"none","tier":"none"},"target":"tile","range":1,"effects":[{"key":"spawnFish"}],"contacts":[{"system":"terrain-climate-dream","how":"spawns one fish onto open water under the fish cap; reads water tiles, changes no terrain"}],"goal":"exploit","art":{"key":"still-water","size":"card","source":"Flower S1 (no art yet)"},"flavor":"A lure for patient water.","status":"prototype","graduate":{"home":"moonJarBouquet","into":"card"}},
+    {"id":"lendAnEar","name":"Lend an Ear","kind":"instant","rarity":"common","cost":2,"copies":2,"condition":{"id":"none","tier":"none"},"target":"foe","range":4,"effects":[{"key":"listening","rounds":2,"points":10}],"contacts":[{"system":"parley-valence","how":"Listening on one foe: +10 points to talk and come to terms for anyone on the caster's side, for 2 rounds; damage from that side ends it; valence is not written"}],"goal":"support","art":{"key":"lend-an-ear","size":"card","source":"C6b (no art yet)"},"flavor":"They are still deciding whether to hear you.","status":"live","series":"Persuasion"},
+    {"id":"oliveBranch","name":"Olive Branch","kind":"instant","rarity":"uncommon","cost":4,"copies":1,"condition":{"id":"none","tier":"none"},"target":"foe","range":4,"effects":[{"key":"oliveBranch"}],"contacts":[{"system":"parley-valence","how":"the next failed terms attempt against that foe does not close talk; valence is not written"}],"goal":"support","art":{"key":"olive-branch","size":"card","source":"C6b (no art yet)"},"flavor":"One more word, after the no.","status":"live","series":"Persuasion"},
   ];
   return { kinds, conditions, effects, rules, cards };
 });

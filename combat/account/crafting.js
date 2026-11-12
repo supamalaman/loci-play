@@ -22,6 +22,8 @@
   // Spent as flux (waives one firing's fee) or sold at the stall (market.js sellOrgonite). It is not a vessel: the Monster
   // Bank never quotes it and it claims no tier.
   const ORGONITE = { parts: { common: 5 }, fee: 10 };
+  // Orgonite charm (ORGONITE.md §10.3): 3 pucks + 10 Seeds → one worn charm. One owned piece, never a stack.
+  const CHARM = { orgonite: 3, fee: 10, id: "orgoniteCharm" };
   const partsOf = (a) => a?.parts || {};
   const vesselsOf = (a) => a?.vessels || { shard: 0, bead: 0, orb: 0 };
   function craftable(account, vessel, { flux = false } = {}) {
@@ -63,5 +65,16 @@
     if ((account?.seeds || 0) < fee) return { ok: false, short: "seeds" };
     return { ok: true, n, account: { ...account, seeds: account.seeds - fee, parts: { ...p, common: p.common - need }, orgonite: (account.orgonite || 0) + n } };
   }
-  return { RULES, RECIPES, ORGONITE, craftable, craft, refinable, refine };
+  function charmable(account) {
+    if ((account?.gear?.owned || []).includes(CHARM.id)) return { max: 0, short: "owned" };
+    if ((account?.orgonite || 0) < CHARM.orgonite) return { max: 0, short: "orgonite" };
+    if ((account?.seeds || 0) < CHARM.fee) return { max: 0, short: "seeds" };
+    return { max: 1, short: null };
+  }
+  function castCharm(account) {
+    const got = charmable(account);
+    if (!got.max) return { ok: false, short: got.short };
+    return { ok: true, account: { ...account, seeds: account.seeds - CHARM.fee, orgonite: account.orgonite - CHARM.orgonite } };
+  }
+  return { RULES, RECIPES, ORGONITE, CHARM, craftable, craft, refinable, refine, charmable, castCharm };
 });

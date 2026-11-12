@@ -269,7 +269,7 @@
     function summonProfile(s, id) {
       const actor = s.actors[id], base = { apCost: summonRules?.data.rules.actionCost ?? 80, phiCost: summonRules?.data.rules.phiCost ?? 8 };
       const field = dreamSpaceRules?.contains(s.dreamSpace, actor?.x, actor?.y) ? s.dreamSpace : null;
-      const cost = dreamSpaceRules ? dreamSpaceRules.summonCost(field, base) : base;
+      const cost = H.summonPhiAdd(actor, dreamSpaceRules ? dreamSpaceRules.summonCost(field, base) : base);
       const profile = EmergentIdeas ? EmergentIdeas.summonProfile(actor, cost, summonRules?.data.rules.maxActive ?? 1) : { ...cost, maxActive: summonRules?.data.rules.maxActive ?? 1, wardProtection: 0 };
       if (field && actor?.widenedPalace) profile.maxActive += 1;   // Widened Palace dream slot
       return { ...profile, active: Object.values(s.actors).filter(u => EmergentIdeas?.summonerOf(u) === id && EmergentIdeas.summonPresent(u)).map(u => u.id) };
@@ -559,7 +559,7 @@
         ? { kind: "dream", name: b.name, maxLF: b.maxLF || 40, mind: { ...b.mind, dream: { ...(b.mind.dream || {}), key: b.mind.key } } }   // a tamed monster of the mind, kept between battles (2026-10-14)
         : { kind: b.kind, name: b.name || wildRules.data.monsters[b.kind].name, maxLF: b.maxLF || wildRules.data.monsters[b.kind].lf }); }
       if (opts.tourist || (opts.randomizeNPCs && opts.tourist !== false && (s.seed % 5 === 0))) Tourist?.spawn(s,touristH(),typeof opts.tourist === "object" ? opts.tourist : {});
-      H.scenarioCivilians(s, opts);   // SCENARIOS.md slice 5: authored customers and afterCreate (engine/factions.js)
+      H.scenarioCivilians(s, opts);   // scenario start hooks (engine/factions.js)
       if (opts.kaiba || (opts.randomizeNPCs && opts.kaiba !== false && H.seededChance(`${s.seed}:kaiba:arrives`) < 0.15)) H.Kaiba.spawn(s,kaibaH(),typeof opts.kaiba === "object" ? opts.kaiba : {}); H.Cards?.init(s,opts);
       H.States?.battleStart(s); H.openCourt?.(s, opts); beginRound(s);   // States: startStates + presence breakers
       startTurn(s);
@@ -1158,6 +1158,7 @@
       const got = pickupRules.collect(s.arena, unit, unit.inventory || [], unit.inventoryCapacity);
       s.arena = got.arena; unit.inventory = got.inventory;
       if (got.event) log(s, { kind: got.event.kind, actor: unit.id, tiles: [[unit.x, unit.y]], text: got.event.text });
+      H.scenarioPickup(s, unit, got);
     }
     function updateWildTelegraphs(s) {
       if (!wildRules) return;

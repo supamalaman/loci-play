@@ -386,6 +386,7 @@
         return;
       }
       refreshDrowning(s, a);
+      if (a.status.drowning && hasTrait(a, "gills")) a.status.drowning = null;
       if (a.status.drowning && a.status.drowning.nextTickAtOwnerTurn <= a.ownerTurns) {
         a.status.drowning.nextTickAtOwnerTurn = a.ownerTurns + 1;
         const drownLF = Math.round(8 * (a.passives?.drowningDamageMul || 1));   // Supers who sink like a stone drown faster

@@ -113,5 +113,13 @@
     if ((u.ultimateCharge ?? 0) >= ultMax) return "aura";
     return "idle";
   }
-  return { REQUIRED, OPTIONAL, FALLBACK, LABEL, ALL: ["idle", "walk", "cast", "cast-off", "cast-def", "dodge", "ultimate", "dream-open", "block", "punch", "knockback", "knocked-out", "knee", "hurt", "infatuated", "aura"], chain, resolve, route, isHelpful, isStrike, hitPose, idleFor, variant, variantCount };
+  // Special scene poses (Paladin Holy Arts, 2026-11-10): popup-only art for named
+  // abilities. SPECIAL_BY_ABILITY maps ability id → pose slot; special() returns
+  // the slot or null. Body-to-canvas ratios live in the package size.json (the
+  // popup CSS heights derive from them); route() never returns these: only popup
+  // scenes ask.
+  const SPECIAL = ["smite", "pray", "hymn", "solfeggio"];
+  const SPECIAL_BY_ABILITY = { smite: "smite", swear: "pray", keepFaith: "pray", hymnOfTheOath: "hymn" };
+  function special(ability) { return SPECIAL_BY_ABILITY[ability] || null; }
+  return { REQUIRED, OPTIONAL, FALLBACK, LABEL, SPECIAL, SPECIAL_BY_ABILITY, special, ALL: ["idle", "walk", "cast", "cast-off", "cast-def", "dodge", "ultimate", "dream-open", "block", "punch", "knockback", "knocked-out", "knee", "hurt", "infatuated", "aura"], chain, resolve, route, isHelpful, isStrike, hitPose, idleFor, variant, variantCount };
 });

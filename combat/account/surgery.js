@@ -40,6 +40,7 @@
     packMule: 2,   // feats batch, 2026-10-27: carrying, not killing (reach/stickyFingers precedent)
     fourArms: 3,   // feats batch, 2026-10-27: doubles strikes — changes how you fight (strongGrip precedent)
     trepanation: 4,   // grok SPEC, Mala locked 2026-10-28: two-state plus a thinner wall rewrites fights (godlyAgility precedent)
+    // gills is not sold. Reference Strong 520 (insight-data.js). Born on the Teal Eel and the Remora Adventurer. Grafting it onto other bodies waits on Mala.
   };
   const WEAKNESSES = new Set(["weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone", "dreamFragile", "supernaturalWeakness", "frail", "oneBlindSpot"]);
   const UNREMOVABLE = new Set(["robot", "immortal", "distributedIntelligence", "visage"]);   // what you are, not a part she can take out

@@ -544,6 +544,8 @@
 .cc-duel-name {font-size:16px;font-weight:bold;}
 .cc-duel-figure {height:225px;position:relative;z-index:2;display:flex;justify-content:center;align-items:flex-end;transition:translate .25s ease;}
 .cc-duel-art {height:220px;max-width:100%;object-fit:contain;filter:drop-shadow(0 8px 8px #0008);}
+.cc-duel-art.cc-duel-special-smite {height:367px;} .cc-duel-art.cc-duel-special-pray {height:452px;} .cc-duel-art.cc-duel-special-hymn {height:284px;} .cc-duel-art.cc-duel-special-solfeggio {height:345px;}   /* Holy Arts scene poses: body-to-canvas ratios in the package size.json; heights put the body at the idle's size */
+.cc-duel-fighter:has(.cc-duel-special) .cc-duel-name {position:relative;z-index:3;}   /* tall art overflows upward past the name (the figure is z-index 2): the name stays on top and readable */
 .cc-duel-art.cc-duel-big {height:300px;}   /* multi-tile units (2x2 bosses, wounded Gaia) stand taller than a one-tile fighter */
 .cc-duel-figure:has(.cc-duel-big) {height:305px;}
 @media(max-width:650px) {.cc-duel-art.cc-duel-big {height:230px;}.cc-duel-figure:has(.cc-duel-big) {height:235px;}}
@@ -563,7 +565,7 @@
 @keyframes cc-duel-enter {from {opacity:0;transform:scale(.86);}to {opacity:1;transform:scale(1);}}
 @keyframes cc-duel-projectile {from {opacity:1;left:0;}to {opacity:0;left:100%;}}
 @keyframes cc-duel-impact {0% {filter:brightness(2);translate:0 0;}30% {translate:12px 0;}65% {translate:-4px 0;}100% {translate:0 0;}}
-@media(max-width:650px) {.cc-attack-popup {padding:10px;}.cc-duel {padding:14px;}.cc-duel-art {height:170px;}.cc-duel-figure {height:175px;}.cc-duel-stage {min-height:230px;}.cc-duel-flight {width:60px;}.cc-duel h2 {font-size:20px;}}
+@media(max-width:650px) {.cc-attack-popup {padding:10px;}.cc-duel {padding:14px;}.cc-duel-art {height:170px;}.cc-duel-figure {height:175px;}.cc-duel-stage {min-height:230px;}.cc-duel-flight {width:60px;}.cc-duel h2 {font-size:20px;}.cc-duel-art.cc-duel-special-smite {height:284px;}.cc-duel-art.cc-duel-special-pray {height:350px;}.cc-duel-art.cc-duel-special-hymn {height:220px;}.cc-duel-art.cc-duel-special-solfeggio {height:267px;}}
 @media(prefers-reduced-motion:reduce) {.cc-duel,.is-cast .cc-duel-flight span,.is-hit .defender .cc-duel-figure {animation:none;}.cc-duel-figure,.is-leaving .cc-duel {transition:none;}}
 .melee .cc-duel-tile {width:100%;}
 .cc-duel button:focus-visible {outline:3px solid #a2c1ff;outline-offset:3px;}

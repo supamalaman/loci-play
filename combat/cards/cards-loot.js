@@ -68,7 +68,28 @@
     const lines = [];
     if (card) lines.push(`The battle leaves a card: ${Cards.byId(card)?.name || card}.`);
     if (relic) lines.push(`A story surfaces: ${Cards.byId(relic)?.name || relic}.`);
-    return { card, relic, lines };
+    const hand = handOver(account, result, seed);
+    lines.push(...hand.lines);
+    return { card, relic, gifts: hand.gifts, lines, seen: hand.seen };
+  }
+  // C6b (R-20261109-27): a persuaded foe hands over one card at 20%, once per foe kind (cardbook.seen). A miss still marks the kind.
+  function handOver(account, result, seed) {
+    const seen = { ...(account?.cardbook?.seen || {}) };
+    const gifts = [], lines = [];
+    let wrote = false;
+    for (const foe of result?.persuaded || []) {
+      const kind = foe?.character;
+      if (!kind) continue;
+      const key = `foe:${kind}`;
+      if (seen[key]) continue;
+      seen[key] = 1; wrote = true;
+      if (roll(seed, `card:handover:${kind}`) >= 0.2) continue;
+      const id = rollCard(account, { seed, tag: `card:handover:${kind}`, level: account?.level });
+      if (!id) continue;
+      gifts.push(id);
+      lines.push(`${foe.name || kind} hands over a card: ${Cards.byId(id)?.name || id}.`);
+    }
+    return { gifts, lines, seen: wrote ? seen : null };
   }
   // The Gambler's table: 2 common + 1 uncommon + 1 seeded non-legendary, no twin listings; Fame 3 seats one more uncommon.
   // Bought rows stay bought until the next battle turns the stock (cardbook.bought = { seed, ids }).
@@ -102,7 +123,7 @@
     if ((account.seeds || 0) < price) return { account, ok: false, reason: `That costs ${price} Seeds.` };
     const b = account.cardbook || {}, prev = b.bought && b.bought.seed === seed ? b.bought.ids || [] : [];
     return { account: { ...account, seeds: account.seeds - price,
-      cardbook: { ...b, owned: { ...(b.owned || {}), [id]: owned(account, id) + 1 }, bought: { seed, ids: [...prev, id] } } }, ok: true, price };
+      cardbook: { ...b, owned: { ...(b.owned || {}), [id]: owned(account, id) + 1 }, seen: { ...(b.seen || {}), [id]: true }, bought: { seed, ids: [...prev, id] } } }, ok: true, price };
   }
   const deckCount = (account, id) => {   // copies of id across every deck (main + per-character overrides); each deck validates against the same owned pool
     const d = account?.cardbook?.decks || {};

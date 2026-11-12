@@ -19,7 +19,7 @@
   const SOURCES = ["battlePay", "bossBonus", "conversions", "manualSell", "hall", "royalTribute"];
   // New-faucet slots: capped each and combined. Reserved names mint nothing
   // until their wave lands (unknown sources pay 0 — the mint has a work ethic).
-  const NEW_SOURCES = ["board", "bingo", "ante", "ladder", "busking", "tutor", "stall"];   // stall: vessel/catch/order income (ruling 8)
+  const NEW_SOURCES = ["board", "bingo", "ante", "ladder", "busking", "tutor", "stall", "scenario"];   // stall: vessel/catch/order income (ruling 8); scenario: random-battle bonuses (R-20261103-03 D8)
   const PER_SOURCE = 55;
   const NEW_COMBINED_MUL = 2;
   function pace(seedRules) {

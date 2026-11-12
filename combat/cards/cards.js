@@ -24,7 +24,7 @@
     "contracts-bingo", "codex-library", "lab-crafting-cooking", "ui-patterns", "secret-fights", "kaiba", "widened-perks", "shop-keeper", "belief-awakening", "vows",
     "dream-space", "auras", "true-forms", "stealth", "wild-creatures", "classes", "landscape-lexicon", "ap-tempo", "civilians", "companions"];
   // A card with this effect must name this contact (section 15 item 3).
-  const REQUIRED = { push: "grapple", root: "grapple", familiar: "summons", reveal: "observe-insight", pullTowardWater: "grapple", spawnFish: "terrain-climate-dream" };
+  const REQUIRED = { push: "grapple", root: "grapple", familiar: "summons", reveal: "observe-insight", pullTowardWater: "grapple", spawnFish: "terrain-climate-dream", listening: "parley-valence", oliveBranch: "parley-valence" };
 
   // Effect points (section 1.3). The ratios are the `rules.points` data; the shapes are the scribing component table.
   const P = rules.points;
@@ -35,6 +35,7 @@
     regen: (e) => ceil(round6(e.lf * e.turns / P.regenPer)), lethalSave: () => P.lethalSave, cardLock: () => P.cardLock,
     // familiar: `bodies` = ONE familiar drawn with several bodies (the Pair of Lanterns): `lf` is the total, priced per body; `count` = separate familiars
     familiar: (e) => ceil(round6(e.lf / (e.bodies || 1) / P.familiarLfPer + e.potency * e.turns / P.familiarPotencyPer)) * (e.bodies || e.count || 1), apGain: (e) => ceil(e.n / P.apGainPer), pullTowardWater: () => P.pull, spawnFish: () => P.spawnFish,
+    listening: () => P.listening, oliveBranch: () => P.oliveBranch,
   };
   const areaMul = (r) => (r >= 4 ? rules.areaMul.r4 : r === 3 ? rules.areaMul.r3 : rules.areaMul.base);
   function payload(card) {
@@ -100,6 +101,8 @@
       else if (e.key === "itemLock") foe.push(`Lock a foe within ${range} out of items for ${plural(e.turns, "turn")}`);
       else if (e.key === "reveal") foe.push(lead ? `Reveal a concealed unit within ${range}` : "reveal it");
       else if (e.key === "spawnFish") foe.push(lead ? `Lure a dream fish onto open water within ${range}` : "lure one there");
+      else if (e.key === "listening") foe.push(lead ? `A foe within ${range} is Listening for ${plural(e.rounds, "round")}: talk and coming to terms against them gain ${e.points} points for anyone on your side, and damage from your side ends it` : `they are Listening for ${plural(e.rounds, "round")}`);
+      else if (e.key === "oliveBranch") foe.push(lead ? `Offer a foe within ${range} an olive branch: the next time terms fail, talk with them stays open` : "the next failed terms stays open");
       else if (e.key === "ward") self.push(`gain a ward of ${e.protection} for 1 turn`);
       else if (e.key === "heal") self.push(`heal ${e.lf} LF`);
       else if (e.key === "apGain") self.push(`gain ${e.n} AP (up to your maximum)`);

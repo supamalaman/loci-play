@@ -8,7 +8,7 @@
 //   ctx = { account(), classId, className, setAccount(a), rerender(), flash(text), open, onToggle(open) }
 //   art(card)         the card's art entry from card-art.js ({ src, w, h, baked, activated? }) or null; face() draws it (or a CSS fallback panel for a card with none)
 //   inventoryTab(ctx) { html, ctx, account, gifted }: the same deck menu for the Redux Inventory (tools/web-build/play.js): the starter gift is worked out in memory FIRST, so drawing it writes nothing; ctx.setAccount is called only from a deck action
-//   almanac()         { html, playable, total }: every card in the data by series with its art, for the Codex "Card almanac" section (cards that cannot be played yet say so in words)
+//   almanac(account?) { html, playable, total, owned?, seen? }: every card in the data by series with its art, for the Codex "Card almanac". With an account, each figure says "owned ×n" or "seen" and the lead names the shelf counts. No cost, potency or points on those lines. collection(account) is the same counts.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./cards.js"), require("./cards-data.js"), require("../account/cardbook.js"), require("./card-art.js"));
   else root.ConceptCombatCardsUI = factory(root.ConceptCombatCards, root.ConceptCombatCardsData, root.ConceptCombatCardbook, root.ConceptCombatCardArt);
@@ -35,18 +35,30 @@
       + `<small class="cc-card-meta">${k.label} · ${word(card.rarity)} · ${card.cost} point${card.cost === 1 ? "" : "s"}</small>`
       + `<small class="cc-card-text">${esc(text)}</small>${note ? `<small class="cc-card-note">${esc(note)}</small>` : ""}</button>`;
   }
+  // Your shelf: kinds you hold, and kinds you have only seen. A key that is not a card id is not a sighting.
+  function collection(account) {
+    const b = CB.normalize(account || {}).cardbook;
+    const ids = new Set(D.cards.map((c) => c.id));
+    const ownOf = {}, seenOf = {};
+    for (const [id, n] of Object.entries(b.owned)) if (ids.has(id) && n > 0) ownOf[id] = n;
+    for (const [id, v] of Object.entries(b.seen)) if (ids.has(id) && v && !ownOf[id]) seenOf[id] = true;
+    return { owned: Object.keys(ownOf).length, seen: Object.keys(ownOf).length + Object.keys(seenOf).length, ownOf, seenOf };
+  }
   // The Codex "Card almanac": every card in the data, by series, with its art. A card that cannot be played (staged, or its kind has no battle slice yet)
-  // says so in words; none of this changes what a deck may hold.
-  function almanac() {
+  // says so in words; none of this changes what a deck may hold. Pass the account and each figure also says "owned ×n" or "seen", with no cost, potency or points.
+  function almanac(account) {
     const playable = new Set(Cards.liveCards().map((c) => c.id)), series = [];
     for (const c of D.cards) { let g = series.find((x) => x.name === (c.series || "Cards")); if (!g) series.push(g = { name: c.series || "Cards", cards: [] }); g.cards.push(c); }
     const total = D.cards.length, n = [...playable].length;
-    const html = `<p class="cc-muted">Every card in the game, with its picture. A card marked "not playable yet" is drawn and priced but cannot go in a deck.</p>`
+    const col = account ? collection(account) : null;
+    const mark = (c) => !col ? "" : col.ownOf[c.id] ? ` · owned ×${col.ownOf[c.id]}` : col.seenOf[c.id] ? " · seen" : "";
+    const shelf = col ? ` Your shelf: ${col.owned} owned · ${col.seen} seen.` : "";
+    const html = `<p class="cc-muted">Every card in the game, with its picture. A card marked "not playable yet" is drawn and priced but cannot go in a deck.${shelf}</p>`
       + (CA ? `<p class="cc-almanac-back"><span class="cc-card-art is-back" aria-hidden="true"><img src="${ART_BASE}${esc(CA.back)}" alt="" draggable="false" loading="lazy" decoding="async"></span><small>The back of a card: what an opponent's deck looks like face down.</small></p>` : "")
       + series.map((g) => `<details class="cc-almanac-series"><summary><b>${esc(g.name)}</b> <small>${g.cards.filter((c) => playable.has(c.id)).length} of ${g.cards.length} playable</small></summary><div class="cc-almanac-grid">`
-        + g.cards.map((c) => `<figure class="cc-almanac-card${playable.has(c.id) ? "" : " is-staged"}">${picture(c, art(c), true)}<figcaption><b>${esc(c.name)}</b><small>${esc(D.kinds[c.kind].label)} · ${esc(word(c.rarity))}${playable.has(c.id) ? "" : " · not playable yet"}</small></figcaption></figure>`).join("")
+        + g.cards.map((c) => `<figure class="cc-almanac-card${playable.has(c.id) ? "" : " is-staged"}">${picture(c, art(c), true)}<figcaption><b>${esc(c.name)}</b><small>${esc(D.kinds[c.kind].label)} · ${esc(word(c.rarity))}${playable.has(c.id) ? "" : " · not playable yet"}${mark(c)}</small></figcaption></figure>`).join("")
         + `</div></details>`).join("");
-    return { html, playable: n, total };
+    return { html, playable: n, total, ...(col ? { owned: col.owned, seen: col.seen } : {}) };
   }
   function status(ctx, deck) {
     const a = ctx.account(), v = CB.validate(a, deck);
@@ -133,5 +145,5 @@
     const g = CB.giftStarter(ctx.account()), c2 = { ...ctx, account: () => g.account };
     return { html: group(c2), ctx: c2, account: g.account, gifted: g.changed };
   }
-  return { group, wire, move, drawerRows, unitLine, art, face, almanac, inventoryTab };
+  return { group, wire, move, drawerRows, unitLine, art, face, almanac, collection, inventoryTab };
 });

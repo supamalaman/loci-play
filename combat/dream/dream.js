@@ -114,7 +114,7 @@
   }
 
   // The player spends an action naming the dream. Answers are compared as text, so shuffling can't break scoring.
-  function nameIt(actor, choiceText, round = 0) {
+  function nameIt(actor, choiceText, round = 0, ctx = {}) {
     const m = DD.monsters[actor.dream.key];
     if (actor.dream.named) return { actor, correct: true, event: null, reason: "Already named." };
     if (round < actor.dream.nameRetryRound) return { actor, correct: false, event: null, reason: `You can try naming it again in round ${actor.dream.nameRetryRound}.` };
@@ -122,7 +122,9 @@
     if (correct) return { actor: { ...actor, dream: { ...actor.dream, named: true } }, correct,
       event: { kind: "dreamNamed", actor: actor.id, correct: true, text: `You name ${m.name}: "${m.teaches}" It begins to fade.` } };
     const W = R.nameIt.wrong;
-    return { actor: { ...actor, dream: { ...actor.dream, potencyMul: actor.dream.potencyMul * W.potencyMul, nameRetryRound: round + W.retryAfterRounds } }, correct,
+    const blocked = !!ctx.namer?.passives?.dreamNameFearBlocked;
+    const potencyMul = blocked ? actor.dream.potencyMul : actor.dream.potencyMul * W.potencyMul;
+    return { actor: { ...actor, dream: { ...actor.dream, potencyMul, nameRetryRound: round + W.retryAfterRounds } }, correct,
       event: { kind: "dreamNamed", actor: actor.id, correct: false, text: `That isn't it. ${m.name} holds on.` } };
   }
 
@@ -140,6 +142,7 @@
       else if (attacker?.summon?.key === "perimeter_guardian") m *= R.perimeterGuardianDamageMul;
     }
     if (attacker?.dream) { const pm = attacker.dream.potencyMul || 1; m *= attacker.dream.potencyCap ? Math.min(attacker.dream.potencyCap, pm) : pm; }
+    if (attacker?.dream && OG && OG.charmDamageMul) m *= OG.charmDamageMul(target);
     return m;
   }
 

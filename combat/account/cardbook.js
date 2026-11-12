@@ -25,12 +25,30 @@
   function book(account) {
     const b = obj(account?.cardbook), decks = obj(b.decks), byChar = {};
     for (const [k, v] of Object.entries(obj(decks.byChar))) if (Array.isArray(v)) byChar[k] = strings(v);
-    return { ...b, v: VERSION, owned: { ...obj(b.owned) }, seen: { ...obj(b.seen) }, bought: { ...obj(b.bought) }, gifted: !!b.gifted, giftedIds: { ...obj(b.giftedIds) },
+    const owned = { ...obj(b.owned) }, seen = { ...obj(b.seen) };
+    for (const id of Object.keys(owned)) if (owned[id] > 0) seen[id] = seen[id] || true;   // pre-C7 saves: holding counts as seen
+    return { ...b, v: VERSION, owned, seen, bought: { ...obj(b.bought) }, gifted: !!b.gifted, giftedIds: { ...obj(b.giftedIds) },
       decks: { ...decks, main: strings(decks.main), byChar } };
   }
   const normalize = (account) => ({ ...account, cardbook: book(account) });
   const ownedCount = (account, id) => book(account).owned[id] || 0;
-  const grant = (account, id, n = 1) => { const b = book(account); return { ...account, cardbook: { ...b, owned: { ...b.owned, [id]: (b.owned[id] || 0) + n } } }; };
+  const grant = (account, id, n = 1) => {
+    const b = book(account);
+    const seen = b.seen[id] ? b.seen : { ...b.seen, [id]: true };
+    return { ...account, cardbook: { ...b, owned: { ...b.owned, [id]: (b.owned[id] || 0) + n }, seen } };
+  };
+  // A sighting is a real card id. Keys such as "foe:<character>" (the hand-over once-per-kind mark) stay out of this map.
+  function markSeen(account, ids) {
+    const b = book(account);
+    const known = new Set(D.cards.map((c) => c.id));
+    let seen = b.seen, changed = false;
+    for (const id of ids || []) {
+      if (!known.has(id) || seen[id]) continue;
+      if (!changed) seen = { ...seen };
+      seen[id] = true; changed = true;
+    }
+    return changed ? { ...account, cardbook: { ...b, seen } } : account;
+  }
   const hasOverride = (account, classId) => !!classId && Array.isArray(book(account).decks.byChar[classId]);
   const deckFor = (account, classId) => { const b = book(account); return (hasOverride(account, classId) ? b.decks.byChar[classId] : b.decks.main).slice(); };
   function setDeck(account, ids, classId = null) {
@@ -69,5 +87,5 @@
     if (done && !a.cardbook.gifted) { a = { ...a, cardbook: { ...a.cardbook, gifted: true } }; changed = true; }
     return { account: changed ? a : account, changed };
   }
-  return { normalize, ownedCount, grant, deckFor, hasOverride, setDeck, useOwnDeck, useSharedDeck, cap, validate, canAdd, giftStarter };
+  return { normalize, ownedCount, grant, markSeen, deckFor, hasOverride, setDeck, useOwnDeck, useSharedDeck, cap, validate, canAdd, giftStarter };
 });

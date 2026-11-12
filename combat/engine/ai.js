@@ -207,6 +207,15 @@
       return { st, hidden, answered };
     };
     const ledgerOn = (s, a, key) => { const M = s.rules.aiLedger?.[key]; return M?.on && a && (!M.sides || M.sides.includes(a.side)) ? M : null; }, amFor = (s, a) => ledgerOn(s, a, "answerModel");   // sides: a sim arm can give the model to one side only
+    // Sight arms (AI Sight H1): which system families a candidate belongs to,
+    // and whether a unit's side plays it blind or keen. Fast path first: the
+    // shipped table (blind [], keen {}) answers without matching, so live play
+    // pays two length checks a candidate and nothing else.
+    const sightTable = (s) => s.rules.aiLedger?.sight;
+    const sightApplies = (s, a) => { const M = sightTable(s); return !!M && !!a && (!M.sides || M.sides.includes(a.side)); };
+    const sightFamsOf = (s, cand) => { const F = sightTable(s)?.families || {}; const eff = cand.effect ?? (cand.ability ? ab(cand.ability)?.effect : undefined); return Object.keys(F).filter((f) => (F[f].types || []).includes(cand.type) || (eff && (F[f].effects || []).includes(eff)) || (F[f].prop && cand[F[f].prop])); };
+    const sightBlind = (s, a, cand) => { const M = sightTable(s); if (!M || !(M.blind || []).length || !sightApplies(s, a)) return false; const fams = sightFamsOf(s, cand); return M.blind.some((f) => fams.includes(f)); };
+    const sightKeen = (s, a, cand) => { const M = sightTable(s); if (!M || !sightApplies(s, a)) return 0; const entries = Object.entries(M.keen || {}); if (!entries.length) return 0; const fams = sightFamsOf(s, cand); let best = 0; for (const [f, v] of entries) if (fams.includes(f)) { const n = typeof v === "number" ? v : 6; if (n > best) best = n; } return best; };
     const applyOpen = (st, cand, on) => { if (!on) return apply(st, cand, { preview: true });
       const was = st.answerPreview; st.answerPreview = true;
       try { const r = apply(st, cand, { preview: true }); if (r.ok) delete r.state.answerPreview; return r; } finally { if (was) st.answerPreview = was; else delete st.answerPreview; } };
@@ -249,6 +258,12 @@
         const f = exchangeFinisher(s, a, a.heldExchange.victim);
         if (f) return traceAiReturn("aiDecide:exchangeFinish", f);
       }
+      if (dc.kind === "turn" && Parley && H.Cards && !a.persuaded) {   // C6b: Listening before the talk, on the same person they would talk to
+        const preach = (ledgerOn(s, a, "traitActs")?.preach || []).some((t) => hasTrait(a, t));
+        const talkTo = Parley.npcTalkTarget(s, a, dist, preach);
+        const ear = talkTo && H.Cards.listeningPlay(s, a, talkTo);
+        if (ear && apply(s, ear, { preview: true }).ok) return traceAiReturn("aiDecide:listening", ear);
+      }
       if (dc.kind === "turn" && H.Cards) { const pick = H.Cards.aiPick(s, a); if (pick && apply(s, pick.act, { preview: true }).ok) { traceAiTerm("cardNecessity", pick.necessity); traceAiTerm("cardGoal", pick.goal); return traceAiReturn("aiDecide:cards", pick.act); } }   // Battle Cards (C5): one card, then the ordinary action on the next call; the one-card stamp stops a second
       if (dc.kind === "turn" && H.Instinct.lying(a)) {   // Survival Instincts: a lying unit stands once its rest is spent or it is no longer hurt; otherwise it keeps still
         const R = s.rules.survivalInstincts, st = a.status.playingDead;
@@ -257,11 +272,11 @@
       }
       if (H.Tourist?.is(a)) return traceAiReturn("aiDecide:L213", (H.Tourist.decide(s,a,H.touristH())));
       if (H.Kaiba?.is(a)) return traceAiReturn("aiDecide:L214", (H.Kaiba.decide(s, a, { moveOptions, apply, dist })));
-      if (dc.kind === "turn" && H.Hires) { const h = H.Hires.aiAction(s, a); if (h && apply(s, h, { preview: true }).ok) return traceAiReturn("aiDecide:L215", (h)); if (a.hired?.kind === "mediator") return traceAiReturn("aiDecide:L215", ({ type: a.tempo > 0 ? "stall" : "end", actor: a.id })); }   // contracts in hand; a mediator never fights
+      if (dc.kind === "turn" && H.Hires) { const h = H.Hires.aiAction(s, a); if (h && apply(s, h, { preview: true }).ok && !sightBlind(s, a, h)) return traceAiReturn("aiDecide:L215", (h)); if (a.hired?.kind === "mediator") return traceAiReturn("aiDecide:L215", ({ type: a.tempo > 0 ? "stall" : "end", actor: a.id })); }   // contracts in hand; a mediator never fights
       if (dc.kind !== "response" && H.Visitors?.is(a)) { const v = H.Visitors.advise(s, a, { moveOptions, apply, dist, RITUAL, chanted, log }); if (v) return traceAiReturn("aiDecide:L216", (v)); }   // visitors: mission first, war only if started (null falls through to ordinary AI)
       // The Sage declares turns 0–1 (preview-guarded; invalid falls through to ordinary AI).
       if (dc.kind === "turn" && !a.defeated && Sage()) { const sg = Sage().decide(s, a);
-        if (sg && apply(s, sg, { preview: true }).ok) return traceAiReturn("aiDecide:sage", (sg)); }
+        if (sg && apply(s, sg, { preview: true }).ok && !sightBlind(s, a, sg)) return traceAiReturn("aiDecide:sage", (sg)); }
       if(dc.kind!=="response"&&a.status?.verse&&!a.status.verse.id)return traceAiReturn("aiDecide:L217", ({type:"chooseVerse",actor:a.id,ability:a.status.verse.choices.slice().sort((x,y)=>(ab(y).potency||0)-(ab(x).potency||0)||x.localeCompare(y))[0]}));
       if (dc.kind === "response") {
         const opts = faithfulResponses(s, a, responseOptions(s, a, s.pending.inst));
@@ -324,7 +339,7 @@
         if (crew.length) {
           const near = at => Math.min(...crew.map(u => Math.abs(u.x - at[0]) + Math.abs(u.y - at[1])));
           const rep = { type: "insight", actor: a.id, action: "report" };
-          if (near([a.x, a.y]) <= insightRules.data.actions.report.effect.radius && apply(s, rep, { preview: true }).ok) return traceAiReturn("aiDecide:L274", (rep));
+          if (near([a.x, a.y]) <= insightRules.data.actions.report.effect.radius && apply(s, rep, { preview: true }).ok && !sightBlind(s, a, rep)) return traceAiReturn("aiDecide:L274", (rep));
           const home = moveOptions(s, a.id).filter(o => near(o.to) < near([a.x, a.y])).sort((p, q) => near(p.to) - near(q.to) || p.tempoCost - q.tempoCost);
           for (const o of home.slice(0, 4)) if (apply(s, { type: "move", actor: a.id, to: o.to }, { preview: true }).ok) return traceAiReturn("aiDecide:L276", ({ type: "move", actor: a.id, to: o.to }));
         }
@@ -374,7 +389,7 @@
         if (Traps && a.tempo >= Traps.rules.placeAp && exits.some(([x, y]) => dist(s, a.x, a.y, x, y) <= INTERDICT.trapWithin)
           && !(s.traps || []).some(t => !t.spent && t.ownerSide === a.side && exits.some(([x, y]) => Math.abs(t.x - x) + Math.abs(t.y - y) <= 1))) {
           const at = exits.find(([x, y]) => Math.max(Math.abs(a.x - x), Math.abs(a.y - y)) <= 1 && !actorAt(s, x, y)) || [a.x, a.y];
-          if (apply(s, { type: "placeTrap", actor: a.id, at }, { preview: true }).ok) return traceAiReturn("aiDecide:L313", ({ type: "placeTrap", actor: a.id, at }));
+          if (apply(s, { type: "placeTrap", actor: a.id, at }, { preview: true }).ok && !sightBlind(s, a, { type: "placeTrap" })) return traceAiReturn("aiDecide:L313", ({ type: "placeTrap", actor: a.id, at }));
         }
       }
       // Kaiba (docs/kaiba.md): everyone but an animal hater pats an adjacent cat before ordinary
@@ -396,15 +411,15 @@
       if (!a.dream && !a.summon && !a.communed && !a.beast && a.controller !== "player" && s.rules.ritualAi !== false) {
         if ((a.beads || []).length && a.tempo >= RITUAL.beadAp) {
           const live = Object.values(s.actors).filter(u => !u.defeated && !H.Tourist?.is(u) && !u.notArrived), foes = live.filter(u => u.side !== a.side).length, friends = live.filter(u => u.side === a.side).length;
-          if (foes > friends && seededChance(`${s.seed}:${a.id}:bead:${s.round}`) < RITUAL.aiRelease) {
+          if (foes > friends && (sightKeen(s, a, { type: "bead" }) > 0 || seededChance(`${s.seed}:${a.id}:bead:${s.round}`) < RITUAL.aiRelease)) {
             const at = [[a.x + 1, a.y], [a.x - 1, a.y], [a.x, a.y + 1], [a.x, a.y - 1]].find(([x, y]) => apply(s, { type: "bead", actor: a.id, at: [x, y] }, { preview: true }).ok);
-            if (at) return traceAiReturn("aiDecide:L337", ({ type: "bead", actor: a.id, at }));
+            if (at && !sightBlind(s, a, { type: "bead" })) return traceAiReturn("aiDecide:L337", ({ type: "bead", actor: a.id, at }));
           }
         }
         if (a.tempo >= RITUAL.ap) {
           const weak = (s.wild || []).find(m => m.form === "unit" && m.lf < m.maxLF * RITUAL.weakBelow && !chanted(s, m.id) && dist(s, a.x, a.y, m.x, m.y) <= RITUAL.range);
           const focusMul = Object.entries(ledgerOn(s, a, "traitActs")?.ritualStart || {}).reduce((m, [k, v]) => hasTrait(a, k) ? m * v : m, 1);   // trait acts: the focused chant more readily, the scattered less
-          if (weak && seededChance(`${s.seed}:${a.id}:rit:${s.round}`) < RITUAL.aiStart * focusMul && apply(s, { type: "ritual", actor: a.id, at: [weak.x, weak.y] }, { preview: true }).ok) return traceAiReturn("aiDecide:L343", ({ type: "ritual", actor: a.id, at: [weak.x, weak.y] }));
+          if (weak && (sightKeen(s, a, { type: "ritual" }) > 0 || seededChance(`${s.seed}:${a.id}:rit:${s.round}`) < RITUAL.aiStart * focusMul) && apply(s, { type: "ritual", actor: a.id, at: [weak.x, weak.y] }, { preview: true }).ok && !sightBlind(s, a, { type: "ritual" })) return traceAiReturn("aiDecide:L343", ({ type: "ritual", actor: a.id, at: [weak.x, weak.y] }));
         }
       }
       // C9/C14: set a trap where foes are coming (seeded, 40%); disarm a spotted one alongside (40%, Tinkerer 70%).
@@ -412,8 +427,8 @@
         const R = Traps.rules.ai;
         if (a.tempo >= Traps.rules.disarm.minAp) {
           const tp = knownEnemyTraps(s, a).find(t => Math.max(Math.abs(a.x - t.x), Math.abs(a.y - t.y)) <= 1);
-          if (tp && seededChance(`${s.seed}:${a.id}:disarm:${s.round}:${a.actionsThisTurn}`) < (hasTrait(a, Traps.rules.disarm.trait) ? R.tinkererDisarmChance : R.disarmChance)
-            && apply(s, { type: "disarm", actor: a.id, at: [tp.x, tp.y] }, { preview: true }).ok) return traceAiReturn("aiDecide:L352", ({ type: "disarm", actor: a.id, at: [tp.x, tp.y] }));
+          if (tp && (sightKeen(s, a, { type: "disarm" }) > 0 || seededChance(`${s.seed}:${a.id}:disarm:${s.round}:${a.actionsThisTurn}`) < (hasTrait(a, Traps.rules.disarm.trait) ? R.tinkererDisarmChance : R.disarmChance))
+            && apply(s, { type: "disarm", actor: a.id, at: [tp.x, tp.y] }, { preview: true }).ok && !sightBlind(s, a, { type: "disarm" })) return traceAiReturn("aiDecide:L352", ({ type: "disarm", actor: a.id, at: [tp.x, tp.y] }));
         }
         if (Traps.canSet(a) && a.tempo >= Traps.rules.placeAp && !(s.traps || []).some(t => !t.spent && t.ownerSide === a.side && dist(s, t.x, t.y, a.x, a.y) <= R.spacing)) {
           const foes = Object.values(s.actors).filter(t => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side && !t.notArrived), nearest = foes.length ? Math.min(...foes.map(t => dist(s, a.x, a.y, t.x, t.y))) : 99;
@@ -423,7 +438,7 @@
           const spots = [[a.x, a.y], [a.x + 1, a.y], [a.x - 1, a.y], [a.x, a.y + 1], [a.x, a.y - 1]].filter(([x, y]) => x >= 0 && y >= 0 && x < s.arena.w && y < s.arena.h).filter(unseen)
             .sort((p, q) => Math.min(...foes.map(u => dist(s, p[0], p[1], u.x, u.y))) - Math.min(...foes.map(u => dist(s, q[0], q[1], u.x, u.y))));
           const at = spots.find(at => apply(s, { type: "placeTrap", actor: a.id, at }, { preview: true }).ok);
-          if (at && nearest >= R.foeMin && nearest <= R.foeMax && seededChance(`${s.seed}:${a.id}:trap:${s.round}:${a.ownerTurns || 0}`) < R.placeChance) return traceAiReturn("aiDecide:L362", ({ type: "placeTrap", actor: a.id, at }));
+          if (at && nearest >= R.foeMin && nearest <= R.foeMax && (sightKeen(s, a, { type: "placeTrap" }) > 0 || seededChance(`${s.seed}:${a.id}:trap:${s.round}:${a.ownerTurns || 0}`) < R.placeChance) && !sightBlind(s, a, { type: "placeTrap" })) return traceAiReturn("aiDecide:L362", ({ type: "placeTrap", actor: a.id, at }));
         }
       }
       // Gambler: badly hurt, with most of a turn in hand, they bank it instead of defending. For the hero that courts
@@ -957,6 +972,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           const q = summonQuestions.pickQuestion(key, `${s.seed}:${s.round}:${id}:${key}`, { hintCount: summonQuestionHints ? summonQuestionHints(s, id, key) : 0 });
           if (!q) continue;
           const act = { type: "summon", actor: id, summon: key, unlocked: unlocked.slice(), questionId: q.id, answer: q.answer };
+          if ((a.passives?.summonPhiAdd || 0) > 0 && OG()?.charmChoice?.(a.traits) === "refuse") continue;
           const occupied = new Set(Object.values(s.actors).filter((u) => !u.defeated).map((u) => `${u.x},${u.y}`));
           const at = summonRules.placeSummon(s.arena, [a.x, a.y], occupied);
           if (at && OG()?.inField(s.arena.objects, at[0], at[1])) continue;
@@ -1001,7 +1017,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         const t = actorAt(s, ...(c.target || [])), f = t && H.fruitOf(t);
         if (f && (f.id === "coil" || f.id === "mist") && !H.damped(s, t) && a.tempo >= (c.effort || s.rules.actionCosts.strike) + H.fruitRules.steelWillAP) c.steelWill = true;
       }
-      return out;
+      return out.filter((c) => !sightBlind(s, a, c));   // Sight arms (H1): a blind side never generates a family action
     }
     // Reactive defense (rules.reactiveDefense.ai): play each reactive answer out on a copy, everyone after answering
     // nothing, and price it: LF saved + LF it returns to the attacker - action points x apWeight - ΦF x pfWeight. The
@@ -1493,7 +1509,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       if(ClassRuntime?.aiVeto?.(s,a,cand) || (cand.type==="ability" && a.status?.overpressure && !ClassRuntime?.wire?.[cand.ability]?.relief))return 0;
       let base=rawScore(s,id,cand);
       if (base >= 0 && animeKitOption(a, cand)) { const floor = observeFloor(s, a); if (floor > base) base = traceAiTerm("animeKitFloor", floor); }   // docs/anime-orbit.md §5a: at least Observe
-      return base < 0 ? traceAiTerm("negativeRawScore", base) : traceAiTerm("rawScore", base) + traceAiTerm("concentration", concentrationValue(s,s.actors[id],cand)) + traceAiTerm("court", H.courtScore?.(s, id, cand) || 0) + traceAiTerm("spirit", Spirit()?.value(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, { actorAt }) || 0) + traceAiTerm("orders", Orders()?.orderValue(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, H) || 0);
+      return base < 0 ? traceAiTerm("negativeRawScore", base) : traceAiTerm("rawScore", base) + traceAiTerm("concentration", concentrationValue(s,s.actors[id],cand)) + traceAiTerm("court", H.courtScore?.(s, id, cand) || 0) + traceAiTerm("spirit", Spirit()?.value(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, { actorAt }) || 0) + traceAiTerm("orders", Orders()?.orderValue(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, H) || 0) + traceAiTerm("keen", sightKeen(s, s.actors[id], cand));
     }
     // The anime kit floor (Mala, 2026-10-27: "they should be scored pretty high, at least up there with Observe, because at
     // the end of the day, they can change the tile or the tide of battle"). Keyed to the kind of option, not the character:

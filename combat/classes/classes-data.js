@@ -1142,6 +1142,36 @@
       { weakTo: "Isolation and stripping the ward.", strongAgainst: "A named mark the pictured carrier already faces.", strongWith: "A living circuit on the same suit (wheelhouse blend, swap not live).", bypass: "The picture does not walk through walls.", negate: "No living ally to carry it.", neutral: "No Child of the Future steps through this pair." },
       { origin: "Mala 2026-11-04 Manavu hotbuilds. Sprite manavu-space-admin-crimson-horned by @ManavuArt.", art: "manavu-space-admin-crimson-horned", artist: "@ManavuArt", status: "playable", kit: ["pictureTheArrival", "holdTheImage", "assignTheTask", "delegateTheDecision", "summonedMandate"], existingAbilities: { primaryBasic: "pictureTheArrival", primaryRefined: "holdTheImage", secondaryBasic: "assignTheTask", secondaryRefined: "delegateTheDecision" }, rules: "classes/posterity-suits.js",
         wheelhouseBlend: { third: "cybernetic_ecology", pair: ["imagination", "cybernetic_ecology"], kit: ["pictureTheArrival", "holdTheImage", "readLivingCircuit", "correctivePulse", "hornedCircuit"], merge: "hornedCircuit" } }),
+    // Teal Eel (Mala, 2026-11-11). Wake: "The ground of the fight is the water."
+    // Wilds loses: a beast whose partner is a living thing outside the city. The eel's fight is the flooded hole, not a partner.
+    // Spirit loses: a spirit of the sea. This is flesh with gills.
+    // Wheelhouse Swale: the water the lair sits in. Named, not equipped. No third technique.
+    teal_eel: C("teal_eel", "Teal Eel", ["Boundary", "Preservation"], ["Boundary", "Preservation", "Swale"],
+      [["gills_breath", "While they are in water, drowning does not start, including surprise immersion and a body that cannot swim."],
+       ["gills_clear", "When water is read again, a drowning mark already on them ends. The turn-start tick does not land."]],
+      { primaryBasic: "Reef Nip: a bite from the coil, 8 rubedo, adjacent.",
+        primaryRefined: "Close the Coil: the wall folds shut along a line of 2, 12 rubedo.",
+        secondaryBasic: "Dead Weight: the body that stays in the hole, 7 nigredo, adjacent.",
+        secondaryRefined: "Lair Weight: the tail follows the weight down a line of 3, 11 nigredo." },
+      "The Spiral: the rim and the kept body turn as one line of 4, 16 rubedo. It needs both concepts.",
+      { strength: "The flooded hole is home: drowning does not take them.", weakness: "On dry stone the coil has nothing to brace against." },
+      { weakTo: "Dry ground and impact that knocks them out of the hole.", strongAgainst: "Anyone who opens the fight in the water.", strongWith: "The Remora Adventurer, who hitches in the same water.", bypass: "Leave the line. The strikes are lines and contact.", negate: "Drain them on land, where the gills do nothing.", neutral: "A swimmer beside them still drowns or not by their own trait." },
+      { origin: "Mala 2026-11-11 hot build for the teal eel sheet. Unused pair Boundary + Preservation. Sprite teal-eel, cut the same day.", art: "teal-eel", status: "playable", kit: ["reefNip", "closeTheCoil", "deadWeight", "lairWeight", "theSpiral"], existingAbilities: { primaryBasic: "reefNip", primaryRefined: "closeTheCoil", secondaryBasic: "deadWeight", secondaryRefined: "lairWeight" }, rules: "engine/conditions.js" }),
+    // Remora Adventurer (Mala, 2026-11-11). Wake: "The ground of the fight is the water."
+    // Wilds loses: a beast whose partner is a living thing outside the city. The hitch is the water, not a partner they fight beside.
+    // Spirit loses: a spirit of the sea. This is flesh with gills.
+    // Wheelhouse Adjacency: how a remora stays on a larger body. Named, not equipped. No third technique.
+    remora_adventurer: C("remora_adventurer", "Remora Adventurer", ["Leverage", "Extraction"], ["Leverage", "Extraction", "Adjacency"],
+      [["gills_breath", "While they are in water, drowning does not start, including surprise immersion and a body that cannot swim."],
+       ["gills_clear", "When water is read again, a drowning mark already on them ends. The turn-start tick does not land."]],
+      { primaryBasic: "Trident Jab: the short haft finds a gap, 9 albedo, adjacent.",
+        primaryRefined: "Pry Loose: the point works a seam along a line of 2, 12 albedo.",
+        secondaryBasic: "Hitch Bite: a bite from the hitch, 8 rubedo, adjacent.",
+        secondaryRefined: "Strip a Scale: one piece down a line of 3, 11 rubedo." },
+      "The Host: the trident and the bite land as one line of 4, 16 albedo. It needs both concepts.",
+      { strength: "The splash is home: drowning does not take them.", weakness: "On dry ground the hitch has nothing to stick to." },
+      { weakTo: "Dry ground and a foe who steps inside the trident.", strongAgainst: "Anyone who opens the fight in the water.", strongWith: "The Teal Eel, whose hole is the same water.", bypass: "Leave the line. The strikes are lines and contact.", negate: "Drain them on land, where the gills do nothing.", neutral: "A swimmer beside them still drowns or not by their own trait." },
+      { origin: "Mala 2026-11-11 hot build for the remora adventurer sheet. Unused pair Leverage + Extraction. Sprite remora-adventurer, cut the same day.", art: "remora-adventurer", status: "playable", kit: ["tridentJab", "pryLoose", "hitchBite", "stripAScale", "theHost"], existingAbilities: { primaryBasic: "tridentJab", primaryRefined: "pryLoose", secondaryBasic: "hitchBite", secondaryRefined: "stripAScale" }, rules: "engine/conditions.js" }),
     // Bard Artificer (Muse Berry BD hot-build, 2026-10-29): the luthier-bard. Builds the instruments, then plays the room with them. Stage crew: the watching is the point.
     bard_artificer: C("bard_artificer", "Bard Artificer", ["Craftsmanship", "Innovation"], ["Craftsmanship", "Innovation", "Lyricism"],
       [["soundcheck", "The first technique the Bard Artificer casts each battle costs 3 less FF (min 0)."],

@@ -39,6 +39,7 @@
     // Potency on these is not damage (a domain's size, a shelter's strength).
     notDamage: ["domain"],
     overrides: {
+      archivist: { role: "support", mix: { attack: 0.09, support: 0.41, specialist: 0.5 }, reason: "Keeps its 1.3.562 reading (Lanyard IN, ship 1.3.563): the eel/remora hot build put deadWeight, lairWeight and theSpiral on preservation, which tipped the count; the Archivist still keeps and mends the record." },
       super_heroine: { role: "attack", reason: "Mala, 2026-10-11: the superhero and superheroine are physically unmatched. Her count sits at 44% attack, one point under the line." },
       hooded_cyber_rogue: { role: "specialist", mix: { attack: 0, support: 0.4, specialist: 0.6 }, reason: "Steals present life into a capped fund and spends it on one later ally. The count calls that a specialist." },
       hot_pot_berserker: { role: "attack", mix: { attack: 0.5, support: 0.4, specialist: 0.1 }, reason: "A brawler whose bank grows from varied hits; feeds allies with Mapo tofu and Family Style." },

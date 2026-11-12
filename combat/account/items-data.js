@@ -187,6 +187,7 @@
     soilProbe:      { name: "Soil probe",          slot: "tool",  rarity: "rare",      biomes: ["quarry", "rim"], passive: { revealCliffIntegrity: true, groundDamageMul: 1.25 }, text: "See cliff integrity; +25% damage to cliffs and bridges." },
     seedPouch:      { name: "Seed pouch",          slot: "tool",  rarity: "uncommon",  biomes: [], passive: { battleSlotsAdd: 1, seedsMul: 1.1 }, text: "Carry 3 field pickups into combat; +10% Seeds earned." },
     fieldNotebook:  { name: "Field notebook",      slot: "charm", rarity: "common",    biomes: [], passive: { xpMul: 1.1 }, text: "+10% XP." },
+    orgoniteCharm:  { name: "Orgonite charm", slot: "charm", rarity: "common", biomes: [], questOnly: true, passive: { dreamMonsterDamageMul: 0.8, dreamNameFearBlocked: true, summonPhiAdd: 2, dreamDrainAdd: 10 }, text: "Dream monsters hit you ×0.8. A wrong name does not feed the dream. Summons and pact calls cost +2 ΦF. A called dream keeps its own price. Your Dream Space drains +10 more per turn." },
     mnemonicCharm:  { name: "Mnemonic charm",      slot: "charm", rarity: "rare",      biomes: [], passive: { questionHint: 1 }, text: "Summon questions remove one wrong choice." },
     // Gold fragments (SPEC muse-fragments, 2026-10-26): slivers of the Integrated Self, shed only
     // when gold bleeds (25+ pool damage in a round). questOnly: earned in gold, never rolled or

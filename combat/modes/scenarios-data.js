@@ -199,6 +199,33 @@
         result: { player: "The shot is taken. Nobody tells him what it cost.", enemy: "The forest keeps the picture, and so does he, somewhere.",
           none: "The forest keeps its quiet, and the clock runs out." } } },
 
+    // ── Slice 4: break and salvage (SCENARIOS.md section 9 row 4; modes/objectives.js) ──
+    breakTheSluice: { id: "breakTheSluice", name: "Break the Sluice", minTier: 2, weight: 1,   // SC16
+      arenas: ["canalGarden"],
+      foes: "roll", count: [2, 3],
+      object: { id: "scenario-sluice", type: "hatch", name: "Sluice gate", hp: 60, maxHp: 60, blocksMove: true, cover: 0.5, material: "stone", kind: "object", role: "scenario-objective" },   // drawn as hatch (verdict.js precedent); ground-targeting hits it (structures.js)
+      checkpoints: [{ id: "sluice3", round: 3, label: "The water presses" }, { id: "sluice6", round: 6, label: "The banks take water" }, { id: "sluice9", round: 9, label: "The camp is wet" }],
+      force: { sluice3: { type: "terrain", effect: "shallow-flood" }, sluice6: { type: "terrain", effect: "shallow-flood" }, sluice9: { type: "terrain", effect: "shallow-flood" } },
+      objective: { kind: "break", deadline: 10, onDeadline: "lose", objectId: "scenario-sluice" },
+      bonus: { seeds: 10 },
+      text: {
+        open: "Someone upstream closed the gate to starve the field of water. The field has other ideas.",
+        mid: { when: { round: 5 }, text: "The gate groans. The people guarding it look up at it, and then at you." },
+        result: { player: "The gate gives, and the field remembers what a river is.", enemy: "The water arrives on a schedule that is not yours.",
+          none: "The gate holds, the water waits, and nobody gets what they came for." } } },
+
+    salvageRun: { id: "salvageRun", name: "Salvage Run", minTier: 1, weight: 1,   // SC17
+      arenas: ["quarryLedge", "terraceGarden"],
+      foes: "roll", count: [1, 2],
+      salvage: { minPickups: 5 },   // guarantee at least n+2 contested items (n ≤ 3); placePickups in E.create still appends
+      objective: { kind: "salvage", deadline: 10, onDeadline: "lose" },
+      bonus: { seeds: 6 },
+      text: {
+        open: "A truck went over the ledge last week. Everyone is there for what fell out of it.",
+        mid: { when: { round: 5 }, text: "Someone else is also counting crates." },
+        result: { player: "You walk out heavy, and nobody asks what is in the bag.", enemy: "The scrap is gone before you got to it.",
+          none: "The scrap is still there when the round limit comes, and nobody claims it." } } },
+
     threeCrews: { id: "threeCrews", name: "Three Crews, One Alley", minTier: 2, weight: 1,   // SC05
       arenas: "any",
       mode: "melee",                                                   // last crew standing (modes.js melee); the crews hit each other, so the player picks the moment
@@ -225,6 +252,19 @@
         mid: { when: { round: 3 }, text: "The wild has its own appetites: whatever eats is busy with its meal, and whatever is eaten runs." },
         result: { player: "The garden is yours, and so is the pond.", enemy: "You give up the garden. The ducks stay.",
           none: "Nobody gives way. The flock settles back on the water." } } },
+
+    // Tall Grass (Wild Food Web W3, claude-wild-food-web-spec section 8; teaching scenario; tier 2, R-20261111-06): a tiger lies in the
+    // grass three tiles from a feral pig. The telegraph names only "something" in the grass; the tiger springs on the pig, ×1.5 from cover.
+    tallGrass: { id: "tallGrass", name: "Tall Grass", minTier: 2, weight: 1,
+      arenas: ["banyanGrove", "banyanEdgeGlade"],
+      foes: "roll", count: [1, 2],
+      wild: [{ kind: "tiger", near: "cover", reason: "it was lying in the grass all along" }, { kind: "feralPig", near: "cover", closeTo: "tiger", gap: 3, reason: "wanders in from the brush" }],
+      objective: { kind: "classic" },
+      text: {
+        open: "Something moves in the grass, and a feral pig roots nearby. Watch the grass before you walk into it.",
+        mid: { when: { round: 3 }, text: "An ambusher is strongest from cover: its first leap out of the grass hits half again as hard. In the open you can see it coming." },
+        result: { player: "The field is yours. The grass goes still.", enemy: "You give up the field to whatever was waiting in it.",
+          none: "Nobody gives way. Something in the grass keeps watching." } } },
 
     spilledPot: { id: "spilledPot", name: "Spilled Pot", minTier: 1, weight: 1,
       arenas: "any",

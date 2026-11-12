@@ -8,5 +8,12 @@
   "world_height_definition": "A person (the Warden) = 1.0; the Crusader is drawn at person scale.",
   "runtime_consumed": false,
   "source": "Paladin Pixel-Art Sprite Sheet.png (Cutter, Keel IN, 2026-10-31)",
-  "note": "No dream-open pose in this sheet: the game falls back to cast. The walk slot holds the sheet's Fly / Advance pose (the sheet has no Walk)."
+  "note": "No dream-open pose in this sheet: the game falls back to cast. The walk slot holds the sheet's Fly / Advance pose (the sheet has no Walk).",
+  "special_note": "smite/pray/hymn/solfeggio.png are the Holy Arts poses (moved from sprites/paladin-holy-arts/, same Paladin); light effects are baked in, so the figure is only part of each canvas. Shown in popup scenes only, at the heights below.",
+  "special_ratios": {
+    "smite": { "body_to_canvas": 0.581, "sha256": "421ad97d63cce5e230c0acacf3a481e6e5361fba8399c5837c651bad0efc4221" },
+    "pray": { "body_to_canvas": 0.471, "sha256": "a59c3a359c51b9a2b50c3ca65e2bac9be24520161c543ca3493dc50f4bbec04b" },
+    "hymn": { "body_to_canvas": 0.749, "sha256": "1028ae03556dcee6b51986bc4dddc1d60bce197d00dcbce9684735e35aae99f7" },
+    "solfeggio": { "body_to_canvas": 0.617, "sha256": "778a3daf95f4a5d70c88462fd5965ef216a33270666b5c01bf27ad6d03b9f8b9" }
+  }
 }

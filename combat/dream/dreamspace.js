@@ -66,7 +66,7 @@
   // pool: "player" (default) or an enemy dream pool id from enemy-dreams-data.js.
   function open(caster, { round = 0, placeFamiliarity = 0, selfKnowledge = 0, pool = "player" } = {}) {
     const { drain } = openCost({ placeFamiliarity, selfKnowledge });
-    const field = { type: "dreamSpace", owner: caster.id, opened: round, called: [], summons: [], drain, pool,
+    const field = { type: "dreamSpace", owner: caster.id, opened: round, called: [], summons: [], drain: drain + (caster?.passives?.dreamDrainAdd || 0), pool,
       ...(hasHole(caster) ? { appearChance: 0.65 } : {}) };
     return { caster, field,
       event: { kind: "fieldOpen", field: "dreamSpace", actor: caster.id, text: `${caster.name || caster.id} opens a Dream Space: the edges of the field go soft. Stronger here, and your summons come easier, but other things are coming through. Your ultimate bar is now its clock.` } };
