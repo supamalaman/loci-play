@@ -260,6 +260,7 @@
       for(const unit of Object.values(s.actors))if(unit.permanentAlly)unit.side="player";
       keepDreamPositions(s,state,action.type==="fullCourtPress" ? [action.unit] : []);
       H.settleHolds(s, H.OWN_MOVE_ACTIONS.includes(action.type) ? action.actor : null);   // forced movement of a holder or a held breaks the hold, however it happened (Mala, 2026-10-30)
+      ClassRuntime?.ma?.afterAction(state, s, action, start, H.OWN_MOVE_ACTIONS, log, C.abilities);   // Ma (five concepts M1): the moved stamp, shaken stances, tripped and washed Stillness
       EmergentIdeas?.syncSummonWards(s);
       revealDreamSummons(s);
       checkDreamCollapse(s);

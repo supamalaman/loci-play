@@ -43,6 +43,7 @@
         if (a.tempo < V.minAP + woundTax) return `Investigate needs at least ${V.minAP + woundTax} AP${woundTax ? ` (${woundTax} more with a wounded head)` : ""}. It spends everything you have left.`;
         if (H.heldCostMul && H.heldCostMul(s, a) !== 1) return "You can't Investigate while held: every action costs more than the AP you have left.";   // it spends all AP, so a cost multiplier can never be paid
         if (!hasSight(s, a.x, a.y, t.x, t.y)) return "You need a clear line of sight to Investigate.";
+        if (!s.insight.decks[t.id]) return `${t.name} has no observable traits: there is nothing to Investigate.`;   // arrivals without a deck (a tourist in a random encounter): refuse cleanly instead of throwing in spawnKnowledge (A3b: previews run at render, so a throw kills the drawer)
         const bySubject = H.Observation.knowledge(s, a, true);
         const know = bySubject[t.id] || insightRules.spawnKnowledge(s.insight.decks[t.id]);
         const spent = a.tempo, ap = spent - woundTax;   // current AP only: never tempo debt, overclock, a Survey Flag or a codex look; a wounded head loses the tax from the study, not from the spend
@@ -92,6 +93,7 @@
           const detail = a.focus?.target === t.id && (a.focus.expiresAt ?? 0) > a.ownerTurns && a.focus.detail;   // retained detail: +1 point free
           if (a.tempo < invest + woundTax && !free) return `Observe needs ${invest + woundTax} action points.`;
           if (!hasSight(s, a.x, a.y, t.x, t.y)) return "You need a clear line of sight to Observe.";
+          if (!s.insight.decks[t.id]) return `${t.name} has no observable traits: there is nothing to Observe.`;   // arrivals without a deck: refuse cleanly instead of throwing (A3b: previews run at render)
           const bySubject = H.Observation.knowledge(s,a,true);
           const know = bySubject[t.id] || insightRules.spawnKnowledge(s.insight.decks[t.id]);
           // Perfect Memory (the Cyborg form): what he has already Observed stays known. Looking again at a subject with
@@ -259,8 +261,9 @@
         if (!def) return "No such summon.";
         if (!H.Observation.eligible(a)) return "This unit cannot study a palace room.";
         if (s.summonHints?.[a.id]?.[act.summon]) return "Already studied this battle: no new hint.";
-        if (a.tempo < 20) return "Studying the room needs 20 action points.";   // fixed price for the fixed +1 (gremlin SEV-3): the effort selector must not change it; mirrors O2b nameDream
-        const spend = spendTempo(s, a, 20, `Study ${def.name}'s room`); if (spend) return spend;
+        const price = s.rules.summonRoomStudyAp;   // the one writing of the price (action seams A3a); the card reads the same field
+        if (a.tempo < price) return `Studying the room needs ${price} action points.`;   // fixed price for the fixed +1 (gremlin SEV-3): the effort selector must not change it; mirrors O2b nameDream
+        const spend = spendTempo(s, a, price, `Study ${def.name}'s room`); if (spend) return spend;
         ((s.summonHints ||= {})[a.id] ||= {})[act.summon] = 1;
         log(s, { kind: "observe", actor: a.id, target: act.summon, text: `You study ${def.name}'s room: one wrong choice on its calling question is struck this battle.` });
         log(s, { kind: "observe", actor: a.id, target: act.summon, text: H.Observation.nextStep({ kind: "summon" }).text });
@@ -438,5 +441,200 @@
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-observe.js)`);
     Object.assign(K.handlers, family);
+    // Action seams A3a (2026-11-12): the action card. Each card declares one action type once: the drawer
+    // where the menu shows it, and options(s, a, extra) returning one row per legal or nearly-legal choice,
+    // { act, label, cost, off, why, help }. off/why come from a preview of the exact act, so the handler's
+    // own refusal sentence is the why. The dialog pair (commune, communeStructure) pins the current
+    // questionId in its act (R-20261112-01; the dialog would show the same pinned question), so its preview
+    // agrees with the handler's pre-answer gates and no refusal sentence is copied. extra carries
+    // what only the caller knows (the effort selector's invest, a focus kind); a card never reads UI state.
+    // E.actionOptions (engine/queries.js) serves these per drawer. Nothing calls it yet: dark by intent.
+    const judge = (s, act, extra, label, cost, help) => {
+      const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+      return { act, label, cost, off: !pv.ok, why: pv.ok ? "" : pv.error, help };
+    };
+    const woundTax = (s, a) => (H.Injury?.gradeOf(a, "head") || 0) === 1 ? (s.rules.injury?.headWoundedObserveAp ?? 10) : 0;
+    const nearSort = (s, a, list) => list.sort((x, y) => dist(s, a.x, a.y, x.x, x.y) - dist(s, a.x, a.y, y.x, y.y)).slice(0, 6);
+    const studySpend = (R, invest) => Math.max(R.observeStep, Math.min(R.observeMax, Math.floor(invest / R.observeStep) * R.observeStep));
+    // Registration order is drawer order (the query serves cards in this order): it follows the menu —
+    // place, plants, structures, rooms, then actors; rituals run commune, ingredient, wake, as their tab does.
+    const cards = {
+      observePlace: { type: "observePlace", drawer: "observe", options(s, a, extra = {}) {
+        if (!Climate || !s.weatherState) return [];
+        const invest = extra.invest ?? 20;
+        const spend = Math.max(10, Math.min(50, Math.floor(invest / 10) * 10));
+        return [judge(s, { type: "observePlace", actor: a.id, invest }, extra, `Observe the place · ${spend} AP`, spend,
+          "Read the weather, forecast and microclimate here. Place familiarity makes a Dream Space easier to open and hold.")];
+      } },
+      observePlant: { type: "observePlant", drawer: "observe", options(s, a, extra = {}) {
+        if (!Communion || !s.communion || !Communion.rules.released) return [];
+        const R = Communion.rules, book = H.Observation.plantBook(s, a), spend = studySpend(R, extra.invest ?? R.observeStep);
+        return nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "plant" && o.hp > 0 && !o.dead && !book.closed?.[o.id] && Communion.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
+          .filter((o) => (book.familiarity[o.id] || 0) < Communion.profile(o.type).need).map((o) => {
+            const pr = Communion.profile(o.type), fam = book.familiarity[o.id] || 0;
+            const sees = dist(s, a.x, a.y, o.x, o.y) <= 1 || hasSight(s, a.x, a.y, o.x, o.y);
+            return judge(s, { type: "observePlant", actor: a.id, object: o.id, invest: spend }, extra,
+              `${pr.common} · plant · ${fam}/${pr.need} known · ${spend} AP${sees ? "" : " · unseen"}`, spend,
+              `Know a plant well enough and it will answer you. As an ally: ${pr.name}, ${pr.hp} LF. If it dies fighting for you, Gaia will hold it against you.`);
+          });
+      } },
+      observeStructure: { type: "observeStructure", drawer: "observe", options(s, a, extra = {}) {
+        if (!Tsukumogami || !s.tsukumogami || !(a.traits || []).some((t) => (t.id || t) === "animist") || !Tsukumogami.rules.released) return [];
+        const R = Tsukumogami.rules, book = H.Observation.structureBook(s, a), spend = studySpend(R, extra.invest ?? R.observeStep);
+        return nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && Tsukumogami.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
+          .filter((o) => (book.familiarity[o.id] || 0) < Tsukumogami.profile(o.type).need).map((o) => {
+            const pr = Tsukumogami.profile(o.type), fam = book.familiarity[o.id] || 0;
+            const sees = dist(s, a.x, a.y, o.x, o.y) <= 1 || hasSight(s, a.x, a.y, o.x, o.y);
+            const matDef = insightRules?.data?.traits?.[Tsukumogami.materialTrait(pr.material)] || null;
+            return judge(s, { type: "observeStructure", actor: a.id, object: o.id, invest: spend }, extra,
+              `${pr.common} · structure · ${fam}/${pr.need} known · ${spend} AP${sees ? "" : " · unseen"}`, spend,
+              `Know a structure well enough and it will answer you. As an ally: ${pr.name}, ${Math.max(1, o.hp * 2)} LF. It stands for 4 rounds, then settles back.${matDef ? ` Material: ${matDef.text}` : ""}`);
+          });
+      } },
+      observeSummon: { type: "observeSummon", drawer: "observe", options(s, a, extra = {}) {
+        if (!summonRules) return [];
+        const price = s.rules.summonRoomStudyAp;
+        // A3b order: enumerate in SM.available order (data order), as the menu does — the unlocked list's own order differs.
+        return summonRules.available({ unlocked: s.unlockedSummons || [] }).filter((x) => x.unlocked && (!summonRules.callsPalace || summonRules.callsPalace(a))).map((x) => {
+          const def = summonRules.data.summons[x.id], studied = !!s.summonHints?.[a.id]?.[x.id];
+          return judge(s, { type: "observeSummon", actor: a.id, summon: x.id }, extra,
+            `Study ${def.name}'s room · ${price} AP${studied ? " · studied" : ""}`, price,
+            studied ? "Studied this battle: no new hint. Call it from Rituals ▸ Summon ally." : `Study ${def.name}'s palace room: one wrong choice on its calling question is struck this battle.`);
+        });
+      } },
+      observe: { type: "observe", drawer: "observe", options(s, a, extra = {}) {
+        const invest = extra.invest ?? 20;
+        const base = Math.max(10, Math.min(50, Math.floor(invest / 10) * 10));
+        const ie = hasTrait(a, "directorsVision") ? Math.max(5, base - 5) : base;
+        const tax = woundTax(s, a);
+        const free = (a.id === "player" && s.surveyFlag) || (a.codexObserve || 0) > 0;
+        const charge = free ? 0 : ie + tax, shown = free ? ie : charge;
+        return Object.values(s.actors).filter((t) => t.id !== a.id && !t.defeated).map((t) => {
+          const sees = hasSight(s, a.x, a.y, t.x, t.y);
+          return judge(s, { type: "observe", actor: a.id, target: t.id, invest }, extra,
+            `${t.name}${t.side === a.side ? " · ally" : ""}${sees ? "" : " · unseen"}`, charge,
+            sees ? `Study ${t.name}: ${shown} AP of effort, one insight point for each 10 AP.` : `${t.name} is out of your line of sight, so you cannot observe them.`);
+        });
+      } },
+      investigate: { type: "investigate", drawer: "investigate", options(s, a, extra = {}) {
+        const V = insightRules?.data?.rules?.investigate;
+        if (!V) return [];
+        const tax = woundTax(s, a), pts = Math.floor((a.tempo - tax) / insightRules.data.rules.observe.apPerPoint) + V.depthBonus;
+        const note = `All ${a.tempo} AP and your turn ends; your reaction is spent until next round.`;
+        const rows = [];
+        if (Climate && s.weatherState) rows.push(judge(s, { type: "investigate", actor: a.id, place: true }, extra,
+          `Investigate the place · all ${a.tempo} AP`, a.tempo,
+          `Read the weather, forecast and microclimate with about ${pts} points (hardest cards first, plus any progress you carried from earlier looks). ${note}`));
+        const studies = [];
+        if (Communion && s.communion && Communion.rules.released) {
+          const R = Communion.rules, book = H.Observation.plantBook(s, a);
+          studies.push(...nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "plant" && o.hp > 0 && !o.dead && !book.closed?.[o.id] && Communion.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
+            .filter((o) => (book.familiarity[o.id] || 0) < Communion.profile(o.type).need).map((o) => ({ o, pr: Communion.profile(o.type), fam: book.familiarity[o.id] || 0, kind: "plant" })));
+        }
+        if (Tsukumogami && s.tsukumogami && (a.traits || []).some((t) => (t.id || t) === "animist") && Tsukumogami.rules.released) {
+          const R = Tsukumogami.rules, book = H.Observation.structureBook(s, a);
+          studies.push(...nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && Tsukumogami.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
+            .filter((o) => (book.familiarity[o.id] || 0) < Tsukumogami.profile(o.type).need).map((o) => ({ o, pr: Tsukumogami.profile(o.type), fam: book.familiarity[o.id] || 0, kind: "structure" })));
+        }
+        for (const { o, pr, fam, kind } of studies) {
+          const sees = dist(s, a.x, a.y, o.x, o.y) <= 1 || hasSight(s, a.x, a.y, o.x, o.y);
+          const label = `${pr.common} · ${kind} · ${fam}/${pr.need} known · all ${a.tempo} AP${sees ? "" : " · unseen"}`;
+          const what = kind === "plant" ? `Learn about ${pts} familiarity with this plant (a hiker or a botanist learns more); it spends all your action points and ends your turn, even if less would do.`
+            : `Learn about ${pts} familiarity with this structure; it spends all your action points and ends your turn, even if less would do.`;
+          rows.push(judge(s, { type: "investigate", actor: a.id, object: o.id }, extra, label, a.tempo, `${what} ${note}`));
+        }
+        for (const t of Object.values(s.actors).filter((u) => u.id !== a.id && !u.defeated)) {
+          const sees = hasSight(s, a.x, a.y, t.x, t.y);
+          rows.push(judge(s, { type: "investigate", actor: a.id, target: t.id, focus: extra.focus ?? undefined }, extra,
+            `${t.name}${t.side === a.side ? " · ally" : ""}${sees ? "" : " · unseen"}`, a.tempo,
+            sees ? `Investigate ${t.name}: all ${a.tempo} AP, at least ${pts} points${tax ? ` (a wounded head costs ${tax} AP of the study)` : ""} (progress carried from earlier looks and some traits add more).` : `${t.name} is out of your line of sight, so you cannot investigate them.`));
+        }
+        return rows;
+      } },
+      journalFinding: { type: "journalFinding", drawer: "root", options(s, a, extra = {}) {
+        return H.Observation.findingNoteOptions(s, a).map((o) => judge(s, { type: "journalFinding", actor: a.id, fact: o.id }, extra,
+          `Record finding: ${o.name} · reaction`, null, "Preserve this fact and its source in your field notebook; no technique practice is granted."));
+      } },
+      journalNote: { type: "journalNote", drawer: "root", options(s, a, extra = {}) {
+        return H.journalOptions(s, a).map((o) => judge(s, { type: "journalNote", actor: a.id, technique: o.technique }, extra,
+          `Take notes: ${o.name} · reaction`, null, "Spend your reaction to note it in your journal: three notes finish a study (the Magistrate's Codex)."));
+      } },
+      observeSelf: { type: "observeSelf", drawer: "root", options(s, a, extra = {}) {
+        if (!insightRules || !(s.self?.traits || []).some((t) => !t.known)) return [];
+        const cost = insightRules.observeSelfCost(s.self);
+        return [judge(s, { type: "observeSelf", actor: a.id }, extra, `Observe Self · ${cost} AP`, cost,
+          `Study yourself to uncover traits you do not know you have. Costs ${cost} AP.`)];
+      } },
+      insight: { type: "insight", drawer: "insight", options(s, a, extra = {}) {
+        if (!insightRules) return [];
+        const out = [];
+        for (const tid of Object.keys(s.insight?.decks || {})) {
+          const t = s.actors[tid], deck = s.insight.decks[tid], know = s.insight?.knowledge?.[a.id]?.[tid];
+          if (!t || t.defeated || !deck || !know) continue;
+          const snapshot = { round: s.round, units: Object.values(s.actors), wild: s.wild, playerSeeds: s.seeds || 0,
+            alliesOf: Object.fromEntries(Object.values(s.actors).map((u) => [u.id, Object.values(s.actors).filter((v) => v.side === u.side && v.id !== u.id && !v.defeated)])),
+            fire: s.arena.map.some((row) => row.includes("f")) };
+          for (const it of insightRules.actionsFor({ deck, know, subject: t, snapshot })) {
+            const chance = it.id === "talk" ? null : it.chance;
+            const closed = it.id === "talk" && Parley && t ? (Parley.cannotTalk(s, a, t) ? true : Parley.talkChance(s, a, t) === 0) : false;
+            const helpText = it.id === "talk"
+              ? "Sit them down for a battle of minds: simultaneous arguments over up to 4 rounds, margin damage, willpower on the line. Win and they stand down (Come to terms opens) plus concede by severity; lose and you stand down and pick your own poison. Read their traits first — a hidden immune rebounds."
+              : it.id === "befriend" ? "Try to make a friend: a 40% chance they stop attacking you for three rounds. They may still attack your summons. Failure spends the AP without creating a truce."
+              : it.id === "readTell" ? "Use an observed warning sign to prepare for their next announced or delayed attack. That response does not spend your reaction; dodging still costs its usual AP."
+              : it.id === "ask" ? "Ask what they intend to do next. Reveals their likely next action from the current board; later changes can change their plan."
+              : it.text;
+            const price = talkCost(a, it.id, it.cost), fast = price !== it.cost;
+            const blocked = a.tempo < price ? ` Needs ${price} AP; you have ${a.tempo}.` : closed ? " Conversation is unavailable with this target." : "";
+            out.push(judge(s, { type: "insight", actor: a.id, target: tid, action: it.id }, extra,
+              `${it.name}${it.id === "talk" ? " · mind duel" : chance != null ? ` · ${Math.round(chance * 100)}%` : ""} · ${price} AP`, price,
+              `${helpText} Costs ${price} AP.${fast ? " Speed-Talker: half the action points, and it lands 85% as often." : ""}${chance != null ? ` Current success chance: ${Math.round(chance * 100)}%.` : ""}${blocked}`));
+          }
+        }
+        return out;
+      } },
+      lens: { type: "lens", drawer: "lens", options(s, a, extra = {}) {
+        const price = s.rules.actionCosts.utility, out = [];
+        for (const c of [a.primary, a.secondary].filter(Boolean)) for (const [id, pr] of Object.entries(C.concepts[c].lens.profiles))
+          out.push(judge(s, { type: "lens", actor: a.id, concept: c, profile: id }, extra, `${C.concepts[c].name}: ${pr.name}`, price, pr.trade));
+        return out;
+      } },
+      commune: { type: "commune", drawer: "rituals", options(s, a, extra = {}) {
+        if (!Communion || !s.communion || !Communion.rules.released) return [];
+        const R = Communion.rules, book = H.Observation.plantBook(s, a);
+        return nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "plant" && o.hp > 0 && !o.dead && !book.closed?.[o.id] && Communion.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
+          .filter((o) => (book.familiarity[o.id] || 0) >= Communion.profile(o.type).need).map((o) => {
+            const pr = Communion.profile(o.type), q = Communion.questionFor(o, s.seed);
+            return judge(s, { type: "commune", actor: a.id, object: o.id, questionId: q?.id }, extra,
+              `Commune with ${pr.common} ▸ ${R.communeAp} AP + ${Math.max(0, pr.phi - communeDiscount(a))} ΦF`, R.communeAp,
+              `Answer its question and it fights beside you as ${pr.name} (${pr.hp} LF). It is not fodder: if it dies, its body stays and Gaia thinks less of you.`);
+          });
+      } },
+      communeIngredient: { type: "communeIngredient", drawer: "rituals", options(s, a, extra = {}) {
+        if (!Communion?.canCommuneIngredient || a.defeated || !Communion.canWakeIngredients(a)) return [];
+        const IR = Communion.ingredients.rules, rows = [], seen = new Set();
+        for (const item of a.inventory || []) if (Communion.totemOf(item) && !seen.has(item)) { seen.add(item); rows.push({ item, pickup: null, d: 0 }); }
+        for (const pk of s.arena.pickups || []) { const d = dist(s, a.x, a.y, pk.x, pk.y); if (Communion.totemOf(pk.item) && d <= IR.pickupRange) rows.push({ item: pk.item, pickup: pk.id, d }); }
+        return rows.map((r) => {
+          const t = Communion.totemOf(r.item), cook = !!Cooking()?.isCook?.(a);
+          return judge(s, { type: "communeIngredient", actor: a.id, item: r.item, pickup: r.pickup }, extra,
+            `Wake the ${t.name}${r.pickup != null ? " (on the ground)" : ""} ▸ ${IR.communeAp} AP + ${IR.phi} ΦF`, IR.communeAp,
+            `${t.text} It stays beside you for ${cook ? IR.cookTurns : IR.turns} of your turns${cook ? " (a cook's totem lasts longer)" : ""} and cannot attack or be attacked. One totem at a time.`);
+        });
+      } },
+      communeStructure: { type: "communeStructure", drawer: "rituals", options(s, a, extra = {}) {
+        if (!Tsukumogami || !s.tsukumogami || !(a.traits || []).some((t) => (t.id || t) === "animist") || !Tsukumogami.rules.released) return [];
+        const R = Tsukumogami.rules, book = H.Observation.structureBook(s, a), disc = communeDiscount(a, "structure");
+        return nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && Tsukumogami.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
+          .filter((o) => (book.familiarity[o.id] || 0) >= Tsukumogami.profile(o.type).need).map((o) => {
+            const pr = Tsukumogami.profile(o.type);
+            return judge(s, { type: "communeStructure", actor: a.id, object: o.id, questionId: Tsukumogami.questionFor(o, s.seed)?.id }, extra,
+              `Wake the ${pr.common} ▸ ${R.communeAp} AP + ${Math.max(0, pr.phi - disc)} ΦF`, R.communeAp,
+              `Answer its question and it stands beside you as ${pr.name} (${Math.max(1, o.hp * 2)} LF) for 4 rounds.`);
+          });
+      } },
+    };
+    H.actionCards ||= {};
+    for (const type of Object.keys(cards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-observe.js)`);
+    Object.assign(H.actionCards, cards);
   })();
 });

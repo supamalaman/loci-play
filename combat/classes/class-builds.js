@@ -477,7 +477,11 @@
       first_fold: { trigger: "your first Linked Step (Valley Fold) each battle", effect: { phiCost: 0 }, bound: "the first Linked Step only; later steps cost full ΦF", counter: "Occupy or seal her visited endpoints so the free fold has nowhere to go." },
       crisp_crease: { trigger: "you place a fold while in Still Stance", effect: { durationAdd: 1 }, bound: "Still Stance only; needs Ma landing (Phase 2)", counter: "Break the stance before she folds." },
     }, "origamist"),
+    // Shaman (Mala, 2026-11-10; claude-shaman-summoner-spec SH1): Threshold + Hospitality. Guests outside the palace slot.
+    shaman: Object.assign(B(["spiritRaven", "ancestralFox", "guestPortion", "spiritTotem", "ancestralMoot"], { primaryBasic: "spiritRaven", primaryRefined: "ancestralFox", secondaryBasic: "guestPortion", secondaryRefined: "spiritTotem" }, {
+      spirit_table: { trigger: "you seat a guest", effect: { maxGuests: 2, freeFirstAp: true }, bound: "two seats; a third call sends the oldest home; first guest call each battle costs no AP (ΦF still paid)", counter: "Kill the guests; focus the host." },
+      spirit_company: { trigger: "you finish a technique while an attendant is present", effect: { pulsesPerTurn: 2, radius: 2 }, bound: "two pulses a turn; echoed and deceptive techniques do not pulse", counter: "Separate her from the table; stun her before the technique resolves." },
+    }, "shaman"), { staged: ["ancestralMoot"] }),   // SH4 builds Ancestral Moot (its kit row says so): authored, not castable yet; tests that cast a kit skip build.staged (1.3.564 merge)
   };
-
   return { builds };
 });

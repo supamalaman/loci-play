@@ -49,6 +49,7 @@
     starfarer: { name: "The Starfarer", role: "Workshop", windows: ["workshop"], art: std("starfarer"), voice: "far-seeing, unhurried", lines: "starfarer", hook: "H16", perk: null, wired: true, slice: "S4" },
     lakshmana: { name: "Lakshmana", role: "School", windows: ["school"], art: std("lakshmana"), voice: "earnest, strict, fair", lines: "lakshmana", hook: "H17", perk: null, wired: true, slice: "S2" },
     gambler: { name: "The Gambler", role: "Town square", windows: ["square", "proposeStakes", "sweatIt", "cardtable"], art: std("gambler", "portrait-{x}.png"), voice: "easy, risky, friendly", lines: "gambler", hook: "H18", perk: null, wired: true, slice: "S2", counters: { cardtable: "gambler" } },   // C6a re-cut: the self counter so counterKeeper("cardtable", "cardtable") resolves and Talk answers fold:cardtable (without it the fold event falls back to fold:scenarios)
+    museumKeeper: { name: "the keeper", role: "The Museum", windows: ["museum"], art: { status: "missing", folder: null, stagedFolder: null, pattern: null, map: {}, fallback: null }, voice: "quiet, reverent", lines: null, hook: "H19", perk: null, wired: false, slice: "S6" },   // M9: unnamed until Mala names them; no face art exists yet, so "missing" (claude-npc-faces-spec); S6 is the new-window bucket (Fame F3a, Card Table)
   };
 
   const w = (keeper, at, fns, slice, exempt = false) => ({ keeper, exempt, fns, at, slice });
@@ -80,6 +81,7 @@
     narratorWindow: w("arantxa", "ui.js:2056", [], "S4"), dispatch: w("chief", "law/dispatch.js:45", [], null, "radio voice only (decision D9)"),
     saveBroken: w(null, "ui.js:1329", ["showSaveBroken"], null, "system overlay (broken save guard, 2026-11-03): plain words about the player's data, no keeper"), firstPick: w(null, "ui.js:1340", ["showFirstPick"], null, "its own scene (Familiar S2, 2026-11-03): the first-launch familiar choice"),
     enemyBubbles: w("served", "ui.js:3883", ["showDialogueFrom"], null, "already served: speakers.js heads"),
+    museum: w("museumKeeper", "ui.js:showMuseum", ["showMuseum"], "S6"),   // Museum M2: the town door's panel; keeper unnamed (M9)
   };
 
   const art = (id) => KEEPERS[id]?.art || null;

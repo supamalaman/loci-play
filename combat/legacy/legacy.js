@@ -285,14 +285,27 @@
 
   // Memorizing past capacity evicts the oldest held technique. Evicted
   // memories return to the codex: re-learning costs RELEARN × practice.
-  function memorize(memory, techId, practice, threshold) {
+  // Scribing desk B2 (landing 1; R-20261104-01): with isScribed, scribed works sit on the desk shelf (`desk`
+  // slots, at least 1) and only the ones past it spill into the general slots, so the general count is the
+  // learned ids plus that spill, and a full memory evicts the oldest learned id (the oldest spilled scribed
+  // one only when nothing learned is held; the desk works are never evicted). Without isScribed the whole list
+  // caps, as before.
+  function generalUse(memory, isScribed, desk) {
+    var learned = memory.held.filter(function (id) { return !isScribed(id); });
+    var scribed = memory.held.filter(function (id) { return isScribed(id); });
+    var spill = Math.max(0, scribed.length - Math.max(1, desk || 1));
+    return { learned: learned, scribed: scribed, spill: spill, used: learned.length + spill };
+  }
+  function memorize(memory, techId, practice, threshold, isScribed, desk) {
     var need = threshold;
     if (memory.forgotten[techId]) need = Math.ceil(threshold * RELEARN);
     if (practice < need) return { ok: false, error: "unpractised", need: need };
     if (memory.held.indexOf(techId) >= 0) return { ok: true, evicted: null };
     var evicted = null;
-    if (memory.held.length >= memory.slots) {
-      evicted = memory.held.shift();
+    var use = isScribed ? generalUse(memory, isScribed, desk) : { used: memory.held.length, learned: memory.held, scribed: [] };
+    if (use.used >= memory.slots) {
+      evicted = use.learned.length ? use.learned[0] : use.scribed[Math.max(1, desk || 1)];
+      memory.held.splice(memory.held.indexOf(evicted), 1);
       memory.forgotten[evicted] = true;
     }
     memory.held.push(techId);
@@ -323,5 +336,6 @@
     addNote: addNote,
     createMemory: createMemory,
     memorize: memorize,
+    generalUse: generalUse,
   };
 });

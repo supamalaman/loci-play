@@ -340,6 +340,7 @@
         if (H.hasTrait(tgt, "rigid")) { mult *= 0.85; notes.push(`${tgt.name}'s rigid frame takes ×0.85 damage.`); }
         if (H.hasTrait(tgt, "brittle")) { mult *= 1.5; notes.push(`${tgt.name}'s brittle body takes ×1.5 damage.`); }
       }
+      if (tgt.structure && potency > 0 && inst?.destructive) { mult *= 2; notes.push(`${tgt.name} is a structure: a destructive blow does double.`); }   // Spirit Totem (SH2): destructive doubles vs a structure guest
       if (isMonster(tgt) && potency > 0) {
         const field = inst?.delivery === "field" || !!opts.field;
         const fire = /ignite|fire|burn/i.test(`${inst?.effect || ""} ${inst?.ability || ""} ${opts.label || ""} ${src?.name || ""}`);
@@ -386,6 +387,8 @@
         } }
       const au = Auras && potency > 0 ? Auras.damageMods(s, src, tgt, inst, auraH()) : null;   // Auras: rings on the field
       if (au) { mult *= au.mult; notes.push(...au.notes); }
+      if (potency > 0 && src?.status?.mossMuffle?.until >= s.round) { mult *= src.status.mossMuffle.mul; notes.push(`Moss spirit: the blow is muffled (×${src.status.mossMuffle.mul}).`); }   // SH3: muffle, the live 0.85, for the pulse's round
+      if (potency > 0 && tgt?.status?.moonExpose?.until >= s.round) { mult *= tgt.status.moonExpose.mul; notes.push(`Moon spirit: the blow lands harder (×${tgt.status.moonExpose.mul}).`); }   // SH3: expose, the live 1.1, for the pulse's round
       const bd = Bonds && potency > 0 ? Bonds.damageMul(s, tgt, src, classH()) : null;   // Bonds: Blessing of Malnote, Chain of Command
       if (bd && bd.mul !== 1) { mult *= bd.mul; notes.push(bd.note); }
       { const gw = potency > 0 ? H.graveWard?.(s, tgt) : 0;   // ritual burial: a tended grave wards its side's units beside it
@@ -524,7 +527,11 @@
         notes.push(`${tgt.name} wobbles: soft curd absorbs 2 of the blow (first hard hit this round).`);
       }
       { const napa = dmg > 0 && H.Communion?.totemAura?.(s, tgt, "hitLess", H.dist);   // Napa Totem (ingredient totems T2): its leaves take 2 off every hit on an ally within 2, never below 1
-        if (napa && dmg > napa.def.hitFloor) { const cut = Math.min(napa.def.hitLess, dmg - napa.def.hitFloor); dmg -= cut; notes.push(`${napa.totem.name}: −${cut} (its leaves layer over ${tgt.name}).`); } }
+        const cover = dmg > 0 && tgt.status?.forestCover?.until >= s.round ? tgt.status.forestCover : null;   // SH3 Forest spirit: the same cut for the pulse's round, and it does not add to a Napa totem
+        if (napa) { if (dmg > napa.def.hitFloor) { const cut = Math.min(napa.def.hitLess, dmg - napa.def.hitFloor); dmg -= cut; notes.push(`${napa.totem.name}: −${cut} (its leaves layer over ${tgt.name}).`); } }
+        else if (cover && dmg > cover.floor) { const cut = Math.min(cover.less, dmg - cover.floor); dmg -= cut; notes.push(`Forest spirit: −${cut} (its cover does not stack with a Napa totem).`); } }
+      { const spiritTotem = dmg > 0 && Object.values(s.actors).find((u) => !u.defeated && u.companion?.guest && u.companion.key === "spirit_totem" && u.side === tgt.side && H.dist(s, u.x, u.y, tgt.x, tgt.y) <= 2);   // Spirit Totem (SH2): allies within 2 take 2 less, never below 1 (Napa's rule, read off the unit; stacks with Napa)
+        if (spiritTotem && dmg > 1) { const cut = Math.min(2, dmg - 1); dmg -= cut; notes.push(`${spiritTotem.name}: −${cut} (it stands over ${tgt.name}).`); } }
       let parachute = false;
       if (dmg > 0 && tgt.form?.learned && bossRules?.formBeforeApply) { const pb = bossRules.formBeforeApply(tgt, dmg); if (pb.release) { dmg = pb.dmg; parachute = true; tgt.parachuteUsed = true; notes.push("Golden Parachute: the form gives out before the founder does."); } }
       if (dmg > 0 && dmg >= tgt.lf && tgt.passives?.surviveLethalOnce && !tgt.bristleconeUsed) {

@@ -18,16 +18,16 @@
 //   resistKnock(s, a, t, H)                → true if the displacement is cancelled
 //   turnStart(s, a, H)                     → upkeep, expiry, strain, visited tiles
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./class-builds.js"),require("./esker.js"),require("../performers/performers.js"),require("../stealth/stealth.js"),require("../police/police.js"),require("../monkey/monkey.js"),require("../director/director.js"),require("../actor/actor.js"),require("../law/law.js"),require("../martial/martial.js"),require("./hot-pot.js"),require("../teleology/teleology.js"),require("../mise/mise.js"),require("../graph/homology-rules.js"),require("./posterity-suits.js"));
-  else root.ConceptCombatClassRuntime = factory(root.ConceptCombatClassBuilds,root.ConceptCombatEsker,root.ConceptCombatPerformers,root.ConceptCombatStealth,root.ConceptCombatPolice,root.ConceptCombatMonkey,root.ConceptCombatDirector,root.ConceptCombatActor,root.ConceptCombatLaw,root.ConceptCombatMartial,root.ConceptCombatHotPot,root.ConceptCombatTeleology,root.ConceptCombatMise,root.ConceptCombatHomologyRules,root.ConceptCombatPosteritySuits);
-})(typeof self !== "undefined" ? self : this, function (CBmod, Esker, Performers, Stealth, Police, Monkey, Director, Actor, Law, Martial, HotPot, Teleology, Mise, Homology, Suits) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./class-builds.js"),require("./esker.js"),require("../performers/performers.js"),require("../stealth/stealth.js"),require("../police/police.js"),require("../monkey/monkey.js"),require("../director/director.js"),require("../actor/actor.js"),require("../law/law.js"),require("../martial/martial.js"),require("./hot-pot.js"),require("../teleology/teleology.js"),require("../mise/mise.js"),require("../graph/homology-rules.js"),require("./posterity-suits.js"),require("../guests/guests.js"));
+  else root.ConceptCombatClassRuntime = factory(root.ConceptCombatClassBuilds,root.ConceptCombatEsker,root.ConceptCombatPerformers,root.ConceptCombatStealth,root.ConceptCombatPolice,root.ConceptCombatMonkey,root.ConceptCombatDirector,root.ConceptCombatActor,root.ConceptCombatLaw,root.ConceptCombatMartial,root.ConceptCombatHotPot,root.ConceptCombatTeleology,root.ConceptCombatMise,root.ConceptCombatHomologyRules,root.ConceptCombatPosteritySuits,root.ConceptCombatGuests);
+})(typeof self !== "undefined" ? self : this, function (CBmod, Esker, Performers, Stealth, Police, Monkey, Director, Actor, Law, Martial, HotPot, Teleology, Mise, Homology, Suits, Guests) {
   const CB = CBmod.builds;
   const CLASS_PAIRS = { agent_swarm: ["hardware", "cybernetic_ecology"], rapper:["lyricism","collage"], musician:["harmony","resonance"], bard:["harmony","complementarity"], jazz_musician:["lyricism","harmony"], knight: ["barrier", "interposition"], pharaoh: ["legitimacy", "boundary"], daedalus: ["berm", "section"], samurai: ["timing", "sightline"],
     gemini: ["complementarity", "resonance"], wizard: ["pipeline", "selectivity"], jujutsu_sorcerer: ["reciprocal_obligation", "boundary"], super_hero: ["load_distribution", "interposition"], esker: ["interposition", "berm"],
     super_heroine: ["tension", "elasticity"], super_villain: ["dependency", "deception"], defective_machine: ["fault_tolerance", "resonance"], teleporter: ["adjacency", "threshold"],
     mutant_boar: ["plasticity", "inertia"], boarman: ["leverage", "elasticity"], anime_protagonist: ["plasticity", "elasticity"], barbarian: ["threshold", "elasticity"], clockwork: ["pipeline", "timing"], rogue: ["pruning", "extraction"], hooded_cyber_rogue: ["longtermism", "stealth"], medusa: ["sightline", "constraint"], magistrate: ["laws_of_gods_of_men", "threshold"], cleric: ["reciprocal_obligation", "complementarity"], steam_walker: ["inertia", "threshold"], ornithopter: ["section", "adjacency"], engineer: ["gradingDrainage", "load_distribution"], origamist: ["adjacency", "tension"],
     mma_fighter: ["leverage", "constraint"], kickboxer: ["timing", "leverage"], odysseus: ["strategic_commitment", "pathway"], president: ["legitimacy", "strategic_commitment"], detective: ["inference", "selectivity"], maid: ["selectivity", "extraction"], paladin: ["solfeggio", "strategic_commitment"],
-    big_game_hunter: ["discovery", "indexing"], hypebeast: ["diffusion", "deception"], ranger: ["pathway", "inference"], tech_billionaire: ["adjacency", "dependency"], oil_billionaire: ["extraction", "diffusion"], doctor: ["succession", "inference"], animalTamer: ["resonance", "transmigration"], modern_artist: ["hardware", "software"], cyph: ["lyricism", "selectivity"], general: ["delegation", "timing"], bastet: ["focus", "elasticity"], ninja: ["stealth", "threshold"], police_officer: ["legitimacy", "constraint"], thief: ["stealth", "deception"], monkey_king: ["deception", "leverage"], hanuman: ["aeronautics", "elasticity"], jambavan: ["indexing", "delegation"], rama: ["strategic_commitment", "focus"], lakshmana: ["boundary", "interposition"], sita: ["imagination", "preservation"], hypnotist: ["focus", "imagination"], ravana: ["extraction", "delegation"], kumbhakarna: ["inertia", "timing"], indrajit: ["deception", "constraint"], mandodari: ["inference", "harmony"], surpanakha: ["glamour", "plasticity"], jatayu: ["interposition", "timing"], director: ["boundary", "delegation"], mangaka: ["collage", "innovation"], aviator_hero: ["aeronautics", "inertia"], jiang_qing: ["glamour", "legitimacy"], starfarer: ["settlement", "sightline"], pioneer: ["sightline", "boundary"], martial_artist: ["bird_mountain", "adaptation"], memorialist: ["preservation", "longtermism"], hot_pot_berserker: ["antifragility", "hospitality"], chef: ["mise_en_place", "hospitality"], seedkeeper: ["longtermism", "succession"], ferryman: ["pathway", "reciprocal_obligation"], pearl_diver: ["swale", "stealth"], teal_eel: ["boundary", "preservation"], remora_adventurer: ["leverage", "extraction"], orgonite_trooper: ["longtermism", "hardware"], leviathan_suit: ["longtermism", "cybernetic_ecology"], scale_firmware: ["imagination", "hardware"], white_jacket_gunner: ["software", "longtermism"], bronze_admin: ["delegation", "longtermism"], horned_suit: ["imagination", "delegation"] };
+    big_game_hunter: ["discovery", "indexing"], hypebeast: ["diffusion", "deception"], ranger: ["pathway", "inference"], tech_billionaire: ["adjacency", "dependency"], oil_billionaire: ["extraction", "diffusion"], doctor: ["succession", "inference"], animalTamer: ["resonance", "transmigration"], modern_artist: ["hardware", "software"], cyph: ["lyricism", "selectivity"], general: ["delegation", "timing"], bastet: ["focus", "elasticity"], ninja: ["stealth", "threshold"], police_officer: ["legitimacy", "constraint"], thief: ["stealth", "deception"], monkey_king: ["deception", "leverage"], hanuman: ["aeronautics", "elasticity"], jambavan: ["indexing", "delegation"], rama: ["strategic_commitment", "focus"], lakshmana: ["boundary", "interposition"], sita: ["imagination", "preservation"], hypnotist: ["focus", "imagination"], ravana: ["extraction", "delegation"], kumbhakarna: ["inertia", "timing"], indrajit: ["deception", "constraint"], mandodari: ["inference", "harmony"], surpanakha: ["glamour", "plasticity"], jatayu: ["interposition", "timing"], director: ["boundary", "delegation"], mangaka: ["collage", "innovation"], aviator_hero: ["aeronautics", "inertia"], jiang_qing: ["glamour", "legitimacy"], starfarer: ["settlement", "sightline"], pioneer: ["sightline", "boundary"], martial_artist: ["bird_mountain", "adaptation"], memorialist: ["preservation", "longtermism"], hot_pot_berserker: ["antifragility", "hospitality"], chef: ["mise_en_place", "hospitality"], seedkeeper: ["longtermism", "succession"], ferryman: ["pathway", "reciprocal_obligation"], pearl_diver: ["swale", "stealth"], teal_eel: ["boundary", "preservation"], remora_adventurer: ["leverage", "extraction"], orgonite_trooper: ["longtermism", "hardware"], leviathan_suit: ["longtermism", "cybernetic_ecology"], scale_firmware: ["imagination", "hardware"], white_jacket_gunner: ["software", "longtermism"], bronze_admin: ["delegation", "longtermism"], horned_suit: ["imagination", "delegation"], shaman: ["threshold", "hospitality"] };
 
   // Content overrides. kind = runtime handler for "classEffect"; extra = damage-path extras keyed by ability id.
   const D = (o) => ({ effect: "damage", ...o }), X = (kind, o = {}) => ({ effect: "classEffect", kind, ...o });
@@ -50,6 +50,10 @@
     skim: X("stealth", {target:"enemy",range:1}),
     emptyPockets: X("stealth", {target:"self",range:0}),
     perfectHeist: X("stealth", {target:"enemy",range:99}),
+    spiritRaven: X("guest", {target:"tile",range:3}),
+    ancestralFox: X("guest", {target:"tile",range:3}),
+    spiritTotem: X("guest", {target:"tile",range:3}),
+    guestPortion: X("guest", {target:"ally",range:4}),
     hairClone: X("monkey", {target:"tile",range:3}),
     monkeyMischief: X("monkey", {target:"self",range:0}),
     somersaultCloud: X("monkey", {target:"tile",range:6}),
@@ -188,6 +192,9 @@
     bindingTerm: X("buff", { target: "self", range: 0, buff: "vow" }), sharedContract: X("law", { target: "self", range: 0, radius: 2, terms: "noLine", penalty: 10, turns: 2 }),
     authorizedEntry: X("exempt", { target: "ally", range: 4 }), contractedDomain: X("law", { target: "self", range: 0, radius: 3, terms: "noUltimate", penalty: 15, turns: 3, ownerMul: 1.25 }),
     shareTheLoad: X("share", { target: "self", range: 0, radius: 2, cap: 99, turns: 1 }), supportNetwork: X("share", { target: "self", range: 0, radius: 3, cap: 15, turns: 2, max: 3 }),
+    leaveSpace: X("ma", { target: "self", range: 0, op: "bank", needs: "maRoom" }), heldBreath: X("ma", { target: "self", range: 0, op: "stance", needs: "maNoStance" }),   // Ma (five concepts M1)
+    spaceBetween: X("ma", { target: "self", range: 0, op: "cash", needs: "maStillness" }),
+    frontedTempo: X("credit", { target: "ally", range: 4, selfOk: true }), easyTerms: X("credit", { target: "self", range: 0 }), dayOfReckoning: X("credit", { target: "self", range: 0 }),   // Credit (five concepts K1): engine/tally.js resolves them
     rescueCorridor: X("rescue", { target: "ally", range: 4 }), nobodyBehindMe: X("guardArea", { target: "self", range: 0, radius: 3, uses: 9, mul: 0.6, turns: 2, share: true }),
     tether: X("tether", { target: "tile", range: 4 }), suspendedRoute: X("relocate", { target: "tile", range: 5, needs: "tether", ignoreTerrain: true }),
     catchFall: X("cushion", { target: "ally", range: 2, mul: 0.4, uses: 1 }), livingSafetyNet: X("cushionArea", { target: "self", range: 0, radius: 3, mul: 0.6, uses: 3, turns: 2 }),
@@ -1130,6 +1137,9 @@
       case "belowHalf": return a.lf < a.maxLF / 2 || "Graceful Degradation applies below half LF.";
       case "loaded": return (S(s).took[a.id]?.round === s.round && S(s).took[a.id].amount >= 10) || "Load Response needs a load of 10+ this round.";
       case "growth": return (st(a).growth?.stacks || 0) > 0 || "Heavy Frame needs growth.";
+      case "maRoom": return (a.stillness || 0) < Ma.cap(a) || `Your Stillness is full (${Ma.cap(a)}): spend it first.`;
+      case "maNoStance": return !Ma.stance(a) || "You are already in Still Stance.";
+      case "maStillness": return (a.stillness || 0) > 0 || "The Space Between needs at least 1 Stillness banked.";
       case "fulcrum": return active(st(a).fulcrum, a) || "You need a fulcrum (Find the Base).";
       case "stored": return (S(s).stored[a.id] || 0) > 0 || "Nothing stored to release.";
       case "lowPoint": return (S(s).low[a.id] ?? 1) < 0.3 || "New Configuration needs a defining moment (you've been below 30% LF).";
@@ -1328,6 +1338,7 @@
   function beforeAbility(s, a, m, H) {
     const performanceError=Performers.beforeAbility(s,a,m); if(performanceError)return performanceError;
     const stealthError=Stealth.beforeAbility(s,a,m); if(stealthError)return stealthError;
+    const guestError=Guests?.beforeAbility?.(s,a,m); if(guestError)return guestError;
     const monkeyError=Monkey.beforeAbility(s,a,m); if(monkeyError)return monkeyError;
     const martialError=Martial.beforeAbility(s,a,m); if(martialError)return martialError;
     const teleologyError=Teleology.beforeAbility(s,a,m); if(teleologyError)return teleologyError;
@@ -1437,6 +1448,7 @@
     const policeTarget=Police.target(s,a,m,tx,ty,H); if(policeTarget)return policeTarget;
     const lawTarget=Law.target(s,a,m,tx,ty,H); if(lawTarget)return lawTarget;
     const monkeyTarget=Monkey.target(s,a,m,tx,ty,H); if(monkeyTarget)return monkeyTarget;
+    const guestTarget=Guests?.target?.(s,a,m,tx,ty,H); if(guestTarget)return guestTarget;
     const martialTarget=Martial.target(s,a,m,tx,ty,H); if(martialTarget)return martialTarget;
     const teleologyTarget=Teleology.target(s,a,m,tx,ty,H); if(teleologyTarget)return teleologyTarget;
     const miseTarget=Mise.target(s,a,m,tx,ty,H); if(miseTarget)return miseTarget;
@@ -1729,6 +1741,7 @@
     if(Police.resolve(s,a,inst,H))return true;
     if(Law.resolve(s,a,inst,H))return true;
     if(Monkey.resolve(s,a,inst,H))return true;
+    if(Guests?.resolve?.(s,a,inst,H))return true;
     if(Martial.resolve(s,a,inst,H))return true;
     if(Teleology.resolve(s,a,inst,H))return true;
     if(Mise.resolve(s,a,inst,H))return true;
@@ -1956,6 +1969,7 @@
           s.barriers.push({ id: "cb" + (++s.seq), owner: a.id, x, y, concept: "berm", coverFraction: 0.5, passable: true, duration: 3, expiresAt: a.ownerTurns + 3, ...(k === 0 ? { passage: a.side } : {}) }); n++; }
         say(`${a.name} raises ${n} tiles of earthworks with a designed passage.`, ["An obstacle can protect movement rather than prevent it."]); break; }
       case "read": if (tgt) { st(a).openingRead = { target: tgt.id, until: until(2) }; say(`${a.name} reads ${tgt.name}'s next opening.`); } break;
+      case "ma": Ma.resolve(s, a, w, H); break;   // Ma (five concepts M1): Leave Space, Held Breath, The Space Between
       case "share": { const members = near(s, a, w.radius, H, "ally").slice(0, (w.max || 9) + 1).map((u) => u.id);
         for (const id of members) st(H.actor(s, id)).loadShare = { members, cap: w.cap, until: H.actor(s, id).ownerTurns + w.turns };
         say(`${a.name} links ${members.length} units: hits on any are split across all${w.cap < 99 ? ` (up to ${w.cap} each)` : ""}.`, ["Distribution changes local stress, not total force."]); break; }
@@ -2455,7 +2469,7 @@
       const blast = inst?.delivery === "field" || ["radius", "plus", "board", "cone"].includes(inst?.area?.shape);
       if (!blast || !ic.skipBlast) {
         const g = H.actor(s, ic.by);
-        if (g && !g.defeated && g.id !== tgt.id && !Esker.exempt(s, src, ic) && H.dist(s, g.x, g.y, tgt.x, tgt.y) <= 3) {
+        if (g && !g.defeated && g.id !== tgt.id && !Esker.exempt(s, src, ic) && H.dist(s, g.x, g.y, tgt.x, tgt.y) <= (ic.range ?? 3)) {
           ic.uses--; if (ic.between) Esker.crossed(s, src, tgt, g, H);   // Esker: whoever strikes across first is marked H.log(s, { kind: "effect", actor: g.id, target: tgt.id, text: `${g.name} steps between: the hit meant for ${tgt.name} lands on ${g.name}.`, why: ["Redirecting a consequence doesn't erase it."] });
           S(s).interceptMul = oathOf(g) && wardOf(s, g) ? Math.min(ic.mul ?? 1, 0.6) : ic.mul;   // Unbroken Oath: the block barely gives
           return g;
@@ -2595,6 +2609,84 @@
     a.aero = { turn: a.ownerTurns, dir: last, steps: cur.steps + dirs.length, turns: cur.turns + turns };
   }
   const aeroMoveAdd = (a) => (hasTr(a, "aerodynamic") ? AERO.straightAdd : 0) + (aeroForce(a) === "thrust" ? AERO.thrustAdd : 0);
+  // Ma (claude-five-concepts-spec M1; Mala 2026-11-11 R-20261111-21 M-1: a Strike spends all, lines none; R-20261112-07: a sprung
+  // trap drains 1, a Diffusion spread ends the stance and spills half, Deep Rest's stance pays from its second still turn).
+  // Stillness banks in quiet turns and is spent as weight on a Strike or cashed by The Space Between. "Moved this turn" is the
+  // stamp a.movedTurn, set by afterAction for any tile change (own move or forced), like settleHolds reads holds.
+  const MA = { cap: 3, deepRestCap: 4, bank: 1, heal: 1, stanceTurns: 2, deepRestStillTurns: 2, strikeAdd: 1, spendPer: 1,
+    cashHeal: 5, cashDiscount: 2, cashDiscountMax: 6, tripDrain: 1, washSpill: 0.5 };
+  const Ma = (() => {
+    const deep = (a) => a?.lens?.ma === "deepRest";
+    const cap = (a) => (deep(a) ? MA.deepRestCap : MA.cap);
+    const stance = (a) => { const ss = a?.status?.stillStance; return ss && ss.until >= (a.ownerTurns ?? 0) ? ss : null; };
+    const still = (a) => a.movedTurn !== a.ownerTurns;
+    const say = (s, H, a, text, why = []) => H.log(s, { kind: "effect", actor: a.id, text, why });
+    const heal = (a, n) => { const got = Math.max(0, Math.min(n, (a.maxLF ?? a.lf) - a.lf)); a.lf += got; return got; };
+    const bank = (a, n) => { const before = a.stillness || 0; a.stillness = Math.min(cap(a), before + n); return a.stillness - before; };
+    const endStance = (a) => { if (a.status?.stillStance) a.status.stillStance = null; };
+    function resolve(s, a, w, H) {
+      if (w.op === "bank") {
+        bank(a, MA.bank); const got = heal(a, MA.heal);
+        say(s, H, a, `${a.name} banks stillness (${a.stillness} of ${cap(a)})${got ? ` and heals ${got}` : ""}.`, ["Space is structure: rest now, weight later. A Strike spends all of it."]);
+      } else if (w.op === "stance") {
+        st(a).stillStance = { label: "Still Stance", until: a.ownerTurns + MA.stanceTurns - 1, stillTurns: 0 };
+        say(s, H, a, `${a.name} holds their breath: Still Stance for ${MA.stanceTurns} turns.`, [`Each turn ended without moving banks 1 Stillness${deep(a) ? ` from the second still turn (Deep Rest)` : ""}; Strikes +${MA.strikeAdd} while it holds. A shove or a spread breaks it.`]);
+      } else if (w.op === "cash") {
+        const n = a.stillness || 0; a.stillness = 0;
+        const got = heal(a, MA.cashHeal * n), off = Math.min(MA.cashDiscountMax, MA.cashDiscount * n);
+        a.maDiscount = off;
+        say(s, H, a, `${a.name} lets the silence go: ${n} Stillness, +${got} LF, and the next technique costs ${off} ΦF less.`, ["Cash the silence: the rest becomes mending and momentum."]);
+      }
+    }
+    // A Strike: +1 in Still Stance, and it spends all banked Stillness for +1 each (lines spend none: M-1).
+    function strike(s, a, log) {
+      let add = 0; const n = a.stillness || 0, ss = stance(a);
+      if (ss) add += MA.strikeAdd;
+      if (n > 0) { add += MA.spendPer * n; a.stillness = 0; log(s, { kind: "effect", actor: a.id, text: `${a.name} lets the stillness go: +${MA.spendPer * n}.`, why: [`${n} Stillness spent on the Strike${ss ? `; Still Stance adds ${MA.strikeAdd}` : ""}.`] }); }
+      else if (ss) log(s, { kind: "effect", actor: a.id, text: `${a.name} strikes from Still Stance: +${MA.strikeAdd}.` });
+      return add;
+    }
+    // The Space Between's discount: the next technique costs up to 6 ΦF less (read at manifest, spent when the ΦF is paid).
+    const discount = (a) => a?.maDiscount || 0;
+    function paid(a, m) { if (m?.maDiscounted) a.maDiscount = 0; }
+    // The end of the holder's turn: a still turn in stance banks 1 (Deep Rest: from its second still turn); the stance runs out.
+    function turnEnd(s, a, log) {
+      const ss = a?.status?.stillStance; if (!ss || a.defeated) return;
+      if (ss.until >= a.ownerTurns && still(a)) {
+        ss.stillTurns = (ss.stillTurns || 0) + 1;
+        if (ss.stillTurns >= (deep(a) ? MA.deepRestStillTurns : 1)) { const got = bank(a, MA.bank); if (got) log(s, { kind: "effect", actor: a.id, text: `${a.name} banks stillness (${a.stillness} of ${cap(a)}).`, why: ["A turn ended without moving, in Still Stance."] }); }
+      }
+      if (ss.until <= a.ownerTurns) endStance(a);
+    }
+    // After every action: stamp any unit whose tile changed; a unit moved by anything but its own Move, Jump or Climb loses
+    // Still Stance. A sprung trap on a holder drains 1 Stillness; a Diffusion spread whose tiles cover a holder in Still Stance
+    // ends it and spills half the bank (rounded down). Reads the action's own log entries from `start`.
+    function afterAction(before, s, action, start, own, log, abilities) {
+      for (const u of Object.values(s.actors)) {
+        const p = before.actors?.[u.id]; if (!p || u.defeated) continue;
+        if (p.x !== u.x || p.y !== u.y) {
+          u.movedTurn = u.ownerTurns;
+          const self = own.includes(action.type) && action.actor === u.id;
+          if (!self && stance(u)) { endStance(u); log(s, { kind: "effect", actor: u.id, text: `${u.name} is shaken out of Still Stance.`, why: ["Forced movement breaks the stance; the bank holds."] }); }
+        }
+      }
+      for (const e of s.log.slice(start)) {
+        if (e.kind === "trap" && e.sprung) {
+          const u = s.actors[e.actor]; if (!u || !(u.stillness > 0)) continue;
+          u.stillness = Math.max(0, u.stillness - MA.tripDrain);
+          log(s, { kind: "effect", actor: u.id, text: `${u.name}'s rest is tripped: ${MA.tripDrain} Stillness lost (${u.stillness} left).`, why: ["A trap sprung in the rest drains 1 Stillness."] });
+        } else if (e.kind === "act" && e.ability && Array.isArray(e.tiles)) {
+          const d = abilities?.[e.ability]; if (!d || !(d.concepts || []).includes("diffusion") || (d.area?.shape || "single") === "single") continue;
+          for (const u of Object.values(s.actors)) {
+            if (u.defeated || u.id === e.actor || !stance(u) || !e.tiles.some((t) => t && t[0] === u.x && t[1] === u.y)) continue;
+            const spill = Math.floor((u.stillness || 0) * MA.washSpill); endStance(u); u.stillness = (u.stillness || 0) - spill;
+            log(s, { kind: "effect", actor: u.id, text: `${u.name}'s stillness is washed out: Still Stance ends${spill ? ` and ${spill} Stillness spills` : ""}.`, why: ["A spread onto a still unit's tile ends the stance and spills half the bank."] });
+          }
+        }
+      }
+    }
+    return { MA, cap, stance, still, resolve, strike, discount, paid, turnEnd, afterAction };
+  })();
   function adrenaline(s, a, H) {
     if (!hasTr(a, "adrenalineJunkie") || a.defeated) return;
     const frac = a.lf / Math.max(1, a.maxLF), tier = AERO.adrenaline.find(([below]) => frac < below); if (!tier) return;
@@ -2657,6 +2749,7 @@
     returnTrait(s, e.fragment, H);
   }
   function afterHit(s, src, tgt, inst, dealt, H) {
+    afterHitGuests(s, src, tgt, inst, dealt, H);   // Shaman guests: leave when the host falls; a hit ends the Raven
     spendTrophyEye(s, src, dealt);
     Law.afterHit(s, src, tgt, inst, dealt, H);   // the Magistrate's Contempt
     if (tgt && tgt.defeated && !tgt.memorialCounted) {   // Memorialist: Ledger of the Fallen (each death banks once, for the allies who saw it)
@@ -2753,6 +2846,7 @@
   }
   function resistKnock(s, a, t, H, tiles = 0, inst = null) {
     const T = t.status || {};
+    if (t.structure) { H.log(s, { kind: "resist", actor: t.id, text: `${t.name} is a fixed structure: no displacement.` }); return true; }   // SH2 Totem
     if (Esker.resistKnock(t)) { H.log(s, { kind: "resist", actor: t.id, text: `${t.name} carries a full burden: it cannot be moved.` }); return true; }
     if (active(T.tether, t)) { H.log(s, { kind: "resist", actor: t.id, text: `${t.name}'s tether holds: no displacement.` }); return true; }
     // Heavy frame: shoves under 3 tiles don't move it. Leverage works on the support geometry instead of the mass,
@@ -2768,6 +2862,7 @@
     return false;
   }
   function turnStart(s, a, H) {
+    turnStartGuests(s, a, H);   // Shaman guests: Raven pulse; leave if host is gone
     ensurePaladinTraits(a);   // a player holding the Paladin pair carries the class's traits
     lightFrameStart(s, a, H);   // Starfarer: Light Frame applies once
     allureDrift(s, a, H);   // Glamour: Allure draws foes in
@@ -2987,6 +3082,7 @@
     const policeValue=Police.aiValue(s,a,cand,H);if(policeValue!=null)return policeValue;
     const lawValue=Law.aiValue(s,a,cand,H);if(lawValue!=null)return lawValue;
     const monkeyValue=Monkey.aiValue(s,a,cand,H);if(monkeyValue!=null)return monkeyValue;
+    const guestValue=Guests?.aiValue?.(s,a,cand,H);if(guestValue!=null)return guestValue;
     const martialValue=Martial.aiValue(s,a,cand,H);if(martialValue!=null)return martialValue;
     const teleologyValue=Teleology.aiValue(s,a,cand,H);if(teleologyValue!=null)return teleologyValue;
     const miseValue=Mise.aiValue(s,a,cand,H);if(miseValue!=null)return miseValue;
@@ -3332,7 +3428,7 @@
     return !forced && flies(t);
   }
 
-  const CLASS_NAMES = { big_game_hunter: "Big Game Hunter", agent_swarm: "Agent Swarm", rapper:"Rapper", musician:"Musician", bard:"Bard", jazz_musician:"Jazz Musician", knight: "Knight", pharaoh: "Pharaoh", daedalus: "Daedalus", samurai: "Samurai", gemini: "Gemini", wizard: "Wizard", jujutsu_sorcerer: "Jujutsu Sorcerer",
+  const CLASS_NAMES = { shaman: "Shaman", big_game_hunter: "Big Game Hunter", agent_swarm: "Agent Swarm", rapper:"Rapper", musician:"Musician", bard:"Bard", jazz_musician:"Jazz Musician", knight: "Knight", pharaoh: "Pharaoh", daedalus: "Daedalus", samurai: "Samurai", gemini: "Gemini", wizard: "Wizard", jujutsu_sorcerer: "Jujutsu Sorcerer",
     super_hero: "Super Hero", esker: "Esker", super_heroine: "Super Heroine", super_villain: "Super Villain", defective_machine: "Defective Machine", teleporter: "Teleporter", clockwork: "Clockwork",
     magistrate: "Magistrate", mutant_boar: "Mutant Boar", boarman: "Boarman", animalTamer: "Animal Tamer", anime_protagonist: "Anime Protagonist", mma_fighter: "MMA Fighter", kickboxer: "Kickboxer", hypebeast: "Hypebeast", ranger: "Ranger", tech_billionaire: "Tech Billionaire", oil_billionaire: "Oil Billionaire", doctor: "Doctor", odysseus: "Odysseus", president: "President", detective: "Detective", modern_artist: "Modern Artist", cyph: "Cyph", maid: "Maid", general: "General", bastet: "Bastet", ninja: "Ninja", police_officer: "Police Officer", thief: "Thief", monkey_king: "Monkey King", hanuman: "Hanuman", jambavan: "Jambavan", rama: "Rama", lakshmana: "Lakshmana", sita: "Sita", hypnotist: "The Hypnotist", ravana: "Ravana", kumbhakarna: "Kumbhakarna", indrajit: "Indrajit", mandodari: "Mandodari", surpanakha: "Surpanakha", jatayu: "Jatayu", director: "Director", actor: "Actor", barbarian: "Barbarian", paladin: "Paladin", rogue: "Rogue", hooded_cyber_rogue: "Cyber Punk Rogue", medusa: "Medusa", cleric: "Cleric", steam_walker: "Steam Walker", ornithopter: "Ornithopter", engineer: "Engineer", origamist: "Origamist", mangaka: "Mangaka", aviator_hero: "Aviator Hero", jiang_qing: "Jiang Qing", starfarer: "Starfarer", pioneer: "Pioneer", martial_artist: "Ascending Martial Artist", memorialist: "Memorialist", hot_pot_berserker: "Hot Pot Berserker", chef: "Chef", seedkeeper: "Seedkeeper", ferryman: "Ferryman", pearl_diver: "Pearl Diver", orgonite_trooper: "Orgonite Trooper", leviathan_suit: "Leviathan Suit", scale_firmware: "Scale Firmware", white_jacket_gunner: "White-Jacket Gunner", bronze_admin: "Bronze Administrator", horned_suit: "Horned Suit", teal_eel: "Teal Eel", remora_adventurer: "Remora Adventurer" };
   // ── The Emissary's memory (docs/emissary.md, "What it remembers") ──
@@ -3354,5 +3450,16 @@
   }
 
   const aiVeto = (s, a, cand) => Esker.aiVeto(s, a, cand);
-  return { holyOf, price: Law.price, law: Law, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, spendTrophyEye, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan };
+  function price(s, a, abilityId, m) {
+    Law.price?.(s, a, abilityId, m);
+    Guests?.price?.(s, a, abilityId, m);
+  }
+  function turnStartGuests(s, a, H) { Guests?.turnStart?.(s, a, H); }
+  function attend(s, a, act, H, spend) { return Guests?.callAttendant?.(s, a, act, H, spend) || null; }
+  function attendantPulse(s, a, inst, H) { Guests?.pulse?.(s, a, inst, H); }
+  function afterHitGuests(s, src, tgt, inst, dealt, H) {
+    if (tgt && tgt.defeated) Guests?.onOwnerFell?.(s, tgt, H);   // the host falls: every guest leaves
+    else Guests?.onHit?.(s, tgt, H);   // the Spirit Raven: any hit ends it
+  }
+  return { holyOf, price, law: Law, ma: Ma, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, spendTrophyEye, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan, attend, attendantPulse };
 });

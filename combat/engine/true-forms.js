@@ -535,6 +535,7 @@
     // Nonlethal victory (NONLETHAL.md N3): a unit incapacitated with at least one own turn still to come does not hold the battle open (a unit on a clock of 0 wakes at its next turn start).
     const subduedUnit = (a) => !!a?.states?.incapacitated && !a.defeated && !a.notArrived && (a.states.incapacitated.count ?? 0) >= 1;
     function holdsOpen(s, a) {
+      if (a.companion?.guest) return false;   // Shaman guests (SH1): they do not hold the battle open
       if (subduedUnit(a)) return false;
       if (a.side === "enemy" && a.persuaded && !a.defeated && !a.notArrived) return false;   // Parley: standing down
       if (a.side === "enemy" && a.status?.sealedBeast && !a.defeated) return false;   // Sealing: a bound foe is out of the fight (audit 1.3.448)

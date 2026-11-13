@@ -139,6 +139,7 @@
       finally { for (const u of Object.values(s.actors)) if (u._entrFlip) { u.side = u._entrFlip; delete u._entrFlip; } }
       const a = act && s.actors[act.actor];
       if (s.rules.aiLedger?.regretProbe && act && act.type === "ability") recordRegretPoint(s, act);
+      // Truthy read kept on purpose: uses are recorded per actor, and a side without the switch never reads the bonus (V1).
       if (s.rules.aiLedger?.curiosity && act && act.type === "ability" && act.ability) { const u = curiousUses(s, act.actor); u[act.ability] = (u[act.ability] || 0) + 1; }
       const shows = a && act.type !== "respond" && !a.routed ? shownTrait(s, a, act, aiLastWorkflow) : null;
       return shows ? { ...act, shows } : act;
@@ -216,6 +217,10 @@
     const sightFamsOf = (s, cand) => { const F = sightTable(s)?.families || {}; const eff = cand.effect ?? (cand.ability ? ab(cand.ability)?.effect : undefined); return Object.keys(F).filter((f) => (F[f].types || []).includes(cand.type) || (eff && (F[f].effects || []).includes(eff)) || (F[f].prop && cand[F[f].prop])); };
     const sightBlind = (s, a, cand) => { const M = sightTable(s); if (!M || !(M.blind || []).length || !sightApplies(s, a)) return false; const fams = sightFamsOf(s, cand); return M.blind.some((f) => fams.includes(f)); };
     const sightKeen = (s, a, cand) => { const M = sightTable(s); if (!M || !sightApplies(s, a)) return 0; const entries = Object.entries(M.keen || {}); if (!entries.length) return 0; const fams = sightFamsOf(s, cand); let best = 0; for (const [f, v] of entries) if (fams.includes(f)) { const n = typeof v === "number" ? v : 6; if (n > best) best = n; } return best; };
+    // A plain AI switch (lookahead, curiosity, foeMemory, wallLine): true is on for everyone, as shipped switches always were;
+    // { on: true, sides: [...] } is on for those sides only, so a sim arm can ask whether it makes one side play better
+    // (AI Sight V1, R-20261111-18). Shipped values are false.
+    const switchOn = (s, a, key) => { const v = s.rules.aiLedger?.[key]; return v === true || (!!v?.on && !!a && (!v.sides || v.sides.includes(a.side))); };
     const applyOpen = (st, cand, on) => { if (!on) return apply(st, cand, { preview: true });
       const was = st.answerPreview; st.answerPreview = true;
       try { const r = apply(st, cand, { preview: true }); if (r.ok) delete r.state.answerPreview; return r; } finally { if (was) st.answerPreview = was; else delete st.answerPreview; } };
@@ -284,7 +289,7 @@
         if (s.pending.inst.submissionFinish) return { type: "respond", actor: a.id, response: opts.some((o) => o.kind === "breakHold") ? "breakHold" : "none" };   // Submission: fight the finish whenever it can
         if(s.pending.inst.audienceOnly) return traceAiReturn("aiDecide:L220", (opts.some(o=>o.kind==="lookAway")?{type:"respond",actor:a.id,response:"lookAway"}:{type:"respond",actor:a.id,response:"none"}));
         if (s.pending.inst.ability === "arrest" && H.Dispatch?.wantsTrial(s, a) && opts.some((o) => o.kind === "kneel")) return traceAiReturn("aiDecide:arrestKneel", ({ type: "respond", actor: a.id, response: "kneel" }));   // cuffs coming and the docket open: kneel and claim trial
-        if (s.rules.aiLedger?.foeMemory) { const prefer = {}; for (const e of s.log) if (e.kind === "answered" && e.target === a.id && e.worked && e.ability) (prefer[e.attackAbility] ||= {})[e.ability] = 1.25; s.foeBrief = { for: a.id, prefer }; }   // foe-memory: earlier this battle, this answer worked against this technique
+        if (switchOn(s, a, "foeMemory")) { const prefer = {}; for (const e of s.log) if (e.kind === "answered" && e.target === a.id && e.worked && e.ability) (prefer[e.attackAbility] ||= {})[e.ability] = 1.25; s.foeBrief = { for: a.id, prefer }; }   // foe-memory: earlier this battle, this answer worked against this technique
         const react = reactChoice(s, a, opts), asReact = react && { type: "respond", actor: a.id, response: "technique", ability: react.ability, target: react.target };
         if (s.pending.reactive) return traceAiReturn("aiDecide:L223", (asReact || { type: "respond", actor: a.id, response: "none" }));   // unannounced: a reactive technique or nothing
         { const DG = s.rules.reactiveDefense?.ai?.dodge; if (DG?.on && (!DG.sides || DG.sides.includes(a.side))) return traceAiReturn("aiDecide:L224", (defendChoice(s, a, opts, react))); }   // priced: a dodge has to be worth its action points
@@ -487,7 +492,7 @@
         if (ro && salvage) return traceAiReturn("aiDecide:heldReveal", ({ ...ro.act, why: "before it fades" }));
       }
 const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !to || !faithfulRetreat(s, a, to));   // Faithful: while its oath holds, no step that ends farther from the nearest foe than it stood at its last turn start (the oath's retreat term)
-      const LA = !!s.rules.aiLedger?.lookahead, scored = [];
+      const LA = switchOn(s, a, "lookahead"), scored = [];
       let hitHere = 0;
       const amMove = ledgerOn(s, a, "walkCost") ? apWorth(s, a) * (s.rules.aiLedger.walkCost.weight ?? 0.5) : 0;   // walk cost: LF a step's action points are worth to this unit
       let best = null, bestStay = null, bestReal = null;   // bestReal: the best act that is not an escape (a real strike outranks both escapes)
@@ -1061,7 +1066,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         let v = worth(o) - t.apCost * perAp - t.pf * R.pfWeight;
         if (t.coverFor && o.st && base.st) { const allyBefore = s.actors[t.coverFor]?.lf ?? 0;   // W1c cover: a revealed attack is played out, so the ally's saved LF prices exactly (unrevealed, the guess covers only self and the gaze stays home)
           v += ((allyBefore - (base.st.actors[t.coverFor]?.lf ?? 0)) - (allyBefore - (o.st.actors[t.coverFor]?.lf ?? 0))) * (R.allyWeight ?? 1); }
-        { const B = s.rules.aiLedger?.foeMemory && s.foeBrief?.for === a.id ? s.foeBrief?.prefer?.[s.pending.inst.ability]?.[t.ability] || 1 : 1;   // foe-memory briefing (Muse-2 FOE_MEMORY): an answer that worked against this technique opens hot (x1.25); failures are already excluded by learnedFails (window.js), so there is no guard half
+        { const B = switchOn(s, a, "foeMemory") && s.foeBrief?.for === a.id ? s.foeBrief?.prefer?.[s.pending.inst.ability]?.[t.ability] || 1 : 1;   // foe-memory briefing (Muse-2 FOE_MEMORY): an answer that worked against this technique opens hot (x1.25); failures are already excluded by learnedFails (window.js), so there is no guard half
           v = v >= 0 ? v * B : v / B; }
         if (v > R.keep && (!best || v > best.value)) best = { ...t, value: v }; }
       if (best && opts.some((o) => o.kind === "guard")) { const g = play({ response: "guard" }); best.overGuard = g ? best.value - worth(g) : best.value; }
@@ -1192,7 +1197,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       } else {
         if (a.communed) return 0;   // leashed plants hold with their owner; they don't roam to build
         if ((s.barriers || []).some((b) => b.x === cand.target[0] && b.y === cand.target[1])) return 0;   // net-new: already built there
-        if (def.effect === "barrier" && L.wallLine) return wallValue(s, a, cand, foes, L);   // off until walls also count blocking a melee path (sims/pieces/ai-walls.mjs)
+        if (def.effect === "barrier" && switchOn(s, a, "wallLine")) return wallValue(s, a, cand, foes, L);   // off until walls also count blocking a melee path (sims/pieces/ai-walls.mjs)
         const radius = def.area && def.area.shape !== "single" ? 2 : 1;
         covered = Object.values(s.actors).filter((t) => !t.defeated && t.side === a.side && dist(s, t.x, t.y, cand.target[0], cand.target[1]) <= radius);
         if (!covered.length) return 0;
@@ -1305,7 +1310,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       return s.aiCurious[id] = s.aiCurious[id] || {};
     };
     const curiousBonus = (s, id, cand) => {
-      if (!s.rules.aiLedger?.curiosity || cand.type !== "ability" || ab(cand.ability)?.tier === "ultimate") return 0;
+      if (!switchOn(s, s.actors[id], "curiosity") || cand.type !== "ability" || ab(cand.ability)?.tier === "ultimate") return 0;
       const u = (s.aiCurious?.[id]?.[cand.ability]) || 0;
       return u === 0 ? 2 : u === 1 ? 0.75 : 0;
     };

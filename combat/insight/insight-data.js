@@ -309,6 +309,7 @@
     crushingHands: { name: "Crushing Hands", category: "biology", text: "Squeeze first, ask later: Strong Grip squeezes +2 LF.", open: true },
     packMule: { name: "Pack Mule", category: "biology", text: "Carries the party's everything: +4 battle hands, +10 stash.", open: true, combat: { extra: { battleSlotsAdd: 4, stashLimitAdd: 10 } } },
     fourArms: { name: "Four Arms", category: "biology", text: "Twice the reach: Strikes ×2 at ×1.5 AP, grapples +25%, +2 battle hands.", open: true, combat: { extra: { battleSlotsAdd: 2 } } },
+    prehensileTail: { name: "Prehensile Tail", category: "biology", text: "A tail that grips like a hand: +1 battle hand; climbing costs half.", open: true, combat: { extra: { battleSlotsAdd: 1, climbCostMul: 0.5 } } },   // claude-prehensile-tail-spec PT1 (Mala, 2026-11-11: the spider monkey's tail)
     trepanation: { name: "Trepanation", category: "biology", text: "A hole in the skull. Weaker in the waking world (ability potency ×0.8, −10 AP each turn). Inside any Dream Space they occupy: potency ×1.4, +3 ΦF regen, +15 AP, and one extra dream Observe point. A dream they open needs less charge and lets more through.", open: true, difficulty: 3 },
     typedSoul: { name: "Typed Soul", category: "biology", text: "Water-signed: their aura has a readable type.", difficulty: 2, planned: "BLOCKED on aura-type system: Water Divination reveals type; on-type +10%, off-type −10%." },
     gyoEyes: { name: "Gyo Eyes", category: "biology", text: "Eyes that never stop looking: a Concealed foe within 3 tiles can't hide from their sight-lines.", open: true },
@@ -338,6 +339,7 @@
       "telepathy", "telekinetic", "denseMuscle", "vegetativePropagation", "highTolerance", "robot", "ceaselessAdaptation", "insaneReflexes", "cybernetic", "distributedIntelligence", "stickyFingers", "visage", "godlyAgility", "theLook", "perfectConcentration", "adhd", "fireblooded", "territorial", "quenchable", "spiritSight", "ruleOfTheThreshold", "purified", "exoskeleton", "broodmind", "molting", "faceless", "unbearable", "hollow", "rootbound", "greenblood", "woundedLand", "takeoff", "overheat", "platform", "goldenParachute", "burnRate"   /* form traits (learned forms, 2026-10-17; formOnly) */, "aerodynamic", "lightFrame", "ascended",
       /* anime theorycraft batch, 2026-10-26 */ "ironJaw", "poisonAffinity", "crushingHands", "typedSoul", "gyoEyes", "heavyBones", "copyEye", "oneBlindSpot", "treeWalker", "vesselBody", "soulLayers", "looseFit", "vatGrown", "shockEater", "pluggedEye", "oldBlood", "deepWells", "redSliver", "automailLimb", "softSoles", "filterLungs", "openVessel", "atlasBones",
       /* feats batch, 2026-10-27 */ "packMule", "fourArms",
+      /* prehensile tail PT1, 2026-11-12 */ "prehensileTail",
       /* tsukumogami structures, 2026-10-29 */ "heavy", "rigid", "brittle", "light",
       /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory"],
     psychology: ["discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
@@ -434,7 +436,7 @@
   // One value and one bodily quirk can be rolled at spawn, each as a single draw; a profile that already states one
   // from the same list does not roll. Rates are Claude's: about one character in four carries a value, one in six a quirk.
   const valueSpawn = ["courageous", "merciful", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting"].map((t) => [t, t === "pacifist" ? 0.01 : 0.025]);   // dreamer: Mala, 2026-10-13
-  const biologySpawn = [["fleetFooted", 0.03], ["frail", 0.03], ["hardy", 0.03], ["keenSenses", 0.03], ["plantKin", 0.02], ["ironStomach", 0.02], ["survivalInstincts", 0.02], ["nightSighted", 0.01], ["dreamTouched", 0.01], ["twentyTwentyVision", 0.03], ["packMule", 0.02], ["fourArms", 0.01], ["trepanation", 0.01]];
+  const biologySpawn = [["fleetFooted", 0.03], ["frail", 0.03], ["hardy", 0.03], ["keenSenses", 0.03], ["plantKin", 0.02], ["ironStomach", 0.02], ["survivalInstincts", 0.02], ["nightSighted", 0.01], ["dreamTouched", 0.01], ["twentyTwentyVision", 0.03], ["packMule", 0.02], ["fourArms", 0.01], ["trepanation", 0.01], ["prehensileTail", 0.02]];   // prehensileTail: R-20261111-56
 
   // Traits anyone can spawn with (Mala, 2026-10-10): rolled per character per battle, on top of the authored profile.
   // [trait, chance]. Summons and wild creatures do not roll.
@@ -728,7 +730,10 @@
     devouring_mother: { traits: ["lonely", "stubborn"], obs: [{ kind: "tell", text: "Opens all four arms before she takes; what she holds, she will not let go.", difficulty: 1 }] },
     tactical_operative: { traits: ["dutiful", "scout"], obs: [{ kind: "tell", text: "Signals the dog before moving; the K9 goes first, she covers its line.", difficulty: 1 }] },
     frogan: { traits: ["curious", "restless"], obs: [{ kind: "tell", text: "Tests doorways that aren't there before moving; the fight relocates where he points.", difficulty: 1 }] },
-    shaman: { traits: ["contemplative", "empathic"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [{ kind: "tell", text: "Introduces someone you can't see before acting; the guest arrives where he gestures.", difficulty: 1 }] },
+    shaman: { traits: ["contemplative", "empathic"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [{ kind: "tell", text: "Introduces someone you can't see before acting; the guest arrives where she gestures.", difficulty: 1 }] },
+    spirit_raven: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many of its turns remain.", difficulty: 1 }] },
+    ancestral_fox: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many of its turns remain.", difficulty: 1 }] },
+    spirit_totem: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many rounds remain.", difficulty: 1 }] },
     hedge_witch: { traits: ["dutiful", "guarded"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [{ kind: "tell", text: "Lights a candle before settling in; the safe edge is wherever she put it.", difficulty: 1 }] },
     robot_mechanic: { traits: ["impatient", "collaborative"], obs: [{ kind: "tell", text: "Raps the nearest ally with her wrench before patching; the fix lands where she stood.", difficulty: 1 }] },
     origamist: { traits: ["honest", "contemplative"], obs: [{ kind: "tell", text: "Measures the distance twice before folding it; the crease falls where she looked.", difficulty: 1 }] },

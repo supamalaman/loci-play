@@ -321,12 +321,24 @@
       if (actor.pf < cost.phiCost) return { ok: false, reason: `Calling needs ${cost.phiCost} ΦF.` };
       return { ok: true, duration: cost.turns };
     }
+    // Action seams A3a (2026-11-12): the rows of every card in a drawer, in registration order.
+    // extra carries what only the caller knows (the effort selector's invest, a focus kind). Dark by intent.
+    function actionOptions(s, id, drawer, extra = {}) {
+      const a = s.actors[id], out = [];
+      if (!a) return out;
+      for (const type of Object.keys(H.actionCards)) {
+        const card = H.actionCards[type];
+        if (card.drawer !== drawer) continue;
+        for (const row of card.options(s, a, extra)) out.push(row);
+      }
+      return out;
+    }
     function proficientSummonerTestOptions() {
       return { encounter: "firstWall", focusedDreamTest: true, proficientSummonerTest: true, title: "Proficient Summoner · emergent idea test", seed: 43, startingActor: "player", initialSummons: [],
         arenaData: { name: "Emergent Ideas test", map: Array(7).fill("..........."), objects: [] },
         participants: [{ id: "player", character: "warden", side: "player", at: [3,3] }, { id: "student", character: "student", side: "enemy", at: [9,3] }],
         loadouts: { player: { primary: "barrier", secondary: "imagination", reserve: ["elasticity"], traits: ["fullBeliever"] } } };
     }
-    return { summonPhiAdd, decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints, freeFirstFree, fixedFoe, fixedFoes, dreamReadiness, proficientSummonerTestOptions };
+    return { summonPhiAdd, decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, actionOptions, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints, freeFirstFree, fixedFoe, fixedFoes, dreamReadiness, proficientSummonerTestOptions };
   })();
 });

@@ -10,7 +10,7 @@
   const SMOKE = root.ConceptCombatSmoke;   // smoke art for fog and smoke barriers (smoke-fx.js)
   const TEACH = root.ConceptCombatTeach;   // Teach mode: Wisdom and Inquiry cards (teach/teach.js)
   const SG = root.ConceptCombatSage;   // Hatsu Sage casting (castings/sage.js; AP-01 wired: demo bout + declarations)
-  const CM = root.ConceptCombatCommunion, PF = root.ConceptCombatPlantFacts, TRP = root.ConceptCombatTraps, IM = root.ConceptCombatImitation, TK = root.ConceptCombatTsukumogami;
+  const CM = root.ConceptCombatCommunion, PF = root.ConceptCombatPlantFacts, TRP = root.ConceptCombatTraps, IM = root.ConceptCombatImitation, TK = root.ConceptCombatTsukumogami, GST = root.ConceptCombatGuests;
   const OB = root.ConceptCombatObservation || null;   // Observe teaches O3: first-look system notes (insight/observation.js)
   const DR = root.ConceptCombatDream || null;   // Observe teaches O2b: naming the dream from Rituals (dream/dream.js)
   const GB = root.ConceptCombatGaiaBond;
@@ -221,7 +221,7 @@
     storm_mage: "storm_mage", tree_spirit: "tree_spirit", disheveled_politician: "disheveled_politician", astral_security: "astral_security", mesoamerican_priestess: "mesoamerican_priestess",
     celestial_astral: "celestial_astral", moonflower: "moonflower", archivist_elf: "archivist_elf", bard_elf: "bard_elf", lying_lawyer: "lying_lawyer",   // hot builds wave 4 (2026-10-23)
     "hot-pot-berserker": "hot-pot-berserker", chef: "chef", seedkeeper: "seedkeeper", memorialist: "memorialist", pearl_diver: "pearl_diver", ferryman: "ferryman",   // hot builds wave 5 (2026-10-24): Posterity + Wake 3v3 buildup
-    "teal-eel": "teal-eel", "remora-adventurer": "remora-adventurer",   // Wake hot builds (2026-11-11): sheets cut the same day; the eel faces left, the remora faces right (eye-checked at the 1.3.563 ship)
+    "teal-eel": "teal-eel", "remora-adventurer": "remora-adventurer",   // Wake hot builds (2026-11-11): sheets cut the same day; both sheets face right (eel: re-checked by eye 2026-11-12, Fid BD inbox row; set in SPRITE_FACES_RIGHT below)
     orgonite_trooper: "manavu-anti-gravity-soldier", leviathan_suit: "manavu-anti-gravity-blue", scale_firmware: "manavu-future-warrior-crimson-reptilian", white_jacket_gunner: "manavu-future-warrior-white-jacket-gunner", bronze_admin: "manavu-space-admin-bronze-hooded", horned_suit: "manavu-space-admin-crimson-horned",
     "manavu-anti-gravity-soldier": "manavu-anti-gravity-soldier", "manavu-anti-gravity-blue": "manavu-anti-gravity-blue", "manavu-future-warrior-crimson-reptilian": "manavu-future-warrior-crimson-reptilian", "manavu-future-warrior-white-jacket-gunner": "manavu-future-warrior-white-jacket-gunner", "manavu-space-admin-bronze-hooded": "manavu-space-admin-bronze-hooded", "manavu-space-admin-crimson-horned": "manavu-space-admin-crimson-horned",
     hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", hypnotist: "hypnotist", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
@@ -340,7 +340,7 @@
     "ember_judge", "defective-machine", "director", "doctor", "gaia", "gaia-accord", "gaia-wounded", "kaiba", "oil-billionaire", "tech-billionaire",
     "oni", "emissary", "tallyman", "dream_hound", "dream_salt", "dream_witness"]) SPRITE_FACES_RIGHT[sprite] = true;
   SPRITE_FACES_RIGHT.deepsea_warrior = true;   // art strikes right in all 10 poses (muse eye-check 2026-10-19, contact sheet); registry default false drew it unflipped, facing away in battle.
-  for (const sprite of ["magistrate", "kaikeyi", "hermes", "control", "sasquatch", "cactusguard", "cactuswar", "pixel_treant", "burlesque_dancer", "burlesque-dancer", "mma_fighter_alternate", "mma-fighter-alternate", "treeant-bristlecone", "remora-adventurer"]) SPRITE_FACES_RIGHT[sprite] = true;   // eye-checked right on contact sheets (Marlin BD, 2026-11-07; Mala: the Magistrate idled facing away in combat)
+  for (const sprite of ["magistrate", "kaikeyi", "hermes", "control", "sasquatch", "cactusguard", "cactuswar", "pixel_treant", "burlesque_dancer", "burlesque-dancer", "mma_fighter_alternate", "mma-fighter-alternate", "treeant-bristlecone", "remora-adventurer", "teal-eel"]) SPRITE_FACES_RIGHT[sprite] = true;   // eye-checked right on contact sheets (Marlin BD, 2026-11-07; Mala: the Magistrate idled facing away in combat)
   function shouldFlipSprite(sprite, targetIsRight) {
     return (SPRITE_FACES_RIGHT[sprite] ?? true) !== targetIsRight;
   }
@@ -1121,7 +1121,7 @@
       const pack = Array.from({ length: slots }, (_, i) => U.packSelection[i] ? kitTile("item", U.packSelection[i], `pack:${i}`) : `<div class="cc-kit-empty">pack</div>`).join("");
       const pot = Array.from({ length: 3 }, (_, i) => U.potSelection[i] ? kitTile("item", U.potSelection[i], `pot:${i}`) : `<div class="cc-kit-empty">pot</div>`).join("");
       const gear = Loot.data.slots.map((slot) => { const id = U.account.gear.equipped[slot]; return `<div class="cc-kit-slot" data-kit-slot="${slot}"><small>${GEAR_SLOT_LABEL[slot]}</small>${id ? kitTile("gear", id, `gear:${slot}`) : `<div class="cc-kit-empty">·</div>`}</div>`; }).join("");
-      const bag = U.account.gear.owned.filter((id) => !Object.values(U.account.gear.equipped).includes(id)).map((id) => kitTile("gear", id, "gearbag")).join("") || `<p class="cc-muted">No stored gear.</p>`;
+      const bag = U.account.gear.owned.filter((id) => root.ConceptCombatMuseumUI ? root.ConceptCombatMuseumUI.inBag(U.account, id) : !Object.values(U.account.gear.equipped).includes(id)).map((id) => kitTile("gear", id, "gearbag")).join("") || `<p class="cc-muted">No stored gear.</p>`;
       const can = Cook ? Cook.available(U.potSelection) : [];
       const mash = Cook && Cook.mush && !can.length ? Cook.mush(U.potSelection, { reserveTeaLeaf: Cook.teaReserveOn ? Cook.teaReserveOn(U.account) : true }) : null;   // FX1: named matches first; mush only when nothing matches; the tea reserve reads the gateway flag
       const book = Cook ? Object.entries(Cook.recipes).map(([rid, r]) => `<li class="${can.includes(rid) ? "is-ready" : ""}"><b>${esc(r.name)}</b> <small>${(r.from || r.needs).map((n) => esc(r.from ? Loot.data.consumables[n]?.name || n : n.replace("|", " or "))).join(" + ")} → ${esc(Loot.data.consumables[r.out]?.name || r.out)}${r.field ? " · field recipe" : " · full recipe"}</small></li>`).join("") : "";
@@ -1202,33 +1202,34 @@
     function gearRow(id, it, equipped) {
       const max = Loot.maxDurability(id, U.account), now = U.account.gear.durability[id] ?? max;
       const repairs = Object.entries(U.account.stash).filter(([kit, n]) => n > 0 && Loot.data.consumables[kit]?.effect?.repair);
-      const status = equipped ? (now ? "active" : "worn out · inactive") : "stored";
-      const repairBtns = now < max ? repairs.map(([kit, n]) => `<button type="button" data-repair="${id}" data-kit="${kit}">Repair · ${esc(Loot.data.consumables[kit].name)} (${n})</button>`).join("") : "";
+      const bits = root.ConceptCombatMuseumUI?.kitCardBits(U.account, id) || { badge: "", enshrineBtn: "", hideMarket: false };
+      const status = bits.hideMarket ? "in the Museum" : equipped ? (now ? "active" : "worn out · inactive") : "stored";
+      const repairBtns = bits.hideMarket || now >= max ? "" : repairs.map(([kit, n]) => `<button type="button" data-repair="${id}" data-kit="${kit}">Repair · ${esc(Loot.data.consumables[kit].name)} (${n})</button>`).join("");
       // Item care (Jinki care JC1/JC2): one Tend picks the cheapest way; Cherish is the love path (+1, once between battles).
       const care = Loot.careOf ? Loot.careOf(U.account, id) : null, cherished = (U.account.gear.cherished || []).includes(id);
-      const careBtns = Loot.tend ? `${now < max ? `<button type="button" data-tend="${id}">Tend</button>` : ""}${now > 0 && now < max && !cherished ? `<button type="button" data-cherish="${id}">Cherish</button>` : ""}` : "";
+      const careBtns = bits.hideMarket || !Loot.tend ? "" : `${now < max ? `<button type="button" data-tend="${id}">Tend</button>` : ""}${now > 0 && now < max && !cherished ? `<button type="button" data-cherish="${id}">Cherish</button>` : ""}`;
       const soul = Loot.soulStrip ? Loot.soulStrip(U.account).chips.find((c) => c.id === id) : null;   // Active Jinki J2: the card names its soul's state and offers the choice
-      const soulBtn = soul ? (soul.state === "Speaking" ? `<button type="button" disabled>Speaking</button>` : `<button type="button" data-speak="${id}">Let this soul speak</button>`) : "";
+      const soulBtn = bits.hideMarket || !soul ? "" : (soul.state === "Speaking" ? `<button type="button" disabled>Speaking</button>` : `<button type="button" data-speak="${id}">Let this soul speak</button>`);
       const soulWord = soul ? ` · soul ${soul.state.toLowerCase()}` : "";
       const careLine = care ? `<p class="cc-care-line"><b>Care ${care.score}</b>${care.title ? ` · ${esc(care.title)}` : ""}${care.next ? ` · next: ${esc(care.next.name)} at ${care.next.at}` : ""} · ${esc(care.line)}</p>` : "";
       const fenceOnly = id === "orgoniteCharm";
-      const action = equipped
+      const action = bits.hideMarket ? "" : equipped
         ? `<button type="button" data-unequip="${esc(it.slot)}">Remove</button>`
         : fenceOnly
           ? `<button type="button" data-equip="${id}">Equip</button><span class="cc-muted">The Orcish fence is the only buyer.</span>`
           : `<button type="button" data-equip="${id}">Equip</button><button type="button" data-sell="${id}">Sell · ${gearSellValue(id)} Seeds${(Loot.careOf && (Loot.careOf(U.account, id).awakened || Loot.careOf(U.account, id).rarity !== it.rarity)) ? " (sentimental: sells as born)" : ""}</button>`;
       const svcCost = Math.max(5, Math.round(Loot.data.rarities[(care && care.rarity) || it.rarity].price / 2));
-      const svcBtn = now < max ? `<button type="button" data-service="${id}">Mend · ${svcCost}</button>` : "";
+      const svcBtn = bits.hideMarket || now >= max ? "" : `<button type="button" data-service="${id}">Mend · ${svcCost}</button>`;
       const wornMix = (U.account.trackMixes || {})[id];
-      const mixBtns = Tracks ? ["lofi", "stripped"].map((m) => wornMix === m
+      const mixBtns = bits.hideMarket || !Tracks ? "" : ["lofi", "stripped"].map((m) => wornMix === m
         ? `<button type="button" data-mixplay="${id}:${m}">▶ ${m}</button>`
-        : `<button type="button" data-mixbuy="${id}:${m}" ${U.account.seeds < 40 ? "disabled" : ""}>${m} · 40</button>`).join("") : "";
+        : `<button type="button" data-mixbuy="${id}:${m}" ${U.account.seeds < 40 ? "disabled" : ""}>${m} · 40</button>`).join("");
       const warnAt = Loot.data.rules.durability.warnAt;
       const icon = JStates ? JStates.iconHTML(id, it.name, now, max, care ? care.score : 0, it, warnAt, care ? care.kind : null) : itemIcon(id, it.name);
       const stateBit = JStates ? ` · ${esc(JStates.stateName(now, max, care ? care.score : 0, it, warnAt))}` : "";
       const empLines = care?.awakened && it.empower && now > 0 && Loot.empowerLines ? Loot.empowerLines(id, { soiled: now <= warnAt }) : null;   // EP-01: the effective awakened bonus, not just the base text
       const empBit = care?.awakened && it.empower ? ` <small>Empowered · ${esc(it.empower.name)}</small>` : "";   // EM1: the Jinki menu names awakened power
-      return `<article class="cc-account-row cc-gear-row"><div class="cc-item-with-icon">${icon}<div><b>${esc(it.name)}</b> <small>${status} · ${now}/${max} battles${stateBit}${soulWord}</small>${empBit}<p>${esc(it.text)}</p>${empLines ? `<p class="cc-emp-line">Awakened (care 10+, while worn): ${esc(empLines.join("; "))}.</p>` : ""}${careLine}</div></div><div class="cc-row-actions">${action}${svcBtn}${mixBtns}${soulBtn}${careBtns}${repairBtns}</div><div class="cc-durability"><i style="width:${Math.max(0, 100 * now / max)}%"></i></div></article>`;
+      return `<article class="cc-account-row cc-gear-row"><div class="cc-item-with-icon">${icon}<div><b>${esc(it.name)}</b>${bits.badge} <small>${status} · ${now}/${max} battles${stateBit}${soulWord}</small>${empBit}<p>${esc(it.text)}</p>${empLines ? `<p class="cc-emp-line">Awakened (care 10+, while worn): ${esc(empLines.join("; "))}.</p>` : ""}${careLine}</div></div><div class="cc-row-actions">${action}${svcBtn}${mixBtns}${soulBtn}${careBtns}${repairBtns}${bits.enshrineBtn}</div><div class="cc-durability"><i style="width:${Math.max(0, 100 * now / max)}%"></i></div></article>`;
     }
     // Active Jinki J2: the Souls strip. Auto (the strongest speaks) or Choose a soul; a chip per awakened piece with its state; who speaks next battle.
     function soulsStrip() {
@@ -1264,7 +1265,7 @@
     // The town (Mala, 2026-10-17; docs/town-hub.md). Each door or side-menu entry opens a screen the classic menu already
     // had; the classic menu's panels open one at a time from here, with a way back to the town.
     const TOWN_NAV = [{ id: "scenarios", label: "▦ Town Hall · battles" }, { id: "character", label: "♙ Home · character" }, { id: "index", label: "▤ The Archive" },
-      { id: "account", label: "⚖ Ledger House · kit & purse" }, { id: "hall", label: "✉ Hiring Hall · mercs, mediators" }, { id: "board", label: "▤ Notice board · missions" }, { id: "threat", label: "☰ Threat leaderboard" }, { id: "lab", label: "⚗ The Lab" }, { id: "codex", label: "§ The Magistrate's Codex" }, { id: "workshop", label: "✦ Workshop · three benches" }, { id: "school", label: "✎ School · drills" }, { id: "square", label: "🎩 Town square · busk" }, { id: "classic", label: "☷ Classic menu" }];
+      { id: "account", label: "⚖ Ledger House · kit & purse" }, { id: "hall", label: "✉ Hiring Hall · mercs, mediators" }, { id: "museum", label: "▣ The Museum · cherished gear" }, { id: "board", label: "▤ Notice board · missions" }, { id: "threat", label: "☰ Threat leaderboard" }, { id: "lab", label: "⚗ The Lab" }, { id: "codex", label: "§ The Magistrate's Codex" }, { id: "workshop", label: "✦ Workshop · three benches" }, { id: "school", label: "✎ School · drills" }, { id: "square", label: "🎩 Town square · busk" }, { id: "classic", label: "☷ Classic menu" }];
     function openFromTown(id) {
       leaveTown();
       if (id === "account") { U.mode = "setup"; return showAccount(); }
@@ -1273,6 +1274,7 @@
       if (id === "square") return showBusk("town");
       if (id === "lab") return showLab();
       if (id === "hall") return showHall();
+      if (id === "museum") return showMuseum();
       if (id === "board") return showBoard();
       if (id === "codex") return showCodex();
       U.menuView = "classic";
@@ -1375,6 +1377,13 @@
       mountKeeper(ov, "hiringHall");   // Jambavan (S1)
       $("ccHallBack").onclick = () => showSetup(); $("ccHallBack").focus();
     }
+    // The Museum (M2; specs/MUSEUM.md T8): twelve plinths, Place / Take back. C10: the panel lives in town/museum-ui.js.
+    function showMuseum(note = "", scene = false) {
+      U.mode = "setup"; const ov = $("ccOverlay"); ov.hidden = false;
+      const UI = root.ConceptCombatMuseumUI;
+      if (!UI) { ov.innerHTML = `<div class="cc-card cc-town-hall"><h2>The Museum</h2><p>The doors are shut.</p><button type="button" id="ccMuseumBack">← Back to town</button></div>`; $("ccMuseumBack").onclick = () => showSetup(); return; }
+      UI.mount(ov, { account: () => U.account, setAccount: (a) => { U.account = a; saveAccount(); }, flash: flashTip, back: () => showSetup(), mountKeeper: (host, id) => mountKeeper(host, id), note, scene });
+    }
     // The Magistrate's Codex (Mala, 2026-10-20; legacy/legacy.js + legacy-battle.js): your traditions, your journal, the
     // Magistrate's books, the techniques you hold in memory, and the scribing table where held techniques are taken apart
     // into parts and built back into your own. Boss arts scribe only with a legendary tradition (strength 6+).
@@ -1407,7 +1416,7 @@
           return cx("plantnotes", "Plant field notes", `${heard}/${all}`, `<p class="cc-muted">What each plant has told you when it answered a commune. A fact you have not heard yet shows as a numbered blank. Each time a plant answers a commune you hear one of its facts, a new one first until you have heard them all.</p>${rows.map((r) => `<details class="cc-fn-species"><summary><b>${esc(r.pr.common)}</b> <small>${r.nt.n} of ${r.nt.N} heard${r.nt.cycles ? ` · ${r.nt.n >= r.nt.N ? "all" : "the earlier facts"} ${r.nt.cycles > 1 ? `${r.nt.cycles} times` : "once"}` : ""}</small></summary><ol>${r.nt.bank.map((f, i) => r.nt.heard.includes(f.id) ? `<li><span>${esc(f.text)}</span> <small class="cc-muted">Source: ${esc(f.source)}</small></li>` : `<li class="cc-fn-blank" aria-label="Not heard yet">Not heard yet</li>`).join("")}</ol></details>`).join("")}`); })() : ""}
         ${CardsUI?.almanac ? (() => { const al = CardsUI.almanac(U.account); return cx("cardalmanac", "Card almanac", `${al.playable}/${al.total}`, al.html); })() : ""}
         ${cx("books", "The Magistrate's books", books.length, `${books.length ? books.map((b) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(b.technique))}</b> <small>${esc(b.tier)} · ${b.price} Seeds</small><p>Practice +1 toward memorizing it.</p></div><button type="button" data-book="${esc(b.id)}" ${U.account.seeds < b.price ? "disabled" : ""}>Buy · ${b.price}</button></div>`).join("") : `<p class="cc-muted">The shelves stock what the codex holds: found a tradition or donate a study.</p>`}`)}
-        ${cx("memory", "Memory", `${lg.memory.held.length}/${lg.memory.slots}`, `<p class="cc-muted">Held techniques come into every battle with you. A fourth pushes out the oldest; relearning it takes half the practice.</p>${lg.memory.held.map((id) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(id))}</b><small>${esc(takeInfo(id))}</small></div>${LB.partsOf(id, C) ? `<button type="button" data-take="${esc(id)}" ${lg.parts.some(p=>p.source===id)?"disabled":""}>Take apart</button>` : `<small class="cc-muted">resists analysis</small>`}</div>`).join("") || `<p class="cc-muted">Nothing held.</p>`}`)}
+        ${cx("memory", "Memory", (() => { const mu = LB.memoryUse(U.account); return `${mu.general}/${mu.slots}`; })(), `<p class="cc-muted">Held techniques come into every battle with you. Learned techniques share the general slots; a scribed work sits on the desk shelf first and takes a general slot only when the shelf is full. A new memory in a full set pushes out the oldest learned technique (the oldest scribed work past the shelf if none is learned); relearning takes half the practice.</p>${lg.memory.held.map((id) => `<div class="cc-hall-offer"><div><b>${esc(nameOf(id))}</b><small>${esc(takeInfo(id))}</small></div>${LB.partsOf(id, C) ? `<button type="button" data-take="${esc(id)}" ${lg.parts.some(p=>p.source===id)?"disabled":""}>Take apart</button>` : `<small class="cc-muted">resists analysis</small>`}</div>`).join("") || `<p class="cc-muted">Nothing held.</p>`}`)}
         ${cx("scribing", "Scribing desk", `${lg.parts.length} parts`, `<button type="button" class="cc-primary" id="ccOpenWorkshop">Open scribing desk ↗</button>${lg.parts.length >= 1 ? `<p class="cc-muted">Shape recovered parts into a technique at the desk: draft, test, inscribe, equip. Parts come from taking a held technique apart (above).</p>` : `<p class="cc-muted">Take apart a held technique to get its parts (the notebook copy is used up). With no parts the desk lends you training parts.</p>`}
           ${lg.scribed.length ? `<p class="cc-muted">Scribed: ${lg.scribed.map((d) => `${esc(d.name)} (${d.ap} AP, ${d.cost} ΦF${lg.memory.held.includes(d.id) ? ", held" : ""})`).join(" · ")}</p>` : ""}`)}
         <div class="cc-row"><button type="button" class="cc-primary" id="ccCodexBack">← Back to town</button></div></div>`;
@@ -1417,7 +1426,7 @@
       ov.querySelectorAll(".cc-cx-body button").forEach((b) => b.addEventListener("click", () => setCodexOpen(b.closest(".cc-cx").dataset.cx, true)));   // the section you act in stays open after the screen redraws
       ov.querySelectorAll("[data-revive]").forEach((b) => b.onclick = () => { const r = LB.revive(U.account.legacy, b.dataset.revive); r.ok ? save(r.legacy, `${r.tradition.name} is practised again.`) : showCodex(r.error, true); });
       ov.querySelectorAll("[data-donate]").forEach((b) => b.onclick = () => { const r = LB.donate(U.account.legacy, b.dataset.donate); r.ok ? save(r.legacy, `Donated. Favor ${r.favor}: the Magistrate's shelves fill.`) : showCodex(r.error, true); });
-      ov.querySelectorAll("[data-memorize]").forEach((b) => b.onclick = () => { const r = LB.memorizeStudy(U.account.legacy, b.dataset.memorize, C); r.ok ? save(r.legacy, `Memorized${r.evicted ? `; ${nameOf(r.evicted)} slips from memory` : ""}.`) : showCodex(r.error, true); });
+      ov.querySelectorAll("[data-memorize]").forEach((b) => b.onclick = () => { const r = LB.memorizeStudy(U.account.legacy, b.dataset.memorize, C, LB.memoryUse(U.account).desk); r.ok ? save(r.legacy, `Memorized${r.evicted ? `; ${nameOf(r.evicted)} slips from memory` : ""}.`) : showCodex(r.error, true); });
       ov.querySelectorAll("[data-book]").forEach((b) => b.onclick = () => { const book = books.find((x) => x.id === b.dataset.book); if (!book || U.account.seeds < book.price) return;
         const r = LB.buyBook(U.account.legacy, book); U.account.seeds -= r.price; save(r.legacy, `Bought the book: ${nameOf(book.technique)} (practice +1).`); });
       ov.querySelectorAll("[data-take]").forEach((b) => b.onclick = () => { const r = LB.disassemble(U.account.legacy, b.dataset.take, C); r.ok ? save(r.legacy, `Taken apart: ${nameOf(b.dataset.take)}. Its parts are on the table.`) : showCodex(r.error, true); });
@@ -2155,7 +2164,8 @@
         return `<li><b>Order: ${esc(o.kind)}</b> <small>${esc(MK.VENDORS[o.vendor]?.name || o.vendor)} · ×${MK.RULES.orderMul}</small> ${fills}${vfill}${!fills && !vfill ? `<span class="cc-muted">nothing fits — catch or craft it</span>` : ""}</li>`; }).join("") : `<li class="cc-muted">No orders today.</li>`;
       const og = U.account.orgonite || 0, orgRows = MK.sellOrgonite ? `<li><b>Orgonite</b> <small>stash ${og} · the Orcish fence only</small> <button type="button" class="cc-item" data-stall-orgonite="orcish" ${og < 1 ? "disabled" : ""} title="Orgonite sells to the fence only, never above ${MK.RULES.orgoniteMax} Seeds">Sell ▸ ${esc(MK.VENDORS.orcish.name)} · ~${Math.min(MK.RULES.orgoniteMax, px(MK.RULES.orgoniteBase, "orgonite", "orcish"))}</button></li>` : "";
       const hasCharm = (U.account.gear?.owned || []).includes("orgoniteCharm");
-      const charmStall = MK.sellOrgoniteCharm ? `<li><b>Orgonite charm</b> <small>the Orcish fence only · resale ${MK.RULES.charmBase}</small> <button type="button" class="cc-item" data-stall-charm="orcish" ${hasCharm ? "" : "disabled"} title="Sells to the Orcish fence only. The price stays under 40 Seeds.">Sell ▸ ${esc(MK.VENDORS.orcish.name)} · ~${px(MK.RULES.charmBase, "orgonite-charm", "orcish")}</button></li>` : "";
+      const charmShrined = (U.account.museum?.placed || []).includes("orgoniteCharm");   // Museum M2: the stall greys an enshrined charm and says why
+      const charmStall = MK.sellOrgoniteCharm ? `<li><b>Orgonite charm</b> <small>the Orcish fence only · resale ${MK.RULES.charmBase}</small> <button type="button" class="cc-item" data-stall-charm="orcish" ${hasCharm && !charmShrined ? "" : "disabled"} title="${charmShrined ? "Your orgonite charm rests in the Museum. Take it back first." : "Sells to the Orcish fence only. The price stays under 40 Seeds."}">Sell ▸ ${esc(MK.VENDORS.orcish.name)} · ~${px(MK.RULES.charmBase, "orgonite-charm", "orcish")}</button></li>` : "";
       const FR = root.ConceptCombatFruit, held = FR ? FR.stashOf(U.account) : [];
       const fruitRows = held.length ? held.map((id) => `<li><b>${esc(FR.FRUITS[id].name)}</b> <small>${esc(FR.FRUITS[id].line)}</small> <button type="button" class="cc-item" data-fruit-sell="${id}">Sell by the tide · 400 Seeds (50 a battle)</button></li>`).join("") : `<li class="cc-muted">No fruit in the stash. Won battles sometimes wash one up.</li>`;
       return `<section class="cc-gaia-regard cc-stall" data-counter="stall"><h3>Stall · market day ${m.day}</h3><p class="cc-muted">Drift ${esc(driftLine)} · standing ${esc(standLine)} · haggle ${Math.round(MK.haggleChance(0, stallTalk()) * 100)}%+ (free with every sale)</p><h4>Vessels</h4><ul>${vesselRows}${orgRows}${charmStall}</ul><h4>Pens · ${pens.length}</h4><ul>${penRows}</ul><h4>Strange fruit</h4><ul>${fruitRows}</ul><h4>Advertise</h4><p>${camp}</p><h4>Buy orders</h4><ul>${orderRows}</ul></section>`;
@@ -2193,7 +2203,7 @@
       let confirm = "";
       if (pick) {
         const ledger = (U.account.mergeLedger || []).map((x) => x.name || x.eq).filter(Boolean);
-        const owned = (U.account.gear?.owned || []).filter((id) => Loot.data.equipment[id]);
+        const owned = root.ConceptCombatMuseumUI ? root.ConceptCombatMuseumUI.heirloomIds(U.account) : (U.account.gear?.owned || []).filter((id) => Loot.data.equipment[id]);
         const extra = pick.id === "GATELESS" ? `<label>Star <select id="ccSagaStar">${ledger.length ? ledger.map((x) => `<option>${esc(x)}</option>`).join("") : `<option value="">(unnamed equation)</option>`}</select></label>
           <label>Heirloom <select id="ccSagaHeirloom"><option value="">(nothing carried forward)</option>${owned.map((id) => `<option>${esc(Loot.data.equipment[id].name)}</option>`).join("")}</select></label>` : "";
         confirm = `<div class="cc-saga-confirm"><p><b>Close ${esc(v.id)}: ${esc(pick.name)}?</b> ${esc(pick.price)} ${esc(v.after)} This can't be undone.</p>${extra}
@@ -2235,7 +2245,7 @@
     function showSheet(returnMode = U.mode === "sheet" ? (U.sheetReturnMode || "setup") : U.mode) {
       U.sheetReturnMode = returnMode; stopAi(); U.mode = "sheet";
       const ov = $("ccOverlay"); ov.hidden = false;
-      const main = C.characters[mainClass()], fb = FM ? FM.sheetBlock(U.account, { board: !!(Board && Board.FAME_LIVE), desk: false }) : null;   // desk:false — no reader of deskSlots exists yet (desk-margin.js only exports it), so the sheet does not promise the second desk slot at Fame 3 (loop in the NOTE)
+      const main = C.characters[mainClass()], fb = FM ? FM.sheetBlock(U.account, { board: !!(Board && Board.FAME_LIVE), desk: false }) : null;   // desk:false — memory reads deskSlots since scribing landing 1 (legacy-battle.js memoryUse), but this sheet does not show the desk yet, so the sheet does not promise the second desk slot at Fame 3 (loop in the NOTE)
       const titles = A.titlesOf(U.account);
       const fameHtml = fb ? `<section class="cc-gaia-regard cc-sheet-social" id="ccSheetSocial"><h3>Fame · <span id="ccSheetTier">${esc(fb.tier)}</span></h3>
           <p>Level ${fb.level}${fb.need == null ? " · the top" : ` · ${fb.xp}/${fb.need} to ${esc(fb.next)}`}</p>
@@ -2288,6 +2298,7 @@
       ov.querySelectorAll("[data-pact-sign]").forEach(b => b.onclick = () => { const id = b.dataset.pactSign, r = PC.sign(U.account.contracts, { line: id, terms: SM.data.summons[id].pact }); r.ok ? (saveAccount(), showAccount()) : flashTip(r.error); });
       ov.querySelectorAll("[data-pact-apologize]").forEach(b => b.onclick = () => { const id = b.dataset.pactApologize, terms = SM.data.summons[id].pact, due = PC.scale(terms.call, PC.PACT.apologyMul); if ((U.account.seeds || 0) < due.seeds) return flashTip(`The apology needs ${due.seeds} Seeds.`); const r = PC.sign(U.account.contracts, { line: id, terms, apology: true }); if (!r.ok) return flashTip(r.error); U.account.seeds -= due.seeds; saveAccount(); U.keeperCounter = null; showAccount(); flashTip(`${SM.data.summons[id].name} accepts the apology.`); });
       ov.querySelectorAll("[data-pact-release]").forEach(b => b.onclick = () => { const r = PC.release(U.account.contracts, { line: b.dataset.pactRelease }); r.ok ? (saveAccount(), showAccount()) : flashTip(r.error); });
+      ov.querySelectorAll("[data-enshrine]").forEach(b => b.onclick = () => { const r = Loot.enshrine(U.account, b.dataset.enshrine); if (!r.ok) return flashTip(r.reason); U.account = r.account; saveAccount(); if (r.first) return showMuseum("", true); showAccount(); flashTip(`${Loot.data.equipment[b.dataset.enshrine]?.name || b.dataset.enshrine} is in the Museum.`); });
       ov.querySelectorAll("[data-equip]").forEach(b => b.onclick = () => { const r = Loot.equip(U.account, b.dataset.equip); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } else flashTip(r.reason); });
       ov.querySelectorAll("[data-unequip]").forEach(b => b.onclick = () => { const r = Loot.unequip(U.account, b.dataset.unequip); if (r.ok) { U.account = r.account; saveAccount(); showAccount(); } });
       ov.querySelectorAll("[data-sell]").forEach(b => b.onclick = () => { const r = Loot.sell(U.account, "equipment", b.dataset.sell); if (r.ok) { U.account = r.account; saveAccount(); U.keeperCounter = null; showAccount(); flashTip(`Sold for ${r.value} Seeds.`); } else flashTip(r.reason); });   // gear: the frame until the Smith (S5)
@@ -4448,6 +4459,7 @@
       drawStatusMarks(icons, cx, cy - h * 1.02, tw);
       if (a.defeated) return;
       if (a.totem) { const ti = totemImage(a.totem.sprite); if (ti) { const th2 = h * .5, tw2 = th2 * ti.naturalWidth / ti.naturalHeight; g.drawImage(ti, cx + tw * .42 - tw2 / 2, cy + th * .2 - th2, tw2, th2); } }   // the totem stands beside its host: drawn, never a unit
+      if (a.attendant) { const ti = a.attendant.sprite ? totemImage(a.attendant.sprite) : null; if (ti) { const th2 = h * .5, tw2 = th2 * ti.naturalWidth / ti.naturalHeight; g.drawImage(ti, cx - tw * .42 - tw2 / 2, cy + th * .2 - th2, tw2, th2); } else { const s2 = Math.max(6, Math.round(tw * .16)); g.fillStyle = "#7cc6a4"; g.fillRect(cx - tw * .55, cy + th * .05, s2, s2); } }   // SH3: the attendant stands on her other side, a square until the icon cut lands
       const w = tw * .7, y0 = cy + th * .32; g.fillStyle = "#000a"; g.fillRect(cx - w / 2, y0, w, 5);
       g.fillStyle = a.lf / a.maxLF > .35 ? "#7cc6a4" : "#ef6f6c"; g.fillRect(cx - w / 2, y0, w * a.lf / a.maxLF, 5);
     }
@@ -4901,6 +4913,9 @@
         ...(p.inventory?.length ? [{ id: "items", label: `Use item ▸ (${p.inventory.length})`, off: p.tempo < Math.min(...p.inventory.map(itemCost)),
           why: `Use one of the ${p.inventory.length} item${p.inventory.length === 1 ? "" : "s"} you carry. Hover a row to see what it does and what it costs.${p.tempo < Math.min(...p.inventory.map(itemCost)) ? ` Not enough AP: your cheapest item costs ${Math.min(...p.inventory.map(itemCost))}.` : ""}` }] : []),
         ...(Cook && p.inventory?.length && Cook.available(p.inventory, { inBattle: true, cook: Cook.isCook(p) }).length ? [{ id: "cook", label: `Cook ▸ (${Cook.available(p.inventory, { inBattle: true, cook: Cook.isCook(p) }).length})`, why: Cook.isCook(p) ? "A cook: every recipe works mid-battle." : "Field recipes only mid-battle (roast, tea); cooks make full dishes." }] : []),
+        ...((p.character === "shaman" || (p.primary === "threshold" && p.secondary === "hospitality")) && !p.companion?.guest ? [   // SH3: the attendant is a line in her command list, and the call is the utility action
+          ...(p.attendant ? [{ id: "attendantLine", label: `${p.attendant.name} · with her`, off: true, why: p.attendant.text }] : []),
+          { id: "attend", label: p.attendant ? `${p.attendant.name} · call another ▸` : "Call a spirit ▸ · 20 AP · 2 ΦF", off: p.attendantCalledTurn === p.ownerTurns || p.tempo < 20 || p.pf < 2, why: p.attendantCalledTurn === p.ownerTurns ? "One spirit a turn." : (p.tempo < 20 || p.pf < 2) ? "Calling a spirit needs 20 action points and 2 ΦF." : "A spirit attends her for the rest of this turn and 3 more of her turns. The call spends 20 AP and 2 ΦF, and it is not a technique." }] : []),
         ...(p.inventory?.length ? [{ id: "drop", label: `Drop item ▸ (${p.inventory.length})`, why: "Set a carried item down and leave it behind to free a pack slot. Costs no AP." }] : []),
         // What he has on (Mala, 2026-10-13: equipped items appeared nowhere in the command menu). Equipment is passive, so
         // these rows are read, not pressed: one for each equipped piece, saying what it does or that it is worn out.
@@ -4908,7 +4923,7 @@
           return { id: `worn:${id}`, label: `${slot[0].toUpperCase() + slot.slice(1)} · ${it.name}${spent ? " · worn out" : ""}`, off: true, why: spent ? `${it.text} Worn out: it does nothing until you repair it in the Field Kit.` : `${it.text} Equipped: always on, nothing to press.` }; }) : []),
         ...(() => { const t = E.tallyStatus ? E.tallyStatus(U.s, controlledId(U.s)) : null;   // the ledger boss (engine/tally.js): terms on the table, settling up
           if (!t) return [];
-          return [...t.offers.flatMap(o => [{ id: `tally-accept:${o.from}`, label: `Accept ${o.name}'s terms · +${o.ap} AP next turn`, off: false, help: `${o.ap} AP banked for your next turn; ${o.debt} AP falls due the turn after. No AP cost. Owing ${t.threshold} AP or more puts your highest-cost technique up as collateral.` },
+          return [...t.offers.flatMap(o => [{ id: `tally-accept:${o.from}`, label: `Accept ${o.name}'s terms · +${o.ap} AP ${o.when || "next turn"}`, off: false, help: o.help || `${o.ap} AP banked for your next turn; ${o.debt} AP falls due the turn after. No AP cost. Owing ${t.threshold} AP or more puts your highest-cost technique up as collateral.` },
             { id: `tally-decline:${o.from}`, label: `Decline ${o.name}'s terms`, off: false, help: "Turn the offer down. No AP cost, no penalty." }]),
             ...(t.owed ? [{ id: "tallySettle", label: `Settle your account · ${Math.min(p.tempo, t.owed)} AP (owe ${t.owed})`, off: p.tempo <= 0, help: `Pay AP now against what you owe: loans not yet due first, then tempo debt.${t.call ? " The Margin Call lands at the start of his next turn." : ""}${t.held ? ` ${t.heldName} is held as collateral until you owe less than ${t.threshold}.` : ""}` }] : [])]; })(),
         ...(() => { const po = E.parleyOptions ? E.parleyOptions(U.s, controlledId(U.s)) : { terms: [], offers: [] };   // Parley
@@ -5090,6 +5105,7 @@
         ...(root.ConceptCombatVows ? [oathRow(s, p)] : [])]);   // technique stances ride here too (Muse-2, 2026-10-21)
       if (U.menu === "items") return (p.inventory || []).map((id, i) => { const ap = itemAp(id), cost = itemCost(id), self = selfItem(id), H = itemHelpFor(id, p.tempo);
         return { id: `${id}:${i}`, item: id, heading: H.name, help: H.text, helpEffect: H.effect, helpDetail: H.detail, label: `${Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id} · ${ap} AP${Loot.data.consumables[id]?.effect?.observe ? " · then Observe" : self ? "" : " · choose a tile"}`, off: p.tempo < cost }; });
+      if (U.menu === "attend") return Object.keys(GST?.SPIRITS || {}).map((kind) => ({ id: `attend:${kind}`, kind, label: GST.SPIRITS[kind].name, why: GST.SPIRITS[kind].text }));
       if (U.menu === "cook") return Cook.available(p.inventory || [], { inBattle: true, cook: Cook.isCook(p) }).map((rid) => { const r = Cook.recipes[rid], ap = p.passives?.cookApOverride ?? Cook.rules.cookAp[r.field ? "field" : "full"];
         return { id: `cook:${rid}`, recipe: rid, label: `${r.name} → ${Loot.data.consumables[r.out]?.name || r.out} · ${ap} AP`, why: r.teach, off: p.tempo < ap }; });
       if (U.menu === "drop") return (p.inventory || []).map((id, i) => ({ id: `drop:${id}:${i}`, drop: id, label: `Drop ${Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id}`, why: `Set ${Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id} down and leave it behind. Costs no AP.` }));
@@ -5136,14 +5152,28 @@
               : [{ id: `finish:${t.id}`, submitOn: t.id, finish: true, off: !canFinish, label: `Finish the submission on ${t.name} · full ULT or 1 Inspiration`, why: `${t.name} gets one answer: break the hold (${R.finishBreakAp} AP owed and their reaction) or submit. The bar or Inspiration is spent either way.${canFinish ? "" : " You need a full ultimate bar or 1 Inspiration."}` }])];
         }) : []),
         { id: "grapple", grapple: true, off: p.tempo < E.grappleCost(s, controlledId(s)), label: `Grapple · ${E.grappleCost(s, controlledId(s))} AP · ${E.strongGrip(s, controlledId(s)) ? "always holds (Strong Grip)" : `${Math.round(s.rules.grapple.base * 100)}% to hold`}`, why: `No damage. A held target cannot move or dodge for the rest of this round and the next, and loses ${s.rules.grapple.apCut} AP. Harder against a guard, easier on a stunned target. A hold breaks when either unit is moved by anything but its own Move, Jump or Climb (a shove, pull, throw, dash, swap, teleport or dodge).` }];
-      if (U.menu === "investigate") return [...investigateThings(s, p), ...Object.values(s.actors).filter((a) => a.id !== "player" && !a.defeated).map((a) => { const sees = E.geometry.hasSight(s, p.x, p.y, a.x, a.y); return { id: a.id, label: `${a.name}${a.side === "player" ? " · ally" : ""}${sees ? "" : " · unseen"}`, off: !sees || p.tempo < INS.data.rules.investigate.minAP + invTax(s, p) || E.heldCostMul(s, controlledId(s)) !== 1, why: sees ? `Investigate ${a.name}: all ${p.tempo} AP, at least ${Math.floor((p.tempo - invTax(s, p)) / INS.data.rules.observe.apPerPoint) + INS.data.rules.investigate.depthBonus} points${invTax(s, p) ? ` (a wounded head costs ${invTax(s, p)} AP of the study)` : ""} (progress carried from earlier looks and some traits add more).` : `${a.name} is out of your line of sight, so you cannot investigate them.` }; })];
+      // Action seams A3b: the Observe and Investigate drawers read their rows from the action cards.
+      // A card row becomes the menu row it always was: same id, label, off and (for an on-row) text — the
+      // card's help is what the menu showed as why. off-rows carry the handler's own refusal sentence.
+      const cardRow = (row) => {
+        const act = row.act;
+        let id = act.type;
+        const extra = {};
+        if (act.type === "observe" || (act.type === "investigate" && act.target)) id = act.target;
+        else if (act.type === "observePlace") id = "place";
+        else if (act.type === "investigate" && act.place) id = "investigatePlace";
+        else if (act.type === "observePlant" || act.type === "observeStructure") { id = act.type; extra.object = act.object; extra.invest = act.invest; }
+        else if (act.type === "observeSummon") { id = "observeSummon"; extra.summon = act.summon; }
+        else if (act.type === "investigate" && act.object) {
+          id = (s.arena.objects || []).find((o) => o.id === act.object)?.kind === "plant" ? "investigatePlant" : "investigateStructure";
+          extra.object = act.object;
+        }
+        return { id, label: row.label, off: row.off, why: row.off ? row.why : row.help, act, ...extra };
+      };
+      if (U.menu === "investigate") return E.actionOptions(s, controlledId(s), "investigate", { focus: U.investigateFocus || undefined }).map(cardRow);
       if (U.menu === "observe") return [
         ...((p.traits || []).some((t) => (t.id || t) === "scout") ? (() => { const c = E.reportCheck(s, controlledId(s)), d = INS.data.actions.report; return [{ id: "report", label: `Report · ${d.cost} AP`, off: !!c.error, why: c.error ? `${c.error} ${d.text}` : d.text }]; })() : []),
-        ...(Climate && s.weatherState ? [{ id: "place", label: `Observe the place · ${U.observeInvest} AP`, off: p.tempo < U.observeInvest, why: "Read the weather, forecast and microclimate here. Place familiarity makes a Dream Space easier to open and hold." }] : []),
-        ...(typeof plantMenu === "function" ? plantMenu() : []),   // plants: study here; known ones answer from the Rituals tab
-        ...(typeof structureMenu === "function" ? structureMenu() : []),   // structures: study here; known ones wake from the Rituals tab
-        ...(typeof summonMenu === "function" ? summonMenu() : []),   // summons: study their palace rooms here; call them from the Rituals tab
-        ...Object.values(s.actors).filter((a) => a.id !== "player" && !a.defeated).map((a) => { const sees = E.geometry.hasSight(s, p.x, p.y, a.x, a.y); return { id: a.id, label: `${a.name}${a.side === "player" ? " · ally" : ""}${sees ? "" : " · unseen"}`, off: !sees, why: sees ? `Study ${a.name}: ${U.observeInvest} AP of effort, one insight point for each 10 AP.` : `${a.name} is out of your line of sight, so you cannot observe them.` }; }),
+        ...E.actionOptions(s, controlledId(s), "observe", { invest: U.observeInvest }).map(cardRow),
       ];
       if (U.menu === "insight") {
         const target = s.actors[U.insightTarget], deck = s.insight?.decks?.[U.insightTarget], know = s.insight?.knowledge?.player?.[U.insightTarget];
@@ -5238,7 +5268,7 @@
       }
       const items = menuList();
       U.menuIndex = Math.min(U.menuIndex, Math.max(0, items.length - 1));
-      el.innerHTML = `<div class="cc-title">${U.menu === "root" ? "Command" : `<button type="button" class="cc-back" data-cmd="back">◂</button> ${{ tech: "Techniques", strike: "Strike · choose tempo", observe: "Observe", investigate: "Investigate", insight: "Insight", trial: "Trial", mockTrial: "Mock trial", lens: "Lens", swap: "Swap secondary", items: "Use item", drop: "Drop item", cook: "Cook", summons: "Summon an ally", ...Object.fromEntries(MENU_DRAWERS.map((d) => [d.id, d.title])) }[U.menu]}`}${U.menu === "root" && typeof apHead === "function" ? apHead(controlledFighter(s), E.heldCostMul(s, controlledId(s))) : ""}</div>` +
+      el.innerHTML = `<div class="cc-title">${U.menu === "root" ? "Command" : `<button type="button" class="cc-back" data-cmd="back">◂</button> ${{ tech: "Techniques", strike: "Strike · choose tempo", observe: "Observe", investigate: "Investigate", insight: "Insight", trial: "Trial", mockTrial: "Mock trial", lens: "Lens", swap: "Swap secondary", items: "Use item", drop: "Drop item", cook: "Cook", attend: "Call a spirit", summons: "Summon an ally", ...Object.fromEntries(MENU_DRAWERS.map((d) => [d.id, d.title])) }[U.menu]}`}${U.menu === "root" && typeof apHead === "function" ? apHead(controlledFighter(s), E.heldCostMul(s, controlledId(s))) : ""}</div>` +
         (U.menu === "root" && U.mode === "menu" && CS ? `<div class="cc-search"><input id="ccSearch" type="search" placeholder="Search commands  /" autocomplete="off" spellcheck="false" aria-label="Search commands" value="${esc(U.search || "")}"></div>${quickBarMarkup()}<div id="ccSearchResults" ${U.search ? "" : "hidden"}>${U.search ? searchResultsMarkup() : ""}</div>` : "") +
         `<div id="ccMenuRows" ${U.menu === "root" && U.search ? "hidden" : ""}>` +
         items.map((it, i) => it.fold ? foldMarkup(it, i) : `${it.group && it.group !== items[i - 1]?.group ? `<div class="cc-group">${esc(it.group)}</div>` : ""}<div class="cc-command-row${it.inFold ? " cc-in-fold" : ""}" data-help-i="${i}"><button type="button" title="${esc(menuHelp(it))}" class="cc-item ${i === U.menuIndex ? "on" : ""} ${it.cur ? "cur" : ""}${it.dim ? " cc-dim" : ""}" data-i="${i}" ${it.off ? "disabled" : ""}${it.dim ? " aria-disabled=\"true\"" : ""}>
@@ -5452,7 +5482,7 @@
           U.mode = "target"; U.menu = "root"; U.sel = { card: it.card, tg: { range: row.targets, legal: row.targets.map((at) => ({ at })) } }; U.cursor = row.targets.find((p) => p[0] === s.actors[controlledId(s)].x && p[1] === s.actors[controlledId(s)].y) || row.targets[0]; return render();   // a zone or an equip starts on its owner's own tile (the nearest sensible centre), a foe card on the first ringed foe
         }
         if (it.id === "scramble" || it.id === "playDead" || it.id === "standUp") return act({ type: it.id, actor: "player" });
-        if (["tech", "strike", "observe", "investigate", "lens", "swap", "items", "cook", "drop", "summons"].includes(it.id)) { U.menuFrom = U.afterActMenu || U.menu; U.menu = it.id; U.menuIndex = 0; return render(); }   // afterActMenu still holds the drawer: the reset above already flattened U.menu
+        if (["tech", "strike", "observe", "investigate", "lens", "swap", "items", "cook", "drop", "summons", "attend"].includes(it.id)) { U.menuFrom = U.afterActMenu || U.menu; U.menu = it.id; U.menuIndex = 0; return render(); }   // afterActMenu still holds the drawer: the reset above already flattened U.menu
         if (it.id === "insight") { U.menuFrom = U.afterActMenu || U.menu; U.menu = "insight"; U.menuIndex = 0; return render(); }
         if (it.id.startsWith("order:")) { const [, to, role, focus] = it.id.split(":"); U.afterActMenu = inDrawer() ? U.menu : null; if (inDrawer()) U.menu = "root"; act({ type: "order", actor: "player", target: to, role, focus: focus || null }); return render(); }
         if (it.id === "trial") { U.menuFrom = U.afterActMenu || U.menu; U.menu = "trial"; U.menuIndex = 0; return render(); }
@@ -5577,25 +5607,26 @@
       }
       if (U.menu === "drop") return act({ type: "dropItem", actor: "player", item: it.drop });
       if (U.menu === "cook") { const ok = act({ type: "cook", actor: "player", recipe: it.recipe }); if (ok) U.menu = "root"; return; }
+      if (U.menu === "attend") { const ok = act({ type: "attend", actor: "player", kind: it.kind }); if (ok) U.menu = "root"; return; }
       if (U.menu === "summons" && it.beastKey) return act({ type: "callBeast", actor: "player", key: it.beastKey, at: it.at });   // a learned beast: no summon question
       if (U.menu === "summons" && it.dreamKey) return act({ type: "callDream", actor: "player", key: it.dreamKey, unlocked: summonUnlocks() });   // an unlocked dream: no question either (the engine reads costs + once-only off battle state, not the act)
       if (U.menu === "summons" && it.pactLine) return act({ type: "callPact", actor: "player", line: it.pactLine, at: it.at });   // a pacted line: no question either (the engine reads the sign + standing off its battle-start book, not the act)
       if (U.menu === "summons" && it.id === "dismissPact") return act({ type: "dismissPact", actor: "player" });
       if (U.menu === "summons") return showSummonQuestion(it.summon);
-      if (U.menu === "investigate" && it.id === "investigatePlace") { const ok = act({ type: "investigate", actor: "player", place: true }); if (ok) { U.menu = "root"; render(); } return; }
-      if (U.menu === "investigate" && (it.id === "investigatePlant" || it.id === "investigateStructure")) { const ok = act({ type: "investigate", actor: "player", object: it.object }); if (ok) { U.menu = "root"; render(); } return; }
-      if (U.menu === "investigate") { U.insightTarget = it.id; const ok = act({ type: "investigate", actor: "player", target: it.id, focus: U.investigateFocus || undefined }); if (ok) { U.menu = "root"; render(); } return; }
+      if (U.menu === "investigate" && it.id === "investigatePlace") { const ok = act(it.act); if (ok) { U.menu = "root"; render(); } return; }
+      if (U.menu === "investigate" && (it.id === "investigatePlant" || it.id === "investigateStructure")) { const ok = act(it.act); if (ok) { U.menu = "root"; render(); } return; }
+      if (U.menu === "investigate") { U.insightTarget = it.id; const ok = act(it.act); if (ok) { U.menu = "root"; render(); } return; }
       if (U.menu === "observe") {
         if (it.id === "report") { act({ type: "insight", actor: "player", action: "report" }); return; }
-        if (it.id === "place") { act({ type: "observePlace", actor: "player", invest: U.observeInvest }); return; }
-        if (it.id === "observePlant") { act({ type: "observePlant", actor: "player", object: it.object, invest: it.invest }); return; }
-        if (it.id === "observeStructure") { act({ type: "observeStructure", actor: "player", object: it.object, invest: it.invest }); return; }
-        if (it.id === "observeSummon") { act({ type: "observeSummon", actor: "player", summon: it.summon }); return; }
+        if (it.id === "place") { act(it.act); return; }
+        if (it.id === "observePlant") { act(it.act); return; }
+        if (it.id === "observeStructure") { act(it.act); return; }
+        if (it.id === "observeSummon") { act(it.act); return; }
         if (it.id === "commune") return showCommuneQuestion(it.object);
         if (it.id === "communeIngredient") { act({ type: "communeIngredient", actor: "player", item: it.item, pickup: it.pickup }); return; }
         if (it.id === "communeStructure") return showAwakenQuestion(it.object);
         if (it.id === "nameDream") return showNameDreamQuestion(it.target);
-        U.insightTarget = it.id; const ok = act({ type: "observe", actor: "player", target: it.id, invest: U.observeInvest }); if (ok) { U.menu = "insight"; render(); } return;
+        U.insightTarget = it.id; const ok = act(it.act); if (ok) { U.menu = "insight"; render(); } return;
       }
       if (U.menu === "insight" && it.id === "imitate") { const ok = act({ type: "imitate", actor: "player", target: U.insightTarget, trait: it.trait }); if (ok) U.menu = "root"; return; }
       if (U.menu === "insight") { const ok = act({ type: "insight", actor: "player", target: U.insightTarget, action: it.action }); if (ok) U.menu = "root"; return; }
@@ -5821,7 +5852,7 @@
     // Plants under Observe (Mala, 2026-10-10: "observe → plants is the mechanism for communing"). Observing a plant
     // builds familiarity with the same action-point dial as observing a person; once a plant is known well enough
     // and you stand beside it, its entry becomes Commune. Hidden until communion is released (or ccCommune = "1").
-    function nearbyPlants() {   // shared list for the Observe tab (study) and the Rituals tab (commune selection)
+    function nearbyPlants() {   // the Rituals tab's list (commune selection); the Observe tab reads the action cards (A3b)
       const s = U.s, p = controlledFighter(s); if (!CM || !p || !s.communion) return null;
       let preview = false; try { preview = localStorage.getItem("ccCommune") === "1"; } catch {}
       if (!CM.rules.released && !preview) return null;
@@ -5831,28 +5862,6 @@
       const list = (s.arena.objects || []).filter((o) => o.kind === "plant" && o.hp > 0 && !o.dead && !s.communion.closed[o.id] && CM.profile(o.type) && d(o) <= CM.rules.observeRange)
         .sort((a, b) => d(a) - d(b)).slice(0, 6);
       return { s, p, d, fam, spend, active, list };
-    }
-    // Investigate the place, a plant or a structure (I3): the same Observe rows, priced as Investigate (all the AP, the turn ends).
-    function investigateThings(s, p) {
-      const V = INS.data.rules.investigate, tax = invTax(s, p), held = E.heldCostMul(s, controlledId(s)) !== 1, short = p.tempo < V.minAP + tax;
-      const pts = Math.floor((p.tempo - tax) / INS.data.rules.observe.apPerPoint) + V.depthBonus, note = `All ${p.tempo} AP and your turn ends; your reaction is spent until next round.`;
-      const off = (o) => o || short || held;
-      const seen = (it) => { const o = (s.arena.objects || []).find((x) => x.id === it.object); return !!o && (E.geometry.dist(s, p.x, p.y, o.x, o.y) <= 1 || E.geometry.hasSight(s, p.x, p.y, o.x, o.y)); };
-      const place = Climate && s.weatherState ? [{ id: "investigatePlace", label: `Investigate the place · all ${p.tempo} AP`, off: off(false), why: `Read the weather, forecast and microclimate with about ${pts} points (hardest cards first, plus any progress you carried from earlier looks). ${note}` }] : [];
-      const swap = (it, id, what) => ({ ...it, id, invest: undefined, label: it.label.replace(/ · \d+ AP/, ` · all ${p.tempo} AP`), off: off(!seen(it)), why: `${what} ${note}` });
-      const plants = (typeof plantMenu === "function" ? plantMenu() : []).map((it) => swap(it, "investigatePlant", `Learn about ${pts} familiarity with this plant (a hiker or a botanist learns more); it spends all your action points and ends your turn, even if less would do.`));
-      const structures = (typeof structureMenu === "function" ? structureMenu() : []).map((it) => swap(it, "investigateStructure", `Learn about ${pts} familiarity with this structure; it spends all your action points and ends your turn, even if less would do.`));
-      return [...place, ...plants, ...structures];
-    }
-    function plantMenu() {
-      const ctx = nearbyPlants(); if (!ctx) return [];
-      const { s, p, d, fam, spend, list } = ctx;
-      return list.filter((o) => fam(o) < CM.profile(o.type).need).map((o) => {
-        const pr = CM.profile(o.type);
-        const sees = d(o) <= 1 || E.geometry.hasSight(s, p.x, p.y, o.x, o.y);
-        return { id: "observePlant", object: o.id, invest: spend, label: `${pr.common} · plant · ${fam(o)}/${pr.need} known · ${spend} AP${sees ? "" : " · unseen"}`, off: !sees || p.tempo < spend,
-          why: `Know a plant well enough and it will answer you. As an ally: ${pr.name}, ${pr.hp} LF. If it dies fighting for you, Gaia will hold it against you.` };
-      });
     }
     function ingredientMenu() {   // ingredient totems (Mala, 2026-11-07): an Animist, or a cook who watched it done, wakes an ingredient
       const s = U.s, p = s?.actors?.player; if (!CM?.canCommuneIngredient || !p || p.defeated || !CM.canWakeIngredients(p)) return [];
@@ -5899,25 +5908,6 @@
       const list = (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && TK.profile(o.type) && d(o) <= TK.rules.observeRange)
         .sort((a, b) => d(a) - d(b)).slice(0, 6);
       return { s, p, d, fam, spend, active, list };
-    }
-    function structureMenu() {
-      const ctx = nearbyStructures(); if (!ctx) return [];
-      const { s, p, d, fam, spend, list } = ctx;
-      return list.filter((o) => fam(o) < TK.profile(o.type).need).map((o) => {
-        const pr = TK.profile(o.type);
-        const sees = d(o) <= 1 || E.geometry.hasSight(s, p.x, p.y, o.x, o.y);
-        const matDef = INS?.data?.traits?.[TK.materialTrait(pr.material)] || null;
-        return { id: "observeStructure", object: o.id, invest: spend, label: `${pr.common} · structure · ${fam(o)}/${pr.need} known · ${spend} AP${sees ? "" : " · unseen"}`, off: !sees || p.tempo < spend,
-          why: `Know a structure well enough and it will answer you. As an ally: ${pr.name}, ${Math.max(1, o.hp * 2)} LF. It stands for 4 rounds, then settles back.${matDef ? ` Material: ${matDef.text}` : ""}` };
-      });
-    }
-    function summonMenu() {   // Observe teaches O2c: unlocked palace summons, studied from the Observe tab
-      const s = U.s, p = controlledFighter(s); if (!p || !SM) return [];
-      return SM.available({ unlocked: summonUnlocks() }).filter((x) => x.unlocked && SM.callsPalace(p)).map((x) => {
-        const def = SM.data.summons[x.id], studied = !!s.summonHints?.[p.id]?.[x.id];
-        return { id: "observeSummon", summon: x.id, label: `Study ${def.name}'s room · 20 AP${studied ? " · studied" : ""}`, off: studied || p.tempo < 20,
-          why: studied ? "Studied this battle: no new hint. Call it from Rituals ▸ Summon ally." : `Study ${def.name}'s palace room: one wrong choice on its calling question is struck this battle.` };
-      });
     }
     function awakenMenu() {   // known structures, woken from the Rituals tab
       const ctx = nearbyStructures(); if (!ctx) return [];

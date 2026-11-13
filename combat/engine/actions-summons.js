@@ -10,11 +10,15 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).actionsSummons = install;
 })(typeof self !== "undefined" ? self : this, function install(H, K) {
   return (function () {
-    const { Auras, C, Communion, EmergentIdeas, EnemySummons, RITUAL, Sealing, Vows, actorAt, auraH, barrierAt, beadBeast, checkOutcome, conceptName,
-      dist, dreamSame, dreamSpaceRules, footprint, hasTrait, inside, insightRules, liveSummon, log, saveWildWorld, spendTempo, summonProfile,
+    const { Auras, C, ClassRuntime, Communion, EmergentIdeas, EnemySummons, RITUAL, Sealing, Vows, actorAt, auraH, barrierAt, beadBeast, checkOutcome, conceptName,
+      dist, dreamSame, dreamSpaceRules, footprint, hasTrait, inside, insightRules, liveSummon, log, classH, saveWildWorld, spendTempo, summonProfile,
       summonQuestions, summonReadiness, summonRules, summonSnapshot, target, tileAt, wildRules, wildSnapshot } = H;
     const { Dream, PactLib, maxRoomFor, moduleArena, openResponseWindow, score, seededChance } = K;
     const family = {
+      attend(s, a, act) {   // Shaman SH3: call one nature spirit. A utility action, so it does not pulse. (moved here from actions.js at the 1.3.564 merge, Bitt IN)
+        if (!ClassRuntime?.attend) return "Attendants are unavailable.";
+        return ClassRuntime.attend(s, a, act, classH(), (pts, name) => spendTempo(s, a, pts, name)) || undefined;
+      },
       // Houses (engine/houses.js): buy a neutral one; invest in it (the larger stake owns it and is paid).
       tameBeast: (s, a, act) => H.tameBeast(s, a, act), markVessel: (s, a, act) => H.markVessel(s, a, act), callPack: (s, a) => H.callPack(s, a),   // the Animal Tamer (engine/tamer.js)
       // A paid order belongs to the summon's turn-start, never ordinary AI planning. This also

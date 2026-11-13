@@ -36,6 +36,7 @@
     truce: { name: "Truce" }, trapped: { name: "Trapped", help: "No way off the set but through: the only exits are CUT, ruin, or the twelfth take." },
     malnote: { name: "Blessing of Malnote", help: "+1 move, ×0.85 damage taken." },
     ambush: { name: "Ambush set", help: "Anyone ending a move closer before your next turn is hit." },
+    stillStance: { name: "Still Stance", help: "Held Breath: each turn you end without moving banks 1 Stillness (Deep Rest: from the second still turn); Strikes +1. A shove or a spread breaks it." },   // Ma (five concepts M1)
     bleed: { name: "Bleeding", help: "Loses LF at each turn start until the bleeding stops." },
     bloodyHands: { name: "Bloody Hands", help: "Carrying a foe's blood: spend it on a blood rite step for no LF." },
     overwatch: { name: "Overwatch", help: "Watching: the first foe to step in range eats a snapshot. No Guard or dodge while watching." },

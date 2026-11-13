@@ -29,6 +29,7 @@
     { id: "home", name: "Home", sprite: "objects/house-cottage", at: [19, 19], size: 4, opens: "character", verb: "Character and loadout" },
     { id: "plaza", name: "Notice Board", sprite: "objects/park-fountain", at: [11, 11], size: 4, opens: "threat", verb: "Threat leaderboard" },
     { id: "hall", name: "The Hiring Hall", sprite: "objects/building-apartment", at: [8, 2], size: 4, opens: "hall", verb: "Merc contracts and letters of safe conduct" },
+    { id: "museum", name: "The Museum", sprite: "objects/building-museum", at: [15, 14], size: 4, opens: "museum", verb: "Cherished gear, kept safe on plinths" },   // M6: staged-art/museum-review cut rescaled to 256 px (4x4); south-east of the plaza, west of the row houses; [15,8] sat on Arantxa's tile
     { id: "garden", name: "Garden", sprite: "objects/park-garden", at: [14, 2], size: 4 },
     { id: "manor", name: "Manor", sprite: "objects/house-manor", at: [19, 8], size: 4 },
     { id: "rowhouses", name: "Row Houses", sprite: "objects/house-rowhouse", at: [19, 14], size: 4 },

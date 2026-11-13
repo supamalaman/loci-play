@@ -148,13 +148,13 @@
           none: "The water takes the ford, and with it the argument." } } },
 
     // Slice 5 (SCENARIOS.md §9 row 5): ward kind + afterCreate civilians / Tourist. SC11 is classic with customers on the field;
-    // SC12–SC14 run the ward clock. Clean-hands Seeds (SC11) and the Sasquatch photo bonus wait on slice 7's mint (bonus.seeds data only).
+    // SC12–SC14 run the ward clock. Clean-hands Seeds (SC11) and the Sasquatch photo bonus are paid by the scenario mint (scenarios.js, bonus check).
     marketDay: { id: "marketDay", name: "Market Day", minTier: 1, weight: 1,   // SC11
       arenas: ["terraceGarden", "loiTerraces", "canalGarden"],
       foes: { crews: ["street"], exclude: LAW, count: [2, 2] },
       civilians: [{ id: "customer-1", name: "Customer" }, { id: "customer-2", name: "Customer" }],
       objective: { kind: "classic" },
-      bonus: { seeds: 8, cleanHands: true },   // paid when slice 7's scenario mint reads it; cleanHands: no "civilians are now hostile" faction log
+      bonus: { seeds: 8, cleanHands: true },   // paid by the scenario mint (scenarios.js); cleanHands: no "civilians are now hostile" faction log
       text: {
         open: "It is market day. The people here came for tomatoes and are not impressed by you.",
         mid: { when: { round: 4 }, text: "A customer steps behind a stall and does not step out." },
@@ -328,6 +328,26 @@
         mid: { when: { round: 3 }, text: "A revealed summon can rise further. Mitsuko wards whoever is weakest. The Khan's winged rhino needs a clear tile beside him, then rides down whoever stands alone." },
         result: { player: "The field is yours, and the dream went into something that stayed.", enemy: "The dream closed before anything rose from it. Reveal first, then pour.",
           none: "The rounds run out on open ground. Nothing rose, and nothing was decided." } } },
+    quietField: { id: "quietField", name: "The Quiet Field", minTier: 2, weight: 1,   // teaching Ma (claude-five-concepts-spec M1, its "Quiet Room": no hall arena exists, so the long Warfare Field); uncatalogued, no SC number; tier 2 like SC24, so the pinned tier-1 lists stay as they are. Two kickboxers hold the far end for two turns: time to bank, then one heavy Strike
+      arenas: ["warfareField"],
+      foes: { fixed: ["kickboxer", "kickboxer"], at: [[13, 3], [13, 5]], holdTurns: 2 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "A long, quiet field, and two kickboxers holding the far end. If you carry Ma, rest on purpose: Leave Space banks Stillness, and for two turns Held Breath banks each turn you end without moving.",
+        mid: { when: { round: 3 }, text: "They are coming. Your next Strike spends every point of Stillness you banked, +1 a point. A shove or a spread breaks the stance." },
+        result: { player: "The quiet paid. Two fighters down, and the field is still again.", enemy: "They closed before the stillness was worth anything. Bank earlier, strike once.",
+          none: "The rounds run out, and the quiet holds. Nobody struck hard enough to end it." } } },
+    runningTab: { id: "runningTab", name: "Running a Tab", minTier: 2, weight: 1,   // teaching Credit (claude-five-concepts-spec K1; R-20261112-13 c: the player fronts themselves; the ally version waits for the Headwaiter); uncatalogued, no SC number; tier 2 like SC24, so the pinned tier-1 lists stay as they are
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier"], at: [[5, 3]], holdTurns: 1 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "One soldier on the rim, and a long fight ahead of you. If you carry Credit, Fronted Tempo lends you time now, and a bigger bill comes due at your turn start after next. Spend it to win before the bill lands.",
+        mid: { when: { round: 3 }, text: "The tab is open. Settle it from the menu, or finish this before the bill comes in." },
+        result: { player: "You won on borrowed time.", enemy: "The bill came due before the win did.",
+          none: "The rounds run out with the tab still open." } } },
   };
 
   return { SCENARIOS, LAW };

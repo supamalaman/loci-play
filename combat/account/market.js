@@ -133,10 +133,12 @@
     if (r.capped) lines.push(`Day tally ${r.daySales}/${RULES.stallDayCap} — the stall pays no more today.`);
     return { ok: true, account: out, seeds, haggled, lines };
   }
+  const CHARM_IN_MUSEUM = "Your orgonite charm rests in the Museum. Take it back first.";
   function sellOrgoniteCharm(a, vendor, roll01 = Math.random(), persuasion = null) {
     if (vendor !== "orcish") return { ok: false, reason: vendor === "bank" ? "The Monster Bank buys vessels only. An orgonite charm is not a vessel." : "The beggars have no price for an orgonite charm." };
     const owned = a?.gear?.owned || [];
     if (!owned.includes("orgoniteCharm")) return { ok: false, reason: "No orgonite charm to sell." };
+    if ((a.museum?.placed || []).includes("orgoniteCharm")) return { ok: false, reason: CHARM_IN_MUSEUM };   // Museum M2: an enshrined piece is safe from sale (MUSEUM.md M1)
     const m = marketOf(a), haggled = roll01 < haggleChance(m.standing[vendor], persuasion);
     const quoted = vendorPrice(RULES.charmBase, vendor, null, { day: m.day, kind: "orgonite-charm", floods: m.floods, campaign: m.campaign, standing: m.standing[vendor], haggled });
     const r = pay(quoted, m), seeds = r.paid;

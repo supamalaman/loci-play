@@ -1,0 +1,34 @@
+{
+  "size_class": "small",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 0.5,
+  "world_height_definition": "PROPOSED small guest, sheet-native, no resample, sheet alpha kept. Re-cut content h=129px vs shaman 178px (0.725).",
+  "runtime_consumed": false,
+  "source": "source/Shaman Sprites.png (SH0 re-cut, Garboard BD; rework 2 keeps the sheet alpha, Kevel BD, 2026-11-12)",
+  "idle_alpha_size_px": [
+    154,
+    137
+  ],
+  "content_height_px": 129,
+  "content_width_px": 146,
+  "shaman_idle_content_height_px": 178,
+  "height_ratio_to_shaman": 0.725,
+  "foot_point_px": [
+    84.5,
+    132.0
+  ],
+  "minimum_pixel_size_px": 48,
+  "minimum_pixel_size_definition": "ROLES.md Art sizing (tiny 24, small 48, person 96).",
+  "consumer": "claude-shaman-summoner-spec SH1 (guests) / SH4 (echo)",
+  "sheet_box_px": [
+    218,
+    926,
+    388,
+    1055
+  ],
+  "outside_figure_dropped_px": 4870,
+  "white_px": 2373
+}

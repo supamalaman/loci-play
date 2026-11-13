@@ -96,7 +96,7 @@
     const worn = SLOTS.map((slot) => { const id = eq[slot], it = id && E[id];
       return it ? `<div class="pk-slot is-worn" title="${esc(it.text || "")}"><span class="pk-slot-name">${slot}</span>${icon(id)}<b class="r-${esc(it.rarity)}">${esc(it.name)}</b><button type="button" data-unequip="${slot}" aria-label="Remove ${esc(it.name)}">Remove</button></div>`
         : `<div class="pk-slot"><span class="pk-slot-name">${slot}</span>${ghost(slot)}<small>empty</small></div>`; }).join("");
-    const bag = owned.filter((id) => eq[E[id].slot] !== id).sort((x, y) => E[x].slot.localeCompare(E[y].slot) || E[x].name.localeCompare(E[y].name));
+    const bag = owned.filter((id) => eq[E[id].slot] !== id && !(Loot.enshrined && Loot.enshrined(a, id))).sort((x, y) => E[x].slot.localeCompare(E[y].slot) || E[x].name.localeCompare(E[y].name));
     const bagRows = bag.map((id) => { const it = E[id];
       return `<div class="pk-item">${icon(id)}<div><b class="r-${esc(it.rarity)}">${esc(it.name)}</b><span class="pk-meta">${esc(it.slot)} · ${esc(it.rarity)}</span><small>${esc(it.text || "")}</small></div><button type="button" data-equip="${esc(id)}" aria-label="Equip ${esc(it.name)}">Equip</button></div>`; }).join("");
     const stash = Object.entries(a.stash || {}).filter(([id, n]) => n > 0 && Cons[id]);

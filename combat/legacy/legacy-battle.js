@@ -25,6 +25,7 @@
     const l = legacy && typeof legacy === "object" ? clone(legacy) : {};
     l.ledger ||= L.createLedger(); l.journal ||= L.createJournal(); l.memory ||= L.createMemory();
     l.parts ||= []; l.scribed ||= []; l.practice ||= {}; l.findingNotebook ||= []; l.transcribedAt ||= {};
+    for (const d of l.scribed) { d.margin ??= []; d.rev ??= 0; d.amendedAt ??= null; }   // C0a1: lazy def defaults (margin is a list, SCRIBING_DESK.md margin (array); no fragments until B3); existing values, 0 included, stay
     return l;
   }
 
@@ -178,10 +179,20 @@
       potency: def.potency, damageType: def.damageType || "nigredo", effect: "damage", scribed: true, ...(def.delivery === "routed" ? { routeBudget: Math.max(2, Number(def.range) || 4) } : {}), ...(extra.knockback ? { knockback: extra.knockback } : {}),
       mechanism: `Scribed from ${(def.provenance || []).join(", ") || "parts"}.`, reveal: `${def.name} is a scribed work.`, prompt: "What did you build it from?" };
   }
-  function memorizeStudy(legacy, id, C) {
+  // Scribing desk landing 1 (B2b/B2c, R-20261104-01): held scribed works fill the desk shelf (DM.deskSlots) first;
+  // the general slots hold learned techniques plus any scribed works past the shelf. One reading for memorize,
+  // equip and both Memory displays, so none of them can disagree.
+  const isScribedIn = (l) => (held) => l.scribed.some((d) => d.id === held);
+  function memoryUse(account) {
+    const M = DM || globalThis.ConceptCombatDeskMargin, l = fresh(account && account.legacy), desk = M ? M.deskSlots(account) : 1, u = L.generalUse(l.memory, isScribedIn(l), desk);
+    return { desk, general: u.used, slots: l.memory.slots, learned: u.learned.length,
+      deskFree: u.scribed.length < desk, generalFree: u.used < l.memory.slots };
+  }
+  // desk: the account's desk slots (DM.deskSlots); a caller that cannot name it gets 1, the fewest, so memory never overfills.
+  function memorizeStudy(legacy, id, C, desk = 1) {
     const l = fresh(legacy);
     if (!memorizable(id, C)) return { ok: false, error: "That technique can't be held in memory.", legacy: l };
-    const r = L.memorize(l.memory, id, l.practice[id] || 0, MEMORIZE_AT);
+    const r = L.memorize(l.memory, id, l.practice[id] || 0, MEMORIZE_AT, isScribedIn(l), desk);
     return r.ok ? { ok: true, legacy: l, evicted: r.evicted } : { ok: false, error: `Needs practice ${r.need} (has ${l.practice[id] || 0}): finish a study and read a book, or study it twice.`, legacy: l };
   }
   function buyBook(legacy, book) {
@@ -198,5 +209,5 @@
   const shop = (legacy, seed) => L.generateShop(fresh(legacy).ledger, { seed, slots: 3 }).map((b) => ({ ...b, price: BOOK_PRICE[b.tier] || BOOK_PRICE.drill }));
 
   return { MEMORIZE_AT, BOSS_STRENGTH, BOOK_PRICE, RIDERS, fresh, report, settle, found, bonuses, carry, partsOf, disassemble, transcribe, abilityOf,
-    memorizeStudy, buyBook, donate, revive, shop, alive, legendary, memorizable, unmemorizableWhy };
+    memorizeStudy, memoryUse, buyBook, donate, revive, shop, alive, legendary, memorizable, unmemorizableWhy };
 });

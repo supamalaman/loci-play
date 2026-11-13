@@ -15,7 +15,7 @@
   // The element is the picture of how the concept acts, not a damage type.
   const CONCEPT_ELEMENT = {
     barrier: "earth", berm: "earth", inertia: "earth", gradingDrainage: "earth", interposition: "earth", load_distribution: "earth", settlement: "earth",
-    elasticity: "air", tension: "air", leverage: "air", lyricism: "air", folding: "air",
+    elasticity: "air", tension: "air", leverage: "air", lyricism: "air", folding: "air", ma: "air",   // Ma (five concepts M1): empty space; assigned at the 1.3.564 merge (Bitt IN)
     selectivity: "ice", preservation: "ice", fault_tolerance: "ice", constraint: "ice",
     cybernetic_ecology: "nature",   // the Agent Swarm's living circuit (2026-10-13)
     sightline: "holy", focus: "holy", legitimacy: "holy", complementarity: "holy", delegation: "holy", harmony: "holy",
@@ -26,7 +26,7 @@
     boundary: "fire", strategic_commitment: "fire", antifragility: "fire", hospitality: "fire",   // the Hot Pot Berserker: the boiling pot and the hearth (2026-10-25)
     diffusion: "poison", obsolescence: "poison",
     pruning: "nature", succession: "nature", traditional_medicine: "nature", herbal_medicine: "nature",
-    reciprocal_obligation: "blood", dependency: "blood", extraction: "blood",
+    reciprocal_obligation: "blood", dependency: "blood", extraction: "blood", credit: "blood",   // Credit (five concepts K1): a debt, like Reciprocal Obligation; assigned at the 1.3.564 merge (Bitt IN)
   };
   const CHANNEL_ELEMENT = { nigredo: "earth", albedo: "holy", citrinitas: "poison", rubedo: "blood" };
   // Effects that are not harm get a utility set in place of the concept's element.

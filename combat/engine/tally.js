@@ -24,6 +24,10 @@
       book: (u) => (u.tally ||= { loans: [] }),
       pending: (u) => (u?.tally?.loans || []).reduce((n, l) => n + l.debt, 0),
       outstanding: (u) => (u?.tempoDebt || 0) + Tally.pending(u),
+      // His own rules (collateral, The Offer's accept rule, Tally Up, the Margin Call, the books burning, his AI) read only what is
+      // owed to him: tempo debt plus his own loans. With no other lender on the field this equals `outstanding` (Credit, K1).
+      his: (s, l) => { const by = s.actors[l.by]; return !by || Tally.is(by); },
+      owedHim: (s, u) => (u?.tempoDebt || 0) + (u?.tally?.loans || []).filter((l) => Tally.his(s, l)).reduce((n, l) => n + l.debt, 0),
 
       // Add debt now, capped by rules.maxTempoDebt; the excess is collected from Life Force.
       charge(s, lender, u, debt, why) {
@@ -35,24 +39,38 @@
         }
         return land;
       },
-      lend(s, lender, u, { ap, debt, delay }, label) {
-        if (!Tally.binds(s, u)) return false;
-        u.bankedTempo = (u.bankedTempo || 0) + ap;
-        Tally.book(u).loans.push({ debt, turns: delay, by: lender.id, label });
-        log(s, { kind: "tally", actor: lender.id, target: u.id, loan: { ap, debt, delay }, text: `${lender.name} lends ${u.name} ${ap} AP for their next turn; ${debt} AP falls due the turn after (${label}).` });
+      // Any lender (Credit, five concepts K1): the Tallyman lends only to his debtors; anyone else lends to any living unit.
+      // `now` gives the AP at once when it is the borrower's own turn (else banked for its next turn); `parts` splits the debt
+      // over several turn starts; ap 0 books a debt with no advance (the micro-loan).
+      lend(s, lender, u, { ap, debt, delay, now = false, parts = null }, label) {
+        if (!lender || !live(u) || (Tally.is(lender) && !Tally.binds(s, u))) return false;
+        const onTurn = now && s.phase === "action" && s.order?.[s.turnIndex] === u.id;
+        if (onTurn) u.tempo = (u.tempo || 0) + ap; else u.bankedTempo = (u.bankedTempo || 0) + ap;
+        const due = parts || [{ debt, turns: delay }];
+        for (const p of due) Tally.book(u).loans.push({ debt: p.debt, turns: p.turns, by: lender.id, label });
+        if (Tally.is(lender)) log(s, { kind: "tally", actor: lender.id, target: u.id, loan: { ap, debt, delay }, text: `${lender.name} lends ${u.name} ${ap} AP for their next turn; ${debt} AP falls due the turn after (${label}).` });
+        else {
+          const when = (t) => (t <= 1 ? "at their next turn start" : `at their turn start ${t} turns on`);
+          const bill = due.length > 1 ? due.map((p) => `${p.debt} AP ${when(p.turns)}`).join(", then ") : `${due[0].debt} AP falls due ${when(due[0].turns)}`;
+          log(s, { kind: "tally", actor: lender.id, target: u.id, loan: { ap, debt: due.reduce((n, p) => n + p.debt, 0), delay: Math.max(...due.map((p) => p.turns)) },
+            text: `${lender.name} ${u.id === lender.id ? "fronts themselves" : `lends ${u.name}`} ${ap} AP ${onTurn ? "now" : "for their next turn"}; ${bill} (${label}).` });
+        }
         return true;
       },
 
       // turns.js, before the debt is paid: loans that come due this turn land as tempo debt. Returns the AP floor.
       turnStart(s, a) {
-        if (Tally.is(a) && s.tally?.offers) s.tally.offers = {};   // his own turn: unanswered terms lapse
+        if (s.tally?.offers) for (const [to, o] of Object.entries(s.tally.offers)) {   // his own turn: his unanswered terms lapse; anyone else's lapse at the end of the round
+          if (Tally.is(a) ? o.by === a.id : !Tally.is(s.actors[o.by]) && o.round < s.round) delete s.tally.offers[to];
+        }
         if (Tally.is(a) && s.tally?.call?.by === a.id) { s.tally.call = null; Tally.marginCall(s, a); }   // the call he announced last turn lands now
         const loans = a.tally?.loans;
-        if (loans?.length && !Tally.lender(s)) { a.tally.loans = []; log(s, { kind: "tally", actor: a.id, text: `${a.name}'s open loans die with the lender.` }); }
-        else if (loans?.length) {
+        const gone = (l) => { const by = s.actors[l.by]; return Tally.is(by) || !by ? !Tally.lender(s) : !live(by); };   // each loan dies with its own lender
+        if (loans?.length && loans.some(gone)) { a.tally.loans = loans.filter((l) => !gone(l)); log(s, { kind: "tally", actor: a.id, text: `${a.name}'s open loans die with the lender.` }); }
+        if (a.tally?.loans?.length) {
           const due = [];
-          for (const l of loans) { l.turns -= 1; if (l.turns <= 0) due.push(l); }
-          a.tally.loans = loans.filter((l) => l.turns > 0);
+          for (const l of a.tally.loans) { l.turns -= 1; if (l.turns <= 0) due.push(l); }
+          a.tally.loans = a.tally.loans.filter((l) => l.turns > 0);
           for (const l of due) {
             const lender = s.actors[l.by] || { id: l.by, name: "The Tallyman", side: "enemy" };
             const land = Tally.charge(s, lender, a, l.debt);
@@ -64,7 +82,7 @@
 
       // Collateral: at or above the threshold, the debtor's highest-cost technique is held until the account drops below it.
       held(s, u) {
-        if (!Tally.binds(s, u) || Tally.outstanding(u) < L().collateral.threshold) return null;
+        if (!Tally.binds(s, u) || Tally.owedHim(s, u) < L().collateral.threshold) return null;
         const tier = { ultimate: 3, refined: 2, basic: 1 };
         let best = null;
         for (const id of abilitiesOf(u)) {
@@ -75,7 +93,7 @@
       },
       heldReason(s, u, abilityId) {
         if (Tally.held(s, u) !== abilityId) return null;
-        return `${C.abilities[abilityId]?.name || "That technique"} is held as collateral: you owe ${Tally.outstanding(u)} AP; it returns the moment you owe less than ${L().collateral.threshold}.`;
+        return `${C.abilities[abilityId]?.name || "That technique"} is held as collateral: you owe ${Tally.owedHim(s, u)} AP; it returns the moment you owe less than ${L().collateral.threshold}.`;
       },
 
       // The Offer: terms to every debtor within range. The player answers from the menu; AI fighters decide on the spot.
@@ -88,7 +106,7 @@
             offers[u.id] = { by: a.id, round: s.round };
             log(s, { kind: "tally", actor: a.id, target: u.id, offer: true, text: `${a.name} offers ${u.name} terms: ${O.ap} AP on your next turn, ${O.debt} AP owed the turn after.`, why: ["Accept or decline from the menu (no AP). Ignoring it declines when his next turn starts. Read the fine print."] });
           } else {
-            const take = Tally.outstanding(u) + O.debt < L().collateral.threshold && seededChance(`${s.seed}:tally:accept:${u.id}:${s.round}`) < L().aiAccept.chance;
+            const take = Tally.owedHim(s, u) + O.debt < L().collateral.threshold && seededChance(`${s.seed}:tally:accept:${u.id}:${s.round}`) < L().aiAccept.chance;
             if (take) Tally.lend(s, a, u, O, "The Offer");
             else log(s, { kind: "tally", actor: a.id, target: u.id, text: `${u.name} declines ${a.name}'s terms.` });
           }
@@ -100,12 +118,12 @@
         delete s.tally.offers[u.id];
         const lender = s.actors[o.by];
         if (!accept || !live(lender)) { log(s, { kind: "tally", actor: u.id, target: o.by, text: `${u.name} declines the terms.` }); return null; }
-        Tally.lend(s, lender, u, L().offer, "The Offer");
+        Tally.lend(s, lender, u, o.terms ? { ...o.terms, now: true } : L().offer, o.label || "The Offer");
         return null;
       },
       // Settle up: pay AP now against your account, loans not yet due first, then tempo debt. 1 AP clears 1 AP.
       settle(s, u) {
-        if (!Tally.binds(s, u)) return "There is no account to settle.";
+        if (!Tally.binds(s, u) && !u?.tally?.loans?.length) return "There is no account to settle.";
         const owed = Tally.outstanding(u), pay = Math.min(u.tempo || 0, owed);
         if (!owed) return "You owe him nothing.";
         if (!pay) return "Settling needs action points.";
@@ -120,27 +138,27 @@
       // An AI-driven fighter holding terms (the hero in autoplay and sims) answers them by the same rule AI fighters use.
       aiAnswer(s, a) {
         const o = s.tally?.offers?.[a.id]; if (!o) return null;
-        const take = Tally.outstanding(a) + L().offer.debt < L().collateral.threshold && seededChance(`${s.seed}:tally:accept:${a.id}:${s.round}`) < L().aiAccept.chance;
+        const take = Tally.owedHim(s, a) + L().offer.debt < L().collateral.threshold && seededChance(`${s.seed}:tally:accept:${a.id}:${s.round}`) < L().aiAccept.chance;
         return { type: "tallyTerms", actor: a.id, target: o.by, accept: take };
       },
       // An AI debtor with a call on the table spends what is left of its turn paying it down.
       aiSettle(s, a) {
-        if (!s.tally?.call || !Tally.binds(s, a) || !Tally.outstanding(a) || (a.tempo || 0) < Math.min(10, Tally.outstanding(a))) return null;
+        if (!s.tally?.call || !Tally.binds(s, a) || !Tally.owedHim(s, a) || (a.tempo || 0) < Math.min(10, Tally.owedHim(s, a))) return null;
         return { type: "tallySettle", actor: a.id };
       },
       debtPainMul: (s, a) => (Tally.binds(s, a) ? 2 : 1),   // the AI prices owing him at double: he collects with interest
-      offersFor: (s, id) => Object.entries(s.tally?.offers || {}).filter(([to]) => to === id).map(([, o]) => ({ from: o.by, name: s.actors[o.by]?.name || "him", ...L().offer })),
+      offersFor: (s, id) => Object.entries(s.tally?.offers || {}).filter(([to]) => to === id).map(([, o]) => ({ from: o.by, name: s.actors[o.by]?.name || "him", ...(o.terms || L().offer), help: o.help || null, when: o.when || null })),
 
       marginCall(s, a) {
         const M = L().marginCall;
         for (const u of Object.values(s.actors)) {
           if (!live(u) || !Tally.binds(s, u)) continue;
-          const loans = u.tally?.loans || [];
+          const loans = (u.tally?.loans || []).filter((l) => Tally.his(s, l));   // his loans only: another lender's stay on their own terms
           if (!loans.length && !(u.tempoDebt > 0)) continue;
-          Tally.book(u).loans = [];
+          Tally.book(u).loans = u.tally.loans.filter((l) => !Tally.his(s, l));
           for (const l of loans) Tally.charge(s, a, u, l.debt);
           Tally.charge(s, a, u, M.fee);
-          const owed = Tally.outstanding(u), dmg = Math.min(M.cap, Math.round(M.base + M.per * owed));
+          const owed = Tally.owedHim(s, u), dmg = Math.min(M.cap, Math.round(M.base + M.per * owed));
           log(s, { kind: "tally", actor: a.id, target: u.id, text: `${u.name}'s account is called in: ${owed} AP owed.` });
           hit(s, a, u, { name: "The Margin Call", ability: ID("marginCall"), damageType: "citrinitas" }, dmg, [`Margin Call: ${M.base} + ${M.per} × ${owed} AP owed (at most ${M.cap}).`], { revealField: true });
         }
@@ -158,6 +176,7 @@
       // resolve.js: ability effects by id (the boss adapter forces every boss effect to damage/guard). Returns true when
       // the technique is fully handled here; otherwise it may return a changed inst for the normal damage path.
       resolve(s, a, inst, why) {
+        if (Credit.ids.has(inst.ability)) { Credit.resolve(s, a, inst); return true; }   // Credit (five concepts K1)
         if (!Tally.is(a)) return null;
         if (inst.ability === ID("theOffer")) { Tally.offer(s, a); return true; }
         if (inst.ability === ID("marginCall")) {   // announced: it lands at the start of his next turn, so there is a turn to settle up
@@ -170,8 +189,8 @@
         if (inst.ability === ID("shortCount")) s.tallyMark = s.log.length;
         const t = (inst.targets || []).map((id) => s.actors[id]).find((u) => u && Tally.binds(s, u));
         if (inst.ability === ID("tallyUp") && t) {
-          const T = L().tallyUp, add = Math.min(T.cap, Math.floor(Tally.outstanding(t) / 10) * T.perTen);
-          if (add) why.push(`Tally Up: ${t.name} owes ${Tally.outstanding(t)} AP: +${add} potency.`);
+          const T = L().tallyUp, add = Math.min(T.cap, Math.floor(Tally.owedHim(s, t) / 10) * T.perTen);
+          if (add) why.push(`Tally Up: ${t.name} owes ${Tally.owedHim(s, t)} AP: +${add} potency.`);
           return { ...inst, potency: inst.potency + add };
         }
         if (inst.ability === ID("foreclosure") && t && Tally.held(s, t)) {
@@ -196,7 +215,7 @@
         book.lost += lost;
         if (book.lost < R.breakAt * t.maxLF || t.lf <= 0) return;
         t.tallyBroken = true;
-        for (const u of Object.values(s.actors)) if (Tally.binds(s, u)) { u.tempoDebt = 0; if (u.tally) u.tally.loans = []; }
+        for (const u of Object.values(s.actors)) if (Tally.binds(s, u)) { u.tempoDebt = 0; if (u.tally) u.tally.loans = u.tally.loans.filter((l) => !Tally.his(s, l)); }   // his books burn; another lender's stand
         if (s.tally) s.tally.offers = {};
         log(s, { kind: "tally", actor: t.id, broken: true, text: `${t.name}'s reserves break. The books burn: every account he holds is void.`, why: [`He lost ${book.lost} LF in one round (${Math.round(R.breakAt * 100)}% of his ${t.maxLF}). It happens once.`] });
         addStun(s, src || null, t, R.stun);
@@ -209,22 +228,88 @@
         if (s.tally?.call) return null;   // the call is on the table: he fights normally until it lands
         a.aiAbilities = (a.bossAbilityIds || []).filter((id) => !MANUAL.has(id));
         const foes = Object.values(s.actors).filter((u) => live(u) && Tally.binds(s, u));
-        const owed = foes.reduce((n, u) => n + Tally.outstanding(u), 0);
+        const owed = foes.reduce((n, u) => n + Tally.owedHim(s, u), 0);
         const ready = (id) => H.availableAbilities(s, a.id).find((x) => x.id === id && x.affordable);
         const go = (id) => { const act = { type: "ability", actor: a.id, ability: id, target: [a.x, a.y] }; return H.apply(s, act, { preview: true }).ok ? act : null; };
         if (ready(ID("marginCall")) && owed >= L().collateral.threshold) { const act = go(ID("marginCall")); if (act) return act; }
         if (ready(ID("compoundInterest")) && foes.filter((u) => u.tempoDebt > 0).length >= 1 && seededChance(`${s.seed}:tally:interest:${s.round}`) < 0.5) { const act = go(ID("compoundInterest")); if (act) return act; }
-        const O = L().offer, near = foes.filter((u) => H.dist(s, a.x, a.y, u.x, u.y) <= O.range && Tally.outstanding(u) < L().collateral.threshold);
+        const O = L().offer, near = foes.filter((u) => H.dist(s, a.x, a.y, u.x, u.y) <= O.range && Tally.owedHim(s, u) < L().collateral.threshold);
         if (a.actionsThisTurn === 0 && near.length && ready(ID("theOffer")) && seededChance(`${s.seed}:tally:offer:${s.round}`) < 0.6) { const act = go(ID("theOffer")); if (act) return act; }
         return null;
       },
       // For the UI: what the player owes him and what he holds.
       status(s, id) {
-        const u = s.actors[id]; if (!Tally.binds(s, u)) return null;
+        const u = s.actors[id]; if (!Tally.binds(s, u) && !u?.tally?.loans?.length && !Tally.offersFor(s, id).length) return null;   // the Tallyman's debtors, and any open account or offer (K1)
         const held = Tally.held(s, u);
         return { call: !!s.tally?.call, owed: Tally.outstanding(u), debt: u.tempoDebt || 0, pending: Tally.pending(u), threshold: L().collateral.threshold, held, heldName: held ? C.abilities[held]?.name : null, offers: Tally.offersFor(s, id) };
       },
     };
+    // Credit (claude-five-concepts-spec K1; R-20261111-20; open calls R-20261112-13): any holder lends through the same ledger.
+    // Numbers are the kit's (kits-data.js frontedTempo, easyTerms, dayOfReckoning). The Loan Shark lens: debts ×1.2 (rounded),
+    // each due a turn sooner (never before the next turn start). Easy Terms's AI borrowers take the Tallyman's accept rule.
+    const CREDIT = { fronted: { ap: 20, debt: 25, delay: 2 }, terms: { ap: 25, debt: 30, turns: 2, range: 4 }, reckon: { range: 5, apPerLf: 5, lfCap: 20 }, shark: { debtMul: 1.2, delayAdd: -1 } };
+    const Credit = {
+      ids: new Set(["frontedTempo", "easyTerms", "dayOfReckoning"]),
+      shark: (a) => a?.lens?.credit === "loanShark",
+      steep(a, debt, turns) { return Credit.shark(a) ? { debt: Math.round(debt * CREDIT.shark.debtMul), turns: Math.max(1, turns + CREDIT.shark.delayAdd) } : { debt, turns }; },
+      near: (s, a, r) => Object.values(s.actors).filter((u) => live(u) && H.dist(s, a.x, a.y, u.x, u.y) <= r),
+      // actions-technique.js, before the cast is paid: one outstanding loan per lender; the ultimate needs a debt in reach.
+      refuses(s, a, act) {
+        if (act.ability === "frontedTempo") {
+          const [x, y] = act.target || [a.x, a.y], t = Object.values(s.actors).find((u) => live(u) && u.x === x && u.y === y);
+          if (t && t.id !== a.id && H.hasSight && !H.hasSight(s, a.x, a.y, t.x, t.y)) return `${t.name} is out of sight: Fronted Tempo needs an ally in sight.`;
+          if (t && (t.tally?.loans || []).some((l) => l.by === a.id)) return t.id === a.id ? "You already owe yourself a loan: one outstanding loan per lender." : `${t.name} already owes you a loan: one outstanding loan per lender.`;
+        }
+        if (act.ability === "dayOfReckoning" && !Credit.near(s, a, CREDIT.reckon.range).some((u) => Tally.outstanding(u) > 0)) return "Day of Reckoning needs a debt within 5.";
+        return null;
+      },
+      terms(a) {   // Easy Terms: 30 owed over the next two turn starts, in equal parts
+        const T = CREDIT.terms, each = Math.round(T.debt / T.turns);
+        const parts = Array.from({ length: T.turns }, (_, i) => Credit.steep(a, i === T.turns - 1 ? T.debt - each * (T.turns - 1) : each, i + 1));
+        return { ap: T.ap, debt: parts.reduce((n, p) => n + p.debt, 0), delay: Math.max(...parts.map((p) => p.turns)), parts };
+      },
+      resolve(s, a, inst) {
+        if (inst.ability === "frontedTempo") {
+          const [x, y] = inst.tiles?.[0] || [a.x, a.y];
+          const t = (inst.targets || []).map((id) => s.actors[id]).find(live) || Object.values(s.actors).find((u) => live(u) && u.x === x && u.y === y) || a;
+          const F = CREDIT.fronted, st = Credit.steep(a, F.debt, F.delay);
+          Tally.lend(s, a, t, { ap: F.ap, debt: st.debt, delay: st.turns, now: true }, "Fronted Tempo");
+          return;
+        }
+        if (inst.ability === "easyTerms") {
+          const T = Credit.terms(a), foes = Credit.near(s, a, CREDIT.terms.range).filter((u) => u.side !== a.side && !u.summon && !u.wild && !Tally.is(u));
+          if (!foes.length) { log(s, { kind: "tally", actor: a.id, text: `${a.name} offers easy terms. Nobody is close enough to take them.` }); return; }
+          const offers = ((s.tally ||= {}).offers ||= {});
+          const when = (t) => (t <= 1 ? "your next turn start" : `your turn start ${t} turns on`), bill = T.parts.map((p) => `${p.debt} AP at ${when(p.turns)}`).join(", then ");
+          for (const u of foes) {
+            if (u.controller === "player") {
+              offers[u.id] = { by: a.id, round: s.round, terms: T, label: "Easy Terms", when: "now",
+                help: `${T.ap} AP now if you accept on your turn; you owe ${bill}. No AP cost. The offer lapses at the end of the round.` };
+              log(s, { kind: "tally", actor: a.id, target: u.id, offer: true, text: `${a.name} offers ${u.name} easy terms: ${T.ap} AP for ${bill.replace(/your /g, "their ")}.`, why: ["Accept or decline from the menu (no AP). The offer lapses at the end of the round."] });
+            } else {
+              const take = Tally.outstanding(u) + T.debt < L().collateral.threshold && seededChance(`${s.seed}:credit:accept:${a.id}:${u.id}:${s.round}`) < L().aiAccept.chance;
+              if (take) Tally.lend(s, a, u, T, "Easy Terms");
+              else log(s, { kind: "tally", actor: a.id, target: u.id, text: `${u.name} declines ${a.name}'s easy terms.` });
+            }
+          }
+          return;
+        }
+        if (inst.ability === "dayOfReckoning") {   // every account within 5, the caster's too: AP now, then banked AP, then 1 LF per 5 AP short (at most 20)
+          const R = CREDIT.reckon; let any = false;
+          for (const u of Credit.near(s, a, R.range)) {
+            const owed = Tally.outstanding(u); if (!owed) continue; any = true;
+            let left = owed; const fromTempo = Math.min(Math.max(0, u.tempo || 0), left); u.tempo -= fromTempo; left -= fromTempo;
+            const fromBank = Math.min(u.bankedTempo || 0, left); u.bankedTempo = (u.bankedTempo || 0) - fromBank; left -= fromBank;
+            const lf = Math.min(R.lfCap, Math.floor(left / R.apPerLf));
+            Tally.book(u).loans = []; u.tempoDebt = 0;
+            log(s, { kind: "tally", actor: a.id, target: u.id, reckoned: owed, text: `${u.name}'s account comes due: ${owed} AP owed, ${fromTempo + fromBank} paid${lf ? `, ${lf} LF for the ${left} AP short` : ""}. The debt clears.` });
+            if (lf) hit(s, a, u, { name: "Day of Reckoning", ability: "dayOfReckoning", damageType: "citrinitas" }, lf, [`${left} AP short: 1 LF per ${R.apPerLf} AP (at most ${R.lfCap}).`], { revealField: true });
+          }
+          if (!any) log(s, { kind: "tally", actor: a.id, text: `Every account comes due, and nobody within ${R.range} owes anything any more.` });
+        }
+      },
+    };
+    Tally.creditRefuses = Credit.refuses;
     return { Tally };
   })();
 });

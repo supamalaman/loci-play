@@ -113,6 +113,7 @@
       processRandomEvents(s);
       H.waterAgenda?.(s);   // Living Water W1: the agenda phase, after weather (engine/conditions.js)
       H.Hires?.roundStart(s);   // a called merc or mediator arrives (engine/hires.js)
+      { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.roundStart?.(s, H); }   // Shaman Totem (SH2): round-based guest clocks tick here
       H.friendRound?.(s);
       H.fishRound?.(s);   // dream fish restock the water (engine/conditions.js)   // a remembered Sasquatch may come to help (engine/tamer.js)
       advanceSuccessionRound(s);
@@ -541,6 +542,7 @@
     function endTurn(s) {
       const a = s.actors[currentId(s)];
       totemTurnEnd(s, a);   // ingredient totems: the host's count runs at her turn end (not the turn she woke it)
+      ClassRuntime?.ma?.turnEnd(s, a, log);   // Ma (five concepts M1): a still turn in Still Stance banks 1
       if (s.law?.dispatch?.pending && H.Dispatch) { s.law.dispatch.autoArrived = true; H.Dispatch.arrive(s, H); }   // no UI played the call (sims, headless): the officers still come
       if (a) { a._unspent = a._heldAtEnd ?? a.tempo; a._heldAtEnd = null; }   // W5.3: heat reads banked-first (stall zeroes tempo before this runs)
       armEstablishedGuard(s, a);

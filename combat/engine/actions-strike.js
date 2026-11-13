@@ -106,6 +106,7 @@
         const AS = s.rules.ascended; if (AS && H.hasTrait(a, AS.trait)) potency += AS.strike;   // Ascended: a flat +5
         if (a.birdMountain?.red) { const g = a.birdMountain.red.gear; potency = Math.floor(potency * (g === 5 ? 3 : [1.5, 2, 2.5][g - 2])); }   // ʻUlaʻula: the red multiplies the whole Strike
         const coils = H.fruitRelease ? H.fruitRelease(s, a) : { potency: 0, n: 0 }; if (coils.n) potency += coils.potency;   // Coilfruit: the stored coils let go
+        potency += ClassRuntime?.ma?.strike(s, a, log) || 0;   // Ma (five concepts M1): Still Stance +1, and the Strike spends all banked Stillness for +1 each
         if (charged) { a.lanceTurn = a.ownerTurns; potency += charged; log(s, { kind: "effect", actor: a.id, target: t.id, text: `${a.name} strikes at the end of a ${a.walkedThisTurn}-tile run: Lance Charge, +${charged}.`, why: ["Once a turn, after walking 3 or more tiles."] }); }
         const armG = H.Injury?.gradeOf(a, "arms") || 0;
         if (armG === 1) potency *= (s.rules.injury?.armsWoundedMult ?? 0.8);

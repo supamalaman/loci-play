@@ -6,6 +6,11 @@
 })(typeof self!=="undefined"?self:this,function(LB,D,DM){
   const copy=x=>JSON.parse(JSON.stringify(x));
   const hash=s=>{let a=2166136261,b=5381;for(const c of s){a=Math.imul(a^c.charCodeAt(0),16777619);b=Math.imul(b,33)^c.charCodeAt(0);}return (a>>>0).toString(36)+(b>>>0).toString(36);};
+  // C1b0 (landing 1): the duplicate content hash ignores the name and the price fields, so a renamed copy, or the same
+  // recipe compiled after a tariff change or a Recopy, still matches. A work inscribed before C1b0 has no stored hash:
+  // hashOf computes it from the stored ability, so the check covers old works too.
+  const contentHashOf=(ability)=>{const c=copy(ability);delete c.name;delete c.cost;delete c.tempoCost;return hash(JSON.stringify(c));};
+  const hashOf=(d)=>d.hash||(d.workshopAbility?contentHashOf(d.workshopAbility):null);
   const state=a=>{const l=LB.fresh(a?.legacy);l.workshop={version:1,drafts:[],next:1,...l.workshop};return l;};
   const training=C=>["snapShot","shieldWall","diffuseWave"].map(id=>({id:`training:${id}`,...LB.partsOf(id,C)}));
   const materials=(a,C,sample=false)=>(sample?training(C):state(a).parts).map(p=>({...p,effects:LB.partsOf(p.source,C)?.effects||[]}));
@@ -121,10 +126,11 @@
   function inscribe(account,recipe,C){
     const q=compile(account,recipe,C);if(!q.ok)return {ok:false,error:q.errors.join(" "),account};
     const l=state(account);
-    if(l.scribed.some(d=>d.id===q.id))return {ok:false,error:"This exact blueprint is already inscribed. Equip it from your library.",account};
+    const contentHash=contentHashOf(q.ability);
+    if(l.scribed.some(d=>d.id===q.id||hashOf(d)===contentHash))return {ok:false,error:"This exact blueprint is already inscribed. Equip it from your library.",account};
     if((account.seeds||0)<q.inscription)return {ok:false,error:`Inscription costs ${q.inscription} Seeds.`,account};
     l.parts=l.parts.filter(p=>!q.used.includes(p.id));
-    const def={id:q.id,name:q.ability.name,workshop:true,workshopAbility:copy(q.ability),recipe:copy(q.recipe),provenance:q.provenance,ap:q.ap,cost:q.phi,concepts:q.ability.concepts,
+    const def={id:q.id,hash:contentHash,name:q.ability.name,workshop:true,workshopAbility:copy(q.ability),recipe:copy(q.recipe),provenance:q.provenance,ap:q.ap,cost:q.phi,concepts:q.ability.concepts,
       tariff:DM.table.tariff.defStamp,tempoCost:q.ap,pricing:{gross:q.pricing.gross,effects:copy(q.pricing.effects),inputs:copy(q.pricing.inputs)}};   // scribing desk A5: the tariff this work was priced under, and what priceOf needs to price it again (Recopy, Amend); an older def has none (= tariff 1)
     l.scribed.push(def);
     return {ok:true,account:{...account,seeds:account.seeds-q.inscription,legacy:l},technique:def};
@@ -155,13 +161,78 @@
     def.workshopAbility.cost=phi;def.workshopAbility.tempoCost=ap;def.rev=(def.rev||0)+1;
     return {ok:true,account:{...account,legacy:l},technique:def};
   }
+  // Amend (scribing desk C1b1): revise an inscribed work's name, scale, power, footprint or contract. The parts
+  // are spent, so mechanics rebuild from the content adapters (source+key survive on the def) and the price
+  // rebuilds through priceOf at the current tariff, exactly as compile would. Components and delivery are
+  // locked. Same id, rev + 1, hash recomputed, once per work per battle, 30 + 10 x parts Seeds.
+  function amend(account,id,changes,C){
+    const fail=(error)=>({ok:false,error,account});
+    const l=state(account),def=l.scribed.find(d=>d.id===id&&d.workshop);
+    if(!def)return fail("Choose an inscribed workshop blueprint.");
+    const battles=account.battles||0;
+    if(def.amendedAt===battles)return fail("This work was already amended since your last battle.");
+    const ch=changes||{};
+    if(ch.delivery!==undefined||ch.effects!==undefined)return fail("Components and delivery are locked after inscribing.");
+    if(!def.pricing||!def.pricing.inputs||!Array.isArray(def.workshopAbility?.scribedEffects))return fail("That work predates stored pricing and cannot be amended.");   // an older def has no pricing (= tariff 1, workshop.js inscribe); Recopy refuses it the same way
+    const T=DM.table.amend;if(!T)return fail("The desk's prices are not loaded.");
+    const recipe={...copy(def.recipe)};
+    if(ch.name!==undefined)recipe.name=ch.name;
+    if(ch.scale!==undefined)recipe.scale=ch.scale;
+    if(ch.power!==undefined)recipe.power=ch.power;
+    if(ch.shape!==undefined||ch.footprint!==undefined)recipe.shape=ch.shape??ch.footprint;
+    if(ch.contract!==undefined)recipe.contract=copy(ch.contract);
+    if(!["light","balanced","heavy"].includes(recipe.scale)||!["focused","wide"].includes(recipe.shape))return fail("Choose scale and footprint.");
+    const storedFx=def.workshopAbility.scribedEffects,effects=[];
+    for(const s of storedFx){
+      const adapter=(LB.partsOf(s.source,C)?.effects||[]).find(e=>e.key===s.key);
+      if(!adapter)return fail("An adapter this work was built from is no longer known.");
+      effects.push({...copy(adapter),recipient:s.recipient,source:s.source});
+    }
+    const hostile=effects.some(e=>e.recipient==="target"),ally=effects.some(e=>e.recipient==="ally");
+    const delivery=def.workshopAbility.delivery;   // locked, resolved at inscribe
+    if(recipe.shape==="wide"&&delivery!=="field")return fail("Wide needs field delivery.");
+    const scale={light:.75,balanced:1,heavy:1.25}[recipe.scale],radius=delivery==="field"?(recipe.shape==="wide"?2:1):0;
+    const power=Math.min(1,Math.max(.25,Number(recipe.power)||1)),pow=effects.some(e=>SCALABLE.includes(e.key))?power:1;
+    for(const e of effects){if(e.params.potency)e.params.potency=Math.max(1,Math.round(Math.min(16,e.params.potency)*scale*pow));if(e.params.protection)e.params.protection=Math.max(1,Math.round(e.params.protection*scale*pow));if(e.params.tiles)e.params.tiles=Math.max(1,Math.round(e.params.tiles*pow));if(e.params.ap)e.params.ap=Math.max(1,Math.round(e.params.ap*pow));}
+    const {gross,ap}=priceOf(effects,{scale,pow,pairMult:def.pricing.inputs.pairMult,radius,authored:def.pricing.inputs.authored,F:DM.table.tariff.F,C:DM.table.tariff.C});
+    const oldDesign=D.design(def.recipe?.contract||{},def.workshopAbility);   // the stored range may hold the old strength bonus; peel it before adding the new one
+    if(!oldDesign.ok)return fail(oldDesign.errors.join(" "));
+    const rangeBase=def.workshopAbility.range-((def.recipe?.contract?.spend||"efficiency")!=="efficiency"?(oldDesign.rangeAdd||0):0);
+    const ability={name:String(recipe.name||"Untitled technique").trim().slice(0,40)||"Untitled technique",tier:"refined",concepts:def.workshopAbility.concepts.slice(),delivery,target:hostile&&delivery!=="field"?"enemy":ally?"ally":"self",area:radius?{shape:"radius",radius}:{shape:"single"},range:rangeBase,potency:effects.filter(e=>e.key==="damage").reduce((n,e)=>n+e.params.potency,0),cost:gross,tempoCost:ap,effect:"scribedEffects",scribed:true,scribedEffects:effects,mechanism:"Ordered composition of recovered effects."};
+    const contract=recipe.contract||{};
+    if(contract.spend==="strength"&&!effects.some(e=>["damage","ward"].includes(e.key)))return fail("Strength allocation needs a damage or ward component; use ΦF efficiency for control and resistance.");
+    if(contract.specialization&&contract.specialization!=="none"&&!effects.some(e=>e.key==="damage"))return fail("A damage specialization needs a damage component.");
+    const design=D.design(contract,ability);if(!design.ok)return fail(design.errors.join(" "));
+    if(design.ongoing&&contract.spend!=="efficiency")return fail("Maintained component assemblies currently spend responsibility on ΦF efficiency; held strength needs its own adapter.");
+    const efficiency=(contract.spend||"efficiency")==="efficiency";
+    const responsibility=design.credits.reduce((n,c)=>n+c.points,0),reduction=efficiency?Math.min(.95,responsibility*.05):0;
+    let phi=Math.max(2,Math.ceil(gross*(1-reduction)))+(design.specialty.phi||0)+(design.contract.cast.extraPhi||0);
+    if(design.contract.cast.ultimate){phi=Math.max(14,phi);ability.tier="ultimate";ability.announce="The written conditions have been fulfilled.";}
+    if(!efficiency){for(const e of effects)if(e.key==="damage")e.params.potency=Math.round(e.params.potency*design.initialMult);else if(e.key==="ward")e.params.protection=Math.round(e.params.protection*design.initialMult);ability.range+=design.rangeAdd;}
+    ability.potency=effects.filter(e=>e.key==="damage").reduce((n,e)=>n+e.params.potency,0);
+    if(design.contract.cast.contact)ability.range=1;
+    ability.cost=phi;if(design.enabled){ability.contract=design.contract;ability.contractDuration=design.duration;ability.contractPulsePotency=ability.potency;}
+    ability.reveal=effects.map((e,i)=>`${i+1}. ${e.label} → ${e.recipient}${e.params.duration?` (${e.params.duration} turns)`:""}${e.params.potency?` (${e.params.potency} potency)`:""}`).join("; ");
+    const amendedHash=contentHashOf(ability);
+    if(l.scribed.some(d=>d!==def&&hashOf(d)===amendedHash))return fail("Another inscribed work already does exactly this. Equip that one instead.");   // C1b0's rule holds for Amend too
+    const usedSize=new Set([def.recipe.delivery,...def.recipe.effects.map(e=>e.part)]).size;
+    const oldSpec=def.recipe?.contract?.specialization||"none",newSpec=contract.specialization||"none";
+    const price=T.seeds+T.perComponent*usedSize+(newSpec!==oldSpec?(design.specialty.seeds||0):0);   // a newly chosen Seed-funded specialization is bought as at inscribe (compile adds design.specialty.seeds); one already paid for is not charged again
+    if((account.seeds||0)<price)return fail(`Amending takes ${price} Seeds.`);
+    def.workshopAbility=ability;def.recipe=recipe;def.name=ability.name;def.ap=ap;def.tempoCost=ap;def.cost=phi;def.concepts=ability.concepts;
+    def.pricing={gross,effects:effects.map(e=>({key:e.key,source:e.source,phi:e.phi,ap:e.ap})),inputs:{scale,pow,pairMult:def.pricing.inputs.pairMult,radius,authored:def.pricing.inputs.authored,F:DM.table.tariff.F,C:DM.table.tariff.C}};
+    def.tariff=DM.table.tariff.defStamp;def.rev=(def.rev||0)+1;def.hash=amendedHash;def.amendedAt=battles;
+    return {ok:true,account:{...account,seeds:account.seeds-price,legacy:l},technique:def,price};
+  }
   function equip(account,id,replace=null){
     const l=state(account),m=l.memory;
     if(!l.scribed.some(d=>d.id===id&&d.workshop))return {ok:false,error:"Choose an inscribed workshop blueprint.",account};
     if(m.held.includes(id))return {ok:true,account};
-    if(m.held.length>=m.slots){if(!replace||!m.held.includes(replace))return {ok:false,error:"Memory is full. Choose which technique to replace.",account};m.held=m.held.filter(x=>x!==replace);m.forgotten[replace]=true;}
+    // B2c (landing 1): a free desk slot, then a free general slot; only a full memory asks for a replacement.
+    if(needsReplace(account)){if(!replace||!m.held.includes(replace))return {ok:false,error:"Memory is full. Choose which technique to replace.",account};m.held=m.held.filter(x=>x!==replace);m.forgotten[replace]=true;}
     m.held.push(id);delete m.forgotten[id];return {ok:true,account:{...account,legacy:l}};
   }
+  const needsReplace=(account)=>{const u=LB.memoryUse(account);return !u.deskFree&&!u.generalFree;};
   function unequip(account,id){const l=state(account);l.memory.held=l.memory.held.filter(x=>x!==id);return {ok:true,account:{...account,legacy:l}};}
   function prove(account,recipe,C,E,{sample=false,fixture="open",seed=41,rehearse=false}={}){
     const q=compile(account,recipe,C,{sample});if(!q.ok)return q;
@@ -210,5 +281,5 @@
     }catch(e){return {ok:false,errors:[e.message]};}
     finally{if(old)C.abilities[q.id]=old;else delete C.abilities[q.id];}
   }
-  return {state,training,materials,groups,components,describePart,compile,priceOf,migrateRecipe,saveDraft,inscribe,recopy,equip,unequip,prove};
+  return {state,training,materials,groups,components,describePart,compile,priceOf,migrateRecipe,saveDraft,inscribe,recopy,amend,equip,needsReplace,unequip,prove};
 });

@@ -44,6 +44,7 @@
         { const cres = ab(act.ability)?.crescendo; if (cres) m.crescendo = cres; }   // the manifest is fresh: carry the def's Crescendo bend on it (engine.js is at its size cap)
         { const no = H.Inspiration.crescendoRefuses(s, a, m); if (no) return no; }   // a Crescendo technique needs its Inspiration and only one is in force (ledgers.js)
         const crescendoFree = H.Inspiration.crescendoFree(s, a, act.ability, m); if (crescendoFree) Object.assign(m, { tempoCost: 0, cost: 0, lfPrice: 0 });   // the bend: this cast is free (stamped at commit)
+        { const off = ClassRuntime?.ma?.discount(a) || 0; if (off && m.cost > 0) { m.cost = Math.max(0, m.cost - off); m.maDiscounted = true; } }   // Ma: The Space Between's discount on the next technique
         const sigFrom = act.from ? H.validSignalOrigin(s, a, m, act.from) : null;
         if (act.from && !sigFrom.ok) return sigFrom.error;
         const src = sigFrom?.ok ? { ...a, x: act.from[0], y: act.from[1] } : a;   // signal origin (machine P3): geometry reads the marker tile; costs stay on the caster
@@ -67,6 +68,7 @@
         if (act.ability === "honedEdge" && !a.lastTechnique) return "Use the technique you mean to practise first; Honed Edge hones the last one you used.";
         if (act.ability === "honedEdge" && a.practice?.ability === a.lastTechnique) return `You are already practising ${ab(a.lastTechnique).name}.`;
         if (act.ability === "masterwork" && !(a.practice?.stacks > 0)) return "Masterwork needs practice behind it: hone a technique and use it first.";
+        { const no = H.Tally?.creditRefuses?.(s, a, act); if (no) return no; }   // Credit (five concepts K1): one loan per lender; the ultimate needs a debt in reach
         if (a.promise?.surrender === act.ability) return `Your Public Promise has surrendered ${ab(act.ability).name} until it resolves.`;
         if (ClassRuntime && !s.preview) { const ce = ClassRuntime.beforeAbility(s, a, { ...m, id: act.ability }, classH()); if (ce) return ce; }
         if (!s.preview && m.tier === "ultimate") H.Inspiration.witness(s, a, "seesUltimate", a.id);   // Inspiration: seeing an ultimate   // ClassRuntime: vows, laws, silence, dependence
@@ -123,6 +125,7 @@
         if (quickened === "lastWord") { a.quickenedSpent ||= {}; a.quickenedSpent[act.ability] = true; }
         if (inspired && !internal?.prepaid) { const n = s.rules.inspiration?.ultimatePoint ?? 1; H.Inspiration.spend(s, a, n, "perform"); log(s, { kind: "inspiration", actor: a.id, spent: n, text: `${a.name} spends ${n} Inspiration: it pays ${m.name}'s ${m.cost} ΦF.`, why: [`Inspired ultimate: with a full bar, one Inspiration pays the whole ΦF cost.${mastered ? " Mastery: the bar is not spent." : " The bar and the AP are still spent."}`] }); }   // MCR-04: prepaid ΦF is never paid again with Inspiration
         else if (!internal?.prepaid && !freeFirst) a.pf -= m.cost;   // prepaid at set time
+        ClassRuntime?.ma?.paid(a, m);   // Ma: a discount once used is gone
         if (inspirationPrice > 0 && !internal?.prepaid) { H.Inspiration.spend(s, a, inspirationPrice); log(s, { kind: "inspiration", actor: a.id, spent: inspirationPrice, text: `${a.name} spends ${inspirationPrice} Inspiration on ${m.name}.`, why: ["A Crescendo's price is paid on cast, beside AP and ΦF (never a perform)."] }); }
         if (m.lfPrice && !internal?.prepaid) { a.lf -= m.lfPrice; log(s, { kind: "act", actor: a.id, text: `${a.name} pays ${m.lfPrice} LF for ${m.name} (${a.lf}/${a.maxLF}).`, why: ["A technique's LF price is paid on cast, after the cast is legal and before anything resolves; it can never leave the caster below 1 LF."] }); }
         if (m.miseStation) ClassRuntime.mise.redeem(s, a, m, classH());   // Mise en Place: the prepared station is spent with the cast

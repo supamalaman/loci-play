@@ -58,6 +58,8 @@
     if (t.distracted && t.distracted.until >= s.round) otherConds.push(`Distracted by ${s.actors[t.distracted.by]?.name || "someone"}`);
     if (t.gaiaForm) otherConds.push(t.gaiaForm === "restored" ? "The Living Accord (ally)" : "The Wounded Ground");
     if (t.form?.name) otherConds.push(`Form: ${t.form.name}${t.form.turnsLeft ? ` (${t.form.turnsLeft} turns)` : ""}`);
+    if (t.companion?.guest && t.companion.turnsLeft != null) otherConds.push(`Guest clock: ${t.companion.turnsLeft} turn${t.companion.turnsLeft === 1 ? "" : "s"} left`);
+    if (t.companion?.guest && t.companion.turnsLeft == null && t.companion.roundsLeft != null) otherConds.push(`Guest clock: ${t.companion.roundsLeft} round${t.companion.roundsLeft === 1 ? "" : "s"} left`);   // SH2 Totem: rounds-based clock
     add("Condition", [vitals.join(" · "), conds.join(", "), otherConds.join(", ")]);
 
     // Discernment: your banked damage bonus against this target (observation.js credit()).

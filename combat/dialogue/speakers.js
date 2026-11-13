@@ -702,6 +702,9 @@
       rules: { sh_line: ["The dead never left. Mind your manners."], sh_hurt: ["The ancestors felt that!"] },
       events: { encounter: ["Come out, all of you. We have company."], attack: ["Grandmother, teeth!"], hurt: ["The ancestors felt that!"], rethink: ["Different ancestor. Older debt."], defeat: ["...joining the guests..."] },
       faces: { encounter: "speaking", attack: "focused", hurt: "surprised", rethink: "serious", defeat: "tired" } },
+    spirit_raven: { name: "Spirit Raven", voice: "A croak that points.", rules: {}, events: { encounter: ["Caw."], defeat: ["..."] } },
+    ancestral_fox: { name: "Ancestral Fox", voice: "Quiet paws; a bite that remembers.", rules: {}, events: { encounter: ["It watches."], attack: ["Snap."], defeat: ["Gone."] } },
+    spirit_totem: { name: "Spirit Totem", voice: "A carved post that keeps the room.", rules: {}, events: { encounter: ["It stands watch."], defeat: ["Splinters."] } },   // SH2 guest; added at the 1.3.564 merge (Bitt IN)
     hedge_witch: { name: "Hedge Witch", voice: "Hedge-keeper; fusses over candles and company with equal suspicion.",
       rules: { hw_line: ["Stay on the tame side, love."], hw_hurt: ["You snuffed my candle!"] },
       events: { encounter: ["Oh good, visitors. Mind the brambles — they mind you."], attack: ["The hedge provides!"], hurt: ["You snuffed my candle!"], rethink: ["Relighting. Replanting. Rethinking."], defeat: ["...gone to seed..."] },

@@ -785,6 +785,16 @@
 .cc-town-lab { max-width:520px; text-align:center; }
 .cc-town-lab-art { height:180px; image-rendering:pixelated; }
 .cc-town-hall { max-width:560px; }
+/* Museum M2 (specs/MUSEUM.md): Palace Night game tokens (docs/palace-night.md). */
+.cc-museum { max-width:720px; }
+.cc-museum .pn-label { margin:0 0 8px; color:var(--pn-accent, #e9c46a); }
+.cc-museum-plinths { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:12px 0; }
+.cc-plinth { display:flex; flex-direction:column; gap:6px; min-height:120px; padding:10px; border:1px solid var(--pn-line, #3a3642); border-radius:var(--pn-r, 14px); background:var(--pn-surface, #26232c); color:var(--pn-text, #f3eee2); }
+.cc-plinth.is-empty { opacity:0.55; justify-content:center; align-items:center; }
+.cc-plinth .cc-item-icon { width:48px; height:48px; image-rendering:pixelated; }
+.cc-museum-badge { display:inline-block; margin-left:6px; padding:1px 8px; border:1px solid var(--pn-accent, #e9c46a); border-radius:10px; color:var(--pn-accent, #e9c46a); font:600 11px var(--pn-pixel, ui-monospace, Menlo, monospace); letter-spacing:.06em; }
+.cc-museum-scene { margin:10px 0; padding:12px 14px; border:1px solid var(--pn-accent, #e9c46a); border-radius:var(--pn-r, 14px); background:var(--pn-surface, #26232c); color:var(--pn-text, #f3eee2); }
+.cc-museum-place { list-style:none; padding:0; margin:8px 0; display:flex; flex-wrap:wrap; gap:8px; }
 .cc-hall-offer { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:10px 0; border-top:1px solid #3a3550; }
 .cc-hall-offer p { margin:4px 0 0; font-size:13px; }
 .cc-hall-note { color:#ffe9a8; }

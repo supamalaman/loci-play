@@ -26,6 +26,7 @@
     maxBankedActionPoints: 100,                  // Stall may carry at most one turn forward
     maxTempoDebt: 100, maxOverclockPerAction: 100,
     actionCosts: { movePerPoint: 10, jump: 25, climb: 50, strike: 25, strikeMin: 10, strikeMax: 50, guard: 15, ability: { basic: 25, refined: 35, ultimate: 50 }, utility: 20, swap: 35 },
+    summonRoomStudyAp: 20,   // Observe teaches O2c: studying a summon's palace room; the handler and the action card both read it (action seams A3a)
     catNap: { apPerLF:5, maxHeal:8 },
     survivalInstincts: { woundedBelow: 0.4,   // Survival Instincts (docs/survival-instincts.md): numbers are provisional
       scramble: { ap: 15, moveAdd: 2, uses: 3 },
@@ -167,6 +168,16 @@
     hair_clone: { name: "Hair Clone", of: "monkey_king", sprite: "monkey-king", primary: "deception", secondary: "leverage",
       lf: 10, turns: 1, manual: true,
       arrival: "springs from {owner}'s plucked hair for {turns} turn", leave: "vanishes with a pop" },
+    // Shaman guests (SH1; claude-shaman-summoner-spec): manual companions — never the low-LF auto-call; no card flag (palace slot).
+    spirit_raven: { name: "Spirit Raven", of: "shaman", sprite: "spirit-raven", primary: "threshold", secondary: "hospitality",
+      lf: 6, turns: 2, manual: true, move: 5, noAttack: true,
+      arrival: "perches beside {owner} for {turns} of its turns", leave: "takes wing back through the door" },
+    ancestral_fox: { name: "Ancestral Fox", of: "shaman", sprite: "ancestral-fox", primary: "threshold", secondary: "hospitality",
+      lf: 8, turns: 3, manual: true, move: 4, strikePotency: 5,
+      arrival: "pads in beside {owner} for {turns} of its turns", leave: "slips back through the door" },
+    spirit_totem: { name: "Spirit Totem", of: "shaman", sprite: "spirit-totem", primary: "threshold", secondary: "hospitality",
+      lf: 20, turns: null, rounds: 4, manual: true, move: 0, noAttack: true, structure: true, immobile: true,
+      arrival: "rises beside {owner} for 4 rounds", leave: "sinks back through the door" },
     // agi (Mala, 2026-10-12): a small chance that the Tech Billionaire's AGI gets out when he is at 40% and jumps in
     // on his side. One 10% roll per battle, like the Freemason; a miss is silent (it stays contained).
     // Mala: "it should be the real AGI not a 4 turn mini summon". The key IS the character id, so every takeoff rule
@@ -1691,7 +1702,9 @@
       castingOf: "control", subfaction: "rogues" },
     // Hot builds wave 2 (Mala, 2026-10-16): concept-level launches tracked in docs/hot-builds.md.
     // Shaman + Hedge Witch overrule the shelf specs' secondaries (Hospitality and Herbal Medicine
-    // are not live concepts): Preservation keeps the ancestors, Succession grows the hedge.
+    // were not live concepts): Preservation keeps the ancestors, Succession grows the hedge.
+    // SH1 (claude-shaman-summoner-spec Decision 1): this NPC keeps Threshold + Preservation. The Shaman class
+    // pair Threshold + Hospitality is ClassRuntime.CLASS_PAIRS.shaman: the player's pick and a class-rolled foe read it.
     frogan: npc("Frogan", "boundary", ["threshold"], ["threshold"], "frogan"),
     shaman: npc("Shaman", "threshold", ["preservation"], ["preservation"], "shaman"),
     hedge_witch: npc("Hedge Witch", "boundary", ["succession"], ["succession"], "hedge_witch"),
@@ -2215,7 +2228,7 @@
         if (!concepts.periodicity.abilities.includes(id)) concepts.periodicity.abilities.push(id);
       }
     }
-    for (const c of ["mise_en_place", "homology"]) if (!concepts[c] && Kits.stagedConcepts[c]) {   // playable (Mala, 2026-10-28): whoever equips it gets its kit; Rack and Label and Parallel Prep carry no class pair (the Chef, 2026-10-30, holds it but leaves them open)
+    for (const c of ["mise_en_place", "homology", "ma", "credit"]) if (!concepts[c] && Kits.stagedConcepts[c]) {   // playable (Mala, 2026-10-28): whoever equips it gets its kit; Rack and Label and Parallel Prep carry no class pair (the Chef, 2026-10-30, holds it but leaves them open)
       const { channel, ...def } = Kits.stagedConcepts[c];
       concepts[c] = { ...def, abilities: [] }; conceptDamageTypes[c] = channel;
     }
@@ -2313,6 +2326,8 @@
     concepts.deception.abilities=concepts.deception.abilities.filter(id=>!["hairClone","monkeyMischief","staffSky","merge","spareHair"].includes(id));   // pair-gated monkey kit (cyphOpenMic precedent)
     concepts.leverage.abilities=concepts.leverage.abilities.filter(id=>!["somersaultCloud","jinguBang"].includes(id));   // pair-gated monkey kit (cyphOpenMic precedent)
   }
+  if(concepts.threshold)concepts.threshold.abilities=concepts.threshold.abilities.filter(id=>!["spiritRaven","ancestralFox","ancestralMoot"].includes(id));   // pair-gated shaman kit
+  if(concepts.hospitality)concepts.hospitality.abilities=concepts.hospitality.abilities.filter(id=>!["guestPortion","spiritTotem","ancestralMoot"].includes(id));   // pair-gated shaman kit (SH2 stubs stay pair-gated)
   if(concepts.lyricism){
     concepts.lyricism.abilities=concepts.lyricism.abilities.filter(id=>id!=="cyphOpenMic");
     concepts.lyricism.abilities=concepts.lyricism.abilities.filter(id=>id!=="jazzSolo"&&id!=="cuttingContest");   // pair-exclusive jazz kit: granted by pairs below, never shared (cyphOpenMic precedent)

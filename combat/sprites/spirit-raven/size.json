@@ -1,0 +1,25 @@
+{
+  "size_class": "small",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 0.55,
+  "world_height_definition": "PROPOSED small guest from shaman-review/bonus (same sheet density as the Shaman). Content h=122px vs shaman 178px (~0.69).",
+  "runtime_consumed": false,
+  "source": "staged-art/shaman-review/bonus/spirit-raven.png (SH0, Kerf CU)",
+  "idle_alpha_size_px": [
+    193,
+    130
+  ],
+  "content_height_px": 122,
+  "shaman_idle_content_height_px": 178,
+  "height_ratio_to_shaman": 0.685,
+  "foot_point_px": [
+    96.5,
+    125.0
+  ],
+  "minimum_pixel_size_px": 48,
+  "minimum_pixel_size_definition": "ROLES.md Art sizing (tiny 24, small 48, person 96).",
+  "consumer": "claude-shaman-summoner-spec SH1 (guests) / SH4 (echo)"
+}

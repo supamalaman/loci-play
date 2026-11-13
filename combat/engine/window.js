@@ -74,11 +74,22 @@
       const coverOnly = !targeted && !inst.announced;   // W1c: in a reactive window a non-target answers only by covering (announced keeps wall answers for off-tile defenders)
       for (const x of H.availableAbilities(s, d.id, { answers: true })) {
         const m = x.m, def = H.ab(x.id);
-        if (coverOnly && x.id !== "fixedGaze") continue;
+        if (coverOnly && x.id !== "fixedGaze" && x.id !== "guestPortion") continue;
         if (def?.answer) { if (answerReady(s, d, x, atk, def, inst)) out.push({ kind: "technique", ability: x.id, target: [atk.x, atk.y], apCost: answerAp(s, m), pf: H.inspiredPay(s, d, m) ? 0 : m.cost, name: m.name, answer: true, ...(H.inspiredPay(s, d, m) ? { inspired: true } : {}) }); continue; }
         if (!def?.reactive || d.pf < m.cost || !canPayAp(s, d, answerAp(s, m))) continue;
         if (learnedFails(s, d, inst, x.id)) continue;   // it failed against this technique already this battle
         const opt = (at) => ({ kind: "technique", ability: x.id, target: at, apCost: answerAp(s, m), pf: m.cost, name: m.name });
+        if (x.id === "guestPortion") {   // SH2: every attacked ally within 4 of her seated guest, nearest guest takes it
+          for (const u of opponentsOn(s, atk, inst.tiles, false)) {
+            if (u.side !== d.side || u.defeated || dist(s, atk.x, atk.y, u.x, u.y) < (RD(s)?.minRange ?? 2)) continue;
+            const uic = u.status?.intercept;
+            if (uic && uic.uses > 0 && (uic.until == null || uic.until >= u.ownerTurns)) continue;   // never over standing cover (oathGuard coverWard precedent)
+            const near = Object.values(s.actors).filter((g) => !g.defeated && g.id !== u.id && g.companion?.guest && g.companion.owner === d.id && dist(s, g.x, g.y, u.x, u.y) <= 4)
+              .sort((p, q) => dist(s, p.x, p.y, u.x, u.y) - dist(s, q.x, q.y, u.x, u.y))[0];
+            if (near) out.push({ ...opt([u.x, u.y]), portionFor: u.id, portionGuest: near.id });
+          }
+          continue;
+        }
         if (m.effect === "barrier") {
           if (x.id === "fixedGaze" && (!d.status?.ward?.image || !seesItComing(s, d, inst))) continue;   // Fixed Gaze rides on Hold the Image and meets shots it sees coming: announced or not, closer than minRange means no gaze (triage 2026-11-04: the ranged gate)
           if (x.id === "fixedGaze" && coverOnly) { for (const t of opponentsOn(s, atk, inst.tiles, false)) if (t.side === d.side && t.id !== d.id && !t.defeated && !t.status?.ward && dist(s, d.x, d.y, t.x, t.y) <= 2) out.push({ ...opt([t.x, t.y]), coverFor: t.id }); continue; }   // W1c cover: the image meets a shot at an unwarded ally within 2 (a warded ally needs nothing; the image never overwrites)
@@ -102,6 +113,10 @@
       const targets = opponentsOn(s, a, inst.tiles, false);
       const cover = [];   // W1c: Fixed Gaze covers an ally of a target (reactiveOptions offers it; only it)
       for (const t of targets) for (const g of Object.values(s.actors)) if (g.side === t.side && g.id !== t.id && !g.defeated && !g.notArrived && !targets.some((u) => u.id === g.id) && !cover.some((u) => u.id === g.id) && dist(s, g.x, g.y, t.x, t.y) <= 2) cover.push(g);
+      for (const t of targets) for (const o of Object.values(s.actors)) {   // Guest's Portion (SH2): a shaman whose seated guest stands near an attacked ally may answer for them
+        if (o.side !== t.side || o.id === t.id || o.defeated || o.notArrived || targets.some((u) => u.id === o.id) || cover.some((u) => u.id === o.id)) continue;
+        if (Object.values(s.actors).some((g) => !g.defeated && g.companion?.guest && g.companion.owner === o.id && dist(s, g.x, g.y, t.x, t.y) <= 4)) cover.push(o);
+      }
       const defenders = [...targets, ...cover].filter((t) => reactiveOptions(s, t, inst).length);
       // Deception, the other way: a line that looks like a field finds a defender who would have walled it offering
       // nothing. It lands; the defender sees what it really was, and is not fooled by this deceiver again this battle.
@@ -120,8 +135,26 @@
       skipUnable(s);
       return true;
     }
+    // Guest's Portion (SH2): the reaction IS the technique — pay like an answer, mark the interception, no resolveAbility (nothing to cast).
+    function castPortion(s, d, opt, attack) {
+      const m = H.manifest(s, d, opt.ability);
+      const now = d.id === currentId(s);
+      const tax = starReactionTax(s, d, attack?.owner), apCost = answerAp(s, m) * tax;
+      d.pf -= m.cost;
+      if (now) { d.tempo -= apCost; d.tempoSpent = (d.tempoSpent || 0) + apCost; } else if (!hasAgility(d, s)) d.tempoDebt = (d.tempoDebt || 0) + apCost;
+      const crescendoAnswer = H.Inspiration.crescendoAnswer(s, d);
+      if (crescendoAnswer) H.Inspiration.crescendoAnswerUsed(d); else d.reaction -= 1;
+      s.stats.abilityUses[opt.ability] = (s.stats.abilityUses[opt.ability] || 0) + 1;
+      log(s, { kind: "respond", actor: d.id, response: "technique", ability: opt.ability, apCost,
+        text: `${d.name} answers ${attack.name} with ${m.name} (${crescendoAnswer ? "Crescendo: no reaction spent" : "reaction spent"}; ${m.cost} ΦF, ${apCost} AP ${now ? "spent now" : "charged as next-turn tempo debt"}).` });
+      H.chargeUltimate(s, d, m.concept, `Using ${m.name} as a reaction.`, 0, 1, false, H.borrowedCharges(d, m));
+      const ally = s.actors[opt.portionFor];
+      if (ally && !ally.defeated) ally.status.intercept = { by: opt.portionGuest, uses: 1, until: ally.ownerTurns, range: 4 };
+      (s.pending.answers ||= []).push({ defender: d.id, ability: opt.ability });
+    }
     function castReaction(s, d, opt, attack) {
       if (H.ab(opt.ability)?.answer) return castAnswer(s, d, opt, attack);
+      if (opt.ability === "guestPortion") return castPortion(s, d, opt, attack);
       const m = H.manifest(s, d, opt.ability), t = H.target(s, d, m, ...(opt.coverFor ? [d.x, d.y] : opt.target), {});   // W1c cover: the option names the ally's tile, but the self-targeted manifest re-validates at the holder (the offer itself already seated the ally)
       if (!t.ok) return t.error;
       const now = d.id === currentId(s);

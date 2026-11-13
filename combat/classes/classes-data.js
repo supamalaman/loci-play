@@ -1192,6 +1192,21 @@
       { strength: "The longer she studies a foe, the harder Cross Reference lands on it, and her first blow on anything bigger than her lands harder still.", weakness: "Slow to pay off: a foe she has not catalogued takes a plain 10, and crowds spread her looks thin." },
       { weakTo: "Concealment she cannot Survey away, and crowds that spread her catalogue thin.", strongAgainst: "Lone bosses and big fighters: every observation and Trophy Eye stack on one target.", strongWith: "Reveals that hand her observations (Scout's shared report, Observe-heavy allies) and rough-ground arenas.", bypass: "None.", negate: "Concealment denies Index Entry its target.", neutral: "Allied buffs: the catalogue is hers." },
       { origin: "Muse Berry BD hot-build 2026-10-29 (Discovery + Indexing; unused pair); merged with the Monster Hunter brief (Mala 2026-10-12) on 2026-11-07", art: "big-game-hunter", status: "playable", existingAbilities: { primaryBasic: "survey", primaryRefined: "verify", secondaryBasic: "indexEntry", secondaryRefined: "crossReference" } }),
+
+    // Shaman (Mala, 2026-11-10; claude-shaman-summoner-spec): the summoner class. Threshold + Hospitality
+    // (Hospitality's live operation seats a foe; hosting friendly spirits widens the concept — hypothesis mark).
+    // Wheelhouse third: Preservation. NPC shaman keeps Threshold + Preservation. Guests: SH1 Raven/Fox; Totem + Guest's Portion SH2; attendants SH3; merges SH4.
+    shaman: C("shaman", "Shaman", ["Threshold", "Hospitality"], ["Threshold", "Hospitality", "Preservation"],
+      [["spirit_table", "She seats at most two guests; a third call sends the oldest home. Her first guest call each battle costs no AP (ΦF still paid). Guests leave when she falls and do not hold the battle open."],
+       ["spirit_company", "When she finishes a technique, her attendant (SH3) pulses to allies within 2, at most twice a turn. Until an attendant is present this passive does nothing."]],
+      { primaryBasic: "Spirit Raven: seat a raven guest (6 LF, move 5, no attack) for 2 of its turns at 25 AP + 3 ΦF; it reveals hidden units on its 5-tile lines and marks one foe on them exposed; any hit ends it.",
+        primaryRefined: "Ancestral Fox: seat a fox guest (8 LF, move 4, bites for 5) for 3 of its turns at 35 AP + 6 ΦF.",
+        secondaryBasic: "Guest's Portion (SH2): reactive defence — a seated guest may take a ranged hit for an ally.",
+        secondaryRefined: "Spirit Totem (SH2): seat an immobile structure guest that softens hits for allies within 2." },
+      "Ancestral Moot (SH4): every kind of guest she has seated this battle returns for 1 round, then her calls are sealed for 2.",
+      { strength: "More actions per round than anyone, cheaply, through fragile guests.", weakness: "Every guest is fragile, and all of it hangs on one body." },
+      { weakTo: "Area attacks that clear the table; Smite and destructive hits on a Totem.", strongAgainst: "Foes who ignore the host and chase guests.", strongWith: "Preservation protecting the host while the table works.", bypass: "None.", negate: "None.", neutral: "A foe with nothing hidden: the Raven's reveal finds no one, the mark still lands." },
+      { origin: "Mala 2026-11-10: the Shaman is the summoner class; spirits as cheap guests; nature spirits as attendants.", art: "shaman", status: "playable", kit: ["spiritRaven", "ancestralFox", "guestPortion", "spiritTotem", "ancestralMoot"], rules: "guests/guests.js" }),
     // Burlesque Dancer (Muse Berry BD hot-build, 2026-10-29): the headliner. Holds the room's breath, then spends it. Stage crew.
     burlesque_dancer: C("burlesque_dancer", "Burlesque Dancer", ["Tension", "Glamour"], ["Tension", "Glamour", "Lyricism"],
       [["stage_presence", "Enemies adjacent to the Dancer at their turn start lose 2 AP, once per enemy per round."],

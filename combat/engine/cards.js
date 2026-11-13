@@ -318,7 +318,7 @@
         }         else if (e.key === "familiar") spawnFamiliar(s, a, card, e);
         else if (e.key === "listening") {
           if (!t || t.defeated) continue;
-          t.status.listening = { until: s.round + (e.rounds || 2), side: a.side, by: a.id, points: e.points || 10 };
+          t.status.listening = { label: "Listening", until: s.round + (e.rounds || 2) - 1, side: a.side, by: a.id, points: e.points || 10 };
           log(s, { kind: "effect", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name} is listening for ${e.rounds || 2} rounds.` });
         } else if (e.key === "oliveBranch") {
           if (!t || t.defeated) continue;

@@ -39,6 +39,7 @@
     copyEye: 3,
     packMule: 2,   // feats batch, 2026-10-27: carrying, not killing (reach/stickyFingers precedent)
     fourArms: 3,   // feats batch, 2026-10-27: doubles strikes — changes how you fight (strongGrip precedent)
+    prehensileTail: 1,   // PT1 (R-20261111-56): +1 battle hand and half-cost climbing, equal to heavyBones
     trepanation: 4,   // grok SPEC, Mala locked 2026-10-28: two-state plus a thinner wall rewrites fights (godlyAgility precedent)
     // gills is not sold. Reference Strong 520 (insight-data.js). Born on the Teal Eel and the Remora Adventurer. Grafting it onto other bodies waits on Mala.
   };

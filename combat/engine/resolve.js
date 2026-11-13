@@ -58,7 +58,7 @@
       if(inst.aim && !dreamCanReach(s,a,inst,...inst.aim)) { log(s,{kind:"dreamSpace",actor:a.id,text:`${inst.name} is stopped by the sealed dream.`}); inst.refused = true; return; }
       inst = { ...inst, tiles: inst.tiles.filter(([x,y])=>dreamCanReach(s,a,inst,x,y)), targets: (inst.targets || []).filter(id=>!s.actors[id] || dreamCanReach(s,a,inst,s.actors[id].x,s.actors[id].y)) };
       const beforeDream = s.dreamSpace?.region ? clone(s) : null;
-      try { return resolveDreamAbility(s,a,inst); } finally { if(beforeDream) keepDreamPositions(s,beforeDream); Performers?.afterTechnique(s,a,inst,classH()); H.Tally?.afterResolve(s,a,inst); if(!s.preview) H.Longtermism?.afterTechnique(s,a,inst); }
+      try { return resolveDreamAbility(s,a,inst); } finally { if(beforeDream) keepDreamPositions(s,beforeDream); Performers?.afterTechnique(s,a,inst,classH()); if(!s.preview) ClassRuntime?.attendantPulse?.(s,a,inst,classH()); H.Tally?.afterResolve(s,a,inst); if(!s.preview) H.Longtermism?.afterTechnique(s,a,inst); }
     }
     function resolveScribedEffects(s,a,inst){
       let recipients=(inst.targets||[]).map(id=>s.actors[id]||(s.wild||[]).find(w=>w.id===id)).filter(t=>t&&!t.defeated&&(t.side!==a.side||inst.target==="ally")&&(inst.delivery==="line"||!H.Instinct.hidden(a,t)));   // a committed single-target hit passes over a lying foe

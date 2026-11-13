@@ -221,18 +221,93 @@
     }
   }
 
-  // Observe reads: respect is a free detail; a foe's focus and protection show.
+  // AI Sight I3: the first study of an enemy side is its intentions and the unit's role.
+  // The second is the structure, the leader and who they cover. A later study repeats the current read.
+  const TEAM_ROLE = {
+    screen: (name) => `${name} holds the line for them.`,
+    striker: (name) => `${name} is their blade.`,
+    scout: (name) => `${name} ranges ahead.`,
+    admin: (name) => `${name} minds the takings.`,
+  };
+  const ROLE_ORDER = ["leader", "screen", "scout", "admin", "striker"];
+  const COUNT_WORD = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+  const countWord = (n) => COUNT_WORD[n] || String(n);
+  const capWord = (w) => w ? w[0].toUpperCase() + w.slice(1) : w;
+  function sideLiving(s, side) {
+    return Object.values(s.actors || {}).filter((u) => u.side === side && living(u) && !u.husk);
+  }
+  function concealed(u) {
+    return !!u && !u.defeated && !!u.status?.concealed && (u.status.concealed.until == null || u.status.concealed.until >= u.ownerTurns);
+  }
+  function visible(s, id) {
+    const u = id ? s.actors?.[id] : null;
+    if (!u || u.defeated || concealed(u)) return null;
+    return u;
+  }
+  function rolePhrase(role, n) {
+    if (n === 1) return `${role === "admin" ? "an" : "a"} ${role}`;
+    return `${countWord(n)} ${role}s`;
+  }
+  function structureLine(roles, us) {
+    const counts = {};
+    for (const u of us) {
+      const role = roles?.[u.id];
+      if (role !== "leader" && !TEAM_ROLE[role]) continue;
+      counts[role] = (counts[role] || 0) + 1;
+    }
+    const parts = ROLE_ORDER.filter((role) => counts[role]).map((role) => rolePhrase(role, counts[role]));
+    if (!parts.length) return null;
+    const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+    const n = Object.values(counts).reduce((sum, c) => sum + c, 0);
+    return `${capWord(countWord(n))} fight as one: ${list}.`;
+  }
+  function unled(s, side, us) {
+    if (side === "bystander" || us.length < 2) return false;
+    // u.gaia is already unconducted. A joined Gaia sets boss, which conducted() does not read.
+    if (us.some((u) => u.boss === "gaia")) return true;
+    const SP = Spirit();
+    return !!(SP?.conducted && !SP.conducted(s, side));
+  }
   function observeNotes(s, a, t) {
     const out = [];
     if (t.side === a.side) {
       const r = respectOf(s, a.id, t.id);
       if (r >= 3) out.push(`${t.name} looks up to you.`);
       else if (r <= -2) out.push(`${t.name} has stopped listening.`);
-    } else {
-      const sig = s.spirit?.[t.side]?.signals;
-      if (sig?.focus && s.actors?.[sig.focus] && !s.actors[sig.focus].defeated) out.push(`Their eyes are all on ${s.actors[sig.focus].name}.`);
-      const pid = sig?.protect;
-      if (pid && s.actors?.[pid] && !s.actors[pid].defeated) out.push("Someone here is under protection.");
+      return out;
+    }
+    const SP = Spirit();
+    const us = sideLiving(s, t.side);
+    const cache = SP?.cached?.(s, t.side) || null;
+    const focusLine = () => {
+      const focus = visible(s, cache?.signals?.focus);
+      if (focus) out.push(`Their eyes are all on ${focus.name}.`);
+    };
+    if (us.length < 2) {
+      focusLine();
+      return out;
+    }
+    if (unled(s, t.side, us)) {
+      out.push("They fight as strangers. No one leads.");
+      return out;
+    }
+    s.spiritRead = s.spiritRead || {};
+    const step = (s.spiritRead[t.side] || 0) + 1;
+    s.spiritRead[t.side] = step;
+    if (step === 1 || step >= 3) {
+      const sentence = cache?.stance && SP?.TELEGRAPH?.[cache.stance];
+      if (sentence) out.push(sentence);
+      focusLine();
+      const role = cache?.roles?.[t.id];
+      if (role && TEAM_ROLE[role] && !concealed(t)) out.push(TEAM_ROLE[role](t.name));
+    }
+    if (step >= 2 && cache) {
+      const structure = structureLine(cache.roles, us);
+      if (structure) out.push(structure);
+      const leader = visible(s, Object.keys(cache.roles || {}).find((id) => cache.roles[id] === "leader"));
+      if (leader) out.push(`${leader.name} leads them.`);
+      const cover = visible(s, cache.signals?.protect);
+      if (cover) out.push(`They are covering ${cover.name}.`);
     }
     return out;
   }
