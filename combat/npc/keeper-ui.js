@@ -13,9 +13,9 @@
 // Hooks (HOOKS) are CHIPS: plain text in the window, drawn whether or not Dialogue is on, so no information lives only in speech.
 // A keeper with no live face art, or the "text" setting, shows the name plate alone; a missing face file never shows another unit's face.
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./keepers.js"), require("../account/keepers.js"), require("./keeper-lines.js"), require("../dialogue/speakers.js"), require("../dialogue/summon-voices.js"));
-  else root.ConceptCombatKeeperUI = factory(root.ConceptCombatKeepers, root.ConceptCombatKeeperMemory, root.ConceptCombatKeeperLines, root.ConceptCombatSpeakers, root.ConceptCombatSummonVoices);
-})(typeof self !== "undefined" ? self : this, function (K, M, L, SP, SV) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./keepers.js"), require("../account/keepers.js"), require("../account/keeper-perks.js"), require("./keeper-lines.js"), require("../dialogue/speakers.js"), require("../dialogue/summon-voices.js"));
+  else root.ConceptCombatKeeperUI = factory(root.ConceptCombatKeepers, root.ConceptCombatKeeperMemory, root.ConceptCombatKeeperPerks, root.ConceptCombatKeeperLines, root.ConceptCombatSpeakers, root.ConceptCombatSummonVoices);
+})(typeof self !== "undefined" ? self : this, function (K, M, KP, L, SP, SV) {
   const MODE_KEY = "loci:npc:keepers", MODES = { full: "Face and name", text: "Name only", off: "Off" };
   const S = { entered: new Set(), idled: new Set(), last: {}, ring: [], timer: null, cur: null };
   const seen = new Map();   // the preloaded neutral faces (one cache; the other four load on first use)
@@ -25,8 +25,13 @@
   const tokensOf = (a) => ({ name: a.name || undefined, level: a.level > 0 ? a.level : undefined, wins: Number.isFinite(a.wins) ? a.wins : undefined, seeds: Number.isFinite(a.seeds) ? a.seeds : undefined, fame: a.fame > 0 ? a.fame : undefined,
     owed: a.debt > 0 ? `${a.debt} Seeds` : undefined });   // {owed}: the account's Seeds debt (S1); {fame} reads the account (fame mile) and {price} comes from a window's say() or is skipped
 
-  // A line that names an effect shows only while the effect is on (spec section 12): the gate "perk" follows the Seeds-perk flag in keepers.js.
-  const openLines = (rows) => rows.filter((r) => !r.gate || (r.gate === "perk" && K.KEEPER_PERKS === true));
+  // A line that names an effect shows only while the effect is on and available (spec 7.2 / 12): "perk" needs KEEPER_PERKS and, when a keeper is named, that keeper's E1 slot this cycle.
+  const openLines = (rows, ctx = null) => rows.filter((r) => {
+    if (!r.gate) return true;
+    if (r.gate !== "perk" || K.KEEPER_PERKS !== true) return false;
+    if (ctx && ctx.account && ctx.keeper && KP) return KP.available(ctx.account, ctx.keeper);
+    return true;
+  });
   // The Fame mile event (npc-faces hooks): "mile:fame" when this bank has a fame-milestone row and fame rose past
   // the last greeted mark, else null. Only mile:fame banks qualify, so level/discovery miles never misfire.
   const fameMileEvent = (account, rows) => (rows || []).some((l) => l.when === "mile:fame") && ((account || {}).fame || 0) > Math.max(0, (account || {}).fameMileSeen ?? 0) ? "mile:fame" : null;
@@ -128,7 +133,7 @@
     speech.hidden = !dialogueOn || !speech.textContent; strip.querySelector(".cc-keeper-talk").hidden = !dialogueOn;
   }
   const choose = (k, event, account, ctx, extra) => {
-    const line = M.pick(openLines(L.LINES[k.lines] || []), event, { account, keeper: k.id, tokens: { ...tokensOf(account), ...extra }, ring: S.ring, visits: M.recordOf(account, k.id).visits });
+    const line = M.pick(openLines(L.LINES[k.lines] || [], { account, keeper: k.id }), event, { account, keeper: k.id, tokens: { ...tokensOf(account), ...extra }, ring: S.ring, visits: M.recordOf(account, k.id).visits });
     if (line) { S.ring = [...S.ring, line.id].slice(-4); S.last[ctx] = line; }
     return line;
   };
@@ -161,7 +166,7 @@
       // A fame rise since the last greeting speaks this keeper's fame milestone instead (the Fame mile event). The mark is kept
       // on the account root, not the keeper record, and persists with the save below.
       let ev = r.ctx;
-      if (fameMileEvent(account, openLines(L.LINES[k.lines] || []))) ev = "mile:fame";
+      if (fameMileEvent(account, openLines(L.LINES[k.lines] || [], { account, keeper: k.id }))) ev = "mile:fame";
       line = choose(k, ev, account, ctx);
       if (ev === "mile:fame" && line) account = { ...account, fameMileSeen: account.fame || 0 };
       if (o.onAccount) o.onAccount(account);

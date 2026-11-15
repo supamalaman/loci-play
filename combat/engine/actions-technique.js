@@ -10,10 +10,10 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).actionsTechnique = install;
 })(typeof self !== "undefined" ? self : this, function install(H, K) {
   return (function () {
-    const { CRAFT, CRAFT_OWN, ClassRuntime, Courtroom, Director, MaidSystems, Performers, Postures, Vows, ab, abilitiesOf, actorAt, borrowedCharges,
-      chargeUltimate, classH, conceptName, declaredRange, dreamSpaceRules, hasDeception, hasSight, hasTrait, heightAt, insightRules, log, manifest,
-      ownerOfConcept, presidentContext, presidentEffects, presidentRules, presidentUnits, rangeEnvelope, spendTempo, syncPresidentUnit, target } = H;
-    const { barsTooFast, openResponseWindow, resolveAbility, sealedNext } = K;
+    const { CRAFT, CRAFT_OWN, ClassRuntime, Courtroom, DIRS, Director, MaidSystems, Performers, Postures, Vows, ab, abilitiesOf, actorAt, applyEntryEffects, barrierAt, borrowedCharges,
+      chargeUltimate, classH, conceptName, declaredRange, dist, dreamSpaceRules, hasDeception, hasSight, hasTrait, heightAt, inside, insightRules, log, manifest, moveRefusal,
+      ownerOfConcept, presidentContext, presidentEffects, presidentRules, presidentUnits, rangeEnvelope, spendTempo, syncPresidentUnit, target, tileAt } = H;
+    const { barsTooFast, holdFireRefusal, openResponseWindow, resolveAbility, sealedNext } = K;
     const family = {
       ability(s, a, act, internal) {   // MY-02: prepaid authority rides the internal 4th arg (verified card-consumption only); a smuggled public field buys nothing
         if (typeof act.ability === "string" && act.ability.startsWith("boss_sealednext_")) {
@@ -40,6 +40,7 @@
         if (Vows) { const no = Vows.refuses(s, a, "ability", ab(act.ability)); if (no) return no; }   // Vows: Single Mind, Burned Bridge
         if (Vows && act.ability === "audition") { const no = Vows.validate("role", act.vow, a, s.rules.inspiration, s); if (no) return no; }   // role vows ride the audition
         const m = manifest(s, a, act.ability, act);
+        { const no = holdFireRefusal(s, a, m.target === "enemy"); if (no) return no; }
         if (ab(act.ability)?.answerOnly) return `${m.name} answers; it cannot be cast.`;   // answer-only techniques (Fixed Gaze) never commit own-turn (triage 2026-11-04)
         { const cres = ab(act.ability)?.crescendo; if (cres) m.crescendo = cres; }   // the manifest is fresh: carry the def's Crescendo bend on it (engine.js is at its size cap)
         { const no = H.Inspiration.crescendoRefuses(s, a, m); if (no) return no; }   // a Crescendo technique needs its Inspiration and only one is in force (ledgers.js)
@@ -57,10 +58,13 @@
         const extraTempo = Math.max(0, Math.floor(act.overclock || 0));
         const freeFirst = H.freeFirstFree?.(a, m);   // hotbuild free first use (W0b): hoisted — the early tempo gate must agree with the menu (triage 2026-11-04)
         const detailTax = !crescendoFree && hasTrait(a, "attentionToDetail") && m.effect === "barrier" ? 5 : 0;   // Attention to Detail: sturdier craft costs slightly
+        const coopOff = !crescendoFree && ClassRuntime?.coopApOff ? ClassRuntime.coopApOff(s, a, act) : 0;
+        const tempoBillOf = () => !coopOff || m.tempoCost < 5 ? m.tempoCost : Math.max(5, m.tempoCost - coopOff);   // read at each use: a later prepare step may lower m.tempoCost (Homology's Eliminated Hypothesis); fixed at the 1.3.565 merge (Stanchion IN)
+        const tempoBill = tempoBillOf();
         if (extraTempo && H.mindset(a)?.noOverclock) return "Craftsman's Mindset: no overclocking.";
         if (extraTempo > s.rules.maxOverclockPerAction || extraTempo % 5) return `Overclock must be in 5-point steps up to ${s.rules.maxOverclockPerAction} AP.`;
         if (extraTempo && !["damage", "field"].includes(m.effect)) return "Only attacks can be overclocked.";
-        if (!internal?.prepaid && !freeFirst && a.tempo < m.tempoCost + detailTax && !extraTempo) return `${m.name} needs ${m.tempoCost + detailTax} action points (have ${a.tempo}); choose overclock to borrow against a future turn.`;
+        if (!internal?.prepaid && !freeFirst && a.tempo < tempoBill + detailTax && !extraTempo) return `${m.name} needs ${tempoBill + detailTax} action points (have ${a.tempo}); choose overclock to borrow against a future turn.`;
         if (m.scribedEffects?.some(e=>e.requires?.includes("observedIncomingChannel")) && !a.lastDamageType) return "This effect needs an observed incoming harm channel before casting.";
         if (act.ability === "adaptiveBrace" && !a.lastDamageType) return "Adaptive Brace needs an observed incoming attack before it can attune.";
         if (act.ability === "measureTwice" && (a.tempoDebt || 0) > 0) return "Care cannot be taken in haste: pay off your tempo debt first.";
@@ -116,7 +120,7 @@
         if(presidentRules){for(const h of Object.values(s.actors)){if(!h.law||h.law.until<s.round)continue;const hu=presidentUnits(s).find(u=>u.id===h.id),au=presidentUnits(s).find(u=>u.id===a.id),r=presidentRules.breaksLaw(hu,au,{delivery:m.delivery},{...presidentContext(s),round:s.round});if(r.broke){syncPresidentUnit(s,r.actor);log(s,{kind:"law",actor:a.id,target:h.id,text:`${a.name} breaks ${h.name}'s Due Process rule (${m.delivery}) and becomes an outlaw.`,why:["The rule applies to its maker and units in jurisdiction."]});}}}
         // committed: pay once, snapshot (spec §7)
         const starTax = ClassRuntime?.actor ? ClassRuntime.actor.taxFor(s, a, t.targets || []) : 1;   // GDP: the star's tax lands once per technique, overclock unmultiplied
-        const taxedBase = (m.tempoCost + detailTax) * starTax;
+        const taxedBase = (tempoBillOf() + detailTax) * starTax;
         if (!internal?.prepaid && !freeFirst && a.tempo < taxedBase && !extraTempo) return `${m.name} needs ${taxedBase} action points (have ${a.tempo}): ×${starTax} to target the star; choose overclock to borrow against a future turn.`;
         if (!internal?.prepaid && !freeFirst) { const tempoError = spendTempo(s, a, taxedBase + extraTempo, m.name, true); if (tempoError) return tempoError; H.adhdPaid?.(s, a, act.ability); }   // prepaid set intents (Muse W2.5, MY-02 internal): paid at set time
         else if (!internal?.prepaid && freeFirst && extraTempo) { const tempoError = spendTempo(s, a, extraTempo, m.name, true); if (tempoError) return tempoError; }   // free-first covers the ability's own cost, never an overclock chosen on top: the debt still lands (triage 2026-11-04)
@@ -133,6 +137,7 @@
         if (m.tier === "ultimate" && mastered && !dreamUltimate) log(s, { kind: "charge", actor: a.id, text: `${a.name} needs no charge for ${m.name}: mastery.`, why: ["Mastery: ultimates cost their action points and ΦF, and nothing else."] });
         else if (m.tier === "ultimate" && sequelFilm && !internal?.prepaid) { H.Inspiration.spend(s, a, Director.rules.sequelCost, "perform"); log(s, { kind: "charge", actor: a.id, text: `${a.name} films a sequel on prestige, unannounced: ${Director.rules.sequelCost} Inspiration.` }); }
         else if (m.tier === "ultimate" && !internal?.prepaid) { a.ultimateCharge -= s.rules.ultimateChargeMax; if (a.status.ward?.flow) a.status.ward = null; a.flowOn = false; log(s, { kind: "charge", actor: a.id, text: `${a.name} spends ${s.rules.ultimateChargeMax} ultimate charge on ${m.name}.` }); }   // spending the bar ends the flow state (ward included)   // MCR-04: prepaid reveals spend no bar or Inspiration beyond the set payment
+        if (m.tier === "ultimate" && !internal?.prepaid) H.Inspiration.ultimateFired(s, a);   // Legend's Cloth (JG1): every cast ultimate counts once: bar, mastery or sequel; a prepaid card counted at its set (mystery.js)
         s.stats.abilityUses[act.ability] = (s.stats.abilityUses[act.ability] || 0) + 1; H.Exposure.used(s, a, act.ability, m);
         if (crescendoFree) H.Inspiration.crescendoFreeUsed(a, act.ability);   // the free cast is spent at commit
         if (m.crescendo) H.Inspiration.crescendoArm(s, a, m);   // the Crescendo spends its Inspiration and bends the rule once the cast is committed
@@ -231,9 +236,11 @@
           const chargeArgs = [inst.concept, `Using ${inst.name} as ${ownerOfConcept(a, inst.concept) || "borrowed"} concept.`, inst.compositionApplied ? s.rules.ultimateChargePairBonus : 0,
             MaidSystems?.utilityChargeMultiplier(m) || 1, MaidSystems?.canRechargeAura(a, inst) || false, borrowedCharges(a, inst)];
           if (m.effect === "damage" || m.effect === "paleStampede") inst.deferredCharge = chargeArgs;   // a stampede that tramples no one charges nothing either
-          else chargeUltimate(s, a, ...chargeArgs);
+          else chargeUltimate(s, a, ...chargeArgs, H.sealMulFor(a, act.ability));   // Tea T1: a non-damage draw (a merge) charges here, before the ink spends
         }
         H.fruitCast?.(s, a, act, inst);   // Sinkerfruit (Locusfruit): a recall costs 2 more PhiF and empties its room; a palace taxes or refunds
+        if (coopOff) ClassRuntime.coopMark(s, a);
+        ClassRuntime?.purposeWatch?.(s, a, act);
         log(s, { kind: "act", actor: a.id, ability: act.ability, tiles: deception ? announcedTiles : t.tiles, route: deception ? null : (t.route || null),
           text: `${a.name} uses ${m.name} (${d.tier}, ${conceptName(m.concept)}, ${m.delivery}${m.area.shape !== "single" ? ", " + m.area.shape : ""}) for ${m.cost} ΦF.`, why });
         // AGI Takeoff witness rule: the third deception technique an AGI sees (anyone's but its
@@ -262,7 +269,9 @@
           if(audience){inst.audienceOnly=true;inst.audienceIds=audience.recipients;inst.audienceTempo=audience.tempo;log(s,{kind:"posture",actor:a.id,target:inst.targets[0],text:audience.log,why:["The named target alone receives the actual technique; the audience receives a response window to look away."]});return openResponseWindow(s,a,inst,d);}
         }
         if (!inst.audienceOnly && H.openReactionWindow(s, a, inst, d)) return;   // reactive defense: a seen ranged attack can be answered (window.js)
+        ClassRuntime?.referentFollow?.(s, a, inst, { hasSight, log });
         resolveAbility(s, src, inst);
+        ClassRuntime?.turnStep?.(s, a, inst, { dist, inside, tileAt, actorAt, barrierAt, DIRS, log, moveRefusal, applyEntryEffects });
         if (src !== a) for (const k of ["pf", "tempo", "tempoDebt", "ultimateCharge"]) a[k] = src[k];   // signal origin (machine P3): resolve-side costs persist on the caster
         H.finishDreamUltimate(s, a, inst);
       },

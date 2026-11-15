@@ -52,6 +52,7 @@
       playCard(s, a, act) { return H.Cards.play(s, a, act); },
       showHand(s, a) { return H.Cards.showHand(s, a); },
       useItem(s, a, act) {
+        const USABLE = new Set(["hire", "heal", "phiForce", "healAdjacentAllies", "actionPoints", "observe", "placeBarrier", "blockSightTiles", "ultCharge", "autoCorrectQuestion"]);   // effect keys this handler applies; S4/S5 extend it as they wire theirs
         const item = act.item, at = act.target || [a.x, a.y];
         const held = (x) => x && (x.until == null || x.until >= a.ownerTurns);
         if(a.status?.scribedItemLock?.expiresAt>a.ownerTurns) return "Items are restricted by a scribed effect.";
@@ -63,6 +64,7 @@
         if (accountItem && !accountItem.effect?.wild) {
           const effect = accountItem.effect || {};
           if (effect.hire) return H.Hires.call(s, a, item, accountItem) || undefined;   // a merc contract or a letter of safe conduct (engine/hires.js)
+          if (!Object.keys(effect).some((k) => USABLE.has(k))) return `${accountItem.name} cannot be used in a fight.`;   // flower-jars S2: unwired keys refuse instead of consuming silently
           const range = effect.placeBarrier || effect.blockSightTiles || effect.observe ? 4 : 0;
           if (!inside(s, at[0], at[1]) || dist(s, a.x, a.y, at[0], at[1]) > range) return `Choose a tile within ${range} spaces.`;
           const hurtBeside = effect.healAdjacentAllies ? Object.values(s.actors).filter((u) => u.id !== a.id && u.side === a.side && !u.defeated && !u.notArrived && u.lf < u.maxLF && Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)) <= 1) : [];

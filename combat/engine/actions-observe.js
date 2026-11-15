@@ -87,6 +87,7 @@
         const t = s.actors[act.target]; if (!t || t.id === a.id || t.defeated || (!insightRules && t.side === a.side)) return "Choose another living character to Observe.";
         if (t.form?.golden || (t.form?.learned && hasTrait(t, "faceless"))) return `${t.name} has no features to read: there is nothing to Observe.`;   // Featureless (the Integrated Self) and Faceless
         observedFx(s, a, t);
+        ClassRuntime?.hunterObserved?.(s, a, t);   // H2: her Observe names the Quarry when there is none (Investigate shares the tail above, not this line)
         if (insightRules) {
           const investBase = Math.max(10, Math.min(50, Math.floor((act.invest || 20) / 10) * 10));
           const invest = hasTrait(a, "directorsVision") ? Math.max(5, investBase - 5) : investBase;   // Director's Vision: studies cost 5 less
@@ -495,7 +496,7 @@
         if (!summonRules) return [];
         const price = s.rules.summonRoomStudyAp;
         // A3b order: enumerate in SM.available order (data order), as the menu does — the unlocked list's own order differs.
-        return summonRules.available({ unlocked: s.unlockedSummons || [] }).filter((x) => x.unlocked && (!summonRules.callsPalace || summonRules.callsPalace(a))).map((x) => {
+        return summonRules.available({ unlocked: summonRules.familiarSet(a, extra.unlocked || s.unlockedSummons || []) }).filter((x) => x.unlocked && (!summonRules.callsPalace || summonRules.callsPalace(a))).map((x) => {   // K1 O2: the caller's own set
           const def = summonRules.data.summons[x.id], studied = !!s.summonHints?.[a.id]?.[x.id];
           return judge(s, { type: "observeSummon", actor: a.id, summon: x.id }, extra,
             `Study ${def.name}'s room · ${price} AP${studied ? " · studied" : ""}`, price,

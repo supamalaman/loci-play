@@ -491,6 +491,20 @@
         if (ex) return traceAiReturn("aiDecide:exchange", ex);
         if (ro && salvage) return traceAiReturn("aiDecide:heldReveal", ({ ...ro.act, why: "before it fades" }));
       }
+      // AI Sight I1: a walk and its act are one plan. The walk half carries its paired act
+      // (act.plan, focus-pattern); apply() stores it on the actor, so aiDecide never writes state
+      // here — it only deletes its own stale or failed key. The next decision this turn previews
+      // the stored act and returns it while legal and still above zero, instead of deciding fresh.
+      // Behind rules.aiLedger.onePlan (on: guards pin it off to hold recorded battles still).
+      if (!ledgerOn(s, a, "onePlan")) delete a.aiPlan;
+      else {
+        if (a.aiPlan && (a.aiPlan.round !== s.round || a.aiPlan.turnOf !== a.ownerTurns || a.aiPlan.side !== a.side)) delete a.aiPlan;
+        if (a.aiPlan) {
+          const kept = apply(s, a.aiPlan.act, { preview: true }).ok && score(s, a.id, a.aiPlan.act) > 0;
+          if (!kept) delete a.aiPlan;
+          else return traceAiReturn("aiDecide:plan", structuredClone(a.aiPlan.act));
+        }
+      }
 const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !to || !faithfulRetreat(s, a, to));   // Faithful: while its oath holds, no step that ends farther from the nearest foe than it stood at its last turn start (the oath's retreat term)
       const LA = switchOn(s, a, "lookahead"), scored = [];
       let hitHere = 0;
@@ -692,6 +706,10 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         return traceAiReturn("aiDecide:L572", ({ type: a.tempo > 0 ? "stall" : "end", actor: a.id }));
       }
       if (aiTrace && aiTraceDepth === 1) aiTrace.chosenPlan = { to: best.to, action: structuredClone(best.cand), value: best.sc };
+      // The walk carries a plan only when the paired act needs the destination (illegal from here):
+      // a plan for an act that already works would foreclose re-deciding for nothing (a hurt soldier
+      // would buff instead of detouring to food). Costs one preview per walk-half decision.
+      if (best.to && ledgerOn(s, a, "onePlan") && !apply(s, best.cand, { preview: true }).ok) return traceAiReturn("aiDecide:L574", ({ type: "move", actor: a.id, to: best.to, plan: structuredClone(best.cand) }));
       return traceAiReturn("aiDecide:L574", (best.to ? { type: "move", actor: a.id, to: best.to } : best.cand));
     }
     // Observation options are costly to build (path searches for plant routes) and were rebuilt for every candidate that
@@ -811,6 +829,21 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     function totemWakeScore(s, a, cand) {
       const CM = H.Communion, item = cand.item || (s.arena?.pickups || []).find((p) => p.id === cand.pickup)?.item;
       return CM?.wakeValue ? CM.wakeValue(s, a, item, { dist, isCook: (u) => !!cookingRules()?.isCook?.(u), reach: () => s.rules.moveBudget ?? 4 }) : 0;
+    }
+    // Familiar calls from need (K1 O6, FAMILIARS.md 13.2; R-20261111-23: allies only, the player character keeps today's
+    // pricing). A caller other than the player calls only with a reason: more standing foes than friends within 4 tiles,
+    // a friend (or itself) under half LF, or no attack in reach this turn (no strike or ability aimed at a foe's tile).
+    // A trait-and-necessity rule (Mala, 2026-10-27), not a per-character dial.
+    const CALL_NEAR = 4;
+    function callNeed(s, a, out) {
+      const near = (u) => H.Instinct.standing(u) && !u.notArrived && dist(s, a.x, a.y, u.x, u.y) <= CALL_NEAR;
+      const units = Object.values(s.actors), foes = units.filter((u) => near(u) && u.side !== a.side && u.side !== "bystander" && !H.Tourist?.is(u));
+      const friends = units.filter((u) => near(u) && u.side === a.side);
+      if (foes.length > friends.length) return "outnumbered";
+      if (units.some((u) => u.side === a.side && !u.defeated && !u.notArrived && u.maxLF > 0 && u.lf < u.maxLF * 0.5)) return "hurt";
+      const foeAt = (t) => Array.isArray(t) && units.some((u) => u.side !== a.side && u.side !== "bystander" && H.Instinct.standing(u) && u.x === t[0] && u.y === t[1]);
+      if (!out.some((c) => (c.type === "strike" || c.type === "ability") && foeAt(c.target))) return "noAttack";
+      return null;
     }
     function candidates(s, id, keepObservation = false, withObservation = true) {
       const a = s.actors[id]; const out = [];
@@ -970,8 +1003,8 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       // summon question correctly, exactly as observation.js answers commune questions: the gate teaches humans, not the foe.
       // Commune first (Mala, 2026-10-20): with distance or a big tree, the cheap body comes before the palace.
       const communeFirst = out.some((c) => (c.type === "commune" && communeFirstFor(s, a, c.object)) || (c.type === "communeStructure" && awakenFirstFor(s, a, c.object)));
-      if (summonQuestions && summonRules && summonRules.callsPalace(a) && !communeFirst && !a.communed && !a.dream && !a.aggressive) {   // summon-owner: the player's side calls (Mala, 2026-11-05, decision b); commune bodies, dreams and aggressive units still don't consider it
-        const unlocked = s.unlockedSummons || [];
+      if (summonQuestions && summonRules && summonRules.callsPalace(a) && !communeFirst && !a.communed && !a.dream && !a.aggressive && (id === "player" || callNeed(s, a, out))) {   // K1: only a familiar caller (O1), an ally only from need (O6); commune bodies, dreams and aggressive units still don't consider it
+        const unlocked = summonRules.familiarSet(a, s.unlockedSummons || []);   // K1 O2: the caller's own set
         for (const key of unlocked) {
           if (!summonReadiness || !summonReadiness(s, id, key, unlocked).ok) continue;
           const q = summonQuestions.pickQuestion(key, `${s.seed}:${s.round}:${id}:${key}`, { hintCount: summonQuestionHints ? summonQuestionHints(s, id, key) : 0 });
@@ -984,8 +1017,8 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           if (apply(s, act, { preview: true }).ok) out.push(act);
         }
       }
-      if (summonRules && dreamReadiness && summonRules.callsPalace(a) && !communeFirst && !a.communed && !a.dream && !a.aggressive) {   // D2: unlocked dreams are considered beside palace familiars (no question; same exclusions)
-        const unlocked = s.unlockedSummons || [];
+      if (summonRules && dreamReadiness && summonRules.callsPalace(a) && !communeFirst && !a.communed && !a.dream && !a.aggressive && (id === "player" || callNeed(s, a, out))) {   // D2: unlocked dreams are considered beside palace familiars (no question; same exclusions)
+        const unlocked = summonRules.familiarSet(a, s.unlockedSummons || []);   // K1 O2: dreams reach only the player character
         for (const key of unlocked) {
           if (!key.startsWith("enemyDream:") || !dreamReadiness(s, id, key, unlocked).ok) continue;
           const act = { type: "callDream", actor: id, key, unlocked: unlocked.slice() };
@@ -1183,13 +1216,15 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       }
       return best?.f || null;
     }
+    // C12 (escape): an enemy post-holder away from its post is chasing, so protection is worth nothing to it (threatValue and standingValue's protect).
+    const offPost = (s, a) => s.modeSetup?.mode === "escape" && a.side === "enemy" && (s.modeSetup.guard?.tiles || []).length
+      && !s.modeSetup.guard.tiles.some(([x, y]) => Math.abs(x - a.x) + Math.abs(y - a.y) <= INTERDICT.holdWithin);
     function threatValue(s, a, cand, def) {
       const L = s.rules.aiLedger, frac = def && L?.cover?.[def.effect];
       if (!frac) return 0;
       const foes = Object.values(s.actors).filter((t) => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side);
       if (!foes.length) return 0;
-      if (s.modeSetup?.mode === "escape" && a.side === "enemy" && (s.modeSetup.guard?.tiles || []).length   // C12: a post-holder braces on its post, not on a chase
-        && !(s.modeSetup.guard.tiles.some(([x, y]) => Math.abs(x - a.x) + Math.abs(y - a.y) <= INTERDICT.holdWithin))) return 0;
+      if (offPost(s, a)) return 0;   // C12: a post-holder braces on its post, not on a chase
       let covered, range;
       if (!Array.isArray(cand.target) || def.target === "self") {
         if (["guard", "immovable", "anchor"].includes(def.effect) && (liveStatus(a, "guard") || liveStatus(a, "immovable") || liveStatus(a, "anchor") || liveStatus(a, "ward"))) return 0;   // net-new: already braced
@@ -1343,7 +1378,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       for (const t of Object.values(st.actors)) { const b = s.actors[t.id]; if (!b || !answered.has(t.id)) continue;   // technique answers only: a dodge or Guard is ordinary defence, priced where it always was (mirror level 2: crediting a dodge's 50 AP debt made every poke announced)
         const pf = Math.max(0, (b.pf || 0) - (t.pf || 0)), debt = Math.max(0, (t.tempoDebt || 0) - (b.tempoDebt || 0)), ap = Math.max(0, (b.tempo || 0) - (t.tempo || 0));
         if (pf || debt || ap) answerCost += pf * (RD.pfWeight ?? 0.3) + (debt + ap) * Math.max(RD.apWeight ?? 0.1, apWorth(s, b) * (RD.debtPain ?? 1)); }
-      return { ok: true, deltas, wildDeltas, events: st.log.slice(s.log.length), announced, pending: r.state.pending, hidden, answerCost };
+      return { ok: true, deltas, wildDeltas, events: st.log.slice(s.log.length), announced, pending: r.state.pending, hidden, answerCost, state: st };   // D1: standingValue diffs statuses (read-only; each preview owns its clone)
     }
     // Technique stances (Muse-2): the AI pays once-costs only — blood while healthy, else tomorrow's tempo.
     // No Inspiration, no Burned Bridge, no while-restrictions volunteered (v1; the player may swear any price).
@@ -1498,16 +1533,51 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       }
       const cap=W.cap ?? 16; return Math.max(-cap,Math.min(cap,value));
     }
+    const DEF_STANDING = { root: 8, itemLock: 4, reveal: 5, ward: 5, adaptResistance: 5 };   // fallback mirror of rules.aiLedger.standing (partial-rules unit tests); the table is the home
     function scribedComponentValue(s,a,cand,pv){
       if(cand.type!=="ability"||!ab(cand.ability)?.scribedEffects)return 0;
+      const T = s.rules.aiLedger?.standing || DEF_STANDING;
       let value=0;const seen=new Set();
       for(const e of pv.events||[]){if(e.kind!=="scribedEffect"||seen.has(e.target+e.component))continue;seen.add(e.target+e.component);const t=s.actors[e.target];if(!t)continue;
-        if(e.component==="root"&&!(t.status.rooted?.expiresAt>t.ownerTurns))value+=8;
-        if(e.component==="itemLock"&&t.inventory?.length&&!(t.status.scribedItemLock?.expiresAt>t.ownerTurns))value+=4;
-        if(e.component==="reveal"&&t.status.concealed)value+=5;
-        if(e.component==="ward"&&!t.status.ward)value+=5;
-        if(e.component==="adaptResistance"&&!t.status.guard)value+=5;
+        if(e.component==="root"&&!(t.status.rooted?.expiresAt>t.ownerTurns))value+=T.root;
+        if(e.component==="itemLock"&&t.inventory?.length&&!(t.status.scribedItemLock?.expiresAt>t.ownerTurns))value+=T.itemLock;
+        if(e.component==="reveal"&&t.status.concealed)value+=T.reveal;
+        if(e.component==="ward"&&!t.status.ward)value+=T.ward;
+        if(e.component==="adaptResistance"&&!t.status.guard)value+=T.adaptResistance;
       }return value;
+    }
+    // Standing value (AI Sight D1; SPEC claude-ai-sight-spec §2): prices status differences between the state
+    // before and the settled preview, for every candidate that reaches the main sum in rawScore() (class effects and
+    // aiValueShared kits return earlier and are priced by their own runtime). Harmful statuses landing on foes are
+    // `harm`; protective ones landing on threatened allies are `protect`. Scribed-priced statuses are skipped, and
+    // rawScore() pays protect against threatValue's cover price as the larger of the two, never the sum.
+    function standingValue(s,a,cand,pv){
+      const none = { harm: 0, protect: 0 }, T = s.rules.aiLedger?.standing; if (!T) return none;
+      const live = (u, k) => { const v = u?.status?.[k]; if (v == null) return false; if (typeof v.expiresAt === "number") return v.expiresAt > (u.ownerTurns || 0); return true; };
+      const skip = new Set();
+      for (const e of pv?.events || []) {
+        if (e.kind !== "scribedEffect" || !e.target) continue;
+        if (e.component === "root") skip.add(e.target + ":rooted");
+        else if (e.component === "itemLock") skip.add(e.target + ":scribedItemLock");
+        else if (e.component === "reveal") skip.add(e.target + ":concealed");
+        else if (e.component === "ward") skip.add(e.target + ":ward");
+        else if (e.component === "adaptResistance") skip.add(e.target + ":guard");
+      }
+      const after = pv?.state?.actors; if (!after) return none;
+      const L = s.rules.aiLedger;
+      const threatened = (u) => Object.values(s.actors).some((f) => H.Instinct.standing(f) && !H.Tourist?.is(f) && f.side !== a.side && dist(s, f.x, f.y, u.x, u.y) <= L.threatRangeSelf);   // protection resists a live threat or nothing: threatValue's foe filter + range (tests/least-used.test.mjs); a "helpful" status with no foe near is worthless
+      let harm = 0, protect = 0;
+      const guarding = !offPost(s, a);   // C12: off its post, an escape guard values no protection (the same gate as threatValue)
+      for (const [id, u] of Object.entries(after)) {
+        const before = s.actors[id]; if (!u || u.defeated) continue;
+        const foe = u.side !== a.side && u.side !== "bystander", ally = u.side === a.side;
+        if (!skip.has(id + ":rooted") && !live(before, "rooted") && live(u, "rooted") && foe) harm += T.root || 0;
+        if (!skip.has(id + ":scribedItemLock") && !live(before, "scribedItemLock") && live(u, "scribedItemLock") && foe) harm += T.itemLock || 0;
+        if (!skip.has(id + ":concealed") && live(before, "concealed") && !live(u, "concealed") && foe) harm += T.reveal || 0;
+        if (!skip.has(id + ":ward") && !live(before, "ward") && live(u, "ward") && ally && guarding && threatened(u)) protect += T.ward || 0;
+        if (!skip.has(id + ":guard") && !live(before, "guard") && live(u, "guard") && u.status.guard.damageType && ally && guarding && threatened(u)) protect += T.adaptResistance || 0;
+      }
+      return { harm, protect };
     }
     function score(s, id, cand) {
       const a=s.actors[id];
@@ -1545,7 +1615,30 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     };
     const noWardHere = (s, a) => !((a.status?.ward?.protection || 0) > 0);   // mirrors damage.js: a ward reads while it has protection
     const foesInSightHere = (s, a, n) => Object.values(s.actors).filter((u) => !u.defeated && !u.notArrived && !H.Tourist?.is?.(u) && u.side !== a.side && u.side !== "bystander" && H.hasSight?.(s, a.x, a.y, u.x, u.y)).length >= (n || 2);   // W1c: Second Gaze wants two foes showing themselves
-    const driveChecks = { foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere };
+    // Big Game Hunter H2 (merge spec 11): the scout table's context checks. All fail safe (false) on sparse states.
+    // Candidacy implies holding the technique, so no check gates on character: a Scout who learned Index Entry
+    // catalogues too (the spec scopes entries by technique held, not by who holds them).
+    const foeAtTarget = (s, a, cand) => {
+      const t = cand?.target; if (!Array.isArray(t)) return null;
+      return Object.values(s.actors || {}).find((u) => !u.defeated && !u.notArrived && !H.Tourist?.is?.(u) && u.x === t[0] && u.y === t[1] && u.side !== a.side && u.side !== "bystander") || null;
+    };
+    const freshCatalogueTargetHere = (s, a, _arg, cand) => {
+      const u = foeAtTarget(s, a, cand); if (!u) return false;
+      const deck = s.insight?.decks?.[u.id]; if (!deck) return false;
+      const viewer = a.side === "player" ? "player" : a.id;
+      const revealed = s.insight?.knowledge?.[viewer]?.[u.id]?.revealed || [];
+      if (!deck.cards.some((c) => !revealed.includes(c.id))) return false;   // nothing left to reveal: no bonus for a blank page
+      const q = ClassRuntime?.hunterQuarryOf?.(s, a);
+      return q == null || q.id === u.id;   // the Quarry, or she has none
+    };
+    const cataloguedQuarryHere = (s, a, n, cand) => {
+      const u = foeAtTarget(s, a, cand); if (!u) return false;
+      return ClassRuntime?.hunterQuarryOf?.(s, a)?.id === u.id && (ClassRuntime?.hunterKnownCount?.(s, a, u) || 0) >= (n || 2);
+    };
+    const foeConcealedHere = (s, a) => Object.values(s.actors || {}).some((u) => !!u && !u.defeated && u.side !== a.side && !!u.status?.concealed && (u.status.concealed.until == null || u.status.concealed.until >= u.ownerTurns));   // the veiled read, ai.js:1687
+    const ownRumorPendingHere = (s, a) => (s.rumors || []).some((r) => typeof r.id === "string" && r.id.startsWith(`rumor-${a.id}-`) && r.expiresRound > s.round);   // her own find, still live (resolve.js verify reads the same expiry)
+    const noOwnRumorHere = (s, a) => !ownRumorPendingHere(s, a);
+    const driveChecks = { foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere, freshCatalogueTarget: freshCatalogueTargetHere, cataloguedQuarry: cataloguedQuarryHere, foeConcealed: foeConcealedHere, ownRumorPending: ownRumorPendingHere, noOwnRumor: noOwnRumorHere };
     function driveWhenHolds(checks, s, a, cand, when) {
       if (when === undefined || when === null) return true;
       // A bare ["name", x] with non-string x is one tuple; any other array is a list of atoms (tuple args are never bare strings).
@@ -1931,10 +2024,11 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const dreamFinisher = cMan?.tier === "ultimate" && !!H.dreamSpaceRules?.canFinishUltimate(a, s.dreamSpace, s.rules);   // a dream finisher has its own pricing above
       const readyUlt = (cMan?.tier === "ultimate" && cMan.effect === "damage" && !dreamFinisher && (a.ultimateCharge || 0) >= s.rules.ultimateChargeMax ? s.rules.aiLedger?.readyUltimate || 0 : 0)
         - (inspiredUlt ? s.rules.reactiveDefense?.ai?.inspirationWeight ?? 3 : 0);   // the point is priced on every inspired ultimate, damage or not
+      const standing = standingValue(s, a, cand, pv);   // AI Sight D1: harm adds; protect is paid against threatValue's cover price, the larger of the two
       const taste = TA && cand.type === "ability" && a.adhdChain?.ability ? Object.entries(TA.variety || {}).reduce((n, [k, v]) => hasTrait(a, k) ? n + v : n, 0) : 0;
       const variety = taste ? (a.adhdChain.ability === cand.ability ? -taste : taste) : 0;   // ADHD: something new appeals, the same again bores
       return dmg - self * 1.5 - cost * 0.3 - reserveCost(s, a, cand, cost) + variety + (pv.answerCost || 0) * (AM?.costWeight ?? 1) + (cand.announce ? 2 : 0) + spite - heed + playful + bait + curiousBonus(s, id, cand) + setupBo + rgBo + readyUlt + foundBonus
-        + scribedComponentValue(s,a,cand,pv) + threatValue(s, a, cand, def) + infoValue(s, a, cand, pv, def) + develop + (H.traitDriveBonus?.(s, a, cand) || 0) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus;   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill
+        + scribedComponentValue(s,a,cand,pv) + standing.harm + Math.max(standing.protect, threatValue(s, a, cand, def)) + infoValue(s, a, cand, pv, def) + develop + (H.traitDriveBonus?.(s, a, cand) || 0) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus;   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill
     }
     // ── In-match lessons (Mala, 2026-10-14: "AI should learn during the match if an attack is effective or not AND
     // understand why"). What a preview already shows (a Shield Wall across a line, a resistance in the damage sum) is

@@ -19,6 +19,7 @@
     orchardApple: { prep: "raw", tags: ["fruit", "sweet"] }, banana: { prep: "raw", tags: ["fruit", "sweet"] },
     hawthornBerry: { prep: "raw", tags: ["fruit"] }, bitterMelon: { prep: "raw", tags: ["fruit", "bitter"] },
     hawthornLeaf: { prep: "raw", tags: ["herb"] }, hawthornFlower: { prep: "raw", tags: ["herb", "flower"] }, blossomBranch: { prep: "raw", tags: ["flower"] },
+    lavenderJar: { prep: "raw", tags: ["flower"] }, daisyJar: { prep: "raw", tags: ["flower"] }, wildflowerJar: { prep: "raw", tags: ["flower"] },
     pohiLeaf: { prep: "raw", tags: ["herb", "greens"] }, pohiFlower: { prep: "raw", tags: ["herb", "flower"] }, cupFungus: { prep: "raw", tags: ["fungus"] },
     fishEggs: { prep: "raw", tags: ["sea"] },
     tofu: { prep: "raw", tags: ["tofu"] }, shiitake: { prep: "raw", tags: ["fungus"] }, bokChoy: { prep: "raw", tags: ["greens"] },
@@ -28,7 +29,7 @@
     chipBag: { prep: "ready", tags: ["grain"] }, trailMix: { prep: "ready", tags: ["sweet"] }, jellyCup: { prep: "ready", tags: ["sweet"] },
     herbCup: { prep: "ready", tags: [] }, bobaTea: { prep: "ready", tags: ["sweet"] }, sodaCan: { prep: "ready", tags: ["sweet"] },
     coldBrew: { prep: "ready", tags: [] }, waterBottle: { prep: "ready", tags: ["water"] }, electrolytes: { prep: "ready", tags: ["water"] },
-    mapoTofu: { prep: "dish", tags: [] }, hotpot: { prep: "dish", tags: [] }, marketBox: { prep: "dish", tags: [] },
+    mapoTofu: { prep: "dish", tags: [] }, hotpot: { prep: "dish", tags: [] }, marketBox: { prep: "dish", tags: [] }, petalTisane: { prep: "dish", tags: [] },
     stadiumBloodyMary: { prep: "dish", tags: [] },   // a ballpark novelty: found or bought, never cooked
     mush: { prep: "ready", tags: [] },   // FX1: the fallback mash — ready (20 AP), never a dish, tags of nothing so it feeds no recipe
   };
@@ -48,6 +49,7 @@
     grillFish:  { name: "Grill a fish", from: ["fish"], out: "fishFillet", field: true, teach: "Heat firms the flesh and ends raw fish's vivid dreams." },
     roastCorn:  { name: "Roast an ear", from: ["earOfCorn"], out: "cornSkewer", field: true, teach: "Roasted on a skewer, as at any street grill." },
     herbTea:    { name: "Herb tea", needs: ["herb", "water"], out: "herbCup", field: true, teach: "Leaves steeped in water; the oldest medicine is a cup of something warm." },
+    steepPetals: { name: "Steep petals", needs: ["flower", "water"], out: "petalTisane", field: true, teach: "Petals steeped in hot water; the garden's answer to a field hurt." },
     trailMix:   { name: "Trail mix", needs: ["grain", "fruit"], out: "trailMix", teach: "Dry grain and fruit that travel well." },
     mapoTofu:   { name: "Mapo tofu", needs: ["tofu", "spice", "meat"], out: "mapoTofu", teach: "Sichuan: soft tofu, chili and a little minced beef; the numbing heat wakes you up." },
     hotpot:     { name: "Hot pot", needs: ["greens", "tofu|fungus", "meat|fish"], out: "hotpot", teach: "A shared pot kept simmering at the table, eaten together across East Asia." },

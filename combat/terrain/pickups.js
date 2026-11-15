@@ -35,14 +35,37 @@
     cornKernels:   { name: "Corn kernels",     edible: true, biomes: { terrace: 1 }, near: [], text: "A handful of kernels." },
     fishFillet:    { name: "Fish fillet",      edible: true, biomes: { wetland: 3 }, near: ["w", "~"], text: "A cooked fillet, still warm." },
   };
-  const named = Object.assign({}, sources, edibleSources);   // every item a pickup can be, for names and flavor text
+  // Flower jars (S2, muse-flower-jars-spec; D5, R-20261109-17): grove/terrace near planter/tree/fence, the moon jar also near water. Own pass below, so bait and water-can finds are exactly what they were.
+  const jarSources = {
+    lavenderJar: { name: "Lavender Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Lavender buds in a jar." },
+    daisyJar: { name: "Daisy Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Daisies in a jar." },
+    wildflowerJar: { name: "Wildflower Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Wildflowers in a jar." },
+    roseJar: { name: "Rose Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Roses in a jar." },
+    heartJarBouquet: { name: "Heart Jar Bouquet", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "A heart-shaped bouquet in a jar." },
+    overflowingBouquetJar: { name: "Overflowing Bouquet Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "An overflowing bouquet in a jar." },
+    bluebellJar: { name: "Bluebell Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Bluebells holding dew." },
+    sunflowerJar: { name: "Sunflower Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "A sunflower in a jar." },
+    marigoldJar: { name: "Marigold Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Marigolds in a jar." },
+    moonJarBouquet: { name: "Moon Jar Bouquet", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence", "w", "~"], text: "A moonlit bouquet by the water." },
+    herbBouquetJar: { name: "Herb Bouquet Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "An herb bouquet in a jar." },
+    driedFlowerJar: { name: "Dried Flower Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Dried flowers in a jar." },
+    orchidJar: { name: "Orchid Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "An orchid in a jar." },
+    lilyJar: { name: "Lily Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Lilies in a jar." },
+    apothecaryJarBouquet: { name: "Apothecary Jar Bouquet", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "An apothecary bouquet in a jar." },
+    masonJarBouquet: { name: "Mason Jar Bouquet", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "A mason jar bouquet." },
+    tulipJar: { name: "Tulip Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Tulips in a jar." },
+    cherryBlossomJar: { name: "Cherry Blossom Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "Cherry blossoms in a jar." },
+    hangingJar: { name: "Hanging Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "A hanging jar of pressed flowers." },
+    miniPosyJar: { name: "Mini Posy Jar", biomes: { grove: 2, terrace: 2 }, near: ["planter", "tree", "fence"], text: "A mini posy in a jar." },
+  };
+  const named = Object.assign({}, sources, edibleSources, jarSources);   // every item a pickup can be, for names and flavor text
   // Destroying some objects leaves an item: [object type or form, item, chance]
   const drops = [["cistern", "waterCan", 1], ["fruitTree", "bait", 0.5], ["fence", "borate", 0.25], ["bench", "borate", 0.25],
     ["dataCenter", "coolantCell", 0.6], ["dataCenter", "upsCell", 0.4], ["dataCenter", "dataCore", 0.25]];
   // Damaged-but-standing objects (the loosePanels trait) shake something small loose: same shape, gentler table.
   const shakenDrops = [["dataCenter", "coolantCell", 1]];
   const fruitTrees = ["milo", "kukui", "monkeypod", "kiawe", "kou"];
-  const rules = { slots: 2, pairs: [1, 2], ediblePairs: 1 };
+  const rules = { slots: 2, pairs: [1, 2], ediblePairs: 1, jarPairs: 1 };
 
   function roll(seed, tag) {                        // FNV-1a + fmix32 (bare FNV correlates neighbouring keys)
     let h = 2166136261;
@@ -113,6 +136,13 @@
       const item = weighted(roll(seed, "edible" + e), pool);
       placePair(arena, edibleSources[item], item, taken, pickups, seed, "e" + e);
     }
+    // Jars: their own pass and their own roll tags, so bait and water-can finds are exactly what they were (D5, R-20261109-17).
+    for (let j = 0; j < rules.jarPairs; j++) {
+      const pool = Object.fromEntries(Object.entries(jarSources).map(([k, s]) => [k, (s.biomes[biome] || 0) * (pickups.some((q) => q.item === k) ? 0.25 : 1)]));
+      if (!Object.values(pool).some((v) => v > 0)) break;
+      const item = weighted(roll(seed, "jar" + j), pool);
+      placePair(arena, jarSources[item], item, taken, pickups, seed, "j" + j);
+    }
     return { ...arena, pickups: [...(arena.pickups || []), ...pickups] };
   }
 
@@ -152,5 +182,5 @@
     return { arena: { ...arena, pickups: [...(arena.pickups || []), ...added] }, events: out };
   }
 
-  return { placePickups, collect, dropsFrom, sources: named, edibleSources, drops, shakenDrops, rules };
+  return { placePickups, collect, dropsFrom, sources: named, edibleSources, jarSources, drops, shakenDrops, rules };
 });

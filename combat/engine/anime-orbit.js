@@ -44,9 +44,10 @@
     // straight into the unit's passives. Noble's +1 Inspiration lands now (the engine gives it to the player at create).
     function wearSouls(s, u, arts) {
       const p = (u.passives ||= {});
-      for (const [kind, tier] of Object.entries(arts)) {
-        if (!JK?.GIFTS?.[kind] || tier < 1) continue;
-        for (const [k, v] of Object.entries(JK.GIFTS[kind].inject())) p[k] = /Mul$/.test(k) ? (p[k] ?? 1) * v : (p[k] ?? 0) + v;
+      for (const [key, tier] of Object.entries(arts)) {
+        const { kind, line } = JK?.fromArtKey ? JK.fromArtKey(key) : { kind: key, line: "held" }, G = JK?.giftOf ? JK.giftOf(kind, line) : JK?.GIFTS?.[kind];   // JG1: a "kind:worn" key reads the worn gift
+        if (!G || tier < 1) continue;
+        for (const [k, v] of Object.entries(G.inject())) p[k] = /Mul$/.test(k) ? (p[k] ?? 1) * v : (p[k] ?? 0) + v;
       }
       p.soulArts = { ...(p.soulArts || {}), ...arts };
       p.soulArtIds = [...new Set([...(p.soulArtIds || []), ...(JK.artIds(arts) || [])])];

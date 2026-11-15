@@ -13,7 +13,7 @@
     const { ClassRuntime, Courtroom, DIRS, EmergentIdeas, Parley, Tsukumogami, actorAt, applyEntryEffects, barrierAt, bossRules, classH, dist,
       footprint, fullCourtPressOptions, hasTrait, hit, inside, log, presidentContext, presidentRules, presidentUnits, roundFn, spendTempo,
       strikeTarget, syncPresidentUnit, tileAt } = H;
-    const { addStun, barsTooFast, freeStrike, grappleChance, grappleCost, grappled, hermitCharge, sealedNext, seededChance, strikeRange, strongGrip,
+    const { addStun, barsTooFast, freeStrike, grappleChance, grappleCost, grappled, hermitCharge, holdFireRefusal, sealedNext, seededChance, strikeRange, strongGrip,
       talksToAttack } = K;
     const family = {
       fullCourtPress(s,a,act) {
@@ -29,11 +29,13 @@
         if (a.status?.miseLine) delete a.status.miseLine;   // a Chef's spent-station credit belongs to the Strike that spends it: a stale one (a Strike that fizzled) never carries over
         if (Courtroom) { const no = Courtroom.violenceGate(s, H, a); if (no) return no; }   // W1.3: no brawling in court
         if(a.status?.soothed)return "Soothed: hostile actions are unavailable this turn.";
+        { const no = holdFireRefusal(s, a, true); if (no) return no; }
         if(a.status?.detained&&(a.status.detained.until==null||a.status.detained.until>=a.ownerTurns))return "Detained: no actions until the hold ends.";
         if ((H.Injury?.gradeOf(a, "arms") || 0) === 2) return "Maimed arms can't strike: techniques only.";
         const flowMul = s.rules.flowState?.enabled !== false && ((a.ultimateCharge ?? 0) >= (s.rules.ultimateChargeMax || 100) || !!a.form?.golden) ? s.rules.flowState?.strikeMul || 1 : 1;   // Flow state: a pocketed ult hits harder, live off the bar; gold is flow incarnate
         const arming = (s.arena.objects || []).find((o) => (o.hp ?? 0) > 0 && o.side === a.side && ((o.type === "foundry" && dist(s, a.x, a.y, o.x, o.y) <= 2) || (o.type === "keep" && Math.max(Math.abs(o.x - a.x), Math.abs(o.y - a.y)) === 1)));
         const foundryBonus = !arming ? 0 : s.actors[arming.owner]?.character === "starfarer" ? 3 : 2;   // Settlement: the line arms its strikers; Ship's Engineer: her works arm +3 (Mala, 2026-10-19)
+        { const [lx, ly] = act.target || []; const leash = H.summonRules?.Tandem?.aimRefusal(s, a, lx, ly, dist); if (leash) return leash; }   // Tandem T1: a strike answers to the leash and the strain too
         const [tx, ty] = act.target || []; const t = actorAt(s, tx, ty) || (s.wild.find((m) => m.form === "unit" && m.x === tx && m.y === ty) ? { ...s.wild.find((m) => m.form === "unit" && m.x === tx && m.y === ty), wild: true, side: "wild", status: {} } : null);
         if (act.aim) {
           if (!["head", "arms", "legs"].includes(act.aim)) return "Aim at head, arms, or legs.";
@@ -184,6 +186,7 @@
         if (unit) {
           if (held) unit.status.grappled = null;
           unit.x = land[0]; unit.y = land[1]; applyEntryEffects(s, a, unit, land[0], land[1], "is thrown onto");
+          ClassRuntime?.hunterForcedMove?.(s, a, unit, classH());   // Big Game Hunter: a throw knocks Charged loose (merge spec H3a)
           if (unit.side !== a.side && !unit.defeated) hit(s, a, unit, inst, T.damage * (held ? T.heldMul : 1), [`Thrown: ${T.damage} base${held ? `, ×${T.heldMul} out of a hold` : ""}.`]);
         } else { obj.x = land[0]; obj.y = land[1]; }
         if (struck && struck.side !== a.side && !struck.defeated) hit(s, a, struck, inst, unit ? T.impact : T.objectDamage, [unit ? `Struck by a thrown body: ${T.impact}.` : `Struck by a thrown ${obj.type}: ${T.objectDamage}.`]);

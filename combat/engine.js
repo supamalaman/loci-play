@@ -42,7 +42,7 @@
   else root.ConceptCombat = factory(Observation, Tourist, root.ConceptCombatPostures, root.ConceptCombatPresident, Sight, Belief, GraphLive, ClassRuntime, root.ConceptCombatDirector, RandomEvents, Climate, Auras, Parley, Bonds, Vows, MaidSystems, Workflow, UtilityAI, Communion, Traps, Tsukumogami, Imitation, EmergentIdeas, EnemySummons, MindDuel, root.ConceptCombatConversion, root.ConceptCombatCourtroom, root.ConceptCombatDispatch, root.ConceptCombatPresence, root.ConceptCombatDebt, root.ConceptCombatSealing, root.ConceptCombatVisitors, (root.ConceptCombatBuild && root.ConceptCombatBuild.version) || "dev");
 })(typeof self !== "undefined" ? self : this, function (Observation = null, Tourist = null, Postures = null, President = null, Sight = null, Belief = null, GraphLive = null, ClassRuntime = null, Director = null, RandomEvents = null, Climate = null, Auras = null, Parley = null, Bonds = null, Vows = null, MaidSystems = null, Workflow = null, UtilityAI = null, Communion = null, Traps = null, Tsukumogami = null, Imitation = null, EmergentIdeas = null, EnemySummons = null, MindDuel = null, Conversion = null, Courtroom = null, Dispatch = null, Presence = null, Debt = null, Sealing = null, Visitors = null, BUILD = "dev") {
   // The engine's parts, in install order (web/combat/engine/). Node requires them; the pages load them as scripts first.
-  const ENGINE_PARTS = ["ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
+  const ENGINE_PARTS = ["charge","ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
     ? require("./engine/" + name + ".js") : globalThis.ConceptCombatEngineParts[name.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase())]), Affinity = typeof module === "object" && module.exports ? require("./vows/affinity.js") : globalThis.ConceptCombatAffinity, VK = typeof module === "object" && module.exports ? require("./vows/vowkit.js") : globalThis.CombatVowKit;   // W4.5-6: vow-drive audit + declaration kit
 
 
@@ -270,7 +270,7 @@
       const actor = s.actors[id], base = { apCost: summonRules?.data.rules.actionCost ?? 80, phiCost: summonRules?.data.rules.phiCost ?? 8 };
       const field = dreamSpaceRules?.contains(s.dreamSpace, actor?.x, actor?.y) ? s.dreamSpace : null;
       const cost = H.summonPhiAdd(actor, dreamSpaceRules ? dreamSpaceRules.summonCost(field, base) : base);
-      const profile = EmergentIdeas ? EmergentIdeas.summonProfile(actor, cost, summonRules?.data.rules.maxActive ?? 1) : { ...cost, maxActive: summonRules?.data.rules.maxActive ?? 1, wardProtection: 0 };
+      const profile = { ...(EmergentIdeas ? EmergentIdeas.summonProfile(actor, cost) : { ...cost, wardProtection: 0 }), maxActive: summonRules?.data.rules.maxActive ?? 1 };
       if (field && actor?.widenedPalace) profile.maxActive += 1;   // Widened Palace dream slot
       return { ...profile, active: Object.values(s.actors).filter(u => EmergentIdeas?.summonerOf(u) === id && EmergentIdeas.summonPresent(u)).map(u => u.id) };
     }
@@ -280,8 +280,7 @@
       if (!actor || actor.defeated || actor.lf <= 0) return { ok: false, reason: "Choose a living summoner." };
       if (actor.form?.golden) return { ok: false, reason: "The Integrated Self has no need to summon." };
       if (!summonRules || !summonQuestions) return { ok: false, reason: "Summoning is unavailable." };
-      if (!summonRules.callsPalace(actor)) return { ok: false, reason: "Only the player's side calls the palace." };
-      return summonRules.canSummon({ ...summonProfile(s, id), used: s.summonUsed, ap: actor.tempo, pf: actor.pf }, summon, { unlocked });
+      return summonRules.canCall(actor, { ...summonProfile(s, id), used: s.summonUsed, ap: actor.tempo, pf: actor.pf }, summon, unlocked);
     }
     // A practice battle for Contains Multitudes: full Inspiration and a ledger with a few classes already in it, so it
     // can be tried without earning either. Practice: nothing is saved, and nothing is written to the real ledger.
@@ -493,7 +492,7 @@
         if(!summonRules || !s.actors[spec.owner]) throw new Error("Initial summon needs its owner and summon rules.");
         const raw=summonRules.makeSummonActor(spec.key,{owner:spec.owner,at:spec.at});
         const summon=liveSummon(s,s.actors[spec.owner],raw);s.actors[summon.id]=summon;s.order.splice(1,0,summon.id);
-        s.disclosures[summon.id]={};s.summonUsed.push(spec.key);s.observedAbilities[summon.id]=[];
+        s.disclosures[summon.id]={};s.summonUsed.push(summonRules.usedKey(spec.owner,spec.key));s.observedAbilities[summon.id]=[];
         if(insightRules) {const deck=insightRules.buildDeck({key:"summon:*",kind:"summon"},{seed:s.seed});s.insight.decks[summon.id]=deck;s.insight.knowledge[summon.id]=insightRules.spawnKnowledge(deck);}
       }
       s.summonTrueFormTest=!!opts.summonTrueFormTest;
@@ -1208,21 +1207,7 @@
     function unitAt(s, x, y) { return actorAt(s, x, y) || s.wild.find((m) => m.form === "unit" && m.x === x && m.y === y) || null; }
     const unitOccupied = (s, x, y) => !!unitAt(s, x, y);
     function edgeUsed(s, id) { s.stats.edges[id] = (s.stats.edges[id] || 0) + 1; }
-    function chargeUltimate(s, a, concept, reason, bonus = 0, utilityMultiplier = 1, classAuraRecharge = false, borrowedOk = false) {
-      if (!concept || (concept !== a.primary && concept !== a.secondary && !borrowedOk)) return;
-      if (dreamSpaceRules && !dreamSpaceRules.chargeGainAllowed(a, s.dreamSpace)) return;
-      if (Auras && Auras.chargeFrozen(a) && !classAuraRecharge) return;   // Auras: class modifiers may explicitly permit a bounded gain
-      const base = s.rules.ultimateChargePerConcept;
-      const pair = concept !== a.lastChargeConcept && a.lastChargeConcept != null ? s.rules.ultimateChargePairBonus : 0;
-      const before = a.ultimateCharge;
-      const chargeMul = (a.passives?.ultimateChargeMul || 1) * ((a.traits || []).some((t) => (t?.id || t) === "sampler") ? 0.5 : 1);   // Sampler halves every ultimate charge (Mala, 2026-10-18)
-      const gain = Math.round((base + pair + bonus) * utilityMultiplier * chargeMul * (Auras?.chargeMul?.(a) ?? 1));
-      a.ultimateCharge = Math.min(s.rules.ultimateChargeMax, before + gain);
-      a.lastChargeConcept = concept;
-      if (a.ultimateCharge > before) log(s, { kind: "charge", actor: a.id,
-        text: `${a.name} builds ${a.ultimateCharge - before} ultimate charge (${a.ultimateCharge}/${s.rules.ultimateChargeMax}).`,
-        why: [reason, pair ? `Alternating ${conceptName(concept)} with the other equipped concept adds ${pair}.` : "Charge comes from concept use, not damage.", bonus ? `Resolved composition effect adds ${bonus}.` : "", utilityMultiplier !== 1 ? `Successful utility action charge ×${utilityMultiplier}.` : "", classAuraRecharge ? "Maid's Service Cycle converts cleaned residue into charge while her Selectivity aura is active." : "", chargeMul !== 1 ? `Character traits adjust charge gained ×${chargeMul} (${gain} total).` : ""] });
-    }
+    // chargeUltimate lives in engine/charge.js, installed first (H.chargeUltimate).
 
     // ── replay, learning, progression, report ──────────────────────────────
     function replay(opts, actions) {
@@ -1394,7 +1379,7 @@
       Civilian, Observation, observationH, Tourist, touristH, Auras, Belief, Bonds, C, CRAFT, CRAFT_OWN, ClassRuntime, Climate, Communion, DIRS, EM, EmergentIdeas, EnemySummons, FEAR, GraphLive, INTERDICT, Imitation, MED, MaidSystems,
       Parley, Conversion, Courtroom, Dispatch, Presence, Debt, Sealing, Performers, Postures, President, REVEAL, RITUAL, RandomEvents, SHADE, Sight, Stealth, Traps, Tsukumogami, UtilityAI, Visitors, Vows, Affinity, VK, WX, Workflow, ab, abilitiesOf, Director, MindDuel,
       accountItems, activeTerrainEffect, actorAt, addRandomTerrain, addStun, allyLook, answerTransfer, archivistTestOptions, auraH, barrierAt,
-      borrowedPools, bossAbilityIds, bossRules, cannotSwim, chargeUltimate, classH, clone, compositionEdge, conceptName, content, coversTile, create,
+      borrowedPools, bossAbilityIds, bossRules, cannotSwim, classH, clone, compositionEdge, conceptName, content, coversTile, create,
       currentId, declaredRange, dist, dodgeCostFor, dreamCanReach, dreamSame, dreamSpaceRules, edgeUsed, footprint, gradeableSoil, hasDeception,
       hasSight, heightAt, inside, insightRules, keepDreamPositions, key, lensOf, line, liveSummon, log, manifest, mapgen, mirrorRules, modeRules,
       moveBudgetFor, ownerOfConcept, paths, pickupRules, planViewActive, plantUnderfoot, presidentCanRecognize, presidentContext,

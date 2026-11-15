@@ -18,6 +18,10 @@
     root.ConceptCombatWorkshopTraversal, root.ConceptCombatMint, root.ConceptCombatMarket, root.ConceptCombatJinki,
     root.ConceptCombatJinkiStates, root.ConceptCombatJinkiVoice, root.ConceptCombatFame);
 })(typeof self !== "undefined" ? self : this, function (I, A, AN, TR, MINT, MK, JK, JS, JV, FAME) {
+  // S7: lazy — loot.js loads before the keeper scripts in the page; Node tests require it here.
+  const perksNode = () => require("./keeper-perks.js");   // `=> require(` marks it lazy for the engine-parts walk (merge fix, Bulwark IN)
+  const perks = () => (typeof module === "object" && module.exports) ? perksNode()
+    : (typeof self !== "undefined" ? self : globalThis).ConceptCombatKeeperPerks;
   function roll(seed, tag) {
     let h = 2166136261;
     for (const c of `${seed}:${tag}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
@@ -225,7 +229,7 @@
     const who = r.givers.length ? ` by ${r.givers.join(", then ")}` : "";
     const rarity = I.equipment[id] ? rarityOf(a, id) : null;
     const risen = rarity && I.equipment[id] && rarity !== I.equipment[id].rarity ? `risen ${rarity}` : "";
-    const ensouled = r.soul ? `soul ${r.soul.kind}` : "";
+    const ensouled = r.soul ? `soul ${r.soul.kind}${r.soul.line === "worn" ? ", worn close" : ", held"}` : "";   // JG1: the line it woke into ("worn close", not "worn": the Souls strip's Worn chip means worn out)
     const glory = [risen, ensouled].filter(Boolean).join(", ");
     const giverAt = bits.findIndex((b) => !/duplicate/.test(b));   // "by you" belongs to a hand, not to a duplicate's mend (1.3.458 audit)
     const tale = bits.length ? `${bits.map((b, i) => (i === giverAt ? b + who : b)).join(", ")}`.replace(/^./, (c) => c.toUpperCase()) + "." : "";
@@ -430,23 +434,30 @@
     const a = withBags(account);
     return Object.entries(I.consumables).filter(([, it]) => it.hallOnly).map(([id, it]) => ({ kind: "consumable", id, rarity: it.rarity, price: hallPrice(a, it.price), listPrice: it.price, name: it.name, text: it.text, owned: a.stash[id] || 0 }));
   }
-  function buy(account, offer) {
+  function buy(account, offer, opts = {}) {
     let a = withBags(account);
-    if (a.seeds < offer.price) return { ok: false, account: a, reason: `Not enough Seeds (${a.seeds}/${offer.price}).` };
-    if (offer.kind === "vessel") { const vessels = { shard: 0, bead: 0, orb: 0, ...(a.vessels || {}) }; vessels[offer.id]++; return { ok: true, account: { ...a, seeds: a.seeds - offer.price, vessels } }; }   // vessel economy: own ledger, not the stash
-    if (offer.kind === "part") { const parts = { common: 0, uncommon: 0, rare: 0, ...(a.parts || {}) }; parts[offer.id]++; return { ok: true, account: { ...a, seeds: a.seeds - offer.price, parts } }; }
+    // S7 E1: P1 Pioneer (shop) / P3 Jambavan (hall hire). Flag off → apply is a no-op. Never on a sale.
+    let price = offer.price, perkSaved = 0;
+    const keeper = opts.keeper;
+    const KP = perks();
+    if (KP && keeper && (keeper === "pioneer" || (keeper === "jambavan" && I.consumables[offer.id]?.hallOnly && I.consumables[offer.id]?.effect?.hire))) {
+      const q = KP.apply(a, keeper, price); a = withBags(q.account); price = q.price; perkSaved = q.saved;
+    }
+    if (a.seeds < price) return { ok: false, account: a, reason: `Not enough Seeds (${a.seeds}/${price}).` };
+    if (offer.kind === "vessel") { const vessels = { shard: 0, bead: 0, orb: 0, ...(a.vessels || {}) }; vessels[offer.id]++; return { ok: true, account: { ...a, seeds: a.seeds - price, vessels }, price, perkSaved }; }   // vessel economy: own ledger, not the stash
+    if (offer.kind === "part") { const parts = { common: 0, uncommon: 0, rare: 0, ...(a.parts || {}) }; parts[offer.id]++; return { ok: true, account: { ...a, seeds: a.seeds - price, parts }, price, perkSaved }; }
     if (offer.kind === "equipment") {
       if (a.gear.owned.includes(offer.id)) return { ok: false, account: a, reason: "You already own that." };
-      a = { ...a, seeds: a.seeds - offer.price, gear: { ...a.gear, owned: [...a.gear.owned, offer.id], durability: { ...a.gear.durability, [offer.id]: maxDurability(offer.id, a) } } };
+      a = { ...a, seeds: a.seeds - price, gear: { ...a.gear, owned: [...a.gear.owned, offer.id], durability: { ...a.gear.durability, [offer.id]: maxDurability(offer.id, a) } } };
     } else {
-      const r = addToStash({ ...a, seeds: a.seeds - offer.price }, offer.id);
+      const r = addToStash({ ...a, seeds: a.seeds - price }, offer.id);
       if (!r.added) return { ok: false, account: a, reason: `Your stash is full (${stashLimit(a)}).` };
       a = r.a;
     }
     // Perks S1a: a real Hall hire purchase is a `hires` deed (merc / letter of safe conduct).
     if (offer.kind === "consumable" && I.consumables[offer.id]?.hallOnly && I.consumables[offer.id]?.effect?.hire && A.noteDeed)
       a = A.noteDeed(a, "hires", 1).account;
-    return { ok: true, account: a };
+    return { ok: true, account: a, price, perkSaved };
   }
   function sell(account, kind, id) {
     let a = withBags(account); const it = catalog(kind)[id];
@@ -572,16 +583,17 @@
   }
   // Use a repair item from the stash on one piece of gear (between battles).
   function repairService(account, gearId) {   // W7.2: the shop mends for half price (floor 5) — kits stay for the field
-    const a = withBags(account), it = I.equipment[gearId];
+    let a = withBags(account); const it = I.equipment[gearId];
     if (!it) return { ok: false, account: a, reason: "Unknown gear." };
     if (!a.gear.owned.includes(gearId)) return { ok: false, account: a, reason: "You don't own that." };
     if (enshrined(a, gearId)) return { ok: false, account: a, reason: inMuseum(a, gearId) };
     const full = maxDurability(gearId, a);
     if ((a.gear.durability[gearId] ?? full) >= full) return { ok: false, account: a, reason: "Already hale." };
-    const cost = Math.max(5, Math.round(I.rarities[rarityOf(a, gearId)].price / 2));
+    let cost = Math.max(5, Math.round(I.rarities[rarityOf(a, gearId)].price / 2)), perkSaved = 0;
+    { const KP = perks(); if (KP) { const q = KP.apply(a, "smith", cost); a = withBags(q.account); cost = q.price; perkSaved = q.saved; } }   // S7 E1 P2: flag off → no-op
     if (a.seeds < cost) return { ok: false, account: a, reason: `Not enough Seeds (${a.seeds}/${cost}).` };
     const s = settle({ ...a, seeds: a.seeds - cost, gear: { ...a.gear, durability: { ...a.gear.durability, [gearId]: full } } }, gearId, { repairs: 1, seedsSpent: cost }, a.gear.durability[gearId] ?? full, full, "smith");   // JK-03: the smith's mend counts, like the tend-smith's
-    return { ok: true, account: s.account, cost, reached: s.reached, cues: s.cues,
+    return { ok: true, account: s.account, cost, perkSaved, reached: s.reached, cues: s.cues,
       line: s.voice,   // J4: the voice alone (null keeps the smith silent, as today)
       crossed: s.crossed };   // J2: the smith's mend is always a restoration moment
   }

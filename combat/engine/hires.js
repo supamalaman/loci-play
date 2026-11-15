@@ -26,6 +26,7 @@
     const live = (u) => !!u && !u.defeated && !u.escaped && !u.notArrived;
     const book = (s) => (s.hires ||= { called: {}, pending: [] });
     const kindOf = (item) => accountItems?.consumables?.[item]?.effect?.hire || null;
+    const isMediatorKind = (k) => k === "mediator" || k === "flowerMediator";   // flower-jars S2: flower-called mediators behave as mediators
     const traits = (u) => new Set((u?.traits || []).map((t) => (typeof t === "string" ? t : t?.id)));
 
     // Who answers: the first of the pool (in a seeded order) who isn't the caller's own character or already on the field.
@@ -49,7 +50,7 @@
       book(s).pending.push({ kind, owner: a.id, character: who, round: s.round + (rules.delay ?? 1) });
       const name = C.characters[who].name;
       log(s, { kind: "hire", actor: a.id, hire: kind, character: who, tiles: [[a.x, a.y]],
-        text: kind === "merc" ? `${a.name} sends the contract. ${name} will be here next round.` : `${a.name} sends the letter of safe conduct. ${name} will come to talk next round.`,
+        text: kind === "merc" ? `${a.name} sends the contract. ${name} will be here next round.` : kind === "flowerMediator" ? `${a.name} sends flowers. ${name} will come to talk next round.` : `${a.name} sends the letter of safe conduct. ${name} will come to talk next round.`,
         why: [kind === "merc" ? `A merc fights for ${rules.turns} of their turns and leaves if they end a turn below ${Math.round(rules.retreatAt * 100)}% LF.` : `A mediator never fights and no one may attack them. They ask one enemy a turn for a ${rules.truceRounds}-round truce; ${rules.refusals} refusals or ${rules.attempts} asks and they go home.`] });
     }
 
@@ -117,7 +118,7 @@
       const lf = (ch.maxLF || s.rules.maxLF) + (relics.maxLFAdd || 0);
       const u = { id: p.kind === "kin" ? `kin-${p.character}-${owner.id}` : `hired-${p.kind}-${owner.id}`, learned: (ch.learned || []).slice(), name: ch.name, side: owner.side, controller: "ai", ai: "ally", character: p.character, sprite: ch.sprite,
         primary: cfg.primary || ch.primary, secondary: cfg.secondary || ch.secondary, maxLF: lf, lf, x: at[0], y: at[1],
-        hired: { kind: p.kind, owner: owner.id, turnsLeft: p.kind === "merc" ? rules.turns : null, attempts: 0, refusals: 0 }, safeConduct: p.kind === "mediator",
+        hired: { kind: p.kind, owner: owner.id, turnsLeft: p.kind === "merc" ? rules.turns : null, attempts: 0, refusals: 0 }, safeConduct: isMediatorKind(p.kind),
         pf: s.rules.maxPF, maxPF: s.rules.maxPF, ultimateCharge: Math.min(s.rules.ultimateChargeMax ?? 100, relics.startingUltimateCharge || 0), level: owner.level || 1, xp: 0, proficiency: owner.proficiency || 1, reserve: [], reserveSlots: 0, pendingSwap: null, lens: {},
         reaction: s.rules.reactionsPerRound, moved: false, acted: false, tempo: 0, tempoCapacity: 0, bankedTempo: 0, tempoDebt: 0, tempoSpent: 0, actionsThisTurn: 0, guardUsedThisTurn: false,
         ownerTurns: 0, lastRecoverTurn: -99, status: { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null }, inventory: [], inventoryCapacity: 0,
@@ -130,7 +131,7 @@
       if (p.kind === "kin") for (const id of ch.startStates || []) H.States?.grant(s, u, id);   // kin arrive as themselves (Hanuman: Forgotten)
       for (const id of p.states || []) H.States?.grant(s, u, id);   // a flee chain's lure arrives in its shape (Maricha: the golden deer)
       log(s, { kind: "hire", actor: u.id, target: owner.id, arrived: true, hire: p.kind, tiles: [at],
-        text: p.fled ? `${u.name} steps out where ${p.fled} fled${u.states?.marichaDeer ? ", in the shape of a golden deer" : ""}.` : p.kind === "kin" ? `${u.name} answers ${owner.name}'s call and takes the field.` : p.kind === "merc" ? `${u.name} arrives on contract to fight beside ${owner.name}.` : `${u.name} arrives under a letter of safe conduct to talk for ${owner.name}.` });
+        text: p.fled ? `${u.name} steps out where ${p.fled} fled${u.states?.marichaDeer ? ", in the shape of a golden deer" : ""}.` : p.kind === "kin" ? `${u.name} answers ${owner.name}'s call and takes the field.` : p.kind === "merc" ? `${u.name} arrives on contract to fight beside ${owner.name}.` : p.kind === "flowerMediator" ? `${u.name} arrives with flowers to talk for ${owner.name}.` : `${u.name} arrives under a letter of safe conduct to talk for ${owner.name}.` });
     }
 
     // End of a hired unit's own turn: the merc's clock and nerve, the mediator's patience.
@@ -148,8 +149,8 @@
         const waiting = Object.values(s.actors).some((t) => live(t) && t.truce?.by === a.id && s.round <= t.truce.until + 1);
         a.hired.idle = a.hired.asked || waiting ? 0 : (a.hired.idle || 0) + 1; a.hired.asked = false;
       }
-      if (why || a.hired.kind !== "mediator") { /* decided above */ }
-      else if (a.hired.refusals >= rules.refusals) why = "folds the letter away: there's nothing more to say";
+      if (why || !isMediatorKind(a.hired.kind)) { /* decided above */ }
+      else if (a.hired.refusals >= rules.refusals) why = a.hired.kind === "flowerMediator" ? "lays the bouquet down: there's nothing more to say" : "folds the letter away: there's nothing more to say";
       else if (a.hired.attempts >= rules.attempts) why = "has done all the talking they can and goes home";
       else if ((a.hired.idle || 0) >= rules.idleTurns) why = "finds no one here who will talk and goes home";
       if (!why) return;
@@ -160,7 +161,7 @@
 
     // Can this mediator ask `t` for a truce now? null = yes, otherwise why not.
     function cannotAsk(s, m, t) {
-      const rules = R().mediator;
+      const rules = R()[m.hired?.kind] || R().mediator;
       if (!live(t) || t.side === m.side || t.side === "bystander" || t.wild || t.persuaded) return "There's no one to ask.";
       const tongue = Parley?.language(m, t); if (tongue) return tongue;
       if (Parley?.locked(s, m.id, t.id)) return `${t.name} has refused this mediator for good.`;
@@ -171,16 +172,16 @@
       return null;
     }
     function truceChance(s, m, t) {
-      const rules = R().mediator, tr = traits(t);
+      const rules = R()[m.hired?.kind] || R().mediator, tr = traits(t);
       const base = t.boss || t.massive ? rules.chance.boss : rules.chance.base;
       const lean = (tr.has("stubborn") ? -0.15 : 0) + (tr.has("agreeable") ? 0.15 : 0);
       const p = base + (Parley?.persuasion(m) || 0) + lean + Math.max(0, Parley?.willingness(s, t)?.add || 0);
       return Math.max(0.05, Math.min(t.boss || t.massive ? rules.chance.bossMax : rules.chance.max, p));   // an Omega threat never above bossMax
     }
     function mediate(s, m, act) {
-      if (!m.hired || m.hired.kind !== "mediator") return "Only a mediator can ask for a truce.";
+      if (!m.hired || !isMediatorKind(m.hired.kind)) return "Only a mediator can ask for a truce.";
       const t = s.actors[act.target], no = cannotAsk(s, m, t); if (no) return no;
-      const rules = R().mediator, spendError = H.spendTempo(s, m, rules.cost ?? s.rules.actionCosts.utility, "Ask for a truce"); if (spendError) return spendError;
+      const rules = R()[m.hired?.kind] || R().mediator, spendError = H.spendTempo(s, m, rules.cost ?? s.rules.actionCosts.utility, "Ask for a truce"); if (spendError) return spendError;
       const p = truceChance(s, m, t), ok = H.seededChance(`${s.seed}:truce:${m.id}>${t.id}:${s.round}:${m.hired.attempts}`) < p;
       m.hired.attempts += 1; m.hired.asked = true;   // turnEnd: a turn with no ask counts toward going home (rules.idleTurns)
       if (ok) {
@@ -201,13 +202,13 @@
     // AI: a caller with a contract in hand uses it at once (help takes a round to come); a mediator only ever asks for a
     // truce, the strongest enemy it can ask first, and otherwise waits.
     function aiAction(s, a) {
-      if (a.hired?.kind === "mediator") {
+      if (isMediatorKind(a.hired?.kind)) {
         const asks = Object.values(s.actors).filter((t) => !cannotAsk(s, a, t)).sort((x, y) => (y.boss ? 1 : 0) - (x.boss ? 1 : 0) || y.lf - x.lf);
         if (asks.length) return { type: "mediate", actor: a.id, target: asks[0].id };
         return { type: a.tempo > 0 ? "stall" : "end", actor: a.id };
       }
       for (const item of a.inventory || []) {
-        const kind = kindOf(item); if (!kind || s.hires?.called?.[`${a.side}:${kind}`]) continue;
+        const kind = kindOf(item); if (!kind || kind === "flowerMediator" || s.hires?.called?.[`${a.side}:${kind}`]) continue;   // flower-jars S2: reach row "AI never uses jars"
         if (!Object.values(s.actors).some((t) => live(t) && t.side !== a.side && t.side !== "bystander")) continue;
         if (a.tempo >= s.rules.actionCosts.utility) return { type: "useItem", actor: a.id, item, target: [a.x, a.y] };
       }

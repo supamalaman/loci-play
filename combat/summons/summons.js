@@ -12,9 +12,9 @@
 // Bond with the palace: visiting a summon's room unlocks it (bond 1); recalling it correctly in
 // Recall mode strengthens it (bond 2: +1 turn). Learning the palace is how you build your roster.
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./summons-data.js"), require("../terrain/mapgen.js"));
-  else root.ConceptCombatSummons = factory(root.ConceptCombatSummonData, root.ConceptCombatMapgen);
-})(typeof self !== "undefined" ? self : this, function (SD, G) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./summons-data.js"), require("../terrain/mapgen.js"), require("../classes/classes-data.js"), require("./tandem.js"));
+  else root.ConceptCombatSummons = factory(root.ConceptCombatSummonData, root.ConceptCombatMapgen, root.ConceptCombatClassData, root.ConceptCombatTandem);
+})(typeof self !== "undefined" ? self : this, function (SD, G, CD, Tandem) {
   const R = SD.rules, DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const man = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   // A body's tiles, anchor top-left (engine.js footprint). Technique and ultimate reach is measured from the nearest tile of a
@@ -78,7 +78,7 @@
     const s = SD.summons[id];
     return {
       id: `summon-${id}`, name: s.name, side: "player", controller: "ai", character: id, ...(s.sprite ? { sprite: s.sprite } : {}),   // a summon drawn from another body's art (Gaia)
-      summon: { key: id, owner, turnsLeft: Math.max(1, R.baseDuration + (bond === 2 ? R.bondBonusDuration : 0) + durationAdd), bond, potencyMul },
+      summon: { key: id, owner, turnsLeft: Math.max(1, R.baseDuration + (bond === 2 ? R.bondBonusDuration : 0) + durationAdd), bond, potencyMul, ...(s.tandem ? { tandem: JSON.parse(JSON.stringify(s.tandem)) } : {}) },   // Tandem T1: the row's tandem block rides on the actor; palace bond is untouched (R-20261114-10)
       attitude: s.attitude, weights: SD.attitudes[s.attitude].weights,
       primary: s.standIn.primary, secondary: s.standIn.secondary,
       maxLF: R.maxLF, lf: R.maxLF, x: at[0], y: at[1],
@@ -451,11 +451,35 @@
     return Object.assign(summon, ownerState.fresh());
   }
 
-  // Palace callers (Mala, 2026-11-05, decision b; was the Warden alone, 2026-10-22): any true player-side character calls,
-  // and the menu, the readiness check, the action and the AI all ask this one question. Called things
-  // cannot call back: palace summons, bound dreams, monsters, bead beasts and tamed dreams are excluded,
-  // as the enemy path excludes its own called actors (enemy-summons.js qualifies).
-  const callsPalace = (actor) => actor?.side === "player" && !actor?.summon && !actor?.summonBinding && !actor?.monster && !actor?.beast && !actor?.tamed;
-  return { callsPalace, ownerState, freshen, revealTrueForm, revealMaxForm, maxRoom, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
+  // Familiar callers (K1, claude-familiar-choice-spec FAMILIARS.md 13.2 O1; Mala, 2026-11-07: "Most characters dont have
+  // familiars unless they have a trait that allows them to summon familiars or if its a part of their class"; replaces
+  // decision b, 2026-11-05, any player-side character). A player-side unit calls only if it is the player character
+  // (id "player"), carries Keeps a Familiar (familiarKeeper), or its class row lists `familiars`. The menu, readiness,
+  // the action, the AI and dream calls all ask this one question. Called things never call back.
+  const traitIds = (actor) => (actor?.traits || []).map((t) => (typeof t === "string" ? t : t?.id));
+  const classFamiliars = (actor) => { const f = CD?.classes?.[actor?.character]?.familiars; return Array.isArray(f) && f.length ? f : null; };
+  const callsPalace = (actor) => actor?.side === "player" && !actor?.summon && !actor?.summonBinding && !actor?.monster && !actor?.beast && !actor?.tamed
+    && (actor.id === "player" || traitIds(actor).includes("familiarKeeper") || !!classFamiliars(actor));
+  // Each caller's own set (O2, O3): the player character keeps the account's list (familiars and dreams) plus the Raven;
+  // anyone else gets its class's `familiars`, or the Raven if it has only the trait. Ids with no data row are dropped,
+  // so a keeper's set stays empty until the Raven lands (K2). No dream key ever reaches a non-player caller.
+  function familiarSet(actor, accountList = []) {
+    if (!callsPalace(actor)) return [];
+    if (actor.id === "player") return SD.summons.raven && !accountList.includes("raven") ? [...accountList, "raven"] : accountList.slice();
+    return [...new Set(classFamiliars(actor) || ["raven"])].filter((id) => !!SD.summons[id]);
+  }
+  // Once per battle, per caller (O5): s.summonUsed keeps the player's calls as bare ids, exactly as before (pacts, death's
+  // door and opening summons read them that way), and any other caller's as "<caller>@<id>" ("@", not ":", because dream
+  // keys already hold a colon). usedBy gives one caller's bare ids.
+  const usedKey = (callerId, id) => (callerId === "player" ? id : `${callerId}@${id}`);
+  const usedBy = (used = [], callerId) => (callerId === "player" ? used.filter((k) => !k.includes("@")) : used.filter((k) => k.startsWith(`${callerId}@`)).map((k) => k.slice(callerId.length + 1)));
+  // The readiness question for one caller (engine.js summonReadiness): the gate, then canSummon over its own set and calls.
+  const NOT_A_CALLER = "Only you, and those who keep a familiar, can call one.";
+  function canCall(actor, battle, id, accountList = []) {
+    if (!callsPalace(actor)) return { ok: false, reason: NOT_A_CALLER };
+    { const unfit = Tandem ? Tandem.admission(id, SD.summons[id]) : []; if (unfit.length) return { ok: false, reason: `Not admitted as a tandem: ${unfit[0]}.` }; }   // Tandem T1: a tandem row that fails admission cannot be called
+    return canSummon({ ...battle, used: usedBy(battle.used, actor.id) }, id, { unlocked: familiarSet(actor, accountList) });
+  }
+  return { Tandem, callsPalace, familiarSet, usedKey, usedBy, canCall, NOT_A_CALLER, ownerState, freshen, revealTrueForm, revealMaxForm, maxRoom, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
     canOrderUltimate, orderUltimate, resolveUltimate, orderLost, data: SD };
 });

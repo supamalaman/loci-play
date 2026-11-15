@@ -258,6 +258,7 @@
     // the trait, and the tests pin the shared trigger, not a new one.
     function hit(s, src, tgt, inst, potency, why, opts = {}) {
       if (tgt && inst?.answeredBy?.includes(tgt.id)) { log(s, { kind: "negate", actor: src?.id, target: tgt.id, answered: true, text: `${inst.name} meets ${tgt.name}'s answer and is gone.` }); return 0; }   // My Answer Has Changed (window.js castAnswer)
+      if (!opts.bleedOut && potency > 0 && ClassRuntime?.purposeSkips?.(s, src, tgt)) { log(s, { kind: "effect", actor: src?.id, target: tgt.id, text: `${src?.name || "An ally"}'s area leaves ${tgt.name} out: they share the purpose.` }); return 0; }
       if(src&&inst&&H.Contracts&&!H.Contracts.allowed(s,src,inst))return 0;
       potency=H.Contracts?.specialize(s,src,tgt,inst,potency)??potency;
       if (src?.redInk && potency > 0) { potency += 2; why = (why || []).concat(["Red Ink burns in the blood: +2 potency."]); }   // W9.4: the rented strength hits first
@@ -874,33 +875,36 @@
       }
       const p = tgt.status.parry;
       if (p) {
+        const pn = p.name || "Rebound";   // any parry by its own name (merge spec H3a: Read the Charge); a parry staged without one is Rebound
         const attentionLocked = ((tgt.lastTechniqueConcept === "focus" || tgt.focus?.earned) && tgt.focus && tgt.focus.target !== src?.id)||(tgt.status.attention&&tgt.status.attention.target!==src?.id);
-        if(inst.ignoreParry){why.push("Undivided Attention reads through Rebound; parry is bypassed.");return {potency,why,stop:false};}
-        if(inst.directHit){why.push("Direct hit: too unpredictable to catch; Rebound cannot trigger.");return {potency,why,stop:false};}
-        if (inst.quickened) { why.push(`Quickened (${inst.quickened}) leaves no reaction window; Rebound cannot trigger.`); return { potency, why, stop: false }; }
+        if(inst.ignoreParry){why.push(`Undivided Attention reads through ${pn}; parry is bypassed.`);return {potency,why,stop:false};}
+        if(inst.directHit){why.push(`Direct hit: too unpredictable to catch; ${pn} cannot trigger.`);return {potency,why,stop:false};}
+        if (inst.quickened) { why.push(`Quickened (${inst.quickened}) leaves no reaction window; ${pn} cannot trigger.`); return { potency, why, stop: false }; }
         const caught = p.catches.includes(inst.delivery);
         const disrupt = inst.concept && findOpp(inst.concept, "barrier", "disrupts", inst.delivery);
         const bypass = inst.concept && findOpp(inst.concept, "barrier", "bypasses", inst.delivery, "ignoreParry");
         if (disrupt && caught) {
           edgeUsed(s, disrupt.id); tgt.status.parry = null;
-          why.push(`${conceptName(inst.concept)} disrupts Rebound [${disrupt.id}]: the parry is spent and the hit lands in full.`);
+          why.push(`${conceptName(inst.concept)} disrupts ${pn} [${disrupt.id}]: the parry is spent and the hit lands in full.`);
         } else if (!caught) {
-          if (bypass) { edgeUsed(s, bypass.id); why.push(`Rebound is armed but ${inst.delivery} delivery bypasses it [${bypass.id}]; the parry stays armed.`); }
-          else why.push(`Rebound only catches ${p.catches.join("/")} hits; this is ${inst.delivery}.`);
+          if (bypass) { edgeUsed(s, bypass.id); why.push(`${pn} is armed but ${inst.delivery} delivery bypasses it [${bypass.id}]; the parry stays armed.`); }
+          else why.push(`${pn} only catches ${p.catches.join("/")} hits; this is ${inst.delivery}.`);
         } else if (attentionLocked) {
           why.push(`Focus keeps ${tgt.name}'s reaction on ${s.actors[tgt.focus.target]?.name || "the attended target"}; this attack comes from someone else.`);
         } else if (tgt.reaction <= 0 && !p.reacted) {
-          why.push("Rebound is armed, but this round's reaction is already spent.");
+          why.push(`${pn} is armed, but this round's reaction is already spent.`);
         } else {
           if (!p.reacted) tgt.reaction -= 1; tgt.status.parry = null;   // armed as a reaction: that reaction already paid
           if (p.rushed) {   // a rushed Rebound catches its share; the rest lands
-            log(s, { kind: "parry", actor: tgt.id, target: tgt.id, attacker: src?.id || null, ability: inst.ability || null, delivery: inst.delivery, at: [tgt.x, tgt.y], rushed: true, text: `${tgt.name}'s rushed Rebound catches ${Math.round(p.rushed * 100)}% of ${inst.name}.` });
-            hit(s, tgt, src, null, potency * p.rushed * p.reflectFraction * (1 - shooterCover(s, src, tgt.x, tgt.y)), [`Rebound reflects ${p.reflectFraction * 100}% of the ${Math.round(p.rushed * 100)}% it caught.`], { label: "Rebound", damageType: inst.damageType });
-            return { potency: potency * (1 - p.rushed), why: [`A rushed Rebound caught ${Math.round(p.rushed * 100)}%; the rest lands.`], stop: false };
+            log(s, { kind: "parry", actor: tgt.id, target: tgt.id, attacker: src?.id || null, ability: inst.ability || null, delivery: inst.delivery, at: [tgt.x, tgt.y], rushed: true, text: `${tgt.name}'s rushed ${pn} catches ${Math.round(p.rushed * 100)}% of ${inst.name}.` });
+            if (p.reflectFraction > 0) hit(s, tgt, src, null, potency * p.rushed * p.reflectFraction * (1 - shooterCover(s, src, tgt.x, tgt.y)), [`${pn} reflects ${p.reflectFraction * 100}% of the ${Math.round(p.rushed * 100)}% it caught.`], { label: pn, damageType: inst.damageType });   // a parry that pushes nothing back (Read the Charge) fires no return hit
+            ClassRuntime?.hunterParried?.(s, tgt, src, p, classH());   // Read the Charge caught from her Quarry: Charged (merge spec H3a)
+            return { potency: potency * (1 - p.rushed), why: [`A rushed ${pn} caught ${Math.round(p.rushed * 100)}%; the rest lands.`], stop: false };
           }
-          log(s, { kind: "parry", actor: tgt.id, target:tgt.id, attacker: src?.id || null, ability: inst.ability || null, delivery: inst.delivery, at:[tgt.x,tgt.y], text: `${tgt.name}'s Rebound catches ${inst.name} (reaction spent).`, why: [`Parry: ${inst.delivery} hits are caught in full; ${p.reflectFraction * 100}% is pushed back.`] });
-          { const behind = shooterCover(s, src, tgt.x, tgt.y);   // return fire meets the shooter's own cover
-            hit(s, tgt, src, null, potency * p.reflectFraction * (1 - behind), [`Rebound reflects ${p.reflectFraction * 100}% of the caught potency.`, ...(behind ? [`${src?.name}'s cover takes ${Math.round(behind * 100)}% of it.`] : [])], { label: "Rebound", damageType: inst.damageType }); }
+          log(s, { kind: "parry", actor: tgt.id, target:tgt.id, attacker: src?.id || null, ability: inst.ability || null, delivery: inst.delivery, at:[tgt.x,tgt.y], text: `${tgt.name}'s ${pn} catches ${inst.name} (reaction spent).`, why: [p.reflectFraction > 0 ? `Parry: ${inst.delivery} hits are caught in full; ${p.reflectFraction * 100}% is pushed back.` : `Parry: ${inst.delivery} hits are caught in full; nothing is pushed back.`] });
+          if (p.reflectFraction > 0) { const behind = shooterCover(s, src, tgt.x, tgt.y);   // return fire meets the shooter's own cover
+            hit(s, tgt, src, null, potency * p.reflectFraction * (1 - behind), [`${pn} reflects ${p.reflectFraction * 100}% of the caught potency.`, ...(behind ? [`${src?.name}'s cover takes ${Math.round(behind * 100)}% of it.`] : [])], { label: pn, damageType: inst.damageType }); }
+          ClassRuntime?.hunterParried?.(s, tgt, src, p, classH());   // Read the Charge caught from her Quarry: Charged (merge spec H3a)
           if (p.perfect && s.rules.reactiveDefense?.perfect?.inspiration) H.Inspiration?.gain(s, tgt, s.rules.reactiveDefense.perfect.inspiration, `${tgt.name}'s perfect parry turns ${inst.name || "the blow"} back.`);   // Mala, 2026-10-17
           return { stop: true, why: [] };
         }
@@ -950,7 +954,7 @@
     function settleDeferredCharge(s, a, inst, struck) {
       const dc = inst.deferredCharge; if (!dc) return;
       inst.deferredCharge = null;
-      if (struck > 0) { chargeUltimate(s, a, ...dc); return; }
+      if (struck > 0) { chargeUltimate(s, a, ...dc.slice(0, 6), inst.riteUltMul || 1); return; }
       log(s, { kind: "charge", actor: a.id, text: `${inst.name} hits nothing: no ultimate charge.`, why: ["An attack that lands on no one builds nothing. The tempo stays spent."] });
     }
     function resolveScheduled(s, ev) {
@@ -987,11 +991,20 @@
       return d.effect === "damage" && (d.delivery === "placed" || !!d.area && d.area.shape !== "single");
     }
     function areaRecipients(s, src, inst, tiles, includeWild = true) {
-      if (src && isMonster(src) && src.drawback === "mindless") return { targets: unitsOn(s, tiles, includeWild).filter(t => t.id !== src.id && t.id !== src.summoner), why: ["Mindless: it cannot tell sides."] };   // the Zombie
-      if (!terrainDamagingArea(inst)) return { targets: opponentsOn(s, src, tiles, includeWild), why: [] };
-      const targets = unitsOn(s, tiles, includeWild);
-      const friendlyFire = targets.some(t => t.side === src.side);
-      return { targets, why: friendlyFire ? ["This area damages terrain, so every unit in its footprint is vulnerable regardless of side."] : [] };
+      const pack = (() => {
+        if (src && isMonster(src) && src.drawback === "mindless") return { targets: unitsOn(s, tiles, includeWild).filter(t => t.id !== src.id && t.id !== src.summoner), why: ["Mindless: it cannot tell sides."] };   // the Zombie
+        if (!terrainDamagingArea(inst)) return { targets: opponentsOn(s, src, tiles, includeWild), why: [] };
+        const targets = unitsOn(s, tiles, includeWild);
+        const friendlyFire = targets.some(t => t.side === src.side);
+        return { targets, why: friendlyFire ? ["This area damages terrain, so every unit in its footprint is vulnerable regardless of side."] : [] };
+      })();
+      if (!src || !ClassRuntime?.purposeSkips) return pack;
+      const kept = [];
+      for (const t of pack.targets) {
+        if (ClassRuntime.purposeSkips(s, src, t)) log(s, { kind: "effect", actor: src.id, target: t.id, text: `${src.name}'s area leaves ${t.name} out: they share the purpose.` });
+        else kept.push(t);
+      }
+      return { ...pack, targets: kept };
     }
 
     // Clearable fields (wild/monsters.js): any normal attack clears one, a Strike aimed at a field tile or a damaging

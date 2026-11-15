@@ -125,6 +125,7 @@
       const budget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a)), P = paths(s, a.x, a.y, budget, "move"); const out = [];   // Injury: wounded legs −1 (min 0), maimed legs 0
       for (const [k, n] of P.dist) if (n > 0) { const [x, y] = k.split(",").map(Number), path = P.pathTo(x,y), tempoCost = movementTempoCost(s,a,path); if (tempoCost <= a.tempo) out.push({ to: [x, y], path, cost: n, tempoCost }); }
       if (isMonster(a)) { const ctx = monsterCtx(s); return out.filter(o => EM.canEndAt(a, o.to, ctx).ok); }   // shade to shade, inside its haunt, never beside fire
+      if (H.summonRules?.Tandem?.of(a)) return out.filter((o) => H.summonRules.Tandem.moveAllowed(s, a, o.to, dist));   // Tandem T1: within its leash, or back toward its user
       return out;
     }
     function jumpOptions(s, id) {
@@ -132,6 +133,7 @@
       const kraken = a.kind === "kraken" || a.beast?.kind === "kraken";
       return DIRS.map(([dx, dy]) => [a.x + dx, a.y + dy]).filter(([x, y]) => inside(s, x, y) && dreamSame(s,a.x,a.y,x,y)
         && heightAt(s, a.x, a.y) - heightAt(s, x, y) >= 2 && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!H.sized(a) || H.footOpen(s, a, x, y, "move")) && (!kraken || tileAt(s, x, y).tags?.includes("water")))   // TS-01: offer only landings the whole body fits; krakens only wet ones
+        .filter((to) => !H.summonRules?.Tandem?.of(a) || H.summonRules.Tandem.moveAllowed(s, a, to, dist))   // Tandem T1: the leash
         .map((to) => ({ to, drop: heightAt(s, a.x, a.y) - heightAt(s, to[0], to[1]), damage: (heightAt(s, a.x, a.y) - heightAt(s, to[0], to[1]) - 1) * s.rules.fallDamagePerLevel / 2 }));
     }
     function climbOptions(s, id) {
@@ -140,6 +142,7 @@
       return DIRS.map(([dx, dy]) => [a.x + dx, a.y + dy]).filter(([x, y]) => inside(s, x, y) && dreamSame(s,a.x,a.y,x,y)
         && heightAt(s, x, y) - heightAt(s, a.x, a.y) >= 2 && !usableRamp(s, a.x, a.y, x, y)
         && !tileAt(s, x, y).blocksMove && (!barrierAt(s, x, y) || barrierAt(s, x, y).passable) && !unitAt(s, x, y) && (!H.sized(a) || H.footOpen(s, a, x, y, "move")) && (!kraken || tileAt(s, x, y).tags?.includes("water")))
+        .filter((to) => !H.summonRules?.Tandem?.of(a) || H.summonRules.Tandem.moveAllowed(s, a, to, dist))   // Tandem T1: the leash
         .map((to) => ({ to, rise: heightAt(s, to[0], to[1]) - heightAt(s, a.x, a.y) }));
     }
     // For the UI: every tile's legality for an ability, plus area/route for legal tiles.
@@ -182,7 +185,7 @@
       // Wild monsters live apart from the actors; their losses are reported separately so callers opt in (engine/ai.js:
       // a communed plant striking back at a wild monster that hit it).
       const wildDeltas = (st.wild || []).map((m) => { const b = (s.wild || []).find((x) => x.id === m.id); return b ? { id: m.id, name: m.name || m.kind, lf: (b.lf || 0) - (m.lf || 0) } : null; }).filter((d) => d && d.lf);
-      return { ok: true, deltas, wildDeltas, events: st.log.slice(s.log.length), announced, pending: r.state.pending };
+      return { ok: true, deltas, wildDeltas, events: st.log.slice(s.log.length), announced, pending: r.state.pending, state: st };   // D1: standingValue diffs statuses (read-only; each preview owns its clone)
     }
     // Inspired ultimates (docs/inspired-ultimates.md): with a full bar and too little ΦF, one Inspiration pays the whole ΦF.
     function inspiredPay(s, a, m) {
@@ -292,8 +295,9 @@
       const a = H.clone(s?.spawnBase && base?.id === "player" ? s.spawnBase : base);   // start from the battle-start player: nothing gained mid-battle carries over
       if (H.summonRules?.freshen) H.summonRules.freshen(a);
       else { a.form = null; a.formCooldownUntil = 0; for (const k of ["priorSprite", "priorSide", "priorName", "aura", "vows", "focus", "contractActive", "formsEntered", "formVowSpent", "heartScroll", "learnedForms", "embodied"]) delete a[k]; }
-      Object.assign(a, { summon: null, beads: [], ritual: null, dream: null, rite: null, riteAugment: null, inspiration: 0, audition: null, husk: false, pendingSwap: null, knockedOut: false, escaped: false });
+      Object.assign(a, { summon: null, beads: [], ritual: null, dream: null, rite: null, riteAugment: null, inspiration: 0, audition: null, husk: false, pendingSwap: null, knockedOut: false, escaped: false, hunterQuarry: null });   // H2: a fresh body starts with no Quarry (lifecycle table)
       for (const k of ["soul", "maxSoul", "soulKind", "fruit", "beastSummons", "stateOffers", "orbitKit", "styleConcept"]) delete a[k];   // setup carries too: the Sinkerfruit kit and carried creatures are the player's
+      delete a.aiPlan;   // AI Sight I1: a clone or summon never inherits the plan (lifecycle: not copied)
       Object.assign(a, { beliefStrength: 0, level: 1, xp: 0, proficiency: 1, status: Object.fromEntries(Object.keys(a.status || {}).map((k) => [k, null])) });   // sites set their own after   // ensureSoul (damage.js) rebuilds the soul from the body's own character   // not in the summon reset; a spawned body starts without them
       if (H.Injury) a.injuries = H.Injury.fresh();   // clones arrive at all-zero
       return a;
@@ -308,11 +312,11 @@
       if (!actor || actor.defeated || actor.lf <= 0) return { ok: false, reason: "Choose a living summoner." };
       if (actor.form?.golden) return { ok: false, reason: "The Integrated Self has no need to summon." };
       if (!summonRules || !dreamSpaceRules?.makeEnemyDreamActor) return { ok: false, reason: "Summoning is unavailable." };
-      if (!summonRules.callsPalace(actor)) return { ok: false, reason: "Only the player's side calls dreams." };
+      if (!summonRules.callsPalace(actor) || actor.id !== "player") return { ok: false, reason: "Only you can call dreams." };   // K1 O2: the account's dreams are the player character's set
       const bare = typeof key === "string" && key.startsWith("enemyDream:") ? key.slice(11) : null;
       const def = bare ? dreamSpaceRules.enemyMonsterPool(99, [bare])[bare] : null;
       if (!def || def.broodOnly) return { ok: false, reason: "No such dream." };
-      if (!unlocked.includes(key)) return { ok: false, reason: `${def.name} has not joined you: unlock it first.` };
+      if (!summonRules.familiarSet(actor, unlocked).includes(key)) return { ok: false, reason: `${def.name} has not joined you: unlock it first.` };   // K1 O2: dreams are the player character's set only
       if ((s.dreamUsed || {})[`${id}:${bare}`]) return { ok: false, reason: `${def.name} has answered once this battle already.` };
       const profile = summonProfile(s, id);
       if (profile.active.length >= profile.maxActive) return { ok: false, reason: profile.maxActive === 1 ? "Another summon is already on the field." : `Your ${profile.maxActive} summon slots are already occupied.` };

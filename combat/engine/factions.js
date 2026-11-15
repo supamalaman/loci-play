@@ -133,6 +133,7 @@
       if (s.mirror) s.mirror.salvagePicked = 0;   // SC17 salvage count starts at zero (slice 4; moved from engine.js at merge, engine cap)
       if (Array.isArray(opts.civilians)) for (const c of opts.civilians) H.Civilian.present(s, c);
       if (typeof opts.afterCreate === "function") opts.afterCreate(s, { placeCivilian: (spec) => H.Civilian.present(s, spec) });
+      if (opts.scenarioBattle === "theOpenDoor") { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.openDoor?.(s, H); }   // SH4 teaching: The Open Door starts with her table full (kept out of engine.js for the size cap)
     }
     // SC17 salvage (slice 4): a pickup by a player-side unit counts toward Salvage Run's n. Moved here from engine.js at merge (engine cap).
     function scenarioPickup(s, unit, got) {

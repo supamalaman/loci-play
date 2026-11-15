@@ -73,6 +73,28 @@
     herbCup: { name: "Herb tea", rarity: "common", biomes: ["grove"], dropWeight: 0.4, effect: { phiForce: 6 }, text: "Restore 6 ΦF. A cup of herb tea." },
     frostVial: { name: "Frost vial", rarity: "uncommon", biomes: ["rim"], dropWeight: 0.4, effect: { phiForce: 10 }, text: "Restore 10 ΦF." },
     hedgeFlask: { name: "Hedge flask", rarity: "uncommon", biomes: ["grove"], dropWeight: 0.4, effect: { heal: 18 }, text: "Heal 18 LF." },
+    // Flower jars (S2, muse-flower-jars-spec; D1 mapping stands, R-20261109-17). Cook/parley/repair effects are live; dew/bait/lure/pollen/nosegay/tender/offering keys wire in S3-S5 (their texts stay flavor until then).
+    lavenderJar: { name: "Lavender Jar", rarity: "common", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { heal: 8 }, text: "Heal 8 LF. Lavender buds for the pot." },
+    daisyJar: { name: "Daisy Jar", rarity: "common", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { heal: 8 }, text: "Heal 8 LF. Daisies for the pot." },
+    wildflowerJar: { name: "Wildflower Jar", rarity: "common", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { heal: 8 }, text: "Heal 8 LF. Wildflowers for the pot." },
+    roseJar: { name: "Rose Jar", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { hire: "flowerMediator" }, text: "Call a mediator with roses: they arrive next round, can't be attacked, and ask one enemy a turn for a 3-round truce." },
+    heartJarBouquet: { name: "Heart Jar Bouquet", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { hire: "flowerMediator" }, text: "Call a mediator with a heart bouquet: they arrive next round, can't be attacked, and ask one enemy a turn for a 3-round truce." },
+    overflowingBouquetJar: { name: "Overflowing Bouquet Jar", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { hire: "flowerMediator" }, text: "Call a mediator with armfuls of blooms: they arrive next round, can't be attacked, and ask one enemy a turn for a 3-round truce." },
+    bluebellJar: { name: "Bluebell Jar", rarity: "common", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { wild: "dewJar" }, text: "Dew for one tile." },
+    sunflowerJar: { name: "Sunflower Jar", rarity: "common", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { wild: "sweetBait" }, text: "Sweet bait for beasts." },
+    marigoldJar: { name: "Marigold Jar", rarity: "common", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { wild: "sweetBait" }, text: "Sweet bait for beasts." },
+    moonJarBouquet: { name: "Moon Jar Bouquet", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { spawnFish: { range: 1, count: 1 } }, text: "A lure for dream fish." },
+    herbBouquetJar: { name: "Herb Bouquet Jar", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, outsideBattle: true, effect: { beadCredit: 1 }, text: "Pollen for the tracked beast." },
+    driedFlowerJar: { name: "Dried Flower Jar", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, outsideBattle: true, effect: { beadCredit: 1 }, text: "Pollen for the tracked beast." },
+    orchidJar: { name: "Orchid Jar", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { communeBoost: 1 }, text: "Strike one wrong answer from a plant question." },
+    lilyJar: { name: "Lily Jar", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, effect: { communeBoost: 1 }, text: "Strike one wrong answer from a plant question." },
+    apothecaryJarBouquet: { name: "Apothecary Jar Bouquet", rarity: "rare", biomes: ["grove", "terrace"], dropWeight: 0.4, outsideBattle: true, effect: { stake: { kind: "jar" } }, text: "A bouquet fit for staking." },
+    masonJarBouquet: { name: "Mason Jar Bouquet", rarity: "rare", biomes: ["grove", "terrace"], dropWeight: 0.4, outsideBattle: true, effect: { stake: { kind: "jar" } }, text: "A bouquet fit for staking." },
+    tulipJar: { name: "Tulip Jar", rarity: "rare", biomes: ["grove", "terrace"], dropWeight: 0.4, outsideBattle: true, effect: { offering: {} }, text: "A pressed bloom for the Museum." },
+    cherryBlossomJar: { name: "Cherry Blossom Jar", rarity: "rare", biomes: ["grove", "terrace"], dropWeight: 0.4, outsideBattle: true, effect: { offering: {} }, text: "A pressed bloom for the Museum." },
+    hangingJar: { name: "Hanging Jar", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, outsideBattle: true, effect: { repair: "half" }, text: "Mend gear with pressed flowers: restore half of one piece's durability (rounded up)." },
+    miniPosyJar: { name: "Mini Posy Jar", rarity: "uncommon", biomes: ["grove", "terrace"], dropWeight: 0.4, outsideBattle: true, effect: { repair: "half" }, text: "Mend gear with pressed flowers: restore half of one piece's durability (rounded up)." },
+    petalTisane: { name: "Petal Tisane", rarity: "common", biomes: [], cookOnly: true, effect: { heal: 8 }, text: "Heal 8 LF. Petals steeped in hot water." },
     shamanFlask: { name: "Shaman's flask", rarity: "uncommon", biomes: ["grove"], dropWeight: 0.4, effect: { heal: 15 }, text: "Heal 15 LF." },
     isotopeVial: { name: "Isotope vial", rarity: "rare", biomes: [], dropWeight: 0.4, effect: { ultCharge: 18 }, text: "+18 ultimate charge." },
     fieldSyringe: { name: "Field syringe", rarity: "uncommon", biomes: [], dropWeight: 0.4, effect: { heal: 20 }, text: "Heal 20 LF." },
@@ -398,6 +420,7 @@
     // Jinki Ramayana (J3): mythics, SINGLE-state sprites (resto always + dim).
     // questOnly: the epics are EARNED — never random drops, never shop stock.
     chefKnives: { name: "Chef Knives", slot: "tool", rarity: "rare", biomes: [], questOnly: true, carriedBy: ["chef"], passive: { cookApOverride: 5, strikeBleed: { drain: 2, turns: 2 } }, text: "A cook's roll of knives. Cooking in battle costs 5 AP, and your Strikes open a bleeding wound (2 LF a turn for 2 turns; it does not stack)." },
+    huntersGreatsword: { name: "Hunter's Greatsword", slot: "tool", rarity: "rare", biomes: [], questOnly: true, carriedBy: ["big_game_hunter"], passive: { strikePotencyAdd: 4, moveCostMul: 1.5 }, text: "The Hunter's greatsword. Strikes land +4 potency; every movement point costs half again (slow in the open, steady in the brush)." },   // H2: the Chef Knives route exactly (spec 7)
     kodandaBow: { name: "Kodanda bow", slot: "tool", rarity: "legendary", biomes: [], mythic: true, questOnly: true, carriedBy: ["rama"], passive: { strikePotencyAdd: 3, strikeRangeAdd: 2 }, text: "Rama's bow. Strikes hit for +3 potency and reach two tiles farther." },
     brahmastraArrow: { name: "Brahmastra arrow", slot: "tool", rarity: "legendary", biomes: [], mythic: true, questOnly: true, carriedBy: ["indrajit"], passive: { strikePotencyAdd: 4, strikeRangeAdd: 1 }, text: "The Brahmastra. Strikes hit for +4 potency and reach one tile farther." },
     ayodhyaQuiver: { name: "Ayodhya quiver", slot: "tool", rarity: "rare", biomes: [], mythic: true, questOnly: true, carriedBy: ["rama", "lakshmana"], passive: { strikeRangeAdd: 2, startingUltimateCharge: 10 }, text: "Ayodhya's quiver. Strikes reach two tiles farther; start battles with 10% ultimate charge." },
@@ -588,6 +611,8 @@
   const hires = {
     merc: { pool: ["soldier", "black_armor", "samurai", "mma_fighter", "kickboxer", "ninja", "knight"], delay: 1, turns: 4, retreatAt: 0.3 },
     mediator: { pool: ["esker", "president"], delay: 1, cost: 20, truceRounds: 2, refusalTempoTax: 10, refusals: 2, attempts: 3, idleTurns: 2,
+      chance: { base: 0.5, boss: 0.2, max: 0.85, bossMax: 0.3 } },
+    flowerMediator: { pool: ["esker", "president"], delay: 1, cost: 20, truceRounds: 3, refusalTempoTax: 10, refusals: 2, attempts: 3, idleTurns: 2,   // flower-jars S2: the mediator shape with a 3-round truce (D2); same pool, no new characters
       chance: { base: 0.5, boss: 0.2, max: 0.85, bossMax: 0.3 } },
   };
   // What a carried consumable does, for the Use item menu (Mala, 2026-10-30: "scrolling over items in the menu should tell

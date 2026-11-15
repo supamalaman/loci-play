@@ -1395,7 +1395,8 @@
           "height": 1.6,
           "material": "bulkhead"
         }
-      ]
+      ],
+      "groundTiles": "neon"
     },
     "interior": true
   },

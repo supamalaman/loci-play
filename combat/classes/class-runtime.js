@@ -54,6 +54,12 @@
     ancestralFox: X("guest", {target:"tile",range:3}),
     spiritTotem: X("guest", {target:"tile",range:3}),
     guestPortion: X("guest", {target:"ally",range:4}),
+    ancestralMoot: X("guest", {target:"self",range:0}),
+    echoDouble: X("guest", {target:"self",range:0}),
+    // Substitution (five concepts S1): whoever equips it; redirect hook in redirect().
+    standIn: X("substitution", { target: "ally", range: 6, op: "link", catches: 1, sever: 6 }),
+    nameThePeril: X("substitution", { target: "self", range: 0, op: "name" }),
+    surrogateWard: X("substitution", { target: "any", range: 8, op: "ward", catches: 2, rounds: 2, returnMul: 1.5 }),
     hairClone: X("monkey", {target:"tile",range:3}),
     monkeyMischief: X("monkey", {target:"self",range:0}),
     somersaultCloud: X("monkey", {target:"tile",range:6}),
@@ -111,6 +117,7 @@
     renderEngine: X("artistEngine", {target:"enemy",range:5}),
     batchRender: X("artistBatch", {target:"enemy",range:5}),
     compileTheCanvas: X("artistCompile", {target:"enemy",range:6}),
+    apex: X("hunterApex", {target:"enemy",range:1}),   // Big Game Hunter merge (spec H3b section 9): her finisher on the adjacent Quarry
     orgoniteLance: X("suitLance", {target:"enemy",range:4}),
     dreamCircuit: X("suitCircuit", {target:"self",range:0}),
     dreamForge: X("suitForge", {target:"enemy",range:5}),
@@ -195,6 +202,9 @@
     leaveSpace: X("ma", { target: "self", range: 0, op: "bank", needs: "maRoom" }), heldBreath: X("ma", { target: "self", range: 0, op: "stance", needs: "maNoStance" }),   // Ma (five concepts M1)
     spaceBetween: X("ma", { target: "self", range: 0, op: "cash", needs: "maStillness" }),
     frontedTempo: X("credit", { target: "ally", range: 4, selfOk: true }), easyTerms: X("credit", { target: "self", range: 0 }), dayOfReckoning: X("credit", { target: "self", range: 0 }),   // Credit (five concepts K1): engine/tally.js resolves them
+    commonGround: X("commonGround", { target: "tile", range: 5 }), unambiguousReferent: X("referent", { target: "enemy", range: 5 }),
+    sharedPurpose: X("sharedPurpose", { target: "tile", range: 4 }),
+    noMoreNoLess: X("noMore", { target: "ally", range: 5 }), turnTaking: X("turnTaking", { target: "ally", range: 5 }),
     rescueCorridor: X("rescue", { target: "ally", range: 4 }), nobodyBehindMe: X("guardArea", { target: "self", range: 0, radius: 3, uses: 9, mul: 0.6, turns: 2, share: true }),
     tether: X("tether", { target: "tile", range: 4 }), suspendedRoute: X("relocate", { target: "tile", range: 5, needs: "tether", ignoreTerrain: true }),
     catchFall: X("cushion", { target: "ally", range: 2, mul: 0.4, uses: 1 }), livingSafetyNet: X("cushionArea", { target: "self", range: 0, radius: 3, mul: 0.6, uses: 3, turns: 2 }),
@@ -363,7 +373,7 @@
   for (const id of ["collapsePanel", "paperBurnout"]) (PAIRS[id] ||= []).push(["adjacency", "tension"]);
   (PAIRS.theFutureArrives ||= []).push(["longtermism", "stealth"]);   // the Cyber Punk Rogue's arrival ult, outside his four slots; the Seedkeeper's kit holds it too
   (PAIRS.cutOut ||= []).push(["collage", "innovation"]);   // the Mangaka's vow form of Clip, outside the four slots   // origamist pair extras outside the four slots (vow hooks)
-  const pairsFor = (id) => ["consonance","lullaby","chorus","freestyle","writtenVerse","headlineVerse","riff","vanish","smokeVeil","rackAndLabel","parallelPrep"].includes(id)?null:PAIRS[id] || null;   // the Chef's kit lists Mise en Place's two shared techniques, which stay open to whoever equips the concept
+  const pairsFor = (id) => ["consonance","lullaby","chorus","freestyle","writtenVerse","headlineVerse","riff","vanish","smokeVeil","rackAndLabel","parallelPrep","standIn","nameThePeril","surrogateWard"].includes(id)?null:PAIRS[id] || null;   // the Chef's kit lists Mise en Place's two shared techniques, which stay open to whoever equips the concept; Substitution (S1) is the same door
   // Does this unit hold exactly this pair? Its own, or, while the Warden contains multitudes, the embodied class's
   // (his own secondary is set aside then, so his own pair does not count).
   const pairIs = (a, p, s) => !!a && (a.embodied && !a.defeated ? a.embodied.primary === p && a.embodied.secondary === s : a.primary === p && a.secondary === s);
@@ -641,6 +651,58 @@
   // Spent when the boosted blow deals damage, to whoever took it: an intercept, a Step Between, or a wild monster (damage.js calls this from its wild branch,
   // which returns before afterHit; Fathom AD batch 5, Capstan recheck 2026-11-08).
   const spendTrophyEye = (s, src, dealt) => { if (src && src.trophyEyePending) { if (dealt > 0 && !s.preview) src.trophyEyeUsed = true; src.trophyEyePending = null; } };
+  // The Quarry (Big Game Hunter, merge spec H2 section 6): the first enemy she targets with Index Entry (or Observes)
+  // in a battle. A hidden state on her (hunterQuarry: { id }); Index Entry on another foe moves it. Validated on read:
+  // a defeated Quarry, one that joined her side, or a hunter who fell herself all read as none (lifecycle table). The
+  // Ranger's mark (status.quarry) is a different mechanic; the two never interact (spec T15).
+  const isHunter = (a) => a?.character === "big_game_hunter";
+  const hunterQuarryOf = (s, a) => {
+    if (!isHunter(a) || a.defeated) return null;
+    const t = s?.actors?.[a.hunterQuarry?.id];
+    return t && !t.defeated && t.side !== a.side ? t : null;
+  };
+  // Index Entry always (re)names; an Observe only fills the vacancy (spec 6: only Index Entry moves it). Previews stamp nothing.
+  const hunterIndexed = (s, a, u) => { if (!s?.preview && isHunter(a) && u && !u.defeated && u.side !== a.side) a.hunterQuarry = { id: u.id }; };
+  const hunterObserved = (s, a, t) => { if (!s?.preview && isHunter(a) && t && !t.defeated && t.side !== a.side && !hunterQuarryOf(s, a)) a.hunterQuarry = { id: t.id }; };
+  // How much of her side's catalogue names this foe: the count Cross Reference itself uses (resolve.js archivistReference).
+  const hunterKnownCount = (s, a, u) => {
+    const viewer = a.side === "player" ? "player" : a.id;
+    return s.insight?.knowledge?.[viewer]?.[u.id]?.revealed?.length || s.insight?.decks?.[u.id]?.cards.filter((c) => c.open).length || 0;
+  };
+  // Blood Trail (spec 5): Cross Reference on the Quarry bars ITS Conceal until her next turn. The mark sits on the
+  // target in her owner-turns; Stealth.beforeAbility and the heist/dive gates read it through Stealth.bloodTrailRefusal.
+  const hunterBloodTrail = (s, a, u) => { if (!s?.preview && isHunter(a) && u && hunterQuarryOf(s, a)?.id === u.id) (u.status ||= {}).bloodTrail = { by: a.id, until: a.ownerTurns + 1 }; };
+  // Charged (merge spec H3a, section 8): Read the Charge caught from her Quarry arms one x1.5 blow. A status on her
+  // ({ label, owner, quarry, side, expiresAt }), so it shows and the caster sweep (turns.js expire) clears it at the start
+  // of her third owner turn after the catch, i.e. at the end of her second. It never refreshes or stacks. Validated on read:
+  // a fallen or side-changed Hunter, or a Quarry that is no longer hers, reads as none (lifecycle table).
+  const CHARGE = (H) => H?.C?.abilities?.readTheCharge?.charged || { mul: 1.5, turns: 2 };
+  const hunterChargedOf = (s, a) => {
+    const c = a?.status?.charged;
+    return c && isHunter(a) && !a.defeated && c.side === a.side && c.expiresAt > (a.ownerTurns || 0) && hunterQuarryOf(s, a)?.id === c.quarry ? c : null;
+  };
+  // damage.js targetInteractions, after any catch (whole or rushed). Only her Read the Charge, only from her Quarry; previews arm nothing.
+  const hunterParried = (s, tgt, src, p, H) => {
+    if (s?.preview || p?.ability !== "readTheCharge" || !isHunter(tgt) || tgt.defeated || !src || hunterQuarryOf(s, tgt)?.id !== src.id || tgt.status.charged) return;
+    const K = CHARGE(H);
+    tgt.status.charged = { label: "Charged", owner: tgt.id, quarry: src.id, side: tgt.side, expiresAt: (tgt.ownerTurns || 0) + K.turns + 1 };
+    H?.log?.(s, { kind: "effect", actor: tgt.id, target: src.id, text: `${tgt.name} reads ${src.name}'s charge: Charged. Her next blow on ${src.name} lands x${K.mul}.`,
+      why: [`Read the Charge caught her Quarry: her next Strike or Cross Reference on ${src.name} deals x${K.mul}, then it is spent. An enemy that moves her knocks it loose; it ends after her second turn.`] });
+  };
+  // An enemy's forced move (knock's place, the Fulcrum Throw, Plot Twist) knocks Charged loose; her own moves and an ally's never call this.
+  const hunterForcedMove = (s, mover, unit, H) => {
+    const c = unit?.status?.charged;
+    if (!c || s?.preview || !isHunter(unit) || !mover || mover.side === unit.side || c.planted) return;
+    unit.status.charged = null;
+    H?.log?.(s, { kind: "effect", actor: unit.id, target: mover.id, text: `${mover.name} moves ${unit.name}: her Charge is knocked loose.`, why: ["Charged is lost when an enemy moves her (a shove, a throw, a swap)."] });
+  };
+  // The x1.5 itself (damageMods, every hit): her Strike or Cross Reference on the Quarry while Charged; spent by that hit.
+  const hunterChargedMod = (s, src, tgt, inst, H) => {
+    const c = hunterChargedOf(s, src);
+    if (!c || !tgt || tgt.id !== c.quarry || !["strike", "crossReference"].includes(inst?.ability)) return null;
+    if (!s.preview) src.status.charged = null;
+    return { mul: CHARGE(H).mul, note: `Charged: x${CHARGE(H).mul} on her Quarry; the charge is spent.` };
+  };
   // Every hit goes through here (damage.js strikeTarget): the mark, the ambush, and what cover does to an arrow.
   function beforeStrike(s, src, tgt, inst, potency, H) {   // the Hot Pot Berserker's bank first, then everyone else's
     let hp = HotPot.beforeStrike(s, src, tgt, inst, potency);
@@ -1092,6 +1154,7 @@
   }
   // Called when `observer` Observes `target` (actions.js). One look at the truth ends it for the observer's whole side in sight.
   function observed(s, observer, target, H) {
+    hunterObservedLine(s, observer, target, H);   // H2 first: the hype block below returns early for non-hype targets
     if (!s.rules.hype || !isHype(target) || observer.side === target.side) return;
     const hy = hypeOf(s, target); if (hy.seenBy.includes(observer.id)) return;
     const seers = live(s).filter((u) => u.side === observer.side && !hy.seenBy.includes(u.id) && (u.id === observer.id || H.hasSight(s, u.x, u.y, target.x, target.y)));
@@ -1101,6 +1164,14 @@
     H.log(s, { kind: "effect", actor: observer.id, target: target.id, text: `${observer.name} sees through ${target.name}${seers.length > 1 ? `, and ${seers.length - 1} more who can see him do too` : ""}.${ended ? " The Cultural Moment is over." : ""}`,
       why: ["One clear Observation punctures the hype for everyone who sees it.", "His field stops growing."] });
   }
+  // An Observe of the Hunter shows her hidden state (merge spec H2 section 6, text table): who she hunts and how much
+  // of her side's catalogue names them. Any observer reads it (her tell is public: she watches one and ignores the rest).
+  const hunterObservedLine = (s, observer, target, H) => {
+    if (!isHunter(target)) return;
+    const q = hunterQuarryOf(s, target);
+    const n = q ? hunterKnownCount(s, target, q) : 0;
+    H.log(s, { kind: "observe", actor: observer.id, target: target.id, text: q ? `She is hunting ${q.name}; she knows ${n} thing${n === 1 ? "" : "s"} about it.` : "She is hunting no one yet." });
+  };
   const active = (x, a) => x && (x.until == null || x.until >= a.ownerTurns);
   const artistTool = (s,a,H) => (s.arena.objects||[]).find(o=>o.role==="artist-workstation" && o.owner===a.id && o.hp>0 && a.ownerTurns<o.expiresAt && H.dist(s,a.x,a.y,o.x,o.y)<=2 && (!H.actorAt(s,o.x,o.y) || H.actorAt(s,o.x,o.y).side===a.side));
   const recovering = (s, t) => S(s).committed[t.id] != null && s.round - S(s).committed[t.id] <= 1;
@@ -1347,6 +1418,7 @@
     Law.beforeAbility(s,a,m,H);   // Laws of Gods of Men: taxed acts go on the ledger
     if (active(st(a).detained, a)) return "Detained: no actions until the hold ends.";
     if (active(st(a).petrified, a)) return "Petrified: stone cannot act.";
+    if (m.id === "heist" || m.id === "descent") { const trail = Stealth.bloodTrailRefusal?.(s, a); if (trail) return trail; }   // Blood Trail bars the self-vanishes outside the stealth kit too (H2; ability ids: the cases are rogueHeist/diveDescend)
     const w = wire[m.id || m.ability];
     if (st(a).overpressure && !w?.relief) return `${a.name}'s boiler is overpressure: vent it (Blow-off) before anything else, or it overheats.`;
     if (w?.kind === "culturalMoment" && a.hype?.momentUsed) return "A Cultural Moment happens once per battle.";
@@ -1382,6 +1454,143 @@
     const v = st(a).vow;
     if (active(v, a) && v.restriction === "noMove") return "Your Binding Term forbids moving (break it and you're stunned).";
     return null;
+  }
+
+  // Cooperative Principle (five-concepts P1). Allies are the caster's side, inside the technique's range, the caster left out.
+  function coopNear(s, a, H, range) {
+    return Object.values(s.actors).filter((u) => u && !u.defeated && u.side === a.side && u.id !== a.id && H.dist(s, a.x, a.y, u.x, u.y) <= range);
+  }
+  const manh = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]);
+  function purposeOf(s) {
+    const p = s.sharedPurpose;
+    if (!p || s.round >= p.until) return null;
+    if (p.enemy) { const e = s.actors[p.enemy]; if (!e || e.defeated || e.lf <= 0) return null; }
+    if (p.tile && Object.keys(p.members).some((id) => { const u = s.actors[id]; return u && !u.defeated && u.x === p.tile[0] && u.y === p.tile[1]; })) return null;
+    return p;
+  }
+  function commonGroundOff(s, a, route) {
+    const g = s.commonGround?.[a.id];
+    if (!g || g.used || g.round !== s.round || !route || route.length < 2) return 0;
+    const end = route[route.length - 1];
+    return manh(end, g.tile) < manh(route[0], g.tile) ? 10 : 0;
+  }
+  function commonGroundSpend(s, a, route) { if (commonGroundOff(s, a, route)) s.commonGround[a.id].used = true; }
+  function purposeMoveOff(s, a, route) {
+    const p = purposeOf(s);
+    if (!p?.tile || !p.members[a.id] || p.members[a.id].served === s.round || !route || route.length < 2) return 0;
+    const end = route[route.length - 1];
+    return manh(end, p.tile) < manh(route[0], p.tile) ? 10 : 0;
+  }
+  function purposeMoveSpend(s, a, route) {
+    const p = purposeOf(s);
+    if (p && purposeMoveOff(s, a, route)) p.members[a.id].served = s.round;
+  }
+  function coopApOff(s, a, act) {
+    const p = purposeOf(s);
+    if (!p?.enemy || !p.members[a.id] || p.members[a.id].served === s.round || !act?.target) return 0;
+    const e = s.actors[p.enemy];
+    return e && act.target[0] === e.x && act.target[1] === e.y ? 10 : 0;
+  }
+  function coopMark(s, a) {
+    const p = purposeOf(s);
+    if (p?.members[a.id]) p.members[a.id].served = s.round;
+  }
+  function purposeWatch(s, a, act) {
+    const p = s.sharedPurpose;
+    if (!p?.enemy || !p.members[a.id] || !act?.target) return;
+    const foe = Object.values(s.actors).find((u) => u && !u.defeated && u.x === act.target[0] && u.y === act.target[1]);
+    if (foe && foe.side !== a.side && foe.id !== p.enemy) delete p.members[a.id];
+  }
+  function purposeSkips(s, src, tgt) {
+    const p = purposeOf(s);
+    return !!(p && src && tgt && src.id !== tgt.id && p.members[src.id] && p.members[tgt.id]);
+  }
+  function referentFollow(s, a, inst, H) {
+    const r = a?.status?.referent;
+    if (!r || s.round > r.until || !inst) return;
+    const line = inst.delivery === "line";
+    const placedAttack = inst.delivery === "placed" && (inst.effect === "damage" || inst.potency > 0);
+    const announcedDamage = !!inst.announced && inst.effect === "damage";
+    if (!line && !placedAttack && !announcedDamage) return;
+    delete a.status.referent;
+    const enemy = s.actors[r.enemy];
+    if (!enemy || enemy.defeated) return;
+    const aim = inst.aim || inst.tiles?.[0]; if (!aim) return;
+    if (enemy.x === aim[0] && enemy.y === aim[1]) return;
+    const dx = Math.sign(enemy.x - aim[0]), dy = Math.sign(enemy.y - aim[1]);
+    const nx = aim[0] + dx, ny = aim[1] + dy;
+    const origin = inst.origin || [a.x, a.y];
+    if (!H.hasSight(s, origin[0], origin[1], nx, ny)) {
+      inst.potency = 0; if (inst.targets) inst.targets = inst.targets.filter((id) => id !== enemy.id);
+      H.log(s, { kind: "effect", actor: a.id, target: enemy.id, text: `A barrier holds ${inst.name}: the aim does not follow ${enemy.name}.` });
+      return;
+    }
+    inst.aim = [nx, ny];
+    inst.tiles = line ? [[nx, ny]] : (inst.tiles || [aim]).map(([x, y]) => [x + dx, y + dy]);
+    if (inst.targets && !inst.targets.includes(enemy.id)) inst.targets.push(enemy.id);
+    inst.potency = Math.max(0, (inst.potency || 0) - 2);
+    H.log(s, { kind: "effect", actor: a.id, target: enemy.id, text: `${inst.name} follows ${enemy.name} one tile, and loses 2 potency.` });
+  }
+  function noMoreTrim(s, a, inst, H) {
+    const mark = a?.status?.noMore;
+    if (!mark || s.round !== mark.round || !inst) return;
+    const shp = inst.area?.shape;
+    const area = inst.delivery === "field" || (shp && shp !== "single" && shp !== "line");
+    if (!area) return;
+    delete a.status.noMore;
+    const centre = shp === "radius" || inst.delivery === "field" ? [a.x, a.y] : (inst.aim || inst.tiles?.[0] || [a.x, a.y]);
+    let best = null, bestD = Infinity, bestTile = null;
+    for (const [x, y] of inst.tiles || []) {
+      const u = H.actorAt(s, x, y);
+      if (!u || u.defeated || u.side !== a.side) continue;
+      const d = H.dist(s, centre[0], centre[1], x, y);
+      const nearer = d < bestD || (d === bestD && bestTile && (y < bestTile[1] || (y === bestTile[1] && x < bestTile[0])));
+      if (nearer) { bestD = d; best = u; bestTile = [x, y]; }
+    }
+    inst.potency = Math.max(0, (inst.potency || 0) - 2);
+    if (!bestTile) {
+      H.log(s, { kind: "effect", actor: a.id, text: `${inst.name} loses 2 potency. No ally stands in the area to leave out.` });
+      return;
+    }
+    inst.tiles = inst.tiles.filter(([x, y]) => x !== bestTile[0] || y !== bestTile[1]);
+    H.log(s, { kind: "effect", actor: a.id, target: best.id, tiles: [bestTile], text: `${inst.name} leaves (${bestTile[0]},${bestTile[1]}) out, where ${best.name} stands, and loses 2 potency.` });
+  }
+  function turnStep(s, a, inst, H) {
+    const t = s.turnTaking;
+    if (!t || t.used || s.round !== t.round || a?.id !== t.first || !inst) return;
+    if (inst.refused) return;
+    t.used = true;
+    const second = s.actors[t.second];
+    const aim = inst.aim || inst.tiles?.[0];
+    if (!second || second.defeated || !aim) return;
+    const stuck = H.moveRefusal?.(s, second);
+    if (stuck) {
+      H.log(s, { kind: "effect", actor: second.id, text: `${second.name} stays: ${stuck}` });
+      return;
+    }
+    if ((second.tempo || 0) < 10) {
+      H.log(s, { kind: "effect", actor: second.id, text: `${second.name} stays: the step needs 10 AP.` });
+      return;
+    }
+    const here = H.dist(s, second.x, second.y, aim[0], aim[1]);
+    let best = null, bestD = here;
+    for (const [dx, dy] of H.DIRS || [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+      const x = second.x + dx, y = second.y + dy;
+      if (!H.inside(s, x, y) || H.tileAt(s, x, y).blocksMove || H.barrierAt(s, x, y)?.blocksMove) continue;
+      if (H.actorAt(s, x, y)) continue;
+      if ((s.arena.objects || []).some((o) => o.x === x && o.y === y && o.blocksMove)) continue;
+      const d = H.dist(s, x, y, aim[0], aim[1]);
+      if (d >= here) continue;
+      if (!best || d < bestD || (d === bestD && (y < best[1] || (y === best[1] && x < best[0])))) { best = [x, y]; bestD = d; }
+    }
+    if (!best) {
+      H.log(s, { kind: "effect", actor: second.id, text: `${second.name} stays: no open step is nearer the technique.` });
+      return;
+    }
+    second.tempo -= 10;
+    second.x = best[0]; second.y = best[1];
+    H.applyEntryEffects?.(s, second, second, best[0], best[1], "steps to");
+    H.log(s, { kind: "move", actor: second.id, tiles: [best], text: `${second.name} steps to (${best[0]},${best[1]}) for 10 AP.` });
   }
 
   // ── targeting for classEffect abilities ──
@@ -1474,6 +1683,22 @@
     if(w.kind==="artistCalibrate" && active(a.status?.artistCalibration,a))return fail("A calibration is already prepared.");
     if(w.kind==="artistCompile" && !active(a.status?.artistBuffer,a))return fail("Compile the Canvas needs an active raster program.");
     if(w.kind==="artistBatch" && !active(a.status?.artistBuffer,a))return fail("Batch Render needs an active raster program.");
+    if (w.kind === "hunterApex") {   // Big Game Hunter merge (spec H3b section 9): the living Quarry, adjacent, both concepts on
+      const q = hunterQuarryOf(s, a);
+      if (!q) return fail("Apex needs a living Quarry: name one with Index Entry first.");
+      if (H.dist(s, a.x, a.y, q.x, q.y) > 1) return fail("Apex needs the Quarry beside her, within her Strike reach.");
+      const occ = H.actorAt(s, tx, ty);
+      if (!occ || occ.id !== q.id) return fail("Apex falls on the Quarry alone: aim at her marked foe.");
+      return { ok: true, tiles: [[q.x, q.y]], targets: [q.id] };
+    }
+    if (w.kind === "hunterApex") {   // Big Game Hunter merge (spec H3b section 9): the living Quarry, adjacent, both concepts on
+      const q = hunterQuarryOf(s, a);
+      if (!q) return fail("Apex needs a living Quarry: name one with Index Entry first.");
+      if (H.dist(s, a.x, a.y, q.x, q.y) > 1) return fail("Apex needs the Quarry beside her, within her Strike reach.");
+      const occ = H.actorAt(s, tx, ty);
+      if (!occ || occ.id !== q.id) return fail("Apex falls on the Quarry alone: aim at her marked foe.");
+      return { ok: true, tiles: [[q.x, q.y]], targets: [q.id] };
+    }
     if(w.kind === "cyphService" && (a.status?.cyphStock ?? 3) <= 0) return fail("Cyph's three service portions are spent.");
     if(["cyphBar","cyphPocket","cyphFinal","cyphCurated"].includes(w.kind)) {
       if(tx==null||!H.inside(s,tx,ty)||H.dist(s,a.x,a.y,tx,ty)>w.range)return fail("Out of Cyph’s range.");
@@ -1527,6 +1752,30 @@
     const d = H.dist(s, a.x, a.y, tx, ty);
     if (d > w.range) return fail(`Out of range (${w.range}).`);
     const occ = H.actorAt(s, tx, ty);
+    if (w.kind === "commonGround") {
+      if (!coopNear(s, a, H, 5).length) return fail("Common Ground needs an ally within 5.");
+      return { ok: true, tiles: [[tx, ty]], targets: [] };
+    }
+    if (w.kind === "referent") {
+      if (!occ || occ.defeated || occ.side === a.side) return fail("Name an enemy you both see.");
+      if (!H.hasSight(s, a.x, a.y, occ.x, occ.y)) return fail("No line to that enemy.");
+      const ally = coopNear(s, a, H, 5).find((u) => H.hasSight(s, u.x, u.y, occ.x, occ.y));
+      if (!ally) return fail("No ally within 5 can see that enemy.");
+      return { ok: true, tiles: [[tx, ty]], targets: [occ.id] };
+    }
+    if (w.kind === "sharedPurpose") {
+      if (!coopNear(s, a, H, 4).length) return fail("Shared Purpose needs an ally within 4.");
+      return { ok: true, tiles: [[tx, ty]], targets: occ && !occ.defeated && occ.side !== a.side ? [occ.id] : [] };
+    }
+    if (w.kind === "noMore") {
+      if (!occ || occ.defeated || occ.side !== a.side || occ.id === a.id) return fail("Name an ally within 5.");
+      return { ok: true, tiles: [[tx, ty]], targets: [occ.id] };
+    }
+    if (w.kind === "turnTaking") {
+      if (!occ || occ.defeated || occ.side !== a.side || occ.id === a.id) return fail("Name the ally who acts first.");
+      if (!coopNear(s, a, H, 5).some((u) => u.id !== occ.id)) return fail("Turn-Taking needs a second ally within 5.");
+      return { ok: true, tiles: [[tx, ty]], targets: [occ.id] };
+    }
     if (w.kind === "abduct" && occ && occ.side !== a.side && occ.massive) return fail(`${occ.name} is too large to carry off.`);   // Ravana (after occ is known)
     if (w.kind === "abduct" && occ && occ.side !== a.side && !abductTo(s, a, occ, w, H)) return fail("The chariot has nowhere to land.");
     if (w.kind === "tmMark") {   // one of his own tamed beasts, or his own effigy, with no living vessel already marked
@@ -1682,6 +1931,8 @@
     if (w.kind === "brahmastra" && st(a).brahmastraLoosed) return fail("The Brahmastra flies once a battle.");
     if (w.kind === "rememberAlly" && occ && occ.side === a.side && occ.id !== a.id && (st(a).remembered || []).includes(occ.id)) return fail(`${a.name} has already told ${occ.name} what they are.`);
     if (w.kind === "carryMountain" && occ && occ.side === a.side && occ.id !== a.id && !landingBeside(s, a, occ, H)) return fail(`There is nowhere open beside ${occ.name} to set the mountain down.`);
+    if (w.kind === "substitution" && w.op === "name") return { ok: true, tiles: [[a.x, a.y]], targets: [a.id] };
+    if (w.kind === "substitution" && w.target === "any") return occ ? { ok: true, tiles: [[tx, ty]], targets: [occ.id] } : fail("Choose anyone within range.");
     if (w.target === "ally") return occ && occ.side === a.side && (occ.id !== a.id || w.selfOk) ? { ok: true, tiles: [[tx, ty]], targets: [occ.id] } : fail(w.selfOk ? "Choose an ally (or yourself)." : "Choose an ally.");   // selfOk: the Paladin swears alone and lays hands on himself
     if (w.target === "enemy") return occ && occ.side !== a.side ? (H.hasSight(s, a.x, a.y, tx, ty) ? { ok: true, tiles: [[tx, ty]], targets: [occ.id] } : fail("No line of sight.")) : fail("Choose an opponent.");
     // tiles
@@ -1760,7 +2011,43 @@
     const [tx, ty] = inst.tiles?.[0] || [a.x, a.y];
     const tgt = inst.targets?.[0] ? H.actor(s, inst.targets[0]) : null;
     switch (w.kind) {
-      case "artistDeploy": {
+      case "commonGround": {
+        const allies = coopNear(s, a, H, 5).sort((p, q) => H.dist(s, tx, ty, p.x, p.y) - H.dist(s, tx, ty, q.x, q.y)).slice(0, 2);
+        s.commonGround = s.commonGround || {};
+        for (const u of allies) s.commonGround[u.id] = { tile: [tx, ty], round: s.round, used: false };
+        say(`${a.name} names (${tx},${ty}). ${allies.map((u) => u.name).join(" and ")} ${allies.length === 1 ? "has" : "have"} the first step toward it for 10 fewer AP.`, ["The two allies nearest the tile, within 5. Once this round. The cost stays at least 5."]);
+        break;
+      }
+      case "referent": {
+        const enemy = tgt;
+        const ally = coopNear(s, a, H, 5).filter((u) => H.hasSight(s, u.x, u.y, enemy.x, enemy.y)).sort((p, q) => H.dist(s, a.x, a.y, p.x, p.y) - H.dist(s, a.x, a.y, q.x, q.y))[0];
+        ally.status.referent = { enemy: enemy.id, until: s.round + 1 };
+        say(`${ally.name} keeps ${enemy.name} as the referent. The next line or placed attack follows one tile if ${enemy.name} moves, and loses 2 potency.`, ["Barriers still stop the line."]);
+        break;
+      }
+      case "sharedPurpose": {
+        const members = {};
+        members[a.id] = { served: null };
+        for (const u of coopNear(s, a, H, 4)) members[u.id] = { served: null };
+        const enemy = tgt && tgt.side !== a.side ? tgt.id : null;
+        s.sharedPurpose = { by: a.id, until: s.round + 2, enemy, tile: enemy ? null : [tx, ty], members };
+        a.status.holdFire = { until: s.round + 1, by: "sharedPurpose" };
+        say(enemy ? `${a.name} names ${tgt.name} as the shared purpose for 2 rounds. ${a.name} gave up attacking for Shared Purpose.` : `${a.name} names (${tx},${ty}) as the shared purpose for 2 rounds. ${a.name} gave up attacking for Shared Purpose.`, ["The first serving action each round costs 10 fewer AP (at least 5). Area techniques skip the others. An ally who strikes a different enemy drops out."]);
+        break;
+      }
+       case "noMore": {
+        tgt.status.noMore = { round: s.round, by: a.id };
+        say(`${tgt.name}'s next area this round leaves out the tile of its own side's unit nearest the centre, if any, and loses 2 potency.`);
+        break;
+      }
+      case "turnTaking": {
+        const second = coopNear(s, a, H, 5).filter((u) => u.id !== tgt.id).sort((p, q) => H.dist(s, a.x, a.y, p.x, p.y) - H.dist(s, a.x, a.y, q.x, q.y) || p.y - q.y || p.x - q.x)[0];
+        s.turnTaking = { first: tgt.id, second: second.id, round: s.round, used: false };
+        a.status.holdFire = { untilTurn: a.ownerTurns, by: "turnTaking" };
+        say(`${tgt.name} acts, then ${second.name} steps one tile toward that technique for 10 AP. ${a.name} gave up attacking for Turn-Taking.`);
+        break;
+      }
+     case "artistDeploy": {
         st(a).artistDeployments=(st(a).artistDeployments??2)-1;
         s.arena.objects=(s.arena.objects||[]).filter(o=>!(o.role==="artist-workstation"&&o.owner===a.id));
         s.arena.objects.push({id:`artist-tool-${++s.seq}`,type:"workstation",name:"Digital workstation",role:"artist-workstation",owner:a.id,x:tx,y:ty,hp:18,maxHp:18,cover:0,sightHeight:0,blocksMove:false,material:"metal",expiresAt:a.ownerTurns+3});
@@ -1781,6 +2068,19 @@
           .sort((p,q)=>H.dist(s,tgt.x,tgt.y,p.x,p.y)-H.dist(s,tgt.x,tgt.y,q.x,q.y) || (p.id<q.id?-1:1)).slice(0,2);
         for(const u of [tgt,...others]) if(!u.defeated) H.hit(s,a,u,inst,inst.potency*(inst.mult||1),["One stored program run on a bounded batch; each run resolves as an ordinary hit."],{label:inst.name});
         say(`${a.name} runs the held program on ${1+others.length} target${others.length?"s":""}; the program buffer is spent.`,["Batch Render maps one instruction over at most three inputs."]);break;
+      }
+      case "hunterApex": {   // Big Game Hunter merge (spec H3b section 9): 10 +10% per known observation, no cap; a surviving Quarry cannot Conceal (the H2 Blood Trail mark). Trophy Eye per spec 3a (any damaging hit: Strike, Cross Reference, Apex), evaluated like beforeStrike and the Cross call site; the spend rides hit()'s shared afterHit.
+        const q = hunterQuarryOf(s, a);
+        if (!tgt || tgt.defeated || !q || tgt.id !== q.id) { say(`${a.name}'s Apex finds no quarry: the marked foe is gone.`); break; }
+        const known = hunterKnownCount(s, a, q);
+        let pot = Math.round(inst.potency * (1 + known * 0.1) * (inst.mult || 1));
+        const why = [`Apex: 10 base, ${known} known observation${known === 1 ? "" : "s"} (+${known * 10}%, no cap).`];
+        if (a?.trophyEyePending) a.trophyEyePending = null;   // a mark left by a blow that never landed does not carry to this one
+        const eye = trophyEyeOf(s, a, q);
+        if (eye) { a.trophyEyePending = q.id; pot += eye.effect.potencyAdd; why.push(`Trophy Eye: +${eye.effect.potencyAdd} potency (bigger game).`); }
+        H.hit(s, a, q, inst, pot, why, { label: "Apex" });
+        if (!q.defeated) hunterBloodTrail(s, a, q);
+        say(`${a.name}'s catalogue closes on ${q.name}: the greatsword falls once.`); break;
       }
       case "cyphService": {
         st(a).cyphStock=(st(a).cyphStock??3)-1;
@@ -1916,6 +2216,32 @@
       case "paperBurnout": {   // burnout vow: the merge sealed, the doors carry her whole side for the battle
         st(a).paperBurn = { round: s.round };
         say(`${a.name} burns the route: Paper Route is sealed for the battle, and every Remote Door carries every willing ally beside her for the rest of the battle.`, ["A vow trades the extraordinary for the reliable."]); break; }
+      case "substitution": {   // five concepts S1: Stand In, Name the Peril, Surrogate Ward
+        if (w.op === "name") {
+          const L = a.status?.standIn;
+          if (!L) { say(`${a.name} has no link to name.`); break; }
+          const ch = a.lastDamageType;
+          if (!ch) { say(`${a.name} has taken no hit to name a channel from.`); break; }
+          L.channel = ch;
+          say(`${a.name} names the peril: only ${ch} trips the link to ${H.actor(s, L.surrogate)?.name || "the surrogate"}.`, ["Decision S-1: the channel of the last hit taken."]); break;
+        }
+        if (!tgt) { say("Choose who stands in."); break; }
+        if (w.op === "link" && tgt.side !== a.side) { say("Stand In needs a consenting ally."); break; }
+        if (w.op === "link" && H.dist(s, a.x, a.y, tgt.x, tgt.y) > (w.range || 6)) { say("The surrogate is out of reach."); break; }
+        if (w.op === "ward" && H.dist(s, a.x, a.y, tgt.x, tgt.y) > (w.range || 8)) { say("The surrogate is out of reach."); break; }
+        if (sealedBetween(s, a, tgt, H)) { say("A sealed boundary blocks the signal."); break; }
+        a.status.standIn = {
+          by: a.id, surrogate: tgt.id, catches: w.catches || 1, channel: null,
+          sever: w.sever == null ? null : w.sever,
+          until: w.rounds != null ? (s.round || 0) + w.rounds : null,
+          returnMul: w.returnMul || null,
+        };
+        say(w.op === "ward"
+          ? `${a.name} claims ${tgt.name} as surrogate for ${w.rounds} rounds (${w.catches} catches).`
+          : `${a.name} links to ${tgt.name}: the next hit lands on them.`,
+          ["The link is public.", w.sever == null ? "The 6-tile sever does not apply to the Ward." : `Severed past ${w.sever} tiles or by a sealed boundary.`]);
+        break;
+      }
       case "guard": if (tgt) { st(tgt).intercept = { by: a.id, uses: w.uses, mul: w.mul, until: tgt.ownerTurns + (w.turns || 1), ...(w.skipBlast ? { skipBlast: true } : {}) }; say(`${a.name} stands ready to step between ${tgt.name} and the next hit.`); } break;
       case "guardArea": for (const u of near(s, a, w.radius, H, "ally")) if (u.id !== a.id) st(u).intercept = { by: a.id, uses: w.uses, mul: w.mul, until: u.ownerTurns + (w.turns || 1), share: !!w.share, ...(w.skipBlast ? { skipBlast: true } : {}) };
         if (w.share) st(a).loadShare = { members: near(s, a, w.radius, H, "ally").map((u) => u.id), cap: 20, until: until(w.turns || 1) };
@@ -2450,6 +2776,33 @@
     }
   }
 
+  // ── Substitution (five concepts S1): a public link from keeper to surrogate; redirect() catches the next eligible hit ──
+  function sealedBetween(s, a, b, H) {
+    if (!a || !b) return false;
+    const walls = (s.barriers || []).filter((w) => w.concept === "boundary" && !w.defeated);
+    if (!walls.length) return false;
+    if (a.x === b.x && a.y === b.y) return false;
+    // The straight line between them, endpoints excluded: engine.js line()'s Bresenham walk (the sight line), which reaches
+    // b in max(|dx|, |dy|) steps on any pair. (The first cut stepped x and y together and never ended off a row, column or diagonal.)
+    const ddx = Math.abs(b.x - a.x), ddy = -Math.abs(b.y - a.y), sx = a.x < b.x ? 1 : -1, sy = a.y < b.y ? 1 : -1;
+    let err = ddx + ddy, x = a.x, y = a.y;
+    for (;;) {
+      const e2 = 2 * err;
+      if (e2 >= ddy) { err += ddy; x += sx; }
+      if (e2 <= ddx) { err += ddx; y += sy; }
+      if (x === b.x && y === b.y) return false;
+      if (walls.some((w) => w.x === x && w.y === y)) return true;
+    }
+  }
+  function linkLive(s, keeper, H) {
+    const L = keeper?.status?.standIn; if (!L) return null;
+    const sur = H.actor(s, L.surrogate);
+    if (!sur || sur.defeated || keeper.defeated) { keeper.status.standIn = null; return null; }
+    if (L.until != null && (s.round || 0) > L.until) { keeper.status.standIn = null; return null; }
+    if (L.sever != null && H.dist(s, keeper.x, keeper.y, sur.x, sur.y) > L.sever) { keeper.status.standIn = null; H.log(s, { kind: "effect", actor: keeper.id, target: sur.id, text: `${keeper.name}'s link to ${sur.name} severs: too far.` }); return null; }
+    if (sealedBetween(s, keeper, sur, H)) { keeper.status.standIn = null; H.log(s, { kind: "effect", actor: keeper.id, target: sur.id, text: `${keeper.name}'s link to ${sur.name} severs: a sealed boundary.` }); return null; }
+    return { L, sur };
+  }
   // ── during a hit ──
   function redirect(s, src, tgt, inst, H) {
     if (!src || !tgt?.status) return tgt;
@@ -2476,16 +2829,42 @@
         }
       }
     }
+    // Substitution: single-target hits only; areas and fields pass; a Feint spends the link with no redirect.
+    {
+      const live = linkLive(s, tgt, H);
+      if (live) {
+        const blast = inst?.delivery === "field" || ["radius", "plus", "board", "cone"].includes(inst?.area?.shape);
+        if (!blast && (!inst?.area || inst.area.shape === "single")) {
+          const { L, sur } = live;
+          if (inst?.ability === "feint") {
+            tgt.status.standIn = null;
+            H.log(s, { kind: "effect", actor: tgt.id, target: sur.id, text: `A Feint trips ${tgt.name}'s link to ${sur.name}: the catch is spent.`, why: ["Feints trip the ward; the real blow walks through next."] });
+            return tgt;
+          }
+          if (L.channel && (inst?.damageType || (inst?.ability === "strike" ? "nigredo" : null)) !== L.channel) {
+            /* named channel mismatch: the hit walks through */ }
+          else {
+            L.catches -= 1;
+            if (L.catches <= 0) tgt.status.standIn = null;
+            if (L.returnMul && sur.id === src.id) S(s).standInReturnMul = L.returnMul;
+            H.log(s, { kind: "effect", actor: sur.id, target: tgt.id, text: `${sur.name} stands in for ${tgt.name}: the hit lands on ${sur.name}.`, why: ["Redirecting a consequence doesn't erase it.", "The surrogate's resistances apply."] });
+            return sur;
+          }
+        }
+      }
+    }
     return tgt;
   }
   function damageMods(s, src, tgt, inst, damageType, H) {
     let mult = 1; const notes = [];
     const m = (k, why) => { mult *= k; notes.push(why); };
+    if (S(s).standInReturnMul && S(s).standInReturnMul !== 1) { m(S(s).standInReturnMul, `Return to sender ×${S(s).standInReturnMul}.`); S(s).standInReturnMul = null; }
     if (S(s).interceptMul && S(s).interceptMul !== 1) { m(S(s).interceptMul, `Intercepted on the shield ×${S(s).interceptMul}.`); }
     { const e = Esker.damageMods(s, src, tgt, inst); if (e.mult !== 1) { mult *= e.mult; notes.push(...e.notes); } }   // Esker: burden, Oathbreaker
     { const e = Suits?.damageMods?.(s, src, tgt, inst, damageType, H); if (e && e.mult !== 1) { mult *= e.mult; notes.push(...(e.notes || [])); } }
     if (aeroForce(tgt) === "drag" && inst?.delivery === "line") m(AERO.dragMul, `${tgt.name} is streamlined (Drag): line attacks ×${AERO.dragMul}.`);
     S(s).interceptMul = null;
+    { const hc = hunterChargedMod(s, src, tgt, inst, H); if (hc) m(hc.mul, hc.note); }   // Big Game Hunter: Charged (merge spec H3a)
     const T = tgt.status || {}, A = src?.status || {};
     if (T.shimmer && T.shimmer.until > tgt.ownerTurns && src?.side !== tgt.side && (!inst?.area || inst.area.shape === "single") && H.seededChance?.(`${s.seed}:shimmer:${tgt.id}:${s.round}:${src?.id}:${inst?.ability || "strike"}`) < GLAM.fizzle) m(0, `The shimmer fools ${src?.name || "the attacker"}: the blow lands on nothing.`);
     if (T.denounced && T.denounced.until >= s.round && src && src.side === T.denounced.side && src.id !== T.denounced.by) m(GLAM.denounceMul, `${tgt.name} is Denounced: ×${GLAM.denounceMul}.`);
@@ -3109,6 +3488,7 @@
     const T = st(a), threatened = (u) => foes.some((f) => H.dist(s, u.x, u.y, f.x, f.y) <= 5);
     const tgt = cand.target && H.actorAt(s, cand.target[0], cand.target[1]);
     switch (w.kind) {
+      case "hunterApex": return 0;   // H3b: the AI does not cast Apex yet (NOTE, Certified; H3c's apex row prices it). Fixed at the 1.3.565 merge (Stanchion IN): the shelf patch had pasted the cast block here, where `inst` does not exist, so scoring Apex threw.
       case "artistDeploy": return artistTool(s,a,H) ? 0 : nearestFoe<=7 ? 3 : 0;
       case "artistCalibrate": return 2;
       case "artistRaster": return 4;
@@ -3461,5 +3841,5 @@
     if (tgt && tgt.defeated) Guests?.onOwnerFell?.(s, tgt, H);   // the host falls: every guest leaves
     else Guests?.onHit?.(s, tgt, H);   // the Spirit Raven: any hit ends it
   }
-  return { holyOf, price, law: Law, ma: Ma, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, spendTrophyEye, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan, attend, attendantPulse };
+  return { holyOf, price, law: Law, ma: Ma, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, spendTrophyEye, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan, attend, attendantPulse, commonGroundOff, commonGroundSpend, purposeMoveOff, purposeMoveSpend, coopApOff, coopMark, purposeWatch, purposeSkips, referentFollow, noMoreTrim, turnStep, hunterBloodTrail, hunterIndexed, hunterKnownCount, hunterObserved, hunterQuarryOf, hunterChargedOf, hunterForcedMove, hunterParried, trophyEyeOf };
 });

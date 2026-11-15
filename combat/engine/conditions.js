@@ -341,9 +341,14 @@
         else if (m.kind === "surcharge") extra += m.amount;
       }
       const floor = Math.min(base, s.rules.moveMoney?.floor ?? 10);   // the floor caps discounts; it never raises the base (flyers pay 5 for a step)
-      return Math.max(floor, base - off + extra);
+      let cost = Math.max(floor, base - off + extra);
+      const coop = (H.ClassRuntime?.commonGroundOff?.(s, a, route) || 0) + (H.ClassRuntime?.purposeMoveOff?.(s, a, route) || 0);
+      if (coop && cost >= 5) cost = Math.max(5, cost - coop);
+      return cost;
     }
     function consumeMoveMods(s, a, route) {
+      H.ClassRuntime?.commonGroundSpend?.(s, a, route);
+      H.ClassRuntime?.purposeMoveSpend?.(s, a, route);
       if (!a.status?.moveMods) return;
       const spent = [];
       a.status.moveMods = a.status.moveMods.filter((m) => {
@@ -964,7 +969,7 @@
         if (!canCommitSubmission(s, a)) return "A committed finish takes a full ultimate bar or 1 Inspiration.";
         if (act.pay === "inspiration" && (a.inspiration || 0) < 1) return "Paying with Inspiration takes 1 Inspiration.";   // Mala, 2026-10-26: Inspiration may pay and keep the bar
         const ult = (a.ultimateCharge || 0) >= s.rules.ultimateChargeMax && act.pay !== "inspiration";
-        if (ult) a.ultimateCharge = 0; else H.Inspiration.spend(s, a, 1, "perform");   // a finish announced on Inspiration is a performance for Fame (F0c, FAME.md section 15)
+        if (ult) { a.ultimateCharge = 0; H.Inspiration.ultimateFired(s, a); } else H.Inspiration.spend(s, a, 1, "perform");   // a finish announced on Inspiration is a performance for Fame (F0c, FAME.md section 15)
         log(s, { kind: "announce", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${a.name} goes for the finish on ${t.name} (${ult ? "the full ultimate bar" : "1 Inspiration"} spent either way).`,
           why: [`${t.name} gets one answer: break the hold (${R.finishBreakAp} AP owed and the reaction) or submit.`] });
         s.phase = "response";

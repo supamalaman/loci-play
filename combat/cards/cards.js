@@ -9,7 +9,7 @@
 //   contactsOf(card)              every system the card touches: its own rows plus the auto rows of its kind and effects (section 17)
 //   problems(card)                what is wrong with a card's data (empty = a card may ship live)
 //   liveCards() / byId(id)        the cards a deck may hold: status live, kind live, no problems (no phantom cards)
-//   capFor({ level, fame, cardsharp })   the deck points cap (section 2.3)
+//   capFor({ level, fame, cardsharp, bonus })   the deck points cap (section 2.3); bonus from a soul's cardCapAdd
 //   validate(deck, { owned, cap })       { ok, errors, points, legal } for a list of card ids (section 2.4)
 // The closed lists (kinds, conditions, effect menu, rules) are data in cards-data.js: no number is typed here.
 (function (root, factory) {
@@ -197,9 +197,9 @@
   const liveCards = () => D.cards.filter((c) => c.status === "live" && kindLive(c.kind) && !problems(c).length);
 
   // ── The deck points cap (section 2.3): 8 + floor(level / 2) up to +10, + Fame, + 2 per Cardsharp rank, ceiling 30 ──
-  function capFor({ level = 1, fame = 0, cardsharp = 0 } = {}) {
+  function capFor({ level = 1, fame = 0, cardsharp = 0, bonus = 0 } = {}) {   // bonus: Herald's Mantle, a worn noble soul (JG1, cardCapAdd)
     const c = rules.cap, lv = Math.min(c.levelMax, Math.floor(Math.max(1, level) / c.levelStep)), ranks = Math.min(c.cardsharpCap, Math.max(0, cardsharp));
-    return Math.min(c.ceiling, c.base + lv + Math.max(0, fame) + c.perCardsharp * ranks);
+    return Math.min(c.ceiling, c.base + lv + Math.max(0, fame) + c.perCardsharp * ranks + Math.max(0, bonus));
   }
 
   // ── Deck validation (section 2.4). `owned` is { cardId: n } (omit it to ignore ownership). Returns the errors for the whole deck

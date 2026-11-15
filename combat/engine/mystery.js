@@ -40,7 +40,7 @@
       if (!freeFirst) { const spend = spendTempo(s, a, m.tempoCost + detailTax, "Set face-down"); if (spend) return spend; }
       for (const e of s.log.slice(n0)) if (e.kind === "tempo") e.text = `${a.name} spends action points on Set face-down.`;   // MCR-05: the set's spend prints no cost or remainder (redacted here; engine.js is at its size cap)
       if (!freeFirst) a.pf -= m.cost;
-      if (m.tier === "ultimate" && !mastered) a.ultimateCharge -= s.rules.ultimateChargeMax;   // MCR-04: bar paid at set, silently (the count-only set line covers it); reveal spends nothing further
+      if (m.tier === "ultimate") { if (!mastered) a.ultimateCharge -= s.rules.ultimateChargeMax; H.Inspiration?.ultimateFired(s, a); }   // JG1: a set ultimate counts once here, mastered or not   // MCR-04: bar paid at set, silently (the count-only set line covers it); reveal spends nothing further
       if (freeFirst === "turn") (a.freeTurns ||= {})[ability] = a.ownerTurns;   // free-first stamps at set, like commit
       if (freeFirst === "battle") (a.freeBattle ||= {})[ability] = true;
       spent[a.side] = (spent[a.side] || 0) + 1;

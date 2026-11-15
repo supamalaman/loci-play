@@ -265,6 +265,15 @@
         mid: { when: { round: 3 }, text: "An ambusher is strongest from cover: its first leap out of the grass hits half again as hard. In the open you can see it coming." },
         result: { player: "The field is yours. The grass goes still.", enemy: "You give up the field to whatever was waiting in it.",
           none: "Nobody gives way. Something in the grass keeps watching." } } },
+    meetMeThere: { id: "meetMeThere", name: "Meet Me There", minTier: 1, weight: 1,   // teaching scenario for Cooperative Principle P1: three allies, one marked tile, a short clock
+      arenas: "any",
+      foes: "roll", count: [1, 1],
+      objective: { kind: "hold", deadline: 6, onDeadline: "lose" },
+      text: {
+        open: "The ground between you is three tiles wide. Hold it. The cheaper first step toward a named destination is the lesson.",
+        mid: { when: { round: 3 }, text: "The ones still walking toward the ground are the ones who heard you." },
+        result: { player: "The ground is yours.", enemy: "You were pushed off the ground.",
+          none: "Nobody holds the ground when the clock stops." } } },
 
     spilledPot: { id: "spilledPot", name: "Spilled Pot", minTier: 1, weight: 1,
       arenas: "any",
@@ -298,6 +307,17 @@
         result: { player: "You stood through whatever they set. The crater keeps no secrets now.", enemy: "They held the crater. Next time, study them first.",
           none: "Nobody springs anything, and the round limit comes. The face-down card goes back to the dark with its holder." } } },
 
+    theOpenDoor: { id: "theOpenDoor", name: "The Open Door", minTier: 1, weight: 1,   // SH4 teaching: her table is already full; striking guests loses the race
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["shaman"], at: [[5, 2]] },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "Her table is already full. Striking the guests loses the race. Reach her and the door closes.",
+        mid: { when: { round: 4 }, text: "The guests are still between you. She is the one holding the door." },
+        result: { player: "You reached her. The guests leave with the host.", enemy: "The table held, and you never reached the door.",
+          none: "The round limit comes with the door still open." } } },
+
     buriedBar: { id: "buriedBar", name: "The Buried Bar", minTier: 1, weight: 1,   // SC23, teaching Mystery S2: a fixed arantxa holds its post six tiles out behind a pillar; a full bar goes face-down at turn start and fires on schedule, or waits when the radius is empty
       arenas: ["punchbowlRim"],
       foes: { fixed: ["arantxa"], at: [[5, 4]], holdTurns: 2 },
@@ -318,6 +338,17 @@
         mid: { when: { round: 5 }, text: "Set your own, too: pay now, pick when it fires, and let the table wonder." },
         result: { player: "You leave the table standing, and its secrets with it.", enemy: "The table keeps its secrets, and you leave with none of them.",
           none: "Nobody reads anything. The face-down plans fade with the light, unspent and unknown." } } },
+    standIn: { id: "standIn", name: "Stand-In", minTier: 2, weight: 1,   // teaching Substitution (five concepts S1); tier 2 so the pinned tier-1 lists stay as they are
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["ranger"], at: [[5, 2]], holdTurns: 1 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "An archer holds the rim. Link to a sturdy ally with Stand In before the volley, or take the hit yourself. Name the Peril if you already know the channel.",
+        mid: { when: { round: 3 }, text: "The link is public. A Feint trips it; an area shot walks past it." },
+        result: { player: "The surrogate took what was meant for you. The rim is quiet.", enemy: "The volley found you before anyone stood in.",
+          none: "Nobody linked, and the rounds ran out." } } },
+
     roomToRise: { id: "roomToRise", name: "Room to Rise", minTier: 2, weight: 1,   // SC24 (tier 2: MAX needs a revealed summon and a full bar, a few wins in; the tier-1 pool stays as it is), teaching MAX (MX1 Max Mitsuko + MX2 Max Genghis Khan, loop 1a1c6359d54): an open field, one foe apart from a pair, so a revealed summon has the room and a reason to rise
       arenas: ["warfareField"],
       foes: { fixed: ["student", "student", "arantxa"], at: [[11, 1], [12, 2], [12, 7]], holdTurns: 2 },

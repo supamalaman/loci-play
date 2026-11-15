@@ -328,7 +328,7 @@
     // was priced at 0.01, so any small gain justified walking three tiles); reserve charges `value` for spending below one's cheapest reactive
     // answer with a shooter in range; traitActs lets beliefs and focus act (robot harm multipliers, believers preach,
     // ritual start odds by focus trait, ADHD's taste for variety (variety)). Each takes `sides` for a one-sided sim arm.
-    aiLedger: { wallLine: false, curiosity: false, lookahead: false, answerModel: { on: true, prior: 0.15, announcedPrior: 0.5, costWeight: 1 }, walkCost: { on: true, weight: 0.5 }, reserve: { on: false, value: 3, range: 6 },
+    aiLedger: { wallLine: false, curiosity: false, lookahead: false, answerModel: { on: true, prior: 0.15, announcedPrior: 0.5, costWeight: 1 }, walkCost: { on: true, weight: 0.5 }, reserve: { on: false, value: 3, range: 6 }, onePlan: { on: true },
       // Trait drive (hotbuilds W0d; generalises the respec-fruit Fruitbound term, 2026-11-01): a carrier of a listed
       // trait scores each listed technique this much more when the moment fits (one rawScore term, ai.js traitDriveBonus).
       // `when` is a named context check ("name" or ["name", arg]) or a list of them, all ANDed; omitted means always.
@@ -379,12 +379,20 @@
         dreamer: {
           pictureTheArrival: { bonus: 8 },
           dreamCircuit: { bonus: 16 },
-          summonedMandate: { bonus: 12 } } },
+          summonedMandate: { bonus: 12 } },
+        // Big Game Hunter H2 (merge spec section 11): Scout steers her find-catalogue-fell loop. Keyed by technique
+        // id, so a Scout holding other techniques (the Ranger) is unchanged. Apex and Planted Feet ride H3/H4 with
+        // their mechanics (their whens read Charged, which does not exist yet).
+        scout: {
+          indexEntry: { bonus: 6, when: ["freshCatalogueTarget"] },
+          crossReference: { bonus: 5, when: [["cataloguedQuarry", 2]] },
+          survey: { bonus: 5, when: ["foeConcealed", "noOwnRumor"] },
+          verify: { bonus: 7, when: ["ownRumorPending"] } } },
       traitActs: { on: false, robotHarm: { robotSympathizer: 0.6, robotHater: 1.4 }, preach: ["fullBeliever", "devoutBeliever", "convertedBeliever", "convertedDevout"],
         ritualStart: { perfectConcentration: 1.5, focused: 1.25, scattered: 0.6, adhd: 0.5 }, variety: { adhd: 1 } }, foeMemory: false, regretProbe: false, setupBonus: 0, readyUltimate: 8, animeKitFloor: 6,   // anime kit options (soul verbs/arts, fruit, Bird Mountain) score at least Observe here, or this when Observe is not offered (docs/anime-orbit.md §5a)
           // a full bar means it is time to use it (Mala, 2026-10-27): a ready damage ultimate scores this much more (simmed on/off)
         regretAbility: {}, threatRangeSelf: 6, threatRangePlaced: 3, hitChance: 0.7, perThreat: 1, infoPerCard: 1.5, infoCap: 6, focusCoverBonus: 2, focusDurationBonus: 1, attentionBase: 6, attentionCrowdCost: 3, develop: 2.5, developNurseEdge: 0.5,
-      cover: { guard: 0.5, immovable: 0.3, barrier: 1, berm: 1, contourBerm: 1, bermRing: 1, swale: 0.5, rainGarden: 0.75, architectDesign: 1, anchor: 0.5, membrane: 0.5, aura: 0.4 },
+      cover: { guard: 0.5, immovable: 0.3, barrier: 1, berm: 1, contourBerm: 1, bermRing: 1, swale: 0.5, rainGarden: 0.75, architectDesign: 1, anchor: 0.5, membrane: 0.5, aura: 0.4, standIn: 1 },
       // Sight arms (AI Sight H1; SPEC claude-ai-sight-spec): sim-only blind/keen
       // per system family. families maps a family name to its action types (and
       // effect ids when the spec names any; none yet), plus `prop` for the
@@ -406,7 +414,9 @@
           items: { types: ["useItem", "takeFromCart"], effects: [] },
         },
         blind: [], keen: {}, sides: null,
-      } },
+      },
+      // Standing value (AI Sight D1; SPEC claude-ai-sight-spec §2): what a status is worth while it stands. Seed table: the scribed numbers moved here; D3d absorbs them into the IR value table and deletes this (Decision 10).
+      standing: { root: 8, itemLock: 4, reveal: 5, ward: 5, adaptResistance: 5 } },
     // Forced movement (Mala, 2026-10-30): a holder or a held unit moved by anything but its own Move, Jump or Climb (knockback, pull,
     // throw, dash, swap, teleport, dodge, terrain) loses the hold at once, beside each other or not. Seams: engine/conditions.js settleHolds, breakHoldsApart.
     spirit: { stage: 3, outAt: 1.5, winAt: 1.5, lfLine: 0.6, focusBonus: 2, protectBonus: 2, spiritCap: 4, dangerNear: 6, dangerFoe: 0.25, spacingAlly: 2, spacingFoe: 1, tempoHold: 2 },   // group spirit (SPIRIT-ORDER SPEC): stage 0 = off, 1 = Focus+Protect, 2 = +Spacing+Tempo, 3 = +roles (Halves measured per stage on the sim pipeline)
@@ -443,7 +453,7 @@
     overwatch: { ap: 10, range: 4, potency: 8, owed: 25, aiValue: 4 },   // Overwatch (Muse-2 interactions batch): set cost, watch range, snapshot potency, AP owed on trigger, AI value
     opportunity: { potency: 6, disengageAp: 15 },   // provisional (Mala 2026-10-22): a willing step out of strike range. The swing is a normal strike, costs that opponent's reaction, and spends no AP. Disengage buys the rest of the turn.
     birdMountain: { hermit: { strike: 3, guard: 3, eat: 6, meditate: 8, opportunity: 3 } },   // provisional (Mala 2026-10-22, turtle hermit way): Train Hard (Strike), Blocking (Guard), Eat Good (consumables), Sleep Plenty (Meditate bonus), opportunity swings — all charge holders' ULT bars.
-    rite: { wordsAp: 10, sigilsAp: 25, bloodLf: 3, deepLf: 8, maxSteps: 3, wordsPotency: 2, wordsTripleBonus: 4, sigilsRange: 1, sigilsTripleBonus: 3, bleedRiderByBlood: [0, 0, 2, 6], bloodyHandsTurns: 2, traitDiscounts: {}, dreamSealBonus: 1, dreamBloodEase: 2, witnessCharge: 1, groundPotency: 2, plantMend: 4, burnPotency: 4, callCharges: 1,
+    rite: { wordsAp: 10, teaAp: 10, teaUltMul: 2, sigilsAp: 25, bloodLf: 3, deepLf: 8, maxSteps: 3, wordsPotency: 2, wordsTripleBonus: 4, sigilsRange: 1, sigilsTripleBonus: 3, bleedRiderByBlood: [0, 0, 2, 6], bloodyHandsTurns: 2, traitDiscounts: {}, dreamSealBonus: 1, dreamBloodEase: 2, witnessCharge: 1, groundPotency: 2, plantMend: 4, burnPotency: 4, callCharges: 1,
       burial: { ap: 100, potency: 8, healWounds: 3, graveWard: 2, honorUlt: 10, stateInspiration: 1, fastAp: 50, fastTraits: ["desertRites"] },
       sacrifice: { potency: 16, charges: 2 } },   // Ritual burial (Mala 2026-10-19/20; muse/ritual-burial/SPEC.md): Last Rites is a whole-turn rite step beside a corpse; fastTraits bury at fastAp and may walk first. Sacrifice (Mala 2026-10-21, For You): a death-step. +16 potency, piercing, and counting as 2 charges are provisional. Ash + bloom (Mala 2026-10-22): palingenesis burn/call bank rite steps as a side effect — burn seals +4 potency, call seals +1 charge, both provisional.   // Rites (Muse-2 rituals prototype): step costs, augment yields (triples escalate: 3 words +10, 3 sigils +6 range, 2 blood pierce+2 bleed, 3 blood pierce+6 bleed), bloody-hands duration; traitDiscounts maps trait id -> AP off every rite step AND capture (shared path)
     // For You (Mala, 2026-10-21). Love stays staged: these numbers drive the forYou handler only. Seal payoff and the witness chance live under rite.sacrifice and inspiration.chance.seesSacrifice, and both are provisional.
@@ -1313,6 +1323,7 @@
   archivistMove("crossReference","Cross Reference","indexing","refined","archivistReference","enemy","line",5,10,{shape:"single"},"Strike a visible enemy for 10 base LF; each known observation adds 10% potency, capped at +50%.");
   archivistMove("openArchive","Open Archive","indexing","ultimate","archivistArchive","self","field",0,0,{shape:"radius",radius:3},"Reveal one hidden observation about each enemy within 3 tiles, sharing the entries with your team.");
   abilities.openArchive.cost = 12;   // least-used: kept the concept's ultimate (one-ult-per-concept invariant), priced down from 16 for the phi economy
+  abilities.indexEntry.freeFirst = "turn"; abilities.indexEntry.freeFirstFor = ["big_game_hunter"];   // H2: her first Index Entry each turn is free (hot-build rule 5; the Hypnotist's focus precedent: a shared def names its characters)
   archivistMove("protectiveSleeve","Protective Sleeve","preservation","basic","archivistWard","ally","line",4,12,{shape:"single"},"Give a living ally a 12-point ward until their next turn; replacing a ward never adds its protection.");
   archivistMove("repairRecord","Repair the Record","preservation","refined","archivistHeal","ally","line",4,14,{shape:"single"},"Restore up to 14 LF to a living ally; cannot exceed their maximum or revive them.");
   archivistMove("livingArchive","Living Archive","preservation","ultimate","archivistShelter","self","field",0,0,{shape:"radius",radius:3},"All living allies within 3 recover up to 16 LF and gain a 12-point ward until their next turn.");
@@ -1547,6 +1558,17 @@
     cost: 0, tempoCost: 10, range: 0, potency: 0, protection: 8, effect: "barrier", effectCategory: "conditional", reactive: true, answerOnly: true, expiry: "ownerNextTurnStart",
     reveal: "Fixed Gaze answers only while the Hold the Image ward is held. Primed against the Fixed foe (whole ward, Off-tempo: the attacker's last technique is forbidden for a round); rushed against anyone else. It also covers an unwarded ally within 2.",
     prompt: "Who is the gaze fixed on when the shot comes?" };
+  // Read the Charge (Big Game Hunter, merge spec H3a, section 8): Rebound's parry with nothing pushed back, catching line
+  // attacks only (R-20261112-24). Pair-gated to discovery+indexing, her pair. Cast on her own turn it is primed (catches all)
+  // until her next turn; as a reaction the window marks it rushed (rules.reactiveDefense.rushed) and a perfect answer catches
+  // all. Caught from her Quarry it arms Charged (class-runtime.js hunterParried): x`charged.mul` on her next Strike or
+  // Cross Reference against the Quarry, lost to an enemy's forced move, gone after `charged.turns` of her owner turns.
+  abilities.readTheCharge = { name: "Read the Charge", tier: "refined", concepts: ["discovery", "indexing"], pairOnly: true, pairs: [["discovery", "indexing"]],
+    delivery: "self", target: "self", cost: 2, tempoCost: 20, range: 0, potency: 0, effect: "parry", parry: { catches: ["line"], reflectFraction: 0 },
+    effectCategory: "conditional", reactive: true, expiry: "ownerNextTurnStart", charged: { mul: 1.5, turns: 2 },
+    mechanism: "Set the greatsword as a shield: the next line attack on you is caught. Primed on your turn it catches all of it; as a reaction it catches half (a perfect answer, all). If the attacker is your Quarry, you are Charged: your next Strike or Cross Reference on the Quarry deals x1.5.",
+    reveal: "Read the Charge catches line attacks only, and pushes nothing back. Charged is public; an enemy that moves her (a shove, a throw, a swap) knocks it loose, and it ends after her second turn.",
+    prompt: "Which of her foes can reach her without a line?" };
   abilities.secondGaze = { name: "Second Gaze", tier: "basic", concepts: ["focus"],
     delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Fix a second foe this turn with no action: hold two marks at once (either primes Fixed Gaze).",
     cost: 0, tempoCost: 0, inspirationPrice: 1, range: 5, potency: 0, effect: "secondGaze", effectCategory: "conditional", duration: 1,
@@ -2228,7 +2250,7 @@
         if (!concepts.periodicity.abilities.includes(id)) concepts.periodicity.abilities.push(id);
       }
     }
-    for (const c of ["mise_en_place", "homology", "ma", "credit"]) if (!concepts[c] && Kits.stagedConcepts[c]) {   // playable (Mala, 2026-10-28): whoever equips it gets its kit; Rack and Label and Parallel Prep carry no class pair (the Chef, 2026-10-30, holds it but leaves them open)
+    for (const c of ["mise_en_place", "homology", "ma", "credit", "cooperative_principle", "substitution"]) if (!concepts[c] && Kits.stagedConcepts[c]) {   // playable (Mala, 2026-10-28): whoever equips it gets its kit; Rack and Label and Parallel Prep carry no class pair (the Chef, 2026-10-30, holds it but leaves them open) Cooperative Principle (five-concepts P1, 2026-11-11) joins that list.
       const { channel, ...def } = Kits.stagedConcepts[c];
       concepts[c] = { ...def, abilities: [] }; conceptDamageTypes[c] = channel;
     }
@@ -2326,8 +2348,9 @@
     concepts.deception.abilities=concepts.deception.abilities.filter(id=>!["hairClone","monkeyMischief","staffSky","merge","spareHair"].includes(id));   // pair-gated monkey kit (cyphOpenMic precedent)
     concepts.leverage.abilities=concepts.leverage.abilities.filter(id=>!["somersaultCloud","jinguBang"].includes(id));   // pair-gated monkey kit (cyphOpenMic precedent)
   }
-  if(concepts.threshold)concepts.threshold.abilities=concepts.threshold.abilities.filter(id=>!["spiritRaven","ancestralFox","ancestralMoot"].includes(id));   // pair-gated shaman kit
+  if(concepts.threshold)concepts.threshold.abilities=concepts.threshold.abilities.filter(id=>!["spiritRaven","ancestralFox","ancestralMoot","echoDouble"].includes(id));   // pair-gated shaman kit
   if(concepts.hospitality)concepts.hospitality.abilities=concepts.hospitality.abilities.filter(id=>!["guestPortion","spiritTotem","ancestralMoot"].includes(id));   // pair-gated shaman kit (SH2 stubs stay pair-gated)
+  if(concepts.preservation)concepts.preservation.abilities=concepts.preservation.abilities.filter(id=>id!=="echoDouble");   // wheelhouse merge: the Shaman's kit, not every Preservation holder
   if(concepts.lyricism){
     concepts.lyricism.abilities=concepts.lyricism.abilities.filter(id=>id!=="cyphOpenMic");
     concepts.lyricism.abilities=concepts.lyricism.abilities.filter(id=>id!=="jazzSolo"&&id!=="cuttingContest");   // pair-exclusive jazz kit: granted by pairs below, never shared (cyphOpenMic precedent)

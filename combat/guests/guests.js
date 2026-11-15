@@ -9,6 +9,8 @@
   const IDS = new Set(["spiritRaven", "ancestralFox", "spiritTotem"]);
   const KEY_OF = { spiritRaven: "spirit_raven", ancestralFox: "ancestral_fox", spiritTotem: "spirit_totem" };
   const SEATS = 2;
+  const SEAL_ROUNDS = 2;
+  const GUEST_AI = { contemplative: { open: 6.5, seated: 4.5, quiet: 1.5 } };
   const isShaman = (a) => a && (a.character === "shaman" || (a.primary === "threshold" && a.secondary === "hospitality"));
   const say = (s, H, a, text, why) => H.log(s, { kind: "guest", actor: a.id, text, ...(why ? { why } : {}) });
   const openTile = (s, H, x, y) => H.inside(s, x, y) && !H.tileAt(s, x, y).blocksMove && !H.actorAt(s, x, y) && !H.barrierAt(s, x, y);
@@ -31,16 +33,33 @@
     for (const g of guestsOf(s, ownerId)) dismiss(s, H, g, why || "the host falls; every guest leaves");
   }
 
-  function spawnGuest(s, a, H, key, tx, ty) {
+  function rememberKind(a, key) {
+    a.guestKinds = a.guestKinds || [];
+    if (!a.guestKinds.includes(key)) a.guestKinds.push(key);
+  }
+  function grantInspiration(s, H, guest) {
+    const owner = s.actors[guest?.companion?.owner];
+    if (!owner || owner.defeated || guest.lf <= 0) return;
+    owner.inspiration = (owner.inspiration || 0) + 1;
+    say(s, H, owner, `${owner.name} keeps ${guest.name}'s visit: Inspiration.`);
+  }
+  function spawnGuest(s, a, H, key, tx, ty, opts) {
     const def = (s.rules.companions || {})[key];
     if (!def) return null;
-    dismissOldest(s, H, a.id);
+    opts = opts || {};
+    const seated = guestsOf(s, a.id);
+    let spent = false;
+    if (!opts.pastLimit && seated.length >= SEATS && (a.inspiration || 0) > 0) {
+      opts = { ...opts, pastLimit: true, clock: "round", rounds: 1 };
+      spent = true;
+    }
+    if (!opts.pastLimit) dismissOldest(s, H, a.id);
     const id = `companion-${key}-${a.id}-${s.round}-${++s.seq}`;
     const moveAdd = (def.move ?? 3) - (s.rules.moveBudget || 3);
     const ally = {
       id, name: def.name, side: a.side, controller: "ai", ai: "ally", character: key, sprite: def.sprite,
       primary: def.primary, secondary: def.secondary, maxLF: def.lf, lf: def.lf, x: tx, y: ty,
-      companion: { owner: a.id, key, turnsLeft: def.turns, roundsLeft: def.rounds ?? null, guest: true, seatedAt: s.round * 1000 + (s.seq || 0) },
+      companion: { owner: a.id, key, turnsLeft: opts.clock === "round" ? null : def.turns, roundsLeft: opts.rounds != null ? opts.rounds : (def.rounds ?? null), guest: true, seatedAt: s.round * 1000 + (s.seq || 0) },
       summoned: true,   // Smite / holy fellMul and every "is a summon" read (spec SH1)
       ...(def.structure ? { structure: true } : {}),
       pf: s.rules.maxPF, maxPF: s.rules.maxPF, ultimateCharge: 0, level: a.level || 1, xp: 0, proficiency: a.proficiency || 1,
@@ -69,6 +88,8 @@
     s.order.splice(s.turnIndex + 1, 0, ally.id);
     const arrival = (def.arrival || "steps through").replace("{owner}", a.name).replace("{turns}", String(def.turns));
     say(s, H, a, `${def.name} ${arrival} at (${tx},${ty}).`, ["A guest: outside the palace slot, on a clock, no grave."]);
+    if (spent) a.inspiration -= 1;
+    rememberKind(a, key);
     if (key === "spirit_raven") ravenPulse(s, H, ally);
     return ally;
   }
@@ -124,15 +145,31 @@
   function beforeAbility(s, a, m) {
     const id = m.id || m.ability;
     if (id === "strike" && a?.companion?.guest && a.passives?.noStrike) return "Spirit Raven has no attack.";
+    if (a?.companion?.echo && (IDS.has(id) || id === "ancestralMoot" || id === "echoDouble")) return "The Echo calls no guest.";
+    if (id === "ancestralMoot" || id === "echoDouble") {
+      if (!isShaman(a)) return "Only the Shaman opens this door.";
+      if (a.companion?.guest) return "A guest cannot call a guest.";
+      return null;
+    }
     if (!IDS.has(id)) return null;
     if (!isShaman(a)) return "Only the Shaman seats these guests.";
     if (a.companion?.guest) return "A guest cannot call a guest.";
+    if ((a.guestSeal || 0) > 0) return "Her guest calls are sealed.";
     return null;
   }
 
+  function openTiles(s, H, a) {
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    return dirs.map(([dx, dy]) => [a.x + dx, a.y + dy]).filter(([x, y]) => openTile(s, H, x, y));
+  }
   function target(s, a, m, tx, ty, H) {
-    const id = m.id || m.ability; if (!IDS.has(id)) return null;
+    const id = m.id || m.ability;
     const fail = (error) => ({ ok: false, error });
+    if (id === "ancestralMoot" || id === "echoDouble") {
+      const gate = beforeAbility(s, a, m); if (gate) return fail(gate);
+      return { ok: true, tiles: [[a.x, a.y]], targets: [] };
+    }
+    if (!IDS.has(id)) return null;
     const gate = beforeAbility(s, a, m); if (gate) return fail(gate);
     if (tx == null || !H.inside(s, tx, ty)) return fail("Choose an open tile within 3.");
     if (H.dist(s, a.x, a.y, tx, ty) > 3) return fail("The guest arrives within 3.");
@@ -140,8 +177,48 @@
     return { ok: true, tiles: [[tx, ty]], targets: [] };
   }
 
+  function moot(s, a, H) {
+    const kinds = (a.guestKinds || []).slice(0, 3);
+    const tiles = openTiles(s, H, a);
+    let n = 0;
+    for (const key of kinds) {
+      const tile = tiles[n]; if (!tile) break;
+      spawnGuest(s, a, H, key, tile[0], tile[1], { pastLimit: true, clock: "round", rounds: 1 });
+      n += 1;
+    }
+    a.guestSeal = SEAL_ROUNDS;
+    say(s, H, a, "The door stands open. Everyone she has ever hosted is coming in.", ["Every kind she has seated returns for 1 round, past the two seats.", "Her guest calls are sealed for 2 rounds."]);
+    return true;
+  }
+  function echo(s, a, H) {
+    const tile = openTiles(s, H, a)[0];
+    if (!tile) { say(s, H, a, `${a.name}'s Echo finds no open tile.`); return true; }
+    const [tx, ty] = tile;
+    const id = `companion-echo-${a.id}-${s.round}-${++s.seq}`;
+    const ally = {
+      id, name: "Echo", side: a.side, controller: "ai", ai: "ally", character: "echo", sprite: a.sprite,
+      primary: "threshold", secondary: "preservation", maxLF: a.maxLF, lf: a.maxLF, x: tx, y: ty,
+      companion: { owner: a.id, key: "echo_double", turnsLeft: null, roundsLeft: 2, guest: false, echo: true, seatedAt: s.round * 1000 + (s.seq || 0) },
+      pf: s.rules.maxPF, maxPF: s.rules.maxPF, ultimateCharge: 0, level: a.level || 1, xp: 0, proficiency: a.proficiency || 1,
+      reserve: [], reserveSlots: 0, pendingSwap: null, lens: {},
+      reaction: s.rules.reactionsPerRound, moved: false, acted: false, tempo: 0, tempoCapacity: 0, bankedTempo: 0, tempoDebt: 0, tempoSpent: 0, actionsThisTurn: 0, guardUsedThisTurn: false,
+      ownerTurns: 0, lastRecoverTurn: -99,
+      status: { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null },
+      inventory: [], inventoryCapacity: 0, passives: {},
+      form: { strike: { potency: a.form?.strike?.potency || 4 } },
+      traits: [], conditions: {}, lanyardUsed: false, bristleconeUsed: false, lastDamageType: null, defeated: false,
+    };
+    s.actors[ally.id] = ally; s.disclosures[ally.id] = {}; s.knowledge[ally.id] = {};
+    if (s.observedAbilities) s.observedAbilities[ally.id] = [];
+    s.order.splice(s.turnIndex + 1, 0, ally.id);
+    say(s, H, a, `An Echo of ${a.name} steps through at (${tx},${ty}) and repeats her basics for 2 rounds.`, ["It calls no guest, keeps no attendant, and cannot open the Moot.", "It leaves when she falls."]);
+    return true;
+  }
   function resolve(s, a, inst, H) {
-    const id = inst.ability; if (!IDS.has(id)) return false;
+    const id = inst.ability;
+    if (id === "ancestralMoot") return moot(s, a, H);
+    if (id === "echoDouble") return echo(s, a, H);
+    if (!IDS.has(id)) return false;
     const key = KEY_OF[id];
     if (!key) return false;
     if (!isShaman(a)) { say(s, H, a, `${a.name}'s call fizzles: only the Shaman hosts these spirits.`); return true; }
@@ -156,13 +233,17 @@
   function foeNear(s, a, n, H) {
     return Object.values(s.actors).some((u) => u.side !== a.side && !u.defeated && H.dist(s, a.x, a.y, u.x, u.y) <= n);
   }
+  function guestBonus(a) {
+    const id = Object.keys(GUEST_AI).find((t) => (a?.traits || []).includes(t));
+    return id ? GUEST_AI[id] : null;
+  }
   function aiValue(s, a, cand, H) {
     const id = cand.ability; if (!IDS.has(id)) return null;
-    if (!isShaman(a) || a.companion?.guest) return null;
-    if (guestsOf(s, a.id).length >= SEATS && id === "spiritRaven") return 2;   // can still displace oldest
-    // Guest calls deal no damage: contemplative trait table lands in SH4; until then score a free seat with a foe in sight high enough to clear a Strike.
-    if (foeNear(s, a, 6, H)) return guestsOf(s, a.id).length ? 4.5 : 6.5;
-    return 1.5;
+    if (a.companion?.guest || a.companion?.echo) return null;
+    const table = guestBonus(a); if (!table) return null;
+    if (guestsOf(s, a.id).length >= SEATS && id === "spiritRaven") return 2;
+    if (foeNear(s, a, 6, H)) return guestsOf(s, a.id).length ? table.seated : table.open;
+    return table.quiet;
   }
 
   // Attendants (SH3): a state on her, one at a time, drawn beside her. Not a guest and not a unit.
@@ -250,7 +331,19 @@
     say(s, H, a, `The ${t.name} answers ${a.name}'s technique (${t.pulses}/${ATTEND.pulses} this turn).`, [SPIRITS[t.kind].text]);
   }
 
+  function thinVeil(s, a, H) {
+    if (!a || a.defeated || !(a.traits || []).includes("thinVeil")) return;
+    const seen = [];
+    for (const u of Object.values(s.actors)) {
+      if (!u || u.defeated || u.id === a.id || !concealed(u)) continue;
+      if (H.dist(s, a.x, a.y, u.x, u.y) > 2) continue;
+      delete u.status.concealed;
+      seen.push(u);
+    }
+    if (seen.length) say(s, H, a, `${a.name} sees through the veil: ${seen.map((u) => u.name).join(", ")}.`, ["Thin Veil: a hidden unit within 2 tiles, and not at 3."]);
+  }
   function turnStart(s, a, H) {
+    thinVeil(s, a, H);
     tickAttendant(s, a, H);
     if (a.companion?.guest && a.companion.key === "spirit_raven" && !a.defeated) ravenPulse(s, H, a);
     if (a.companion?.guest) {
@@ -263,16 +356,32 @@
     if (!owner) return;
     if (owner.attendant) { const n = owner.attendant.name; owner.attendant = null; say(s, H, owner, `The ${n} leaves with her.`); }
     dismissAll(s, H, owner.id, "the host falls; every guest leaves");
+    for (const u of Object.values(s.actors)) if (!u.defeated && u.companion?.echo && u.companion.owner === owner.id) dismiss(s, H, u, "leaves when she falls");
   }
 
   // Totem clock (SH2; spec termination 5.1): rounds-based, ticked from beginRound — companionTick only counts its own turns.
   function roundStart(s, H) {
+    for (const u of Object.values(s.actors)) if (!u.defeated && (u.guestSeal || 0) > 0) u.guestSeal -= 1;
     for (const u of Object.values(s.actors)) {
       if (u.defeated || u.companion?.roundsLeft == null) continue;
       u.companion.roundsLeft -= 1;
-      if (u.companion.roundsLeft <= 0) dismiss(s, H, u, s.rules.companions?.[u.companion.key]?.leave);
+      if (u.companion.roundsLeft <= 0) {
+        if (u.companion.guest && u.lf > 0) grantInspiration(s, H, u);
+        dismiss(s, H, u, s.rules.companions?.[u.companion.key]?.leave);
+      }
     }
   }
+  function clockEnded(s, a, H) {
+    if (!a?.companion?.guest || !a.defeated || a.lf <= 0) return;
+    if (a.companion.turnsLeft == null || a.companion.turnsLeft > 0) return;
+    grantInspiration(s, H, a);
+  }
+  function openDoor(s, H) {
+    const host = Object.values(s.actors).find((u) => u.character === "shaman" && !u.defeated);
+    if (!host) return;
+    const tiles = openTiles(s, H, host);
+    ["spirit_raven", "ancestral_fox"].forEach((key, i) => { if (tiles[i]) spawnGuest(s, host, H, key, tiles[i][0], tiles[i][1]); });
+  }
 
-  return { IDS, KEY_OF, SEATS, ATTEND, SPIRITS, isShaman, guestsOf, freeUsed, price, ravenPulse, onHit, beforeAbility, target, resolve, aiValue, turnStart, onOwnerFell, spawnGuest, dismissAll, roundStart, callAttendant, pulse };
+  return { IDS, KEY_OF, SEATS, ATTEND, SPIRITS, GUEST_AI, isShaman, guestsOf, freeUsed, price, ravenPulse, onHit, beforeAbility, target, resolve, aiValue, guestBonus, turnStart, thinVeil, onOwnerFell, spawnGuest, dismissAll, roundStart, clockEnded, openDoor, callAttendant, pulse };
 });

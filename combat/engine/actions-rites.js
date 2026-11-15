@@ -134,10 +134,14 @@
             log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: deep ? `${a.name} cuts deep (${cost} LF): the rite drinks willing pain. The wound bleeds (2 LF a turn, 2 turns).` : `${a.name} cuts for the rite (${cost} LF).` });
           }
           bank(deep ? "deep" : "blood");
+        } else if (section === "tea") {   // Tea refinement T1 (R-20261106-02 D5): words parity, no LF; a rite that ends in tea seals double ULT charge
+          const spendError = spendTempo(s, a, riteDiscount(s, a, R.teaAp ?? 10), "Rite: tea ceremony"); if (spendError) return spendError;
+          log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} pours tea for the rite: the bowl is offered and received.` });
+          bank("tea");
         } else if (section === "burial") {   // Last Rites (ritual burial): a whole turn beside a body, unless the desert taught you speed
           const no = H.lastRites(s, a, spendTempo); if (no) return no;
           bank("burial");
-        } else return "Choose words, sigils, blood, a deep cut, or last rites.";
+        } else return "Choose words, sigils, blood, a deep cut, tea, or last rites.";
       },
       riteComplete(s, a, act) {   // Rites (Muse-2): seal banked steps into a shared augment pool; checkboxes pick which techniques draw
         const rite = a.rite;
@@ -166,8 +170,11 @@
         const ground = (tileAt(s, a.x, a.y).tags || []).includes("soil") || wet;
         if (ground) g.potencyAdd += (R.groundPotency ?? 2);
         if (plant) g.plantMend = R.plantMend ?? 4;
+        const tea = rite.steps[rite.steps.length - 1]?.type === "tea";   // Tea T1 (D3): every rite whose last step is tea, not only the capstone
+        if (tea) g.ultMul = R.teaUltMul ?? 2;
         H.Rites.clear(s, a);   // L1: the seal empties the ledger record with the mirror
         log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} seals the rite: ${g.charges} charge${g.charges === 1 ? "" : "s"}${g.potencyAdd ? `, +${g.potencyAdd} potency` : ""}${g.rangeAdd ? `, +${g.rangeAdd} range` : ""}${g.piercing ? ", piercing" : ""}${g.bleedRider ? `, ${g.bleedRider} bleed` : ""}. Check techniques to spend them.${dreamFed ? " The dream feeds the rite." : ""}${witness ? " Someone beside them witnesses it." : ""}${ground ? " The ground feeds it." : ""}${plant ? " A communed plant leans in." : ""}` });
+        if (tea) log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite seals with tea: the ink carries double ULT charge.`, why: ["Each technique that draws this ink builds twice the ultimate charge its use earns. A use that earns none still earns none."] });
       },
       riteToggle(s, a, act) {   // Rites (Muse-2): checkbox — this technique draws from the augment pool or not
         const g = a.riteAugment;

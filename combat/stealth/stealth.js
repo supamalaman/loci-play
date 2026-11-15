@@ -60,11 +60,18 @@
   return {path,foes};
  }
  function conceal(s,H,a,turns,why){status(a).concealed={until:a.ownerTurns+turns};say(s,H,a,`${a.name} vanishes${why?` (${why})`:""}.`);}
+ // Blood Trail (Big Game Hunter H2): a Quarry Cross-Referenced by the Hunter cannot vanish until she takes another
+ // turn. The mark sits on the target in her owner-turns; a hunter who fell or left releases it. Generic reads only
+ // (only her Cross Reference writes it): smokeVeil/blackout grant cover without vanishing, so they stay open.
+ const CONCEALERS=new Set(['vanish','decoy','emptyPockets','perfectHeist','vanishingCut']);
+ function bloodTrailed(s,a){const bt=a?.status?.bloodTrail;if(!bt)return null;const h=s?.actors?.[bt.by];return h&&!h.defeated&&h.ownerTurns<bt.until?h:null;}
+ function bloodTrailRefusal(s,a){const h=bloodTrailed(s,a);return h?`Blood Trail: ${a.name} cannot vanish until ${h.name} takes another turn.`:null;}
  function beforeAbility(s,a,m){
   const id=m.id||m.ability;if(!IDS.has(id))return null;
   if(id==='genjutsu'&&(a.inspiration||0)<3)return "Genjutsu needs 3 Inspiration (the whole purse).";
   if(id==='skim'&&!concealed(a))return "Skim needs cover: gain Concealed first.";
   if(id==='perfectHeist'&&(a.inspiration||0)<3)return "Perfect Heist needs 3 Inspiration (the whole purse).";
+  if(CONCEALERS.has(id)){const trail=bloodTrailRefusal(s,a);if(trail)return trail;}
   return null;
  }
  function target(s,a,m,tx,ty,H){
@@ -256,5 +263,5 @@
    return take>=need?9:5+4*(take/need);}
   return null;
  }
- return {IDS,concealed,entranced,isNinja,hasTrait,beforeAbility,target,resolve,beforeStrike,afterHit,redirect,turnStart,endTurn,aiValue,decoysOf,liveDecoy,markerEats};
+ return {IDS,concealed,entranced,isNinja,hasTrait,beforeAbility,target,resolve,beforeStrike,afterHit,redirect,turnStart,endTurn,aiValue,decoysOf,liveDecoy,markerEats,bloodTrailRefusal};
 });

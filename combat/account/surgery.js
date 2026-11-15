@@ -17,6 +17,10 @@
   if (typeof module === "object" && module.exports) module.exports = factory(require("../insight/insight-data.js"));
   else root.ConceptCombatSurgery = factory(root.ConceptCombatInsightData);
 })(typeof self !== "undefined" ? self : this, function (ID) {
+  // S7: lazy — surgery.js can load before the keeper scripts in the page; Node tests require it here.
+  const perksNode = () => require("./keeper-perks.js");   // `=> require(` marks it lazy for the engine-parts walk (merge fix, Bulwark IN)
+  const perks = () => (typeof module === "object" && module.exports) ? perksNode()
+    : (typeof self !== "undefined" ? self : globalThis).ConceptCombatKeeperPerks;
   const TIERS = {
     1: { name: "Minor", price: 80 },          // flavour and small edges: about two wins
     2: { name: "Solid", price: 220 },         // a real edge in the right fight
@@ -26,7 +30,7 @@
   // Biology traits she can graft. Left out: weaknesses (nobody buys those), what you are rather than what you have (robot,
   // immortal, touchedByMagic, dreamTouched, visage, distributedIntelligence), and form-only traits.
   const catalog = {
-    survivalInstincts: 1, keenSenses: 1, nightSighted: 1, hardy: 1, ironStomach: 1, highTolerance: 1, resonantVoice: 1, plantKin: 1, twentyTwentyVision: 1,
+    survivalInstincts: 1, keenSenses: 1, nightSighted: 1, hardy: 1, ironStomach: 1, highTolerance: 1, resonantVoice: 1, plantKin: 1, twentyTwentyVision: 1, thinVeil: 1,
     fleetFooted: 2, reach: 2, cavalry: 2, vegetativePropagation: 2, stickyFingers: 2, catNap: 2, heavyArmor: 2,
     strongGrip: 3, telekinetic: 3, telepathy: 3, insaneReflexes: 3, cybernetic: 3, superSpeed: 3, superHealing: 3,
     superStrength: 4, superDurability: 4, godlyAgility: 4, theLook: 4, perfectConcentration: 4,
@@ -86,13 +90,15 @@
   }
   const entry = (id) => ({ id, name: ID.traits[id]?.name || id, kind: "trait", depth: 1, category: "biology", text: ID.traits[id]?.text || "", apparent: true, known: true, grafted: true });
 
-  function remove(a, id) {
+  function remove(a, id, opts = {}) {
     if (!has(a, id)) return { ok: false, account: a, reason: "You don't have that trait." };
     if (!isBiology(id)) return { ok: false, account: a, reason: "She only operates on the body: that trait isn't biology." };
     if (UNREMOVABLE.has(id)) return { ok: false, account: a, reason: "That isn't a part. It's what you are." };
-    const cost = removalPrice(id);
-    if ((a.seeds || 0) < cost) return { ok: false, account: a, reason: `Removal costs ${cost} Seeds (you have ${a.seeds || 0}).` };
-    return { ok: true, account: { ...a, seeds: a.seeds - cost, woozy: true, self: { ...a.self, traits: traitsOf(a).filter((t) => (t?.id || t) !== id) }, labShelf: a.labShelf?.battles === (a.battles || 0) ? a.labShelf : frozen(a, shelf(a)) }, cost };   // a removal never reshuffles today's table
+    let cost = removalPrice(id), acct = a, perkSaved = 0;
+    // S7 E1 P4: a direct removal can take the perk; a graft's make-room removal never does (spec: never on a graft).
+    { const KP = perks(); if (!opts.skipPerk && KP) { const q = KP.apply(acct, "madScientist", cost); acct = q.account; cost = q.price; perkSaved = q.saved; } }
+    if ((acct.seeds || 0) < cost) return { ok: false, account: acct, reason: `Removal costs ${cost} Seeds (you have ${acct.seeds || 0}).` };
+    return { ok: true, account: { ...acct, seeds: acct.seeds - cost, woozy: true, self: { ...acct.self, traits: traitsOf(acct).filter((t) => (t?.id || t) !== id) }, labShelf: acct.labShelf?.battles === (acct.battles || 0) ? acct.labShelf : frozen(acct, shelf(acct)) }, cost, perkSaved };   // a removal never reshuffles today's table
   }
   function graft(a, id, { replace = null } = {}) {
     if (!catalog[id]) return { ok: false, account: a, reason: "She can't graft that." };
@@ -105,7 +111,7 @@
       if (!traitsOf(a).some((t) => (t?.id || t) === replace && t.grafted)) return { ok: false, account: a, reason: "Only a grafted trait can make room." };
       total += removalPrice(replace);
       if ((a.seeds || 0) < total) return { ok: false, account: a, reason: `Out with the old and in with the new costs ${total} Seeds (you have ${a.seeds || 0}).` };
-      acct = remove(a, replace).account;
+      acct = remove(a, replace, { skipPerk: true }).account;
       acct = { ...acct, seeds: acct.seeds + removalPrice(replace) };   // charged once below, with the graft
     }
     if ((a.seeds || 0) < total) return { ok: false, account: a, reason: `${ID.traits[id]?.name || id} costs ${total} Seeds (you have ${a.seeds || 0}).` };

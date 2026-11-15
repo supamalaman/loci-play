@@ -146,7 +146,7 @@
     $("start").hidden = true; $("battle").hidden = false;
     try {
       game = UI.mount($("duelHost"), { onExit: home, town: false });
-      if (how === "surfaceBattle") game.surfaceBattle(); else game.quickBattle();   // Forum (FORUM.md section 5) or Fight
+      if (how === "surfaceBattle") game.surfaceBattle(); else game.quickBattle();   // Forum (FORUM.md section 5; the main button, R-20261114-25) or Advanced Mode (the map battle)
     } catch (e) {
       console.error("Battle failed to start", e);
       $("duelHost").innerHTML = `<pre class="pk-error">The battle failed to start: ${esc(e?.stack || e)}</pre>`;
@@ -183,6 +183,39 @@
     if (ev.key === "Escape") return closeInventory();
     if (ev.key !== "Tab") return;
     const f = [...$("inventory").querySelectorAll("button:not([disabled]), summary")].filter(onScreen); if (!f.length) return;   // only what is on screen: a closed deck menu hides its buttons
+    if (ev.shiftKey && document.activeElement === f[0]) { ev.preventDefault(); f[f.length - 1].focus(); }
+    else if (!ev.shiftKey && document.activeElement === f[f.length - 1]) { ev.preventDefault(); f[0].focus(); }
+  });
+  // ── Access AC4: the phone menu (specs/ACCESS.md, AC4; loop 1a19e114a79). CSS shows the Menu button at 760 px and under only. ──
+  // Each row presses the page's own control, so a row can never do what its button would not (the save guard included).
+  const MENU_GO = {
+    forum: () => $("forum").click(),
+    fight: () => $("fight").click(),
+    inventory: () => openInventory(),
+    cards: () => { openInventory(); const c = $("pkCards"); c?.scrollIntoView({ block: "start" }); c?.querySelector("summary")?.focus(); },
+    roster: () => { $("pickTitle").scrollIntoView({ block: "start" }); $("roster").querySelector(`[data-pick="${pick}"]`)?.focus({ preventScroll: true }); },
+  };
+  const menuRows = () => [...$("phoneMenu").querySelectorAll("[data-go]")];
+  function openMenu() {
+    menuRows().forEach((b) => { const twin = { forum: "forum", fight: "fight" }[b.dataset.go]; if (twin) { b.disabled = $(twin).disabled; b.title = $(twin).title; } });
+    $("phoneMenu").hidden = false; $("menuOpen").setAttribute("aria-expanded", "true");
+    menuRows().find((b) => !b.disabled)?.focus();
+  }
+  function closeMenu(back = true) {
+    $("phoneMenu").hidden = true; $("menuOpen").setAttribute("aria-expanded", "false");
+    if (back) $("menuOpen").focus();
+  }
+  $("menuOpen").onclick = openMenu;
+  $("phoneMenu").addEventListener("click", (ev) => {
+    if (ev.target === $("phoneMenu")) return closeMenu();   // a tap outside the sheet
+    const row = ev.target.closest("[data-go]"); if (!row || row.disabled) return;
+    closeMenu(false); MENU_GO[row.dataset.go]();
+  });
+  document.addEventListener("keydown", (ev) => {
+    if ($("phoneMenu").hidden) return;
+    if (ev.key === "Escape") return closeMenu();
+    if (ev.key !== "Tab") return;
+    const f = menuRows().filter((b) => !b.disabled); if (!f.length) return;
     if (ev.shiftKey && document.activeElement === f[0]) { ev.preventDefault(); f[f.length - 1].focus(); }
     else if (!ev.shiftKey && document.activeElement === f[f.length - 1]) { ev.preventDefault(); f[0].focus(); }
   });

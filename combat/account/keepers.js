@@ -1,9 +1,10 @@
 "use strict";
 // Keeper memory (NPC faces S0; spec section 6): what a keeper knows about the player, read from the account and one small record.
-// `account.keepers = { [keeperId]: { n, visits, lastAt, spent, level, lastLoss? } }`, normalized on read so old saves load.
+// `account.keepers = { [keeperId]: { n, visits, lastAt, spent, level, perkAt?, lastLoss? } }`, normalized on read so old saves load.
 //   visits   window entries           lastAt  account.battles at the last entry (the clock the game already uses for cycles)
-//   n        transactions through that keeper (S0: none yet)       spent  Seeds spent there on the last visit (feeds `big`)
+//   n        transactions through that keeper (noteSpend bumps it once per call)       spent  Seeds spent there on the last visit (feeds `big`)
 //   level    account.level at the last entry (feeds `mile`)
+//   perkAt   account.battles when an E1 Seeds perk last fired (S7; absent until then)
 //   Rama only (a keeper with a `rematch` list): lastLoss  the encounter lost last, until it is won; fought  account.battles when the last
 //   eligible battle ended; result  "win" or "loss" of that battle; run  eligible wins in a row. `account.history` records no encounter, so
 //   her win, loss and streak lines read these, never the history: a secret, random or test battle can never speak through her.
@@ -16,6 +17,7 @@
   function cleanRecord(id, r) {
     r = r && typeof r === "object" ? r : {};
     const out = { n: nat(r.n), visits: nat(r.visits), lastAt: nat(r.lastAt), spent: nat(r.spent), level: nat(r.level) };
+    if (r.perkAt != null && Number.isFinite(r.perkAt)) out.perkAt = nat(r.perkAt);   // S7: battles clock when the E1 perk last fired (0 is a real cycle)
     if (typeof r.lastLoss === "string" && (K.KEEPERS[id]?.rematch || []).includes(r.lastLoss)) out.lastLoss = r.lastLoss;
     if (K.KEEPERS[id]?.rematch) { out.fought = nat(r.fought); out.run = nat(r.run); if (r.result === "win" || r.result === "loss") out.result = r.result; }
     return out;
@@ -59,7 +61,7 @@
   function noteSpend(account, id, amount) {
     const n = nat(amount); if (!K.KEEPERS[id] || n <= 0) return account;
     const rec = recordOf(account, id);
-    return withRecord(account, id, { ...rec, spent: rec.spent + n });
+    return withRecord(account, id, { ...rec, spent: rec.spent + n, n: rec.n + 1 });   // one call is one transaction (tier); spent still tracks Seeds or a per-window count
   }
   // How many Seeds a Field Kit action counts for `big` (R-20261103-04: Seeds spent). Kaikeyi is the stall: her `big` line is about a good sale, so she counts Seeds gained; every other money keeper counts Seeds spent. Never negative.
   function moneyMoved(id, before, now) { const b = nat(before), n = nat(now); return id === "kaikeyi" ? Math.max(0, n - b) : Math.max(0, b - n); }
@@ -99,5 +101,5 @@
     return null;
   }
 
-  return { normalize, recordOf, tierOf, contextFor, enter, noteSpend, moneyMoved, noteBattle, pick };
+  return { normalize, recordOf, withRecord, tierOf, contextFor, enter, noteSpend, moneyMoved, noteBattle, pick };
 });

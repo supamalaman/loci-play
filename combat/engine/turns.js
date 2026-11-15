@@ -175,6 +175,7 @@
       // Repeated-channel adaptation measures one attacker's action turn at a time.
       s.turnDamageCounts = {};
       a.ownerTurns += 1;
+      H.summonRules?.Tandem?.turnStart(s, a, dist, log);   // Tandem T1: a tandem that starts its turn outside its leash strains for this turn
       H.mysteryTurnStart?.(s, a);   // Mystery (Muse W2.5): on-turn-start set plans fire
       if (a.companion?.card && !a.defeated) { H.Cards.familiarTurn(s, a); a.tempo = 0; if (!s.preview) endTurn(s); return; }   // Battle Cards C3: a card familiar strikes or wards by its card, then its turn ends (no AI, no AP)
       if (H.gamblerOf?.(s, a)) { const hot = (a._unspent ?? 0) >= (H.hyperRules?.heat.unspentAp ?? 40); s.heat = { ...(s.heat || {}), [a.id]: hot ? Math.min(H.hyperRules.heat.max, (s.heat?.[a.id] || 0) + 1) : 0 }; }   // W5.3: rhythm of madness
@@ -378,6 +379,10 @@
         if (s.outcome) return;
       }
       if (a.defeated) return advance(s);
+      if (a.summon?.order && summonRules?.Tandem?.strained(a)) {   // Tandem T1: a strained tandem cannot fire the ultimate it was ordered; the order lapses
+        a.summon.order = null; a.summon.holdPosition = false;
+        log(s, { kind: "tandem", actor: a.id, text: `${a.name} is strained: the ordered ultimate does not fire.`, why: ["Strained (R-20261114-33): for a turn a tandem can only move and guard."] });
+      }
       if (a.summon?.order && summonRules) {
         const result = summonRules.resolveUltimate(summonSnapshot(s), a);
         a.summon.order = null; a.summon.holdPosition = false; a.summon.ultimateUsed = true;
@@ -552,6 +557,7 @@
       if (a) H.monsterTurnEnd(s, a);   // infection ticks, bitten monster or not
       H.monsterRelease(s);   // a fully observed ghost departs   // a vampire that ends its turn in the sun burns
       companionTick(s, a);   // a class companion (the Fighting Coach) counts down too
+      { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.clockEnded?.(s, a, H); }   // Shaman Inspiration (SH4): a guest clock that ends with the guest standing
       H.Hires?.turnEnd(s, a);   // a merc's contract and nerve, a mediator's patience
       if (a) H.fruitTurnEnd?.(s, a);   // Sinkerfruit (Locusfruit): a Ripe eater leaves a memory mark on the tile it ends a turn on
       H.Multitudes.turnEnd(s, a); H.Exposure.turnEnd(s, a);   // Exposure: a turn ended beside his own wall   // Contains Multitudes: an embodiment ends with his last turn of it

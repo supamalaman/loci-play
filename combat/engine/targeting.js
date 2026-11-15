@@ -56,6 +56,7 @@
       if (entr) a.side = real === "player" ? "enemy" : "player";   // the entranced perceive sides swapped
       else if (loosed) a.side = H.States.anySideOf(a);
       try {
+        { const leash = H.summonRules?.Tandem?.aimRefusal(s, a, tx, ty, dist); if (leash) return { ok: false, error: leash }; }   // Tandem T1: a tandem aims only within its leash, and not at all while strained
         if (tx != null && (m.delivery === "line" || m.delivery === "routed")) {
           const occ = actorAt(s, tx, ty);
           if (!m.scribedEffects?.some(e=>e.key==="reveal") && occ && !occ.defeated && Stealth?.concealed(occ) && !Stealth?.markerEats(s, occ) && !ClassRuntime?.Martial?.seesHidden?.(a) && !(hasTrait?.(a, "gyoEyes") && dist(s, a.x, a.y, occ.x, occ.y) <= 3))

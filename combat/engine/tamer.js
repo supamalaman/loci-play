@@ -137,7 +137,7 @@
         if (open.length < r.pack.count) open.push([x, y]); }
       if (!open.length) return "There is no open ground beside him.";
       const spend = H.spendTempo(s, a, r.pack.ap, "Call the Pack"); if (spend) return spend;
-      a.ultimateCharge = 0; summonPack(s, a, open, pool);
+      a.ultimateCharge = 0; H.Inspiration?.ultimateFired(s, a); summonPack(s, a, open, pool);
     }
     // The pack itself (the action above, and the merge technique Call the Pack, which the engine has already paid for).
     function summonPack(s, a, open = null, pool = null) {

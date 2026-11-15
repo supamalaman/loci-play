@@ -96,7 +96,7 @@
     // Parley (Mala, 2026-10-08; insight/parley.js): talking a fight down, or talking someone into a mistake.
     // Scout (Muse's design docs/scout-trait.md, built 2026-10-11): ranges, then comes home to tell the crew.
     // Sampler (Mala, 2026-10-18; the Mangaka): two free Clips a turn, then a free Juxtapose that charges nothing; every ultimate
-    // charge is halved (engine.js chargeUltimate reads the trait, so it holds for a player-controlled Mangaka too).
+    // charge is halved (engine/charge.js chargeUltimate reads the trait, so it holds for a player-controlled Mangaka too).
     // The Aviator Hero's (Mala, 2026-10-18; class-runtime.js AERO).
     aerodynamic:   { name: "Aerodynamic", text: "Built for a straight line: +2 movement while moving straight; every change of heading costs 5 AP, and the extra tiles can't be spent on a route that turns.", difficulty: 2, open: true },
     adrenalineJunkie: { name: "Adrenaline Junkie", text: "Comes alive when it's going badly: below half LF, +10 AP and +2 ΦF at each turn's start; below a quarter, +20 AP and +4 ΦF.", difficulty: 2, open: true },
@@ -134,6 +134,9 @@
     // account's care reaches Awakened (account/loot.js logCare). The gate for observing structures.
     kitchenAnimism: { name: "Kitchen Animism", category: "psychology", text: "Has watched food wake up and knows how it is done: can commune with ingredients (not structures).", open: true, difficulty: 2 },   // ingredient totems (Mala, 2026-11-07): learned by a cook who sees an ingredient wake; rare on cooks
     animist: { name: "Animist", category: "psychology", text: "It was never just a thing. You can commune with structures.", open: true, difficulty: 1 },
+    // Keeps a Familiar (familiar ownership K1, FAMILIARS.md 13.3; Mala, 2026-11-07): the trait that lets a character other than
+    // you call a familiar (summons.js callsPalace). Nobody carries it by default (R-20261109-10, R3-1).
+    familiarKeeper: { name: "Keeps a Familiar", category: "psychology", text: "This character can call a familiar: the Raven, unless its class names its own.", open: true, difficulty: 1 },
     // Grappler and Reach (Mala, 2026-10-11; content.js rules.grapple.grappler and rules.strike.reach).
     grappler: { name: "Grappler", category: "psychology", text: "Trained in the clinch: Grapple costs 20 action points instead of 35, and once a turn a Strike on a held opponent is free up to a balanced strike.", open: true, difficulty: 2 },
     longHunt: { name: "The Long Hunt", category: "psychology", text: "Has the trail before the fight starts: on his first turn, one Read Sign costs nothing.", open: true },
@@ -205,6 +208,7 @@
     survivalInstincts: { name: "Survival Instincts", category: "biology", text: survivalText(SURVIVAL), difficulty: 1 },
     keenSenses:    { name: "Keen Senses", text: "Notices what others miss.", open: true, planned: "Observe costs 20% fewer AP; one extra card open on any deck it builds." },
     twentyTwentyVision: { name: "20/20 Vision", category: "biology", text: "Reads fine visual details: each Observe has one extra point toward a visible tell or biological trait. Clear sight is still required; unused visual effort does not carry over.", open: true },
+    thinVeil: { name: "Thin Veil", category: "biology", text: "The door is thin: a hidden unit within 2 tiles is seen, and one at 3 tiles is not.", open: true },
     nightSighted:  { name: "Night-Sighted", text: "Sees in poor light.", difficulty: 2, planned: "Smoke and Dream Space haze do not block its sight." },
     hardy:         { name: "Hardy", text: "Shrugs off rough ground and weather.", open: true, planned: "Terrain-entry hazards and heat stress x0.5." },
     fleetFooted:   { name: "Fleet-Footed", text: "Quick on its feet, short of super speed: +1 movement.", open: true, combat: { extra: { moveBudgetAdd: 1 } } },
@@ -335,7 +339,7 @@
   const traitCategories = {
     biology: ["swimmer", "gills", "superStrength", "superSpeed", "superDurability", "superHealing", "weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone",
       "dreamFragile", "supernaturalWeakness", "immortal", "catNap", "touchedByMagic",
-      "survivalInstincts", "keenSenses", "twentyTwentyVision", "nightSighted", "hardy", "fleetFooted", "cavalry", "heavyArmor", "plantKin", "ironStomach", "frail", "resonantVoice", "dreamTouched", "reach", "strongGrip",
+      "survivalInstincts", "keenSenses", "twentyTwentyVision", "thinVeil", "nightSighted", "hardy", "fleetFooted", "cavalry", "heavyArmor", "plantKin", "ironStomach", "frail", "resonantVoice", "dreamTouched", "reach", "strongGrip",
       "telepathy", "telekinetic", "denseMuscle", "vegetativePropagation", "highTolerance", "robot", "ceaselessAdaptation", "insaneReflexes", "cybernetic", "distributedIntelligence", "stickyFingers", "visage", "godlyAgility", "theLook", "perfectConcentration", "adhd", "fireblooded", "territorial", "quenchable", "spiritSight", "ruleOfTheThreshold", "purified", "exoskeleton", "broodmind", "molting", "faceless", "unbearable", "hollow", "rootbound", "greenblood", "woundedLand", "takeoff", "overheat", "platform", "goldenParachute", "burnRate"   /* form traits (learned forms, 2026-10-17; formOnly) */, "aerodynamic", "lightFrame", "ascended",
       /* anime theorycraft batch, 2026-10-26 */ "ironJaw", "poisonAffinity", "crushingHands", "typedSoul", "gyoEyes", "heavyBones", "copyEye", "oneBlindSpot", "treeWalker", "vesselBody", "soulLayers", "looseFit", "vatGrown", "shockEater", "pluggedEye", "oldBlood", "deepWells", "redSliver", "automailLimb", "softSoles", "filterLungs", "openVessel", "atlasBones",
       /* feats batch, 2026-10-27 */ "packMule", "fourArms",
@@ -730,7 +734,7 @@
     devouring_mother: { traits: ["lonely", "stubborn"], obs: [{ kind: "tell", text: "Opens all four arms before she takes; what she holds, she will not let go.", difficulty: 1 }] },
     tactical_operative: { traits: ["dutiful", "scout"], obs: [{ kind: "tell", text: "Signals the dog before moving; the K9 goes first, she covers its line.", difficulty: 1 }] },
     frogan: { traits: ["curious", "restless"], obs: [{ kind: "tell", text: "Tests doorways that aren't there before moving; the fight relocates where he points.", difficulty: 1 }] },
-    shaman: { traits: ["contemplative", "empathic"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [{ kind: "tell", text: "Introduces someone you can't see before acting; the guest arrives where she gestures.", difficulty: 1 }] },
+    shaman: { traits: ["contemplative", "empathic", "thinVeil"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [{ kind: "tell", text: "Introduces someone you can't see before acting; the guest arrives where she gestures.", difficulty: 1 }] },
     spirit_raven: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many of its turns remain.", difficulty: 1 }] },
     ancestral_fox: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many of its turns remain.", difficulty: 1 }] },
     spirit_totem: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many rounds remain.", difficulty: 1 }] },
@@ -921,10 +925,10 @@
       { kind: "tell", text: "Tunes something small and fiddly before every big number.", difficulty: 1 },
       { kind: "weakness", channel: "nigredo", text: "The instruments are wood and wire: break them and the band goes quiet.", difficulty: 1 },
       { kind: "realization", text: "Every recast repeats the last basic: read one bar and you have read the song.", difficulty: 2 } ] },
-    big_game_hunter: { traits: ["heavyBones", "scout", "playfulness"], obs: [   // merge spec H1 (2026-11-07): Heavy Bones (biology, live via combat.extra), Scout (psychology), Playfulness (value); keenSenses (planned, no effect) and curious dropped
-      { kind: "tell", text: "Looks at one of you longer than the rest, and writes something down. That one is the quarry.", difficulty: 1 },
-      { kind: "weakness", channel: "citrinitas", text: "One catalogue at a time: flood the field and her notes spread thin.", difficulty: 2 },
-      { kind: "realization", text: "She hits hardest what she has studied, and hardest of all on something bigger than her: hide from her looks, and meet her first swing with a smaller fighter.", difficulty: 2 } ] },
+    big_game_hunter: { traits: ["heavyBones", "scout", "playfulness"], obs: [   // merge spec H2 section 12 (2026-11-07): the tell is the single-minded watch (an Observe of her shows the Quarry and her count); the spec's weakness and realization name Charged, which lands in H3, so H1's two lines stay until then
+      { kind: "tell", text: "Watches one of you and ignores the rest; hefts the greatsword before she commits.", difficulty: 1 },
+      { kind: "weakness", channel: "citrinitas", text: "One catalogue at a time: flood the field and her notes spread thin.", difficulty: 2 },   // H1 line kept: the spec section 12 weakness names Charged, which lands in H3 (H3 swaps it in)
+      { kind: "realization", text: "She hits hardest what she has studied, and hardest of all on something bigger than her: hide from her looks, and meet her first swing with a smaller fighter.", difficulty: 2 } ] },   // H1 line kept until H3 (Charged)
     burlesque_dancer: { traits: ["theLook", "playfulness"], chanceTraits: [["methodActing", 0.5]], obs: [
       { kind: "tell", text: "Holds still for one beat too long before the reveal.", difficulty: 1 },
       { kind: "weakness", channel: "nigredo", text: "No audience, no leverage: smoke, walls, and averted eyes.", difficulty: 1 },

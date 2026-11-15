@@ -231,6 +231,7 @@
         if (!["ability","fullCourtPress"].includes(action.type) && point && !dreamSame(s,a.x,a.y,point.x,point.y)) return err("The sealed Dream Space blocks that interaction.");
         // Distributed Intelligence: an attack he can only make from one of his towers is made from that tower; he does not move.
         const relay = ["strike", "ability"].includes(action.type) ? ClassRuntime?.relayFor?.(s, a, action, H.relayH()) : null;
+        { const leash = H.summonRules?.Tandem?.actionRefusal(s, a, action, dist); if (leash) return err(leash); }   // Tandem T1: strained, only move and guard; a named destination answers to the leash
         let r;
         if (relay) { const home = [a.x, a.y]; a.x = relay[0]; a.y = relay[1];
           log(s, { kind: "effect", actor: a.id, tiles: [relay], relay: true, text: `${a.name} acts through the drone tower at (${relay[0]},${relay[1]}).`, why: ["Distributed Intelligence: his range and sight run from every tower. Nothing reaches him back through one."] });
@@ -238,6 +239,7 @@
         else r = (handlers[action.type] || (() => "Unknown action."))(s, a, action);
         if (r && s.keepRefusal && !opt.preview) { delete s.keepRefusal; return { ok: false, error: r, state: s, kept: true }; }   // contempt of court: refused, but the favor shift and log stand
         if (r) return err(r);
+        if (s.actors[action.actor]) { const pa = s.actors[action.actor]; delete pa.aiPlan; if (action.plan) pa.aiPlan = { act: action.plan, round: s.round, turnOf: pa.ownerTurns, side: pa.side }; }   // AI Sight I1: a plan is single-use: any successful act consumes the unit's stored plan first, then a walk that carries its paired act stores the new one (replay never runs aiDecide, so only apply-time lifecycle keeps live and replay identical)
         if (!s.preview && a.status?.kneeling && ["move", "strike", "ability"].includes(action.type)) { delete a.status.kneeling; log(s, { kind: "dispatch", actor: a.id, text: `${a.name} rises: the kneeling is over.` }); }
         H.States?.afterAction(s, a, action);   // States: an ability's grants, and the abilities that break a state
         // Concept-aligned actions (Mala, 2026-10-15: "anything that aligns with your concepts should progress you towards
@@ -503,9 +505,17 @@
     // here (not in engine.js's ENGINE_PARTS, which is at its size cap; R-20261111-01). K is this part's own names that
     // the handlers use. docs/action-families.md lists every action type and its file.
     const ACTION_FAMILIES = ["movement","turn","strike","items","summons","observe","parley","rites","forms","debts","field","technique"];
+    function holdFireRefusal(s, a, hostile) {   // five concepts P1 (re-cut onto the A2 families: shared by strike + technique through K)
+      const hf = a.status?.holdFire;
+      if (!hf || !hostile) return null;
+      const live = hf.untilTurn != null ? a.ownerTurns === hf.untilTurn : s.round <= hf.until;
+      if (!live) return null;
+      const name = hf.by === "turnTaking" ? "Turn-Taking" : "Shared Purpose";
+      return `You gave up attacking for ${name}.`;
+    }
     const K = { Cooking, Dream, OG, Orders, PactLib, Sage, Spirit, VerbTech, addStun, aiAction, apply, applyTerrainEvents, bankRiteSideStep,
       barsTooFast, candidates, climbCost, climbOptions, deepLook, demonstratedTraits, engineArena, footOpen, freeStrike, grappleChance, grappleCost,
-      grappled, handlers, hermitCharge, imitateComplete, isKraken, jumpCost, maxRoomFor, moduleArena, moveCost, moveRefusal, movementTempoCost,
+      grappled, handlers, hermitCharge, holdFireRefusal, imitateComplete, isKraken, jumpCost, maxRoomFor, moduleArena, moveCost, moveRefusal, movementTempoCost,
       observeTail, observedFx, openResponseWindow, provokeOpportunity, report, resolveAbility, score, scoutNoted, sealedNext, seededChance, sized,
       stallPreview, strikeRange, strongGrip, talkCost, talkedTooFast, talksToAttack, targeting, waterAt };
     for (const fam of ACTION_FAMILIES) (typeof module === "object" && module.exports ? require("./actions-" + fam + ".js") : globalThis.ConceptCombatEngineParts["actions" + fam[0].toUpperCase() + fam.slice(1)])(H, K);

@@ -66,10 +66,14 @@
     // One ledger for every character: actor.inspiration, 0 to cap. It never decays. The player's is carried in from the
     // account (opts.inspiration) and read back by the UI when the battle ends. The Bard's `inspiration` passive is a
     // different, older thing and is untouched.
-    const WHY_INSPIRED = { seesIngredientCommune: "watched food wake", seesUltimate: "saw an ultimate", nearDeath: "came to the edge of death", opensDream: "opened a dream", insideDream: "stood inside a dream", worthyOpponent: "faced a worthy opponent", seesNewTrait: "saw someone change", seesSacrifice: "witnessed a self-sacrifice", seesSmite: "saw holy power strike" };
+    const WHY_INSPIRED = { legendsCloth: "wore a legend's cloth", seesIngredientCommune: "watched food wake", seesUltimate: "saw an ultimate", nearDeath: "came to the edge of death", opensDream: "opened a dream", insideDream: "stood inside a dream", worthyOpponent: "faced a worthy opponent", seesNewTrait: "saw someone change", seesSacrifice: "witnessed a self-sacrifice", seesSmite: "saw holy power strike" };
     const Inspiration = {
       cap: (s) => s.rules.inspiration?.cap ?? 3,
       of: (a) => a?.inspiration || 0,
+      // Legend's Cloth (JG1, a worn mythic soul): +inspirationOnUltimate each time this unit's ultimate fires. Called at every
+      // path an ultimate fires (actions.js technique spend, mystery.js prepaid set, window.js reactive answer, conditions.js
+      // submission finish on the bar, tamer.js Call the Pack); a drain on the bar is not a firing.
+      ultimateFired(s, a) { const n = a?.passives?.inspirationOnUltimate || 0; return n > 0 ? this.gain(s, a, n, "legendsCloth") : 0; },
       gain(s, a, n, why) {
         if (!a || a.defeated || !s.rules.inspiration || n <= 0) return 0;
         const had = this.of(a), now = Math.max(had, Math.min(this.cap(s), had + n)); a.inspiration = now; H.ClassRuntime?.syncCenter(s, a);   // J6r: a gain never trims — crowns hold against every gain, not just Rally

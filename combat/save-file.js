@@ -14,7 +14,7 @@
 })(typeof self !== "undefined" ? self : this, function (A) {
   const ACCOUNT_KEY = "loci:combat:account:v1";
   const ALLOW = [ACCOUNT_KEY, "loci:combat:profile", "loci:combat:character", "loci:combat:saved-characters",
-    "loci:combat:sprite-packages", "loci:combat:neon-warden-offered", "loci:combat:pace", "loci:combat:follow",
+    "loci:combat:sprite-packages", "loci:combat:neon-warden-offered", "loci:combat:pace", "loci:combat:text-size", "loci:combat:follow",
     "loci:combat:zoom", "loci:combat:dialogue", "loci:combat:narration", "loci:combat:full-animation",
     "loci:combat:iso-view", "loci:combat:iso-cutaway", "loci:combat:teach-mode", "loci:combat:hints:v1",
     "loci:vignettes:phase-one", "loci:hall:v1", "loci:combat:math:graph-theory:v1", "loci:npc:keepers", "loci-mute"];
@@ -39,6 +39,7 @@
     "loci:combat:sprite-packages": [isObj, "sprite choices"],
     "loci:combat:neon-warden-offered": [isBool, "neon warden offer"],
     "loci:combat:pace": [oneOf("slow", "normal"), "pace"],
+    "loci:combat:text-size": [oneOf("standard", "large", "largest"), "text size"],
     "loci:combat:follow": [(v) => v === null || isBool(v), "follow"],
     "loci:combat:zoom": [isNum, "zoom"],
     "loci:combat:dialogue": [isBool, "dialogue"],

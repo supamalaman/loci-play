@@ -264,7 +264,7 @@
   // Can `a` make a hostile move against `t` right now? null = yes; otherwise the reason.
   function blocks(s, a, t) {
     if (!a || !t || a.id === t.id || a.side === t.side) return null;
-    if (t.safeConduct && !t.defeated) return `${name(t)} carries a letter of safe conduct: no one may raise a hand against them.`;   // a hired mediator (engine/hires.js)
+    if (t.safeConduct && !t.defeated) return t.hired?.kind === "flowerMediator" ? `${name(t)} carries flowers: no one may raise a hand against them.` : `${name(t)} carries a letter of safe conduct: no one may raise a hand against them.`;   // a hired mediator (engine/hires.js)
     if (t.truce && t.truce.until >= s.round && a.side === t.truce.side) return `A truce holds with ${name(t)} until round ${t.truce.until + 1}.`;
     if (a.persuaded) return `${name(a)} has come to terms; they're out of the fight.`;
     if ((a.traits || []).some((tr) => (typeof tr === "string" ? tr : tr?.id) === "illusory")) return `${name(a)} is an illusion, a lure: it makes no hostile moves.`;   // the golden deer (content.js marichaDeer)

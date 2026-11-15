@@ -21,7 +21,7 @@
   const FACES = ["neutral", "happy", "angry", "sad", "surprised"];
   const same = Object.fromEntries(FACES.map((f) => [f, f]));
   const std = (folder, pattern = "face-{x}.png", map = same) => ({ status: "live", folder, pattern, map, fallback: "idle" });
-  // KEEPER_PERKS: Seeds perks P1 to P4 (spec section 7.2). OFF (decision D4); nothing reads it in S0 and no perk code exists yet.
+  // KEEPER_PERKS: Seeds perks P1 to P4 (spec section 7.2). OFF (decision D4); apply lives in account/keeper-perks.js (S7) and only fires while this is true.
   const KEEPER_PERKS = false;
   const STREAK_WINS = 3;     // a run of wins that earns the `streak` line (a code constant: the count is never in a line)
   const BIG_SPEND = 150;     // Seeds moved through a money keeper (Pioneer, Jambavan, Talisman, Kaikeyi, Tallyman) on the previous visit that earn the `big` line (R-20261103-04; the 150 is the builder's pick)

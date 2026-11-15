@@ -9,7 +9,7 @@
   const ideas = {
     proficientSummoner: {
       name: "Proficient Summoner", requires: { concepts: ["imagination"], traits: ["fullBeliever"] },
-      text: "Imagination + Full Believer: half the AP per call, two active summons, and a fresh 5-point ward on each summon’s turn. Calls remain separate actions.",
+      text: "Imagination + Full Believer: half the AP per call, and a fresh 5-point ward on each summon’s turn. Calls remain separate actions.",   // K1 O4: no second familiar slot (R-20261109-10, R3-2)
       effects: rules.proficientSummoner,
     },
     // Mala, 2026-10-12: Genius + Imagination. A technique a Genius picks up by watching is a Breakthrough, and a

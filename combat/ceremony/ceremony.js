@@ -11,7 +11,7 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatCeremony = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  const RITES = ["claim", "mint", "naming", "rewrite", "inscribe", "margin", "eat"];   // inscribe and margin: the scribing desk (SCRIBING_DESK.md, slice C4a)
+  const RITES = ["claim", "mint", "naming", "rewrite", "inscribe", "margin", "eat", "tea"];   // tea: a rite sealed with tea ceremony (Tea refinement T1)   // inscribe and margin: the scribing desk (SCRIBING_DESK.md, slice C4a)
   const STUBS = ["care", "ascension", "gold"];
   const TASTE = {   // one line per fruit (original)
     coil: "It tastes of a wound spring: sweet, then tight.",
@@ -45,6 +45,8 @@
         const taste = TASTE[ctx.id] || "It tastes of salt and deep water.";
         return { beats: [taste, "The water will never hold you up again."], cues: [{ slot: "seal-thump", opts: {} }] };
       }
+      case "tea":   // Tea refinement T1: the battle speaks these when a rite seals with tea
+        return { beats: ["The bowl is poured; the room goes quiet.", "Sealed — the meal will be remembered."], cues: [{ slot: "seal-thump", opts: {} }] };
       default: return null;   // stubs + unknowns: no rite, no sound
     }
   }

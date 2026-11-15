@@ -63,11 +63,11 @@
         if (!summonRules || !summonQuestions) return "Summoning is unavailable.";
         const def = summonRules.data?.summons?.[act.summon];
         if (!def) return "No such summon.";
-        if (!summonRules.callsPalace(a)) return "Only the player's side calls the palace.";   // summon-owner: the player's side calls (Mala, 2026-11-05, decision b; was Warden-only 2026-10-22)
-        const unlocked = (act.unlocked || []).includes(act.summon);
+        if (!summonRules.callsPalace(a)) return summonRules.NOT_A_CALLER;   // K1 O1: the player character, a familiarKeeper, or a class with familiars (Mala, 2026-11-07)
+        const unlocked = summonRules.familiarSet(a, act.unlocked || []).includes(act.summon);   // K1 O2: only from the caller's own set
         if (!unlocked) return `${def.name} is not unlocked yet.`;
         const cost = summonProfile(s, a.id);
-        if (Array.isArray(act.unlocked)) s.unlockedSummons = act.unlocked.slice();   // remembered for death's door
+        if (Array.isArray(act.unlocked) && a.id === "player") s.unlockedSummons = act.unlocked.slice();   // remembered for death's door (the player's list only: K1, an ally's call carries its own set)
         const can = summonReadiness(s, a.id, act.summon, act.unlocked);
         if (!can.ok) return can.reason;
         const summonTax = hasTrait(a, "attentionToDetail") ? 5 : 0;   // Attention to Detail: sturdier craft costs slightly
@@ -91,7 +91,7 @@
         s.summonHintCount = 0;
         if (insightRules) { const deck = insightRules.buildDeck({ key: "summon:*", kind: "summon" }, { seed: s.seed }); s.insight.decks[summon.id] = deck; s.insight.knowledge[summon.id] = insightRules.spawnKnowledge(deck); }
         if (s.dreamSpace && dreamSpaceRules?.summonTurnTicks(s.dreamSpace) === false) s.dreamSpace.summons.push(summon.id);
-        s.order.splice(s.turnIndex + 1, 0, summon.id); s.summonUsed.push(act.summon);
+        s.order.splice(s.turnIndex + 1, 0, summon.id); s.summonUsed.push(summonRules.usedKey(a.id, act.summon));   // K1 O5: once per battle, per caller
         log(s, { kind: "summon", actor: summon.id, text: `${summon.name} arrives at (${at[0]},${at[1]}) for ${summon.summon.turnsLeft} turns${score.correct ? ". Correct: " + score.explain : ". " + score.explain}` });
       },
       callPact(s, a, act) {
@@ -155,6 +155,9 @@
         const snapshot = { ...summonSnapshot(s), playerTarget: target?.id || null };
         const result = summonRules.orderUltimate(a, summon, snapshot, { ultimateChargeMax: s.rules.ultimateChargeMax, announceMultiplier: s.rules.announceMultiplier });
         if (!result.ok) return result.reason;
+        if (summonRules.Tandem?.strained(summon)) return `${summon.name} is strained: this turn it can only move and guard.`;   // Tandem T1
+        { const T = summonRules.Tandem, at = target ? [target.x, target.y] : result.order?.centre;   // Tandem T1: an ultimate ordered outside the leash fails, and the tandem strains (R-20261114-33); nothing is spent
+          if (T?.of(summon) && at && T.outside(s, summon, at[0], at[1], dist)) { T.strain(s, summon, `its ultimate was ordered ${T.reach(s, summon, at[0], at[1], dist)} tiles from ${a.name}, past its leash of ${T.of(summon).leash}.`, log); return; } }
         Object.assign(a, result.player); Object.assign(summon, result.summon);
         if (target) summon.summon.order.targetId = target.id;
         log(s, { ...result.event, tiles: result.order.tiles || undefined });
@@ -285,11 +288,11 @@
       callDream(s, a, act) {   // D2: a player-side caller spends an unlocked dream (no question; the enemy 50/6/3 price)
         if (a.form?.golden) return "The Integrated Self has no need to summon.";
         if (!summonRules || !dreamSpaceRules?.makeEnemyDreamActor) return "Summoning is unavailable.";
-        if (!summonRules.callsPalace(a)) return "Only the player's side calls dreams.";
+        if (!summonRules.callsPalace(a) || a.id !== "player") return "Only you can call dreams.";   // K1 O2
         const bare = typeof act.key === "string" && act.key.startsWith("enemyDream:") ? act.key.slice(11) : null;
         const def = bare ? dreamSpaceRules.enemyMonsterPool(99, [bare])[bare] : null;
         if (!def || def.broodOnly) return "No such dream.";
-        if (!(act.unlocked || []).includes(act.key)) return `${def.name} has not joined you: unlock it first.`;
+        if (!summonRules.familiarSet(a, act.unlocked || []).includes(act.key)) return `${def.name} has not joined you: unlock it first.`;   // K1 O2
         const once = `${a.id}:${bare}`; if ((s.dreamUsed ||= {})[once]) return `${def.name} has answered once this battle already.`;
         const profile = summonProfile(s, a.id);
         if (profile.active.length >= profile.maxActive) return profile.maxActive === 1 ? "Another summon is already on the field." : `Your ${profile.maxActive} summon slots are already occupied.`;

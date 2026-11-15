@@ -333,6 +333,8 @@
   };
 
   // C(id, name, [primary, secondary], wheelHouse, passives, abilities, merge, hidden, hypotheses, extra)
+  // extra may carry `familiars: [summon ids]` (familiar ownership K1, FAMILIARS.md 13.2 O1-O2): a class that lists familiars
+  // calls them, from that set only (summons/summons.js callsPalace, familiarSet). No class lists any yet.
   const C = (id, name, concepts, wh, passives, abilities, merge, hidden, hyp, extra = {}) => ({
     id, name, status: "brief", concepts: concepts.map((n) => conceptId[n]), wheelHouse: wh.map((n) => conceptId[n]),
     passives: passives.map(([pid, effect]) => ({ id: pid, effect })), abilities, merge, hidden, hypotheses: hyp, ...extra });
@@ -1183,12 +1185,12 @@
       { origin: "Muse Berry BD hot-build 2026-10-29 (Craftsmanship + Innovation; unused pair)", art: "bard-artificer" }),
     // Big Game Hunter (Muse Berry BD hot-build, 2026-10-29; merged with Mala's 2026-10-12 Monster Hunter brief, Mala 2026-11-07: "merge them, give the big
     // game hunter the two passives"; spec claude-big-game-hunter-merge-spec, slice H1). She finds, catalogues, then fells: Discovery flushes what hides,
-    // Indexing catalogues the quarry, and Cross Reference cashes the catalogue. H1: playable, both passives live; the Quarry, the greatsword, Read the Charge and Apex come in H2/H3.
+    // Indexing catalogues the quarry, and Cross Reference cashes the catalogue. H1: playable, both passives live; H2: the Quarry, the free first Index Entry, Blood Trail and the greatsword; Read the Charge and Apex come in H3.
     big_game_hunter: C("big_game_hunter", "Big Game Hunter", ["Discovery", "Indexing"], ["Discovery", "Indexing", "Focus"],
       [["trophy_eye", "Her first damaging hit each battle aimed at an enemy whose LF is higher than hers as she strikes gets +5 potency, once. If someone else takes that blow (an intercept, a Step Between), they take the +5 and the eye is still spent."],
        ["trailcraft", "Difficult terrain costs her 1 less movement point per step (min 1)."]],
-      { primaryBasic: "Survey: read the field within 4; the nearest hidden trap or concealed enemy becomes a rumour (it may be false).", primaryRefined: "Verify: resolve one of your side's rumours within 4 in public; a true find reveals the concealed to your side.", secondaryBasic: "Index Entry: reveal one hidden observation about a visible enemy for your team.", secondaryRefined: "Cross Reference: strike a visible enemy for 10 base LF; each known observation of it adds 10% potency (max +50%)." },
-      "Apex (staged, not castable yet): her finisher on a catalogued quarry, built in a later slice. Until then her castable ultimate is Discovery's own, Eureka.",
+      { primaryBasic: "Survey: read the field within 4; the nearest hidden trap or concealed enemy becomes a rumour (it may be false).", primaryRefined: "Verify: resolve one of your side's rumours within 4 in public; a true find reveals the concealed to your side.", secondaryBasic: "Index Entry: reveal one hidden observation about a visible enemy for your team. Names her Quarry; the first each turn is free.", secondaryRefined: "Cross Reference: strike a visible enemy for 10 base LF; each known observation of it adds 10% potency (max +50%). On her Quarry it lays a Blood Trail: no Conceal until her next turn." },
+      "Apex: her finisher on the Quarry beside her, announced 'Tracked. Trapped. Taken.': 10 base, +10% per known observation with no cap. Trophy Eye adds +5 on a bigger Quarry. A surviving Quarry cannot Conceal until her next turn.",
       { strength: "The longer she studies a foe, the harder Cross Reference lands on it, and her first blow on anything bigger than her lands harder still.", weakness: "Slow to pay off: a foe she has not catalogued takes a plain 10, and crowds spread her looks thin." },
       { weakTo: "Concealment she cannot Survey away, and crowds that spread her catalogue thin.", strongAgainst: "Lone bosses and big fighters: every observation and Trophy Eye stack on one target.", strongWith: "Reveals that hand her observations (Scout's shared report, Observe-heavy allies) and rough-ground arenas.", bypass: "None.", negate: "Concealment denies Index Entry its target.", neutral: "Allied buffs: the catalogue is hers." },
       { origin: "Muse Berry BD hot-build 2026-10-29 (Discovery + Indexing; unused pair); merged with the Monster Hunter brief (Mala 2026-10-12) on 2026-11-07", art: "big-game-hunter", status: "playable", existingAbilities: { primaryBasic: "survey", primaryRefined: "verify", secondaryBasic: "indexEntry", secondaryRefined: "crossReference" } }),
@@ -1206,7 +1208,7 @@
       "Ancestral Moot (SH4): every kind of guest she has seated this battle returns for 1 round, then her calls are sealed for 2.",
       { strength: "More actions per round than anyone, cheaply, through fragile guests.", weakness: "Every guest is fragile, and all of it hangs on one body." },
       { weakTo: "Area attacks that clear the table; Smite and destructive hits on a Totem.", strongAgainst: "Foes who ignore the host and chase guests.", strongWith: "Preservation protecting the host while the table works.", bypass: "None.", negate: "None.", neutral: "A foe with nothing hidden: the Raven's reveal finds no one, the mark still lands." },
-      { origin: "Mala 2026-11-10: the Shaman is the summoner class; spirits as cheap guests; nature spirits as attendants.", art: "shaman", status: "playable", kit: ["spiritRaven", "ancestralFox", "guestPortion", "spiritTotem", "ancestralMoot"], rules: "guests/guests.js" }),
+      { origin: "Mala 2026-11-10: the Shaman is the summoner class; spirits as cheap guests; nature spirits as attendants.", art: "shaman", status: "playable", kit: ["spiritRaven", "ancestralFox", "guestPortion", "spiritTotem", "ancestralMoot", "echoDouble"], rules: "guests/guests.js" }),
     // Burlesque Dancer (Muse Berry BD hot-build, 2026-10-29): the headliner. Holds the room's breath, then spends it. Stage crew.
     burlesque_dancer: C("burlesque_dancer", "Burlesque Dancer", ["Tension", "Glamour"], ["Tension", "Glamour", "Lyricism"],
       [["stage_presence", "Enemies adjacent to the Dancer at their turn start lose 2 AP, once per enemy per round."],

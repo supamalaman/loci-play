@@ -26,7 +26,15 @@
   /* Game-name aliases: every value below is what web/style.css :root held. */
   --bg: var(--pn-ground); --panel: var(--pn-surface); --line: var(--pn-line);
   --text: var(--pn-text); --muted: var(--pn-muted); --accent: var(--pn-accent); --focus: var(--pn-focus);
+  /* Text size (Access AC1, claude-access-spec). Every px font size in the game's sheets is written
+     max(var(--pn-text-floor), calc(<n>px * var(--pn-text-step))). At Standard (no data-text, or
+     data-text="standard") the step is 1 and the floor 0, so every size is exactly today's. */
+  --pn-text-step: 1; --pn-text-floor: 0px;
 }
+/* Large: +15 percent, nothing under 13 px. Largest: +30 percent, nothing under 14 px. Set by ui.js from the
+   saved setting loci:combat:text-size, on <html data-text>. */
+:root[data-text="large"] { --pn-text-step: 1.15; --pn-text-floor: 13px; }
+:root[data-text="largest"] { --pn-text-step: 1.3; --pn-text-floor: 14px; }
 
 /* Observatory ground. Same specificity as :root, later in the file, so it wins
    where data-pn-ground="observatory" is set (PN2's tool pages; unset in PN1). */
@@ -46,4 +54,4 @@
 }
 
 /* The small uppercase label, both grounds. */
-.pn-label { font: 600 11px var(--pn-mono); letter-spacing: .12em; text-transform: uppercase; }
+.pn-label { font: 600 max(var(--pn-text-floor), calc(11px * var(--pn-text-step))) var(--pn-mono); letter-spacing: .12em; text-transform: uppercase; }

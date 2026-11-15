@@ -16,9 +16,9 @@
 //   canAdd(account, deck, id)     { ok, reason } for adding one card to the deck on the screen
 //   giftStarter(account)          { account, changed }: one copy of each starter-gift card whose kind is live, once each
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("../cards/cards.js"), require("../cards/cards-data.js"));
-  else root.ConceptCombatCardbook = factory(root.ConceptCombatCards, root.ConceptCombatCardsData);
-})(typeof self !== "undefined" ? self : this, function (Cards, D) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("../cards/cards.js"), require("../cards/cards-data.js"), require("../workshop/jinki.js"));
+  else root.ConceptCombatCardbook = factory(root.ConceptCombatCards, root.ConceptCombatCardsData, root.ConceptCombatJinki);
+})(typeof self !== "undefined" ? self : this, function (Cards, D, JK) {
   const VERSION = 1;
   const strings = (a) => (Array.isArray(a) ? a.filter((x) => typeof x === "string") : []);
   const obj = (o) => (o && typeof o === "object" && !Array.isArray(o) ? o : {});
@@ -64,7 +64,9 @@
     const byChar = { ...b.decks.byChar }; delete byChar[classId];
     return { ...account, cardbook: { ...b, decks: { ...b.decks, byChar } } };
   }
-  const cap = (account) => Cards.capFor({ level: account?.level || 1, fame: account?.fame || 0, cardsharp: account?.perks?.cardsharp || 0 });
+  // Herald's Mantle (JG1): the speaking soul's cardCapAdd widens the cap; the ceiling still holds (cards.js capFor).
+  const soulCapBonus = (account) => (JK?.activeGifts ? JK.activeGifts(account, Object.values(account?.gear?.equipped || {})).inject.cardCapAdd || 0 : 0);
+  const cap = (account) => Cards.capFor({ level: account?.level || 1, fame: account?.fame || 0, cardsharp: account?.perks?.cardsharp || 0, bonus: soulCapBonus(account) });
   const validate = (account, deck) => Cards.validate(deck, { owned: book(account).owned, cap: cap(account) });
   function canAdd(account, deck, id) {
     const c = Cards.byId(id); if (!c) return { ok: false, reason: "Not a card." };

@@ -51,6 +51,7 @@
           log(s, { kind: "ritual", actor: a.id, text: `${a.name} draws on the communed plant: +${a.lf - before} LF.` });
         }
         if (a.riteAugment.bleedRider > 0) inst.riteBleed = a.riteAugment.bleedRider;   // the committed rider rides this cast: the last charge clears the pool before the hit lands
+        if (a.riteAugment.ultMul > 1) inst.riteUltMul = a.riteAugment.ultMul;   // Tea T1: the cast carries the seal's ×2 to its charge, which settles once the hit lands
         a.riteAugment.charges -= 1;
         log(s, { kind: "ritual", actor: a.id, text: a.riteAugment.charges > 0 ? `${inst.name} spends a rite charge (${a.riteAugment.charges} left).` : `${inst.name} spends the last rite charge: the ink fades.` });
         if (a.riteAugment.charges <= 0) a.riteAugment = null;
@@ -95,6 +96,7 @@
       }
     }
     function resolveDreamAbility(s, a, inst) {
+      ClassRuntime?.noMoreTrim?.(s, a, inst, { dist, log, actorAt });
       if(inst.scribedEffects){resolveScribedEffects(s,a,inst);return;}
       const why = [];
       if (inst.mult !== 1) why.push(`Combined committed potency multiplier ×${+inst.mult.toFixed(3)}.`);
@@ -164,10 +166,11 @@
         const crafts=(x)=>x&&(x.primary==="craftsmanship"||x.secondary==="craftsmanship"),wellMade=(u)=>CRAFT&&(crafts(a)||crafts(u))?CRAFT.wellMadeTurns:0;
         const protect=(u,amount)=>{u.status.ward={label:"Preservation",owner:u.id,protection:Math.max(u.status.ward?.protection || 0,Math.round(amount*inst.mult)),expiresAt:u.ownerTurns+1+wellMade(u)};log(s,{kind:"preservation",actor:a.id,target:u.id,text:`${u.name} gains ${u.status.ward.protection} Preservation ward ${wellMade(u)?"that is well made and holds a turn longer [opp-craft-makes-it-keep]":"until their next turn"}.`});};
         const heal=(u,amount)=>{const old=u.lf;const sv=ClassRuntime?.Teleology?.servingHeal(s,a,u);if(sv)log(s,{kind:"teleology",actor:a.id,target:u.id,text:sv.note});u.lf=Math.min(u.maxLF,u.lf+Math.round(amount*inst.mult*(sv?.mult||1)));log(s,{kind:"heal",actor:a.id,target:u.id,text:`${a.name} restores ${u.lf-old} LF to ${u.name}.`});};
-        if(inst.effect==="archivistIndex")for(const u of present.filter(u=>u.side!==a.side))index(u);
+        if(inst.effect==="archivistIndex")for(const u of present.filter(u=>u.side!==a.side)){index(u);ClassRuntime?.hunterIndexed?.(s,a,u);}   // H2: her Index Entry names the Quarry (Archive does not: spec 6 names Index Entry and Observe only)
         if(inst.effect==="archivistArchive")for(const u of present.filter(u=>u.side!==a.side))index(u);
         if(inst.effect==="archivistArchive"&&ab(inst.ability)?.allyCharge)for(const u of present.filter(u=>u.side===a.side&&u.id!==a.id)){const max=s.rules.ultimateChargeMax||100,old=u.ultimateCharge||0;u.ultimateCharge=Math.min(max,old+ab(inst.ability).allyCharge);if(u.ultimateCharge>old)log(s,{kind:"charge",actor:a.id,target:u.id,text:`${u.name} listens: +${u.ultimateCharge-old} ultimate charge.`});}   // Jambavan's Counsel of the Ages
-        if(inst.effect==="archivistReference")for(const u of present.filter(u=>u.side!==a.side)){const known=knowledge[u.id]?.revealed?.length || s.insight.decks[u.id]?.cards.filter(c=>c.open).length || 0;hit(s,a,u,inst,inst.potency*inst.mult*(1+Math.min(5,known)*.1),[`Cross Reference: ${known} known entries, bonus capped at 50%.`]);}
+        // Trophy Eye fires on Cross Reference too (spec 3a): pending evaluated per foe like beforeStrike; the spend rides hit()'s shared afterHit (verified: Used sets with no explicit call).
+        if(inst.effect==="archivistReference")for(const u of present.filter(u=>u.side!==a.side)){const known=knowledge[u.id]?.revealed?.length || s.insight.decks[u.id]?.cards.filter(c=>c.open).length || 0;let pot=inst.potency*inst.mult*(1+Math.min(5,known)*.1);const why=[`Cross Reference: ${known} known entries, bonus capped at 50%.`];if(a?.trophyEyePending)a.trophyEyePending=null;const eye=ClassRuntime?.trophyEyeOf?.(s,a,u);if(eye){a.trophyEyePending=u.id;pot+=eye.effect.potencyAdd;why.push(`Trophy Eye: +${eye.effect.potencyAdd} potency (bigger game).`);}hit(s,a,u,inst,pot,why);ClassRuntime?.hunterBloodTrail?.(s,a,u);}   // H2: on her Quarry it lays the Blood Trail
         if(inst.effect==="archivistWard" && ally)protect(ally,inst.potency);
         if(inst.effect==="archivistHeal" && ally)heal(ally,inst.potency);
         if(inst.effect==="archivistShelter"){const helped=present.filter(u=>u.side===a.side);if(!helped.includes(a))helped.push(a);for(const u of helped){heal(u,16);protect(u,12);}}   // radius tiles exclude d=0 (targeting.js), so the caster is never "present": shelter her explicitly. "All living allies within 3" includes her, and the AI already values it that way.
@@ -582,7 +585,7 @@
       if(inst.effect==="twist"){   // J6 Plot Twist: two positions rewritten as one
         const t=s.actors[inst.targets[0]];
         if(!t||t.defeated||t===a||t.status?.immovable||t.status?.anchor){log(s,{kind:"miss",actor:a.id,text:`${a.name}'s plot twist finds no one to turn.`});return;}
-        const [ax,ay]=[a.x,a.y];a.x=t.x;a.y=t.y;t.x=ax;t.y=ay;
+        const [ax,ay]=[a.x,a.y];a.x=t.x;a.y=t.y;t.x=ax;t.y=ay;ClassRuntime?.hunterForcedMove?.(s,a,t,classH());   // Big Game Hunter: a swap is a forced move on t (merge spec H3a); the caster moved herself
         applyEntryEffects(s,a,a,a.x,a.y,"twists to");applyEntryEffects(s,a,t,t.x,t.y,"is twisted to");
         log(s,{kind:"move",actor:a.id,target:t.id,tiles:[[a.x,a.y],[t.x,t.y]],text:`${a.name} and ${t.name} trade places: the plot twists.`,why:["Plot Twist rewrites two positions at once; anchored bodies refuse."]});return;
       }
@@ -717,8 +720,8 @@
       }
       if (inst.effect === "parry") {
         const d = ab(inst.ability);
-        a.status.parry = { label: "Rebound (armed)", owner: a.id, catches: d.parry.catches, reflectFraction: d.parry.reflectFraction, expiresAt: a.ownerTurns + 1 };
-        log(s, { kind: "effect", actor: a.id, text: `${a.name} arms Rebound until their next turn start. Firing spends the round's reaction.`, why: ["Parry cost is paid when arming; it expires unused at your next turn start."] });
+        a.status.parry = { label: `${d.name} (armed)`, owner: a.id, ability: inst.ability, name: d.name, catches: d.parry.catches, reflectFraction: d.parry.reflectFraction, expiresAt: a.ownerTurns + 1 };   // ability + name: any parry, not only Rebound (merge spec H3a, Read the Charge)
+        log(s, { kind: "effect", actor: a.id, text: `${a.name} arms ${d.name} until their next turn start. Firing spends the round's reaction.`, why: ["Parry cost is paid when arming; it expires unused at your next turn start."] });
         return;
       }
       if (inst.effect === "craftCare") {
@@ -1258,6 +1261,7 @@
         const shifted = t.x !== x || t.y !== y;
         t.x = x; t.y = y;
         if (shifted) H.breakHoldsApart?.(s, t);   // forced apart, the hold breaks at once (Mala, 2026-10-26)
+        if (shifted) ClassRuntime?.hunterForcedMove?.(s, a, t, classH());   // Big Game Hunter: an enemy's shove knocks Charged loose (merge spec H3a)
         if (t.wild) { const live = s.wild.find(m => m.id === t.id); if (live) { live.x = x; live.y = y; } }
         // Established Guard's counter is a shove that actually moves him. A slam into a wall never calls place.
         if (shifted && t.status?.establishedGuard) {

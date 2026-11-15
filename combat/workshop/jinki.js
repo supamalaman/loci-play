@@ -29,22 +29,41 @@
     noble: { name: "Inspire", does: "starts each battle with +1 Inspiration", inject: () => ({ nobleGift: 1 }), verb: "rally", tech: "coronation" },
     mythic: { name: "Living Saga", does: "the ultimate charges ×1.2 faster", inject: () => ({ ultimateChargeMul: 1.2 }), verb: "plotTwist", tech: "refuseEnding" },
   };
+  // Worn souls (JG1, claude-jinki-gifts-spec; R-20261111-34 shape A, R-20261111-43): a second line per kind, for garments
+  // (head, body, feet). The line follows what the object is, recorded once at awakening (soul.line); held things (tools,
+  // weapons, charms, instruments) keep GIFTS above, and a soul with no line reads as held, so no awake soul's gift changes.
+  // Each worn gift lends an existing verb and technique. The humble worn row (Diver's Breath) lands with the dive (JG2): until
+  // then a humble garment wakes held. Keys read once each: battleSlotsAdd (loot.js battleSlots), cardCapAdd (cardbook.js
+  // cap), inspirationOnUltimate (Inspiration.ultimateFired, engine/ledgers.js).
+  const WORN_GIFTS = {
+    steadfast: { name: "Deep Pockets", does: "carry one more item into battle", inject: () => ({ battleSlotsAdd: 1 }), verb: "adaptiveBrace", tech: "escortScreen" },
+    noble: { name: "Herald's Mantle", does: "your card deck may hold 2 more cost points, up to the 30-point ceiling", inject: () => ({ cardCapAdd: 2 }), verb: "protectiveSleeve", tech: "livingArchive" },
+    mythic: { name: "Legend's Cloth", does: "+1 Inspiration each time you use your ultimate (a face-down ultimate counts when set)", inject: () => ({ inspirationOnUltimate: 1 }), verb: "vanish", tech: "feignedRetreat" },
+  };
+  const WORN_SLOTS = ["head", "body", "feet"];
+  const giftOf = (kind, line) => (line === "worn" ? WORN_GIFTS[kind] : GIFTS[kind]) || null;
+  // The line a soul wakes into: worn for a garment of a kind whose worn row exists, else held.
+  const lineFor = (item, kind) => (item && WORN_SLOTS.includes(item.slot) && WORN_GIFTS[kind] ? "worn" : "held");
+  // arts keys: the held kind as before (arts.noble is still the held noble: engine/anime-orbit.js reads it), "kind:worn" for worn.
+  const artKey = (kind, line) => (line === "worn" ? `${kind}:worn` : kind);
+  const fromArtKey = (key) => { const [kind, line] = String(key).split(":"); return { kind, line: line === "worn" ? "worn" : "held" }; };
   const NUMERALS = [null, "I", "II", "III"];
-  const ART_NAMES = { shortFlight: "Short Flight", soaringStrike: "Soaring Strike", root: "Root", landslide: "Landslide", rally: "Rally", coronation: "Coronation", plotTwist: "Plot Twist", refuseEnding: "Refuse the Ending" };   // content.js names, for the card line
+  const ART_NAMES = { shortFlight: "Short Flight", soaringStrike: "Soaring Strike", root: "Root", landslide: "Landslide", rally: "Rally", coronation: "Coronation", plotTwist: "Plot Twist", refuseEnding: "Refuse the Ending",
+    adaptiveBrace: "Adaptive Brace", escortScreen: "Escort Screen", protectiveSleeve: "Protective Sleeve", livingArchive: "Living Archive", vanish: "Vanish", feignedRetreat: "Feigned Retreat" };   // content.js names, for the card line
   const tierOf = (score) => (score >= 50 ? 3 : score >= 20 ? 2 : score >= 10 ? 1 : 0);
   // The gift an item carries into battle, or null while soulless —
   // worn-out and unequipped gear never reach here (passives() skips it).
   function giftsFor(account, id) {
     const r = account?.gear?.care?.[id];
-    const kind = r?.soul?.kind, gift = GIFTS[kind], tier = tierOf(scoreOf(r));
+    const kind = r?.soul?.kind, line = r?.soul?.line === "worn" ? "worn" : "held", gift = giftOf(kind, line), tier = tierOf(scoreOf(r));
     if (!gift || tier < 1) return null;
-    return { kind, tier, name: gift.name, inject: gift.inject() };
+    return { kind, line, tier, name: gift.name, inject: gift.inject() };
   }
   function giftLine(account, id) {
     const g = giftsFor(account, id);
     // The card says what the gift does, and what the next tiers bring (J5 return item 3, landed by Pantry).
     if (!g) return null;
-    const G = GIFTS[g.kind] || Object.values(GIFTS).find((x) => x.name === g.name), name = (id) => ART_NAMES[id] || id;
+    const G = giftOf(g.kind, g.line), name = (id) => ART_NAMES[id] || id;
     const more = G ? [g.tier >= 2 ? `verb ${name(G.verb)} (free, once a turn)` : `at II: ${name(G.verb)}`, g.tier >= 3 ? `technique ${name(G.tech)} (free, once a battle)` : `at III: ${name(G.tech)}`].join("; ") : "";
     return `Gift: ${g.name} ${NUMERALS[g.tier]}: ${G?.does || ""}.${more ? ` ${more[0].toUpperCase()}${more.slice(1)}.` : ""}`;
   }
@@ -70,7 +89,8 @@
     const held = choir ? [...perKind.values()] : awake.slice(0, 1);
     const arts = {}, inject = {}, ids = [];
     for (const x of held) {
-      arts[x.g.kind] = Math.max(arts[x.g.kind] || 0, x.g.tier);
+      const key = artKey(x.g.kind, x.g.line);
+      arts[key] = Math.max(arts[key] || 0, x.g.tier);
       ids.push(x.id);
       for (const [k, v] of Object.entries(x.g.inject)) inject[k] = /Mul$/.test(k) ? (inject[k] ?? 1) * v : (inject[k] ?? 0) + v;
     }
@@ -89,9 +109,10 @@
   // technique at III. Read by abilitiesOf (engine.js).
   function artIds(arts) {
     const out = [];
-    for (const [kind, tier] of Object.entries(arts || {})) {
-      if (tier >= 2 && GIFTS[kind]) out.push(GIFTS[kind].verb);
-      if (tier >= 3 && GIFTS[kind]) out.push(GIFTS[kind].tech);
+    for (const [key, tier] of Object.entries(arts || {})) {
+      const { kind, line } = fromArtKey(key), G = giftOf(kind, line);
+      if (tier >= 2 && G) out.push(G.verb);
+      if (tier >= 3 && G) out.push(G.tech);
     }
     return out;
   }
@@ -114,10 +135,10 @@
     const r = record || account?.gear?.care?.[id];
     if (!r || r.soul || scoreOf(r) < AWAKEN_AT) return { account, event: null };
     const kind = kindOf(r), it = baseOf(id);
-    const soul = { kind, at: scoreOf(r) };
+    const soul = { kind, at: scoreOf(r), line: lineFor(it, kind) };   // JG1: the line follows what the object is, once
     const a = { ...account, gear: { ...account.gear, care: { ...account.gear.care, [id]: { ...r, soul } } } };
     return { account: a, event: { type: "awaken", id, kind, soul,
-      cue: "awaken-anthem", saga: `${it ? it.name : id} wakes — the ${kind} soul stirs.` } };
+      cue: "awaken-anthem", saga: `${it ? it.name : id} wakes — the ${kind} soul stirs${soul.line === "worn" ? ", worn close" : ""}.` } };
   }
   // Promotion is earned in STEPS: the 20-milestone allows one step above
   // birth rarity, the 50-milestone two. Legendary caps (a fifth tier
@@ -167,5 +188,5 @@
     }
     return { account: a, events };
   }
-  return { LADDER, KINDS, AWAKEN_AT, PROMOTE_AT, GIFTS, tierOf, giftsFor, giftLine, activeGifts, restingReason, giftName, artIds, scoreOf, stepOf, kindOf, ensureOrigin, rarityOf, awaken, promote, check, cues };
+  return { LADDER, KINDS, AWAKEN_AT, PROMOTE_AT, GIFTS, WORN_GIFTS, WORN_SLOTS, lineFor, giftOf, artKey, fromArtKey, tierOf, giftsFor, giftLine, activeGifts, restingReason, giftName, artIds, scoreOf, stepOf, kindOf, ensureOrigin, rarityOf, awaken, promote, check, cues };
 });

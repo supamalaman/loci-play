@@ -10,7 +10,7 @@
   else root.ConceptCombatTechniqueParts = factory();
 })(typeof self !== "undefined" ? self : this, function () {
 
-  var TECHNIQUE_IDS = ["acceptTerms","acquisition","adaptiveBrace","advance","againstTheChariot","allAccountsDue","allure","anchor","anotherWayHome","antiphonalStrike","architectDesignWall","arrest","arrivalGate","assignTheTask","audition","authenticateIdentity","authorizedEntry","balladOfTheBattle","bastionCollapse","batchRender","beatTheDrums","berserk","between","beyondLimits","bindingOath","bindingTerm","bioswale","blackout","blasterShot","blessing","blowOff","blueNote","boilOver","boundaryLine","brahmastra","bridge","broodBreach","broodSpray","brothersGuard","burnTheBoats","buryCache","buyOut","calibrateTool","callOfFaith","callThePack","carapaceSlam","carefulPrune","caseClosed","catchFall","chainOperations","chandrahasa","changeTheOrder","chargeWave","checkDam","chitinDrone","chokePoint","chorus","chorusOfTwo","clearShot","clearTheObstruction","clinch","clip","closedDomain","collapsePanel","compareExplanations","compileTheCanvas","compoundInterest","concentrationGradient","confirmTrail","consonance","continueTreatment","contractedDomain","controlledDescent","controlledRemoval","convergingRoutes","correctivePulse","counsel","counselOfAges","covenantOfTheFaithful","coveredAdvance","coveringShot","credibleGuarantee","criticalThreshold","crossReference","crownRaise","cryForVengeance","cuff","culturalMoment","curseMark","cutOut","cutPurse","cutSlope","cuttingContest","cyphCheckTheLabel","cyphCuratedCypher","cyphOffTheTop","cyphOpenMic","cyphPocketVerse","dayOfReckoning","deadReckoning","decisiveConvergence","decoy","deepFocus","delegateTheDecision","departureClause","deployAegisPylons","deployWorkstation","deprecate","descent","designedPassage","detour","diagnose","diffuseWave","disarm","dissTrack","drainagePlan","drill","droneLance","droneStation","droneSwarm","droneVolley","drown","dueProcess","duet","earthBerm","earthenEmbrace","earthenRoom","easyTerms","effigy","eightCount","elsewhereOnCue","emberBreath","emptyMandate","emptyPockets","emptyTheRoom","enchantingAir","enchantingGuise","encore","escapement","escortScreen","establishTheFacts","eureka","everywhereAtOnce","evidence","executiveDirection","exilesGate","exitWasDesigned","faceOfTheVoid","failover","falseHorizon","familyStyle","feignedRetreat","feint","fenceIt","fenceLine","ferry","filterBolt","finalChapter","findTheBase","fireBreath","fixInPlace","flare","focus","foreclosure","formBase","formGiant","formMonkey","foundCity","fourForces","foxfireLure","freestyle","frontPropagation","frontedTempo","fullChord","fullHeadOfSteam","fullRecovery","fullThrottle","gada","gaiasAccord","gearTrain","genjutsu","genreDefiningPerformance","giantsReach","giveItBack","glare","gracefulDegradation","grandComplication","grandFormula","grappleLine","greatLever","growingMomentum","gusher","hairClone","halt","harmonicRupture","headThemOff","headlineVerse","heavyFrame","heist","heldBreath","hexScreen","hoardWard","holdTheImage","holdTheLine","holdTone","hollowMandate","holographicSwarm","homeostaticNetwork","honedEdge","hormesis","hostileTakeover","hundredNightParade","huntersMark","hurlFeast","hymnOfTheOath","immovable","imuFeast","independentCheck","indexEntry","inferno","infernoRoar","inputFilter","isolateTheVariable","jazzSolo","jinguBang","jointControl","judgmentOfGods","juxtapose","keenSight","keepFaith","keylineTerrace","kitsuneFoxfire","kodanda","lakshmanaRekhaDraw","lastCrossing","lastStand","lawBindsItsMaker","layOnHands","layerMask","layingOnOfHands","leapingStrike","leaveSpace","lineNotCrossed","lineRemains","linkedStep","livingArchive","livingResponse","livingSafetyNet","loadPath","loadResponse","lockIn","lonelyWave","longMigration","longView","lullaby","lure","makeRoomForPossibility","makeTheCase","manufacturedChoice","manyPaths","marginCall","markTheVessel","maskSwap","masquerade","masterwork","measureTwice","measuredOpening","membrane","merge","mimicry","modelOpera","molt","monkeyMischief","mountainFold","mountainFoldInterim","myAnswerHasChanged","nagapashaShot","neitherAlone","newConfiguration","nightParade","nikumbhila","nobodyBehindMe","nurseLog","oathOfTheShield","offBalance","oldGrowth","onboard","oneDeclaredMoment","openArchive","operationOrder","orbitalDrop","orthographicProjection","overdrive","overflight","pairedFunction","paleStampede","paperBurnout","paperRoute","passAClass","perch","perfectHeist","perfectMoment","petrify","photomontage","pickpocket","pictureTheArrival","pioneerPatch","piston","placeFill","planView","platformShift","pocket","pounceFromStillness","printFabricator","productiveFailure","propulsion","protectTheEssential","protectiveSleeve","prototype","provenFormula","prune","publicPromise","rainGarden","raiseDataCenter","raiseFoundry","raisePalisade","rasterPass","readLivingCircuit","readSign","readTheOmens","readTheOpening","rebound","reclamation","recoilCascade","recombine","recoveryCut","recoveryStrike","redundantSystems","reelingShot","regrade","rememberWhatYouAre","remind","remoteDoor","renderEngine","repairRecord","repossession","requiredInput","rescueCorridor","resonantPulse","resonantVerse","restoreTheWorkingOrder","rewind","ridgeRemembers","riff","rollOfHonor","royalException","runawayMass","sanctuaryVow","sanjeevani","secondContribution","secondNature","secondOpinion","sectionCut","seize","serveMapoTofu","set","setTheScene","shakti","shapeShift","shareTheLoad","shareTheSpan","sharedContract","shieldBash","shieldFace","shieldOfWings","shieldWall","shimmer","shockwave","shoreUp","shortChange","shortCount","shoulderBoth","shoulderTheWorld","sieveVerdict","skim","smallDoses","smite","smokeVeil","snapBack","snapShot","somersaultCloud","sonicBoom","sort","spaceBetween","spareHair","spill","spiralOrb","spiritVeil","springLeverThrow","springRise","stabilize","staffSky","statute","stepBetween","stoneGarden","stormWings","submissionHold","supportNetwork","survey","surveyPass","surveyShot","suspendedRoute","swarmBreach","swear","swoop","swornIn","sympatheticChord","tailSweep","takeIt","takeOff","takeUpTheCraft","takeWing","takedown","tallyUp","talonDive","talons","tectonic","tether","theAbduction","theAccordHolds","theDivide","theHungryGiant","theLongSleep","theOffer","theQueensPlea","tick","timedBloom","tippingPoint","totalDependence","track","tradeTheOldAnswer","tripThreshold","turnTheWeight","typedChannel","ulaula","uluHurl","unbearableVisage","unchained","undertow","undividedAttention","unstoppable","valleyFold","valve","vanish","vanishingCut","vendorLock","vengefulRake","verdance","verify","voidFace","voidGlance","voidOrb","vowNeverQuench","vowOpenHand","vowSharedBowl","wait","warCry","warrant","watershed","watershedTerrace","whatIf","wholeness","wingDrone","worldSmallEnough","writtenVerse","yieldingGuard","youNeedWhatIHold"];
+  var TECHNIQUE_IDS = ["acceptTerms", "acquisition", "adaptiveBrace", "advance", "againstTheChariot", "allAccountsDue", "allure", "anchor", "anotherWayHome", "antiphonalStrike", "apex", "architectDesignWall", "arrest", "arrivalGate", "assignTheTask", "audition", "authenticateIdentity", "authorizedEntry", "balladOfTheBattle", "bastionCollapse", "batchRender", "beatTheDrums", "berserk", "between", "beyondLimits", "bindingOath", "bindingTerm", "bioswale", "blackout", "blasterShot", "blessing", "blowOff", "blueNote", "boilOver", "boundaryLine", "brahmastra", "bridge", "broodBreach", "broodSpray", "brothersGuard", "burnTheBoats", "buryCache", "buyOut", "calibrateTool", "callOfFaith", "callThePack", "carapaceSlam", "carefulPrune", "caseClosed", "catchFall", "chainOperations", "chandrahasa", "changeTheOrder", "chargeWave", "checkDam", "chitinDrone", "chokePoint", "chorus", "chorusOfTwo", "clearShot", "clearTheObstruction", "clinch", "clip", "closedDomain", "collapsePanel", "commonGround", "compareExplanations", "compileTheCanvas", "compoundInterest", "concentrationGradient", "confirmTrail", "consonance", "continueTreatment", "contractedDomain", "controlledDescent", "controlledRemoval", "convergingRoutes", "correctivePulse", "counsel", "counselOfAges", "covenantOfTheFaithful", "coveredAdvance", "coveringShot", "credibleGuarantee", "criticalThreshold", "crossReference", "crownRaise", "cryForVengeance", "cuff", "culturalMoment", "curseMark", "cutOut", "cutPurse", "cutSlope", "cuttingContest", "cyphCheckTheLabel", "cyphCuratedCypher", "cyphOffTheTop", "cyphOpenMic", "cyphPocketVerse", "dayOfReckoning", "deadReckoning", "decisiveConvergence", "decoy", "deepFocus", "delegateTheDecision", "departureClause", "deployAegisPylons", "deployWorkstation", "deprecate", "descent", "designedPassage", "detour", "diagnose", "diffuseWave", "disarm", "dissTrack", "drainagePlan", "drill", "droneLance", "droneStation", "droneSwarm", "droneVolley", "drown", "dueProcess", "duet", "earthBerm", "earthenEmbrace", "earthenRoom", "easyTerms", "effigy", "eightCount", "elsewhereOnCue", "emberBreath", "emptyMandate", "emptyPockets", "emptyTheRoom", "enchantingAir", "enchantingGuise", "encore", "escapement", "escortScreen", "establishTheFacts", "eureka", "everywhereAtOnce", "evidence", "executiveDirection", "exilesGate", "exitWasDesigned", "faceOfTheVoid", "failover", "falseHorizon", "familyStyle", "feignedRetreat", "feint", "fenceIt", "fenceLine", "ferry", "filterBolt", "finalChapter", "findTheBase", "fireBreath", "fixInPlace", "flare", "focus", "foreclosure", "formBase", "formGiant", "formMonkey", "foundCity", "fourForces", "foxfireLure", "freestyle", "frontPropagation", "frontedTempo", "fullChord", "fullHeadOfSteam", "fullRecovery", "fullThrottle", "gada", "gaiasAccord", "gearTrain", "genjutsu", "genreDefiningPerformance", "giantsReach", "giveItBack", "glare", "gracefulDegradation", "grandComplication", "grandFormula", "grappleLine", "greatLever", "growingMomentum", "gusher", "hairClone", "halt", "harmonicRupture", "headThemOff", "headlineVerse", "heavyFrame", "heist", "heldBreath", "hexScreen", "hoardWard", "holdTheImage", "holdTheLine", "holdTone", "hollowMandate", "holographicSwarm", "homeostaticNetwork", "honedEdge", "hormesis", "hostileTakeover", "hundredNightParade", "huntersMark", "hurlFeast", "hymnOfTheOath", "immovable", "imuFeast", "independentCheck", "indexEntry", "inferno", "infernoRoar", "inputFilter", "isolateTheVariable", "jazzSolo", "jinguBang", "jointControl", "judgmentOfGods", "juxtapose", "keenSight", "keepFaith", "keylineTerrace", "kitsuneFoxfire", "kodanda", "lakshmanaRekhaDraw", "lastCrossing", "lastStand", "lawBindsItsMaker", "layOnHands", "layerMask", "layingOnOfHands", "leapingStrike", "leaveSpace", "lineNotCrossed", "lineRemains", "linkedStep", "livingArchive", "livingResponse", "livingSafetyNet", "loadPath", "loadResponse", "lockIn", "lonelyWave", "longMigration", "longView", "lullaby", "lure", "makeRoomForPossibility", "makeTheCase", "manufacturedChoice", "manyPaths", "marginCall", "markTheVessel", "maskSwap", "masquerade", "masterwork", "measureTwice", "measuredOpening", "membrane", "merge", "mimicry", "modelOpera", "molt", "monkeyMischief", "mountainFold", "mountainFoldInterim", "myAnswerHasChanged", "nagapashaShot", "nameThePeril", "neitherAlone", "newConfiguration", "nightParade", "nikumbhila", "noMoreNoLess", "nobodyBehindMe", "nurseLog", "oathOfTheShield", "offBalance", "oldGrowth", "onboard", "oneDeclaredMoment", "openArchive", "operationOrder", "orbitalDrop", "orthographicProjection", "overdrive", "overflight", "pairedFunction", "paleStampede", "paperBurnout", "paperRoute", "passAClass", "perch", "perfectHeist", "perfectMoment", "petrify", "photomontage", "pickpocket", "pictureTheArrival", "pioneerPatch", "piston", "placeFill", "planView", "platformShift", "pocket", "pounceFromStillness", "printFabricator", "productiveFailure", "propulsion", "protectTheEssential", "protectiveSleeve", "prototype", "provenFormula", "prune", "publicPromise", "rainGarden", "raiseDataCenter", "raiseFoundry", "raisePalisade", "rasterPass", "readLivingCircuit", "readSign", "readTheCharge", "readTheOmens", "readTheOpening", "rebound", "reclamation", "recoilCascade", "recombine", "recoveryCut", "recoveryStrike", "redundantSystems", "reelingShot", "regrade", "rememberWhatYouAre", "remind", "remoteDoor", "renderEngine", "repairRecord", "repossession", "requiredInput", "rescueCorridor", "resonantPulse", "resonantVerse", "restoreTheWorkingOrder", "rewind", "ridgeRemembers", "riff", "rollOfHonor", "royalException", "runawayMass", "sanctuaryVow", "sanjeevani", "secondContribution", "secondNature", "secondOpinion", "sectionCut", "seize", "serveMapoTofu", "set", "setTheScene", "shakti", "shapeShift", "shareTheLoad", "shareTheSpan", "sharedContract", "sharedPurpose", "shieldBash", "shieldFace", "shieldOfWings", "shieldWall", "shimmer", "shockwave", "shoreUp", "shortChange", "shortCount", "shoulderBoth", "shoulderTheWorld", "sieveVerdict", "skim", "smallDoses", "smite", "smokeVeil", "snapBack", "snapShot", "somersaultCloud", "sonicBoom", "sort", "spaceBetween", "spareHair", "spill", "spiralOrb", "spiritVeil", "springLeverThrow", "springRise", "stabilize", "staffSky", "standIn", "statute", "stepBetween", "stoneGarden", "stormWings", "submissionHold", "supportNetwork", "surrogateWard", "survey", "surveyPass", "surveyShot", "suspendedRoute", "swarmBreach", "swear", "swoop", "swornIn", "sympatheticChord", "tailSweep", "takeIt", "takeOff", "takeUpTheCraft", "takeWing", "takedown", "tallyUp", "talonDive", "talons", "tectonic", "tether", "theAbduction", "theAccordHolds", "theDivide", "theHungryGiant", "theLongSleep", "theOffer", "theQueensPlea", "tick", "timedBloom", "tippingPoint", "totalDependence", "track", "tradeTheOldAnswer", "tripThreshold", "turnTaking", "turnTheWeight", "typedChannel", "ulaula", "uluHurl", "unambiguousReferent", "unbearableVisage", "unchained", "undertow", "undividedAttention", "unstoppable", "valleyFold", "valve", "vanish", "vanishingCut", "vendorLock", "vengefulRake", "verdance", "verify", "voidFace", "voidGlance", "voidOrb", "vowNeverQuench", "vowOpenHand", "vowSharedBowl", "wait", "warCry", "warrant", "watershed", "watershedTerrace", "whatIf", "wholeness", "wingDrone", "worldSmallEnough", "writtenVerse", "yieldingGuard", "youNeedWhatIHold"];
 
   // Full delivery ranking incl. signal + composite (prototype legacy.js
   // ranks only the six classic deliveries; scribe validation needs this).
@@ -84,6 +84,12 @@
     },
     "antiphonalStrike": {
       "riders": []
+    },
+    "apex": {
+      "riders": [
+        "class:hunterApex",
+        "announced"
+      ]
     },
     "architectDesignWall": {
       "riders": [
@@ -1386,6 +1392,11 @@
         "class:layHands"
       ]
     },
+    "nameThePeril": {
+      "riders": [
+        "class:substitution"
+      ]
+    },
     "parallelPrep": {
       "riders": [
         "class:miseStation",
@@ -1428,6 +1439,17 @@
     "callOfFaith": { "riders": ["class:callKin", "kin-call", "once-per-battle"] },
     "chandrahasa": { "riders": [] },
     "seize": { "riders": ["class:maidRemove"] },
+    "standIn": {
+      "riders": [
+        "class:substitution"
+      ]
+    },
+    "surrogateWard": {
+      "riders": [
+        "class:substitution",
+        "announced"
+      ]
+    },
     "theAbduction": { "riders": ["class:abduct", "stun", "thematic:sita"] },
     "giantsReach": { "riders": [] },
     "theLongSleep": { "riders": ["state:grant", "heal-next-turn", "skip-turn"] },
@@ -2062,6 +2084,20 @@
           [
             "inference",
             "selectivity"
+          ]
+        ]
+      }
+    },
+    "readTheCharge": {
+      "riders": [
+        "parry",
+        "reactive"
+      ],
+      "requires": {
+        "pairs": [
+          [
+            "discovery",
+            "indexing"
           ]
         ]
       }
@@ -2995,10 +3031,19 @@
     stripAScale: {riders:[]},
     theHost: {riders:["announced"]},
     // Shaman guests (SH1 to SH3), rows added at the 1.3.564 merge (Bitt IN): class-wired, no announce. Ma's rows are M1's own (re-cut).
+    // SH4 (Garboard BD): Guest's Portion is reactive; Ancestral Moot and Echo Double join the registry (R-20261112-16 also owed the four SH1/SH2 sheets — already exported at merge).
     spiritRaven: {riders:["class:guest"]},
     ancestralFox: {riders:["class:guest"]},
     spiritTotem: {riders:["class:guest"]},
-    guestPortion: {riders:["class:guest"]},
+    guestPortion: {riders:["class:guest", "reactive"]},
+    ancestralMoot: {riders:["class:guest"]},
+    echoDouble: {riders:["class:guest"]},
+    // Five Concepts P2 (merge fix, Stanchion BD 2026-11-14): P2 made the five Cooperative Principle techniques castable with no rows here (qa/repeats.md, the eel-remora repeat); class handlers per kits-data.js classKind.
+    commonGround: {riders:["class:commonGround"]},
+    unambiguousReferent: {riders:["class:referent"]},
+    sharedPurpose: {riders:["class:sharedPurpose", "announced"]},
+    noMoreNoLess: {riders:["class:noMore"]},
+    turnTaking: {riders:["class:turnTaking"]},
     borrowedBlow: {riders:["class:teleBorrow"]},
     novaGuarantee: {riders:["class:teleNova"]},
     whatWasOwed: {riders:["class:retroOwed"]},

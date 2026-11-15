@@ -370,11 +370,12 @@
     }, "hot-pot-berserker"),
     // Chef (Mise en Place + Hospitality, 2026-10-30; docs/chef.md): set the station first. Slice 1: the Mise side is live; Welcome,
     // Guest Right and Chef's Table are staged (no castable Hospitality yet), so his castable kit is Rack and Label, Parallel Prep and Everything in Its Place.
-    // Big Game Hunter (spec claude-big-game-hunter-merge-spec, H1, 2026-11-07): Discovery's and Indexing's own techniques; Apex staged until H3.
-    big_game_hunter: Object.assign(B(["survey", "verify", "indexEntry", "crossReference", "apex"], { primaryBasic: "survey", primaryRefined: "verify", secondaryBasic: "indexEntry", secondaryRefined: "crossReference" }, {
+    // Big Game Hunter (spec claude-big-game-hunter-merge-spec, H1, 2026-11-07): Discovery's and Indexing's own techniques; Apex staged until H3b.
+    // H3a: Read the Charge, her pair-gated reactive answer (content.js), is the kit's sixth entry.
+    big_game_hunter: Object.assign(B(["survey", "verify", "indexEntry", "crossReference", "apex", "readTheCharge"], { primaryBasic: "survey", primaryRefined: "verify", secondaryBasic: "indexEntry", secondaryRefined: "crossReference" }, {
       trophy_eye: { trigger: "her first damaging hit each battle aimed at an enemy whose LF is higher than hers as she strikes (whoever then takes the blow)", effect: { potencyAdd: 5 }, bound: "once per battle; spent only when the hit deals damage", counter: "Be smaller than her when she first swings at you, or feed her first swing to chaff." },
       trailcraft: { trigger: "a step onto difficult terrain (move cost above 1)", effect: { terrainCostLess: 1, min: 1 }, bound: "terrain cost only; uphill, deep water and surcharges unchanged", counter: "Fight her on open ground." },
-    }, "big-game-hunter"), { staged: ["apex"] }),   // H1: apex is authored (kits-data staged) but not castable until H3
+    }, "big-game-hunter"), { staged: [] }),   // H3b: Apex is castable (class-runtime hunterApex); H1 staged it
     chef: Object.assign(B(["rackAndLabel", "parallelPrep", "welcome", "guestRight", "chefsTable"], { primaryBasic: "rackAndLabel", primaryRefined: "parallelPrep" }, {
       early_service: { trigger: "a station he lays in round 1 or 2", effect: { graceRounds: 1 }, bound: "once per station, fixed when laid; a renewal clears it; Everything in Its Place never gets it", counter: "Walk onto or prune the station; hit him before it pays." },
       stocked_line: { trigger: "a Strike while his stations stand fresh", effect: { strikeAddPerFreshStation: 2 }, bound: "max +6 (three stations); only stations at full strength count; Strike only", counter: "Walk onto, prune or outwait the stations: they are public." },
@@ -477,11 +478,11 @@
       first_fold: { trigger: "your first Linked Step (Valley Fold) each battle", effect: { phiCost: 0 }, bound: "the first Linked Step only; later steps cost full ΦF", counter: "Occupy or seal her visited endpoints so the free fold has nowhere to go." },
       crisp_crease: { trigger: "you place a fold while in Still Stance", effect: { durationAdd: 1 }, bound: "Still Stance only; needs Ma landing (Phase 2)", counter: "Break the stance before she folds." },
     }, "origamist"),
-    // Shaman (Mala, 2026-11-10; claude-shaman-summoner-spec SH1): Threshold + Hospitality. Guests outside the palace slot.
-    shaman: Object.assign(B(["spiritRaven", "ancestralFox", "guestPortion", "spiritTotem", "ancestralMoot"], { primaryBasic: "spiritRaven", primaryRefined: "ancestralFox", secondaryBasic: "guestPortion", secondaryRefined: "spiritTotem" }, {
+    // Shaman (Mala, 2026-11-10; claude-shaman-summoner-spec SH1–SH4): Threshold + Hospitality. Guests outside the palace slot. SH4 opens the Moot and Echo.
+    shaman: B(["spiritRaven", "ancestralFox", "guestPortion", "spiritTotem", "ancestralMoot", "echoDouble"], { primaryBasic: "spiritRaven", primaryRefined: "ancestralFox", secondaryBasic: "guestPortion", secondaryRefined: "spiritTotem" }, {
       spirit_table: { trigger: "you seat a guest", effect: { maxGuests: 2, freeFirstAp: true }, bound: "two seats; a third call sends the oldest home; first guest call each battle costs no AP (ΦF still paid)", counter: "Kill the guests; focus the host." },
       spirit_company: { trigger: "you finish a technique while an attendant is present", effect: { pulsesPerTurn: 2, radius: 2 }, bound: "two pulses a turn; echoed and deceptive techniques do not pulse", counter: "Separate her from the table; stun her before the technique resolves." },
-    }, "shaman"), { staged: ["ancestralMoot"] }),   // SH4 builds Ancestral Moot (its kit row says so): authored, not castable yet; tests that cast a kit skip build.staged (1.3.564 merge)
+    }, "shaman"),
   };
   return { builds };
 });

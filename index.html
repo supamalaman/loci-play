@@ -27,8 +27,8 @@
       <div class="pk-eyebrow">Concept Combat · turn-based battles where concepts interact</div>
       <div id="detail" class="pk-detail"></div>
       <div class="pk-actions">
-        <button type="button" id="fight" class="pk-go">Fight ▶<small>a random arena, foes and weather</small></button>
-        <button type="button" id="forum" class="pk-go pk-forum">Forum ▶<small>face to face; open the map when you want more control</small></button>
+        <button type="button" id="forum" class="pk-go">Forum ▶<small>face to face; open the map when you want more control</small></button>
+        <button type="button" id="fight" class="pk-go pk-adv">Advanced Mode ▶<small>the full map: a random arena, foes and weather</small></button>
         <button type="button" id="invOpen" class="pk-inv"><span>Inventory</span><small id="invCount"></small></button>
       </div>
     </div>
@@ -40,7 +40,19 @@
   </section>
 
   <footer class="pk-foot">Progress saves in this browser. Win battles to find gear, then equip it in your inventory.</footer>
+  <button type="button" id="menuOpen" class="pk-menu-btn" aria-haspopup="dialog" aria-controls="phoneMenu" aria-expanded="false">Menu</button>
 </main>
+
+<div id="phoneMenu" class="pk-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="phoneMenuTitle">
+  <nav class="pk-sheet-card">
+    <h2 id="phoneMenuTitle" class="pk-eyebrow">Menu</h2>
+    <button type="button" class="pk-sheet-row pk-sheet-main" data-go="forum">Forum<small>face to face; start here</small></button>
+    <button type="button" class="pk-sheet-row" data-go="fight">Advanced Mode<small>the full map: a random arena, foes and weather</small></button>
+    <button type="button" class="pk-sheet-row" data-go="inventory">Inventory<small>the gear you wear and carry</small></button>
+    <button type="button" class="pk-sheet-row" data-go="cards">Battle cards<small>your deck, in the inventory</small></button>
+    <button type="button" class="pk-sheet-row" data-go="roster">Choose your fighter<small>the roster below</small></button>
+  </nav>
+</div>
 
 <section id="battle" class="pk-battle" hidden>
   <header class="pk-battlebar"><button type="button" id="leave">← Fighters</button><span class="brand">LOCI <span>random battle</span></span></header>
@@ -173,6 +185,7 @@
 <script src="combat/cards/card-art.js"></script>
 <script src="combat/cards/cards-ui.js"></script>
 <script src="combat/summons/summons-data.js"></script>
+<script src="combat/summons/tandem.js"></script>
 <script src="combat/summons/summons.js"></script>
 <script src="combat/summons/questions.js"></script>
 <script src="combat/summons/contracts.js"></script>
@@ -213,6 +226,7 @@
 <script src="combat/graph/live.js"></script>
 <script src="combat/auras/auras.js"></script>
 <script src="combat/ai/utility.js"></script>
+<script src="combat/engine/charge.js"></script>
 <script src="combat/engine/ledgers.js"></script>
 <script src="combat/engine/conditions.js"></script>
 <script src="combat/sealed-next.js"></script>
@@ -270,6 +284,7 @@
 <script src="combat/fx.js"></script>
 <script src="combat/fx-sprites.js"></script>
 <script src="combat/smoke-fx.js"></script>
+<script src="combat/fx3.js"></script>
 <script src="combat/asset-usage.js"></script>
 <script src="combat/dialogue/tracery.js"></script>
 <script src="combat/dialogue/base-grammar.js"></script>
@@ -298,6 +313,7 @@
 <script src="combat/command-search.js"></script>
 <script src="combat/npc/keepers.js"></script>
 <script src="combat/account/keepers.js"></script>
+<script src="combat/account/keeper-perks.js"></script>
 <script src="combat/npc/keeper-lines.js"></script>
 <script src="combat/npc/keeper-ui.js"></script>
 <script src="combat/loading.js"></script>
