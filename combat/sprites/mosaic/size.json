@@ -1,0 +1,199 @@
+{
+  "size_class": "person",
+  "world_height": 1.0,
+  "minimum_pixel_size_px": 96,
+  "runtime_consumed": false,
+  "source": "source/The Mosaic_ Pixel Combat Sprite Sheet.png",
+  "poses": {
+    "idle": {
+      "canvas": [
+        131,
+        279
+      ],
+      "content_w": 123,
+      "content_h": 271,
+      "foot": [
+        65.5,
+        275
+      ]
+    },
+    "walk": {
+      "canvas": [
+        170,
+        277
+      ],
+      "content_w": 162,
+      "content_h": 269,
+      "foot": [
+        85.0,
+        273
+      ]
+    },
+    "dodge": {
+      "canvas": [
+        179,
+        245
+      ],
+      "content_w": 171,
+      "content_h": 237,
+      "foot": [
+        89.5,
+        241
+      ]
+    },
+    "knockback": {
+      "canvas": [
+        154,
+        221
+      ],
+      "content_w": 146,
+      "content_h": 213,
+      "foot": [
+        77.0,
+        217
+      ]
+    },
+    "punch": {
+      "canvas": [
+        265,
+        244
+      ],
+      "content_w": 257,
+      "content_h": 236,
+      "foot": [
+        132.5,
+        240
+      ]
+    },
+    "cast-off": {
+      "canvas": [
+        256,
+        250
+      ],
+      "content_w": 248,
+      "content_h": 242,
+      "foot": [
+        128.0,
+        246
+      ]
+    },
+    "cast": {
+      "canvas": [
+        236,
+        266
+      ],
+      "content_w": 228,
+      "content_h": 258,
+      "foot": [
+        118.0,
+        262
+      ]
+    },
+    "block": {
+      "canvas": [
+        206,
+        242
+      ],
+      "content_w": 198,
+      "content_h": 234,
+      "foot": [
+        103.0,
+        238
+      ]
+    },
+    "knocked-out": {
+      "canvas": [
+        262,
+        78
+      ],
+      "content_w": 254,
+      "content_h": 70,
+      "foot": [
+        131.0,
+        74
+      ]
+    },
+    "ultimate": {
+      "canvas": [
+        245,
+        268
+      ],
+      "content_w": 237,
+      "content_h": 260,
+      "foot": [
+        122.5,
+        264
+      ]
+    },
+    "portrait-neutral": {
+      "canvas": [
+        286,
+        263
+      ],
+      "content_w": 278,
+      "content_h": 255,
+      "foot": [
+        143.0,
+        259
+      ]
+    },
+    "portrait-happy": {
+      "canvas": [
+        278,
+        263
+      ],
+      "content_w": 270,
+      "content_h": 255,
+      "foot": [
+        139.0,
+        259
+      ]
+    },
+    "portrait-angry": {
+      "canvas": [
+        269,
+        258
+      ],
+      "content_w": 261,
+      "content_h": 250,
+      "foot": [
+        134.5,
+        254
+      ]
+    },
+    "portrait-sad": {
+      "canvas": [
+        263,
+        243
+      ],
+      "content_w": 255,
+      "content_h": 235,
+      "foot": [
+        131.5,
+        239
+      ]
+    },
+    "portrait-surprised": {
+      "canvas": [
+        290,
+        263
+      ],
+      "content_w": 282,
+      "content_h": 255,
+      "foot": [
+        145.0,
+        259
+      ]
+    }
+  },
+  "idle_alpha_size_px": [
+    123,
+    271
+  ],
+  "content_height_px": 271,
+  "foot_point_px": [
+    65.5,
+    275
+  ],
+  "note": "Triage SURGERY. world_height 1.0 (person): the Mosaic is a human-scale figure; T2b (the Mosaic tandem row) is the consumer."
+}

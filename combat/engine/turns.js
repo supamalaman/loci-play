@@ -392,6 +392,7 @@
         return;
       }
       refreshDrowning(s, a);
+      for (const unit of Object.values(s.actors)) H.speedSync(s, unit);   // True Super Speed: a slow or a stagger that ran out above gives the blur back (every unit, so the first turn of a battle marks them all)
       if (a.status.drowning && hasTrait(a, "gills")) a.status.drowning = null;
       if (a.status.drowning && a.status.drowning.nextTickAtOwnerTurn <= a.ownerTurns) {
         a.status.drowning.nextTickAtOwnerTurn = a.ownerTurns + 1;

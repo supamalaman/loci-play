@@ -310,7 +310,7 @@
     // C15 (Muse batches 13-15): Meditate turns action points into ultimate charge; Contemplative does it well and
     // often, Restless badly and rarely, and Restless dodges cheaply instead. Numbers: content.js rules.meditate.
     const MED = { ap: 40, gain: 25, contemplativeGain: 35, restlessGain: 15, aiBelowScore: 3, aiGate: 0.5, contemplativeGate: 0.8, restlessGate: 0.2, idleGate: 0.6, restlessDodgeOff: 20, ...(C.rules.meditate || {}) };
-    const dodgeCostFor = (s, u, attackerId = null) => Math.max(0, (s.rules.reactionDodgeApCost ?? 50) - (hasTrait(u, "restless") ? MED.restlessDodgeOff : 0) - (s.rules.cybernetic && hasTrait(u, s.rules.cybernetic.trait) ? s.rules.cybernetic.dodgeOff : 0) - (u && u.primary === "stealth" && u.secondary === "deception" ? 10 : 0)) * (hasTrait(u, "insaneReflexes") ? 0.5 : 1) * (ClassRuntime?.actor && attackerId ? ClassRuntime.actor.reactionTax(s, u, attackerId) : 1);   // Cybernetic: −15; the Thief's getaway: −10; GDP taxes dodges off the star's attacks
+    const dodgeCostFor = (s, u, attackerId = null) => H.speedDodge(s, u, Math.max(0, (s.rules.reactionDodgeApCost ?? 50) - (hasTrait(u, "restless") ? MED.restlessDodgeOff : 0) - (s.rules.cybernetic && hasTrait(u, s.rules.cybernetic.trait) ? s.rules.cybernetic.dodgeOff : 0) - (u && u.primary === "stealth" && u.secondary === "deception" ? 10 : 0)) * (hasTrait(u, "insaneReflexes") ? 0.5 : 1) * (ClassRuntime?.actor && attackerId ? ClassRuntime.actor.reactionTax(s, u, attackerId) : 1));   // Cybernetic: −15; the Thief's getaway: −10; GDP taxes dodges off the star's attacks
     let H_hasTrait = () => false;   // bound once the parts are installed (hasTrait lives in conditions.js)
     // Craftsman's Mindset (content.js concepts.craftsmanship.craft.mindset): the rule if this unit holds the trait.
     const mindset = (a) => { const K = C.concepts.craftsmanship?.craft?.mindset; return K && a && H_hasTrait(a, K.trait) ? K : null; };
@@ -813,7 +813,7 @@
           if (kind === "move") {
             const waterTile = H.waterAt(s, nx, ny), currentWater = H.waterAt(s, x, y);
             const canSwim = !cannotSwim(mover), escapingWater = currentWater && !waterTile;
-            if (t.blocksMove && !(waterTile && (canSwim || flyer)) && !escapingWater) continue;
+            if (t.blocksMove && !(waterTile && (canSwim || flyer || H.waterRun === mover?.id)) && !escapingWater) continue;
           } else if (t.blocksRoute) continue;   // "route-open" = route ignoring barriers
           if (kind !== "move" && Math.abs(heightAt(s, nx, ny) - heightAt(s, x, y)) >= 2 && !H.usableRamp(s, x, y, nx, ny)) continue;
           const obstacle = barrierAt(s, nx, ny);

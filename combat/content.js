@@ -345,6 +345,7 @@
         takeTheShape: { bonus: 12, when: ["noShape"] } },
         // Entrainer (hotbuilds W1b; the Hypnotist's AI table, HOTBUILDS.md section 2): fix the open foe, image the
         // watched one, gaze a second when two show themselves (W1c: the Crescendo is on the shelf now).
+        attentionToDetail: {statute:{bonus:7,when:["auditNoStatute",["foeNear",4]]},verify:{bonus:8,when:["auditRumour"]}},
         entrainer: { focus: { bonus: 6, when: [["foeNear", 6], "noneFixed"] },
           holdTheImage: { bonus: 8, when: ["fixedFoeRanged", "noWard"] },
           secondGaze: { bonus: 4, when: [["foesInSight", 2]] } },
@@ -502,6 +503,10 @@
     // Cybernetic Ecology (Codex's design, docs/cybernetic-ecology.md; engine runtime by Claude for the Agent Swarm, 2026-10-13).
     circuit: { anchorRange: 3, memberRange: 2, members: 3, budget: 12, pulse: 6, deployments: 2, life: 3, network: { budget: 18, perTick: 6, ticks: 3 } },
     droneTowers: { max: 3, placeRange: 3, range: 3, potency: 4, dataCenterRange: 1, dataCenterWard: 1 },
+    // True Super Speed (claude-true-super-speed-spec; Mala, R-20261114-21). SS1 Blur: a unit with the trait pays stepApMul
+    // of the action points for a step and no water surcharge; Friction (engine/conditions.js friction) switches it off. SS2 Nothing Is
+    // Sudden: the same unit sees an unannounced shot at it coming at any range (engine/window.js) and dodges at dodgeApMul of the price.
+    trueSpeed: { trait: "superSpeed", stepApMul: 0.5, dodgeApMul: 0.5, dodgeReachAdd: 2, momentumPer: 2, momentumCap: 6 },   // SS2 Nothing Is Sudden: a dodge at dodgeApMul of the price (floored after every factor) and dodgeReachAdd tiles farther; SS3 Momentum: +1 potency per momentumPer tiles walked before the first Strike of a turn, up to momentumCap (merged at 1.3.568, Gangway IN)
     cybernetic: { trait: "cybernetic", move: 1, strike: 3, grapple: 0.25, dodgeOff: 15, damageMul: 0.85, transcendInspiration: 1 },
     ascended: { trait: "ascended", move: 1, strike: 5 },   // Ascending Martial Artist's gold form (Mala, 2026-10-22); flight via isFlyer
     ultimateChargeMax: 100,
@@ -1758,6 +1763,13 @@
       gate: { blocks: ["all"], reason: "they are incapacitated" }, clock: { counts: "ownerTurns", n: 2, max: 2, then: [{ grant: "steadied", to: "self", turns: 0 }] }, refusesGrant: ["incapacitated", "suggestedHold"] },
     steadied: { name: "Steadied", text: "Just recovered: cannot be incapacitated again for a turn.", why: "Waking is not the start of the next stun: incapacitation does not chain.",
       hidden: true, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["incapacitated", "suggestedHold"] },
+    // The Treasure Hunter (TH1, cursor-treasure-hunter-spec; Mala 2026-11-09/-12/-15: loot makes him gold and resistant until a hit, his own flag and
+    // his own sprites per form). Granted by states.js relicClaim when he steps onto a pickup; the item rides the instance (inst.treasure). The first
+    // blow that lands (after the x0.25) cracks the gold: the breaker drops the treasure beside him and the form ends, sprite and all.
+    relicGold: { name: "Golden Relic", text: "Covered in gold relics and carrying treasure: takes x0.25 damage until a blow lands; that blow cracks the gold and drops the treasure.",
+      why: "Mala: loot turns him gold and resistant until he is hit (R-20261109-14, R-20261109-15, R-20261112-26).",
+      group: "relicForm", body: { sprite: "golden-relic-hunter" }, mods: [{ on: "taken", mult: 0.25 }],
+      breakers: [{ hurt: 1, do: [{ dropTreasure: true }, { scene: { title: "The Gold Cracks", line: "The relics shatter off him and the treasure spills across the ground." } }] }] },
     // Hanuman (Mala, 2026-10-24; docs/hanuman-build.md). Three forms, one at a time (group "hanumanForm"), switched free once a
     // turn; base and giant cannot Vanish, the monkey can (the scout and infiltrator). Numbers are provisional until simmed.
     hanumanBase: { name: "Base form", text: "Hanuman as he serves Rama: a warrior with a mace.", why: "Valmiki: the devoted messenger who fights beside Rama.",
@@ -2029,9 +2041,9 @@
     agi: "lab", agent_swarm: "lab", android_maker: "lab", clockwork: "lab", defective_machine: "lab", hacker: "lab", ornithopter: "lab", robot_mechanic: "lab", scientist: "lab", sieve: "lab", steam_walker: "lab",
     animalTamer: "wilds", boarman: "wilds", ecologist: "wilds", esker: "wilds", hedge_witch: "wilds", monkey_king: "wilds", mutant_boar: "wilds", mycologist: "wilds", ranger: "wilds", shaman: "wilds",
     black_armor: "court", daedalus: "court", general: "court", knight: "court", magistrate: "court", mao_zedong: "court", odysseus: "court", oni_yokozuna: "court", paladin: "court", pharaoh: "court", president: "court", samurai: "court", soldier: "court",
-    artemesia: "arcane", bastet: "arcane", celestial_priestess: "arcane", devouring_mother: "arcane", ember_judge: "arcane", forest_spirit: "spirit", frogan: "arcane", hypnotist: "arcane", jujutsu_sorcerer: "arcane", medusa: "arcane", new_oni: "arcane", ritual_chanter: "arcane", tofu_archer: "arcane", tofu_warden: "arcane", tofu_yokai: "arcane", wizard: "arcane",
+    artemesia: "arcane", bastet: "arcane", celestial_priestess: "arcane", devouring_mother: "arcane", ember_judge: "arcane", forest_spirit: "spirit", frogan: "arcane", hypnotist: "arcane", florence_oloo: "lab", chitinous_archbishop: "arcane", chitin_bishop: "arcane", shardback: "cosmic", eldritch: "cosmic", jujutsu_sorcerer: "arcane", medusa: "arcane", new_oni: "arcane", ritual_chanter: "arcane", tofu_archer: "arcane", tofu_warden: "arcane", tofu_yokai: "arcane", wizard: "arcane",
     moonflower: "arcane", archivist_elf: "arcane", bard_elf: "arcane", astral_security: "arcane", celestial_astral: "arcane",
-    architect: "civic", cleric: "civic", doctor: "civic", engineer: "civic", fbi_agent: "civic", mason: "civic", pioneer: "civic", planner: "civic", police_officer: "civic", policeOfficer: "civic", surveyor: "civic", tactical_operative: "civic", yogaInstructor: "civic",
+    auditor_goblin: "civic", architect: "civic", cleric: "civic", doctor: "civic", engineer: "civic", fbi_agent: "civic", mason: "civic", pioneer: "civic", planner: "civic", police_officer: "civic", policeOfficer: "civic", surveyor: "civic", tactical_operative: "civic", yogaInstructor: "civic",
     arborist: "green", fieldBotanist: "green", gardener: "green", pathfinder: "green", rainkeeper: "green",
     cyanotype_artist: "ink", mangaka: "ink", modern_artist: "ink", origamist: "ink",
     anime_protagonist: "cosmic", arantxa: "cosmic", astronaut: "cosmic", starfarer: "cosmic", teleporter: "cosmic", visitor_grey: "cosmic", visitor_scientist: "cosmic", visitor_ship: "cosmic",
@@ -2040,7 +2052,7 @@
     deepsea_warrior: "wake", sailor: "wake", ferryman: "wake", pearl_diver: "wake", teal_eel: "wake", remora_adventurer: "wake",
     hanuman: "ayodhya", jambavan: "ayodhya", rama: "ayodhya", lakshmana: "ayodhya", sita: "ayodhya", jatayu: "ayodhya", ravana: "lanka", maricha: "lanka", kumbhakarna: "lanka", indrajit: "lanka", mandodari: "lanka", surpanakha: "lanka",
     hot_pot_berserker: "interdimensional",
-    chef: "street",
+    chef: "street", treasure_hunter: "street",   // the Treasure Hunter (TH1; crew street: "hands, a hustle, or a night shift", he scavenges the map)
     hooded_cyber_rogue: "posterity",
     memorialist: "posterity",
     seedkeeper: "posterity",
@@ -2269,6 +2281,9 @@
     }
     if (concepts.homology) concepts.homology.aiOnly = true;   // no human picks it until the casting picker (L3) exists: see ui.js pickableConceptIds
     for (const id of ["chargeWave", "hurlFeast", "vowOpenHand", "vowNeverQuench", "vowSharedBowl"]) { const home = concepts.bird_mountain; if (home && abilities[id] && !home.abilities.includes(id)) home.abilities.push(id); }
+    Object.assign(abilities, ClassRuntime.auditor.abilities);
+    if(!concepts.laws_of_gods_of_men.abilities.includes("objection"))concepts.laws_of_gods_of_men.abilities.push("objection");
+    abilities.survey.freeFirst="turn"; abilities.survey.freeFirstTraits=["attentionToDetail"];
     for (const [cls, [p, sec]] of Object.entries(ClassRuntime.CLASS_PAIRS)) {
       if (characters[cls] || !concepts[p] || !concepts[sec]) continue;
       const sprite = ClassRuntime.builds[cls].sprite.split("/").pop();
@@ -2276,6 +2291,7 @@
         configs: [{ id: `${cls}-1`, label: `${concepts[p].name} + ${concepts[sec].name}`, primary: p, secondary: sec, reserve: [], lens: {} }],
         primary: p, secondary: sec, reserve: [], lens: { [p]: "balanced", [sec]: "balanced" } };
     }
+    if (characters.auditor_goblin) Object.assign(characters.auditor_goblin,{traits:["twentyTwentyVision","attentionToDetail","citesPrecedent"],wheelhouse:"indexing",wheelhouseEnabled:true,reserve:["indexing"],conceptPool:["laws_of_gods_of_men","discovery","indexing"],configs:[{id:"auditor-main",label:"Law + Discovery",primary:"laws_of_gods_of_men",secondary:"discovery",reserve:["indexing"],lens:{}},{id:"auditor-ledger",label:"Law + Indexing",primary:"laws_of_gods_of_men",secondary:"indexing",reserve:["discovery"],lens:{}}]});
     if (characters.hanuman) Object.assign(characters.hanuman, { traits: ["loyal", "courageous", "playfulness", "rivalrous"], startStates: ["hanumanBase", "hanumanForgotten"],
       learned: ["formBase", "formMonkey", "formGiant", "vanish"], allyFavors: ["jambavan"] });
     if (characters.jambavan) characters.jambavan.traits = ["contemplative", "traditionalist", "honorable"];
@@ -2300,6 +2316,9 @@
       tech_billionaire: ["oil_billionaire"], jpop_idol: ["neon_idol"] })) if (characters[id]) characters[id].rivals = rivals;
     if (characters.paladin) characters.paladin.traits = ["consecrated", "faithful", "compassionate", "zealous"];   // the Paladin re-spec (PALADIN.md), whoever controls him
     if (characters.teal_eel) characters.teal_eel.traits = ["gills", "proud", "loyal"];   // gills: drowning does not start (Mala, 2026-11-11)
+    // Hot-build cuts F1 (cursor-hotbuilds-cuts-spec 1c): Shardback and the Eldritch Intruder are the first interdimensional invasion pool,
+    // natural enemies of Greedigut (Mala, 2026-11-14). Inert tags until Exile E1 (claude-anime-exile-spec) reads them.
+    for (const id of ["shardback", "eldritch"]) if (characters[id]) Object.assign(characters[id], { invasionPool: true, greedigutEnemy: true });
     if (characters.remora_adventurer) characters.remora_adventurer.traits = ["gills", "curious", "ambitious"];
     // Mala, 2026-11-01: the Paladin's default sprite is the newer Crusader cut; the October art is the Oathbound outfit. An ally Paladin rolls one of the two (engine allyLook); the Neon outfit (level 200) is briefs/paladin-costumes-build.md.
     if (characters.paladin) Object.assign(characters.paladin, { sprite: "paladin-crusader", variants: ["paladin-crusader", "paladin"], spritePackageNames: { "paladin-crusader": "Crusader", paladin: "Oathbound" } });

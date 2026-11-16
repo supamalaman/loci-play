@@ -127,6 +127,9 @@
       }
       out.push(row);
     }
+    // True Super Speed (rules.trueSpeed): the engine keeps a.speedState in step with the rule (engine/conditions.js speedSync).
+    if (a?.speedState === "blur") out.push({ key: "blur", name: "Blur", text: null, color: null, icon: null, count: null, detail: "", help: "Half-price steps, and water does not slow them." });
+    if (a?.speedState === "friction") out.push({ key: "friction", name: "Friction", text: null, color: null, icon: null, count: null, detail: "", help: "Slowed: no blur until it ends." });
     // Ritual feedback (Muse-2's RITUAL_FEEDBACK.md, built by Lantern 2026-10-19): the chant rides the marker rail with its
     // turns left, and a creature held by someone's chant says so. Capture rituals keep a.ritual, not a status.
     if (a?.ritual) out.push({ key: "chant", name: "Chanting", text: "✦", color: "#e8c85a", icon: null, count: finite(a.ritual.turnsLeft) ? a.ritual.turnsLeft : null,

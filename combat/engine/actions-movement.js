@@ -44,9 +44,10 @@
         if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
         if((a.committed?.noRetreat||a.promise?.surrender==="retreat")&&presidentRules&&!presidentRules.canMove({...presidentUnits(s).find(u=>u.id===a.id),committed:{noRetreat:true}},{x:tx,y:ty},presidentUnits(s).filter(u=>u.side!==a.side)))return "Your commitment has surrendered retreat: that move would increase your distance from the nearest enemy.";
         const baseBudget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a) - (a.pathwayPromise ? 2 : 0));   // the homeward extra sits on top of the legs-adjusted base
-        const budget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a)), route = paths(s, a.x, a.y, budget, "move").pathTo(tx, ty);   // Injury: the move action reads the same legs budget as moveOptions (wounded −1, maimed 0)
+        const budget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a)), moveMap = H.movePaths(s, a, budget), route = moveMap.pathTo(tx, ty);   // Injury: the move action reads the same legs budget as moveOptions (wounded −1, maimed 0)
         if (!route || route.length < 2) return `Not reachable within ${budget} move points.`;
-        const from = [a.x, a.y], spent = paths(s, a.x, a.y, budget, "move").dist.get(key(tx, ty));
+        { const wet = H.wetEnd(s, a, tx, ty); if (wet) return wet; }   // True Super Speed: a runner who cannot swim crosses deep water but does not stop on it
+        const from = [a.x, a.y], spent = moveMap.dist.get(key(tx, ty));
         if (a.pathwayPromise && spent > baseBudget && dist(s, tx, ty, a.pathwayPromise.x, a.pathwayPromise.y) >= dist(s, a.x, a.y, a.pathwayPromise.x, a.pathwayPromise.y)) return "The extra homeward movement is only available when this move reduces distance to the declared destination.";
         const dir = H.directiveLive(s, a);   // destination directives (machine P2): a live directive names the next endpoint
         const dirOpen = dir && H.directiveDestOpen(s, a, dir.dest);
@@ -56,6 +57,7 @@
         const moveCost = movementTempoCost(s, a, route) + (dirOpen && !dirObeys ? dir.defyCost : 0);
         const spendError = spendTempo(s, a, moveCost, "Move"); if (spendError) return spendError;
         H.consumeMoveMods(s, a, route);   // movement money (machine P1): a paid move spends once-mods
+        if (H.waterRunner(s, a)) a.waterRunning = true;   // True Super Speed: deep tiles crossed mid-run start no drowning (conditions.js refreshWaterDrowning)
         a.moved = true; a.walkedThisTurn = (a.walkedThisTurn || 0) + route.length - 1; const traversed = [from];
         for (const [x, y] of route.slice(1)) {
           const prev = [a.x, a.y]; a.x = x; a.y = y; traversed.push([x, y]);
@@ -79,6 +81,7 @@
           provokeOpportunity(s, a, prev, [x, y]);
           if (a.defeated) break;
         }
+        delete a.waterRunning;   // True Super Speed: the run is over; wherever it ended, water counts again
         if (a.awakened && a.awakened.size >= 3 && !a.defeated) {   // Tsukumogami: a size-3 footfall staggers every unit it ends beside, like a slam
           const tiles = footprint(a), near = new Set();
           for (const [qx, qy] of tiles) for (const [dx, dy] of DIRS) near.add((qx + dx) + "," + (qy + dy));

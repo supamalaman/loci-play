@@ -128,6 +128,12 @@
       defeat: ["The roads closed.", "Ride on."],
       rethink: ["This road is shut. Find another."] } },
 
+    mosaic: { summary: "Quiet and exact; speaks of itself as pieces, and of its user as the grout that holds them.", lines: {
+      summoned: ["Pieces, gather.", "I am here, close by."], dismissed: ["The tiles go back in the box.", "I come apart, gently."],
+      attack: ["A piece of you, please.", "Hold still for the pattern."], hit: ["That one fits.", "Another colour."],
+      hurt: ["A crack runs through us both.", "Some glass falls."], ally_hurt: ["Stay close to me.", "Keep the grout from cracking."],
+      low_lf: ["The pattern is thinning."], ordered: ["Every tile, ready.", "Next turn, I scatter."],
+      ultimate: ["Grout and glass, all around me."], defeat: ["Only fragments now.", "Swept up."], rethink: ["That piece does not fit. Another."] } },
     zherm: { summary: "Calm, communal and a little eerie; a body that is also a colony.", lines: {
       summoned: ["We are here.", "Spores in the air. Good air."],
       dismissed: ["We go back to the dark and damp.", "Something of us stays."],

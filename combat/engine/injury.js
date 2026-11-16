@@ -136,11 +136,12 @@
       // double cost (the middle ground between no dodge and a full one). Fliers ignore it all.
       const flier = (a) => !!H.ClassRuntime?.flies?.(a);
       const legsMove = (s, a, base) => pure.moveBudget(s, a, base, flier(a));
-      function dodgeReach(s, d) {
+      function dodgeReachBase(s, d) {
         const base = s.rules.repositionTiles;
         if (flier(d) || gradeOf(d, "legs") === 0) return base;
         return gradeOf(d, "legs") === 2 ? Math.min(base, R(s).legsMaimedDodgeTiles ?? 1) : Math.max(0, base - (R(s).legsWoundedMove ?? 1));
       }
+      const dodgeReach = (s, d) => dodgeReachBase(s, d) + (H.speedReach?.(s, d) || 0);   // True Super Speed SS2: a blurred unit dodges 2 tiles farther
       const dodgeCost = (s, d, cost) => (!flier(d) && gradeOf(d, "legs") === 2 ? cost * (R(s).legsMaimedDodgeMult ?? 2) : cost);
       return { Injury: { ...pure, moveBudget: legsMove, dodgeReach, dodgeCost, wound, overflow, bleedTick, downgrade, stabilize } };
     })();

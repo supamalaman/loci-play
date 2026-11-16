@@ -357,6 +357,28 @@
         play: { type: "nova", centre: "self", radius: 3, effect: "stun", stunPoints: 15, guardResists: true,
         text: "All rise: enemies within 3 lose 15 action points. Guarding during the response window (verifying the claim) resists it." } },
       identity: "Borrowed authority depends on recognition and can be revoked." },
+
+    // The Mosaic, the first tandem (Tandem T2b; R-20261115-03, R-20261115-15; muse-tandem-spirit-spec sections 4 and 6). A close
+    // tandem of theme Collage: a figure of coloured tiles that is made of what it strikes. It has no palace room and no pact: only
+    // the ordeal Trial (T2c) unlocks it, and the teaching scenario "Made of What It Strikes" lends it for one battle (lendSummons).
+    // Rules in summons/tandem.js; hexagon, rule and numbers as Mala approved them (R-20261115-03).
+    mosaic: { name: "The Mosaic",
+      tandem: { user: "any", leash: 2,
+        rule: "Made of what it strikes: each different foe it wounds lends it a tile, +1 potency on its later hits, up to 3 tiles.",
+        price: "To stretch its leash to 4 tiles through its next turn, its user pays 4 LF, and must have more than 4 to pay it.",
+        hexagon: { power: "A", speed: "C", leash: "E", stamina: "C", precision: "B", growth: "B" },
+        lend: { max: 3, potency: 1 }, stretch: { lf: 4, leash: 4 }, reflect: { share: 0.5, max: 3 },
+        fragments: ["Its leash is 2 tiles: past that, an order fails and it strains.",
+          "Each different foe it wounds lends it a tile, up to 3, and every tile adds to its later hits.",
+          "Strain breaks its pattern: pulled past its leash, every tile falls away."] },
+      source: "Tandem wing (the ordeal Trial, T2c)", attitude: "vigilant",
+      standIn: { primary: "collage", secondary: "adjacency" },
+      proposed: { primary: "Collage", secondary: "Adjacency", reserve: null, personal: null },
+      signature: { name: "Made of What It Strikes", status: "spec", mechanism: "Each different foe it wounds lends it a tile; each tile adds to its later hits.",
+        constraint: "A close tandem: it shares its wounds with its user, and strain sheds every tile.", counters: ["Pull it past its leash so it strains", "Hit it to hurt its user through the echo", "Stand together so it meets few different foes"] },
+      ultimate: { name: "Grout and Glass", status: "spec", mechanism: "Every tile it carries bursts outward at once.", constraint: "Ordered within its leash, or it strains.",
+        play: { type: "nova", centre: "self", radius: 1, potency: 16, text: "The Mosaic bursts: a shower of tiles on hostiles within 1 of it, 16 potency before the announce bonus." } },
+      identity: "A whole made of borrowed pieces, close enough to its user to share its wounds." },
   };
 
   // Mala's implementation notes, verbatim intent.

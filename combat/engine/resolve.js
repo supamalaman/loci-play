@@ -796,6 +796,7 @@
           for (const u of Object.values(s.actors).filter((u) => veiled(u) && u.x === tx && u.y === ty)) { unveil(u, "verified"); found.push(`${u.name}, revealed`); }
           if(found.length)H.scoutNoted(s,a,`verified:${tx},${ty}`);
           log(s, { kind: "verify", actor: a.id, tiles: [[tx, ty]], text: `${a.name} verifies (${tx},${ty}): ${found.length ? `true — ${found.join("; ")}.` : "true once, but the find moved on."}`, why: ["Verified finds become usable; the concealed may still have moved."] });
+          ClassRuntime?.auditor.verified(s,a,r,found,classH());
           return;
         }
         {   // eureka: mass reveal + 8 albedo per revealed enemy; your own cover goes too
@@ -867,7 +868,7 @@
       if (inst.ability === "restoreTheWorkingOrder" && inst.aim && MaidSystems)
         MaidSystems.invalidateMaintenance(s, inst.aim[0], inst.aim[1]);
       if (inst.effect === "fruit") { H.fruitResolve?.(s, a, inst); return; }   // Sinkerfruit techniques (engine/fruit.js)
-      if (ClassRuntime && inst.effect === "classEffect") { ClassRuntime.resolve(s, a, inst, classH()); return; }   // ClassRuntime
+      if (ClassRuntime && inst.effect === "classEffect") { ClassRuntime.resolve(s, a, inst, {...classH(),Factions:H.Factions,Parley:H.Parley}); return; }   // ClassRuntime
       if (inst.effect === "hexScreen") {   // the Cyborg form's ward (docs/brain-chip.md): replaced, never added to
         const reach = ab(inst.ability).radius || 1, held = Object.values(s.actors).filter((u) => !u.defeated && u.side === a.side && dist(s, a.x, a.y, u.x, u.y) <= reach);
         for (const u of held) u.status.ward = { label: "Hex Screen", owner: a.id, protection: inst.protection, expiresAt: a.ownerTurns + 1 };
@@ -924,7 +925,9 @@
         }
         // pierce hits in order along the line; then a barrier (if any) negates the remainder
         if (hitTargets.length > 1) s.stats.multiHits += 1;
+        const auditLineInst=inst;
         for (const t of hitTargets) {
+          const inst=ClassRuntime?.auditor.forTarget(auditLineInst,t)||auditLineInst;
           const index = Math.max(1, pts.findIndex(([x, y]) => H.coversTile(t, x, y)));   // cover counts up to the first tile of the unit the line meets
           const cover = inst.ignoreCover || heightAt(s, t.x, t.y) >= 2 ? [] : pts.slice(1, index).map(([x, y]) => {
             const b = barrierAt(s, x, y), objectInTile = s.arena.objects?.some((o) => o.x === x && o.y === y);
@@ -1002,7 +1005,9 @@
       const targets = recipients.targets;
       if (targets.length > 1) s.stats.multiHits += 1;
       if (!targets.length) log(s, { kind: "miss", actor: a.id, text: `${inst.name} hits no one.`, why: ["Nobody stands on the committed tiles."] });
+      const auditAreaInst=inst;
       for (const t of targets) {
+        const inst=ClassRuntime?.auditor.forTarget(auditAreaInst,t)||auditAreaInst;
         const lfBefore = t.lf;
         const splash = splashMult(t, inst);
         strikeTarget(s, a, t, inst, inst.potency * inst.mult * splash.mult, splash.why ? why.concat(recipients.why, [splash.why]) : why.concat(recipients.why));
@@ -1252,6 +1257,7 @@
     }
     function knock(s, a, t, n, inst, direction = "push") {
       n = H.fruitPushBonus?.(s, a, t, n, direction) ?? n;   // Sinkerfruit (respec S2b1): Mainspring
+      if (H.hasTrait?.(t, "packStrong") && (t.states?.relicGold || t.relicBrokeRound === s.round)) { n = Math.max(0, n - 1); if (n === 0) return; }   // Treasure Hunter (TH1), Pack Strong: carrying treasure (or the blow that just cracked the gold, this round) shortens a knock by 1; the gold breaks inside the hit, before this runs
       if (bossRules?.formImmovable?.(t)) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name}'s exoskeleton doesn't budge.` }); return; }   // learned forms: Exoskeleton
       if (t.boss && bossRules?.displacementBlocked(t)) { log(s, { kind:"resist", actor:a.id, target:t.id, tiles:footprint(t), text:`${t.name} holds its ground against the ${direction}.`, why:["The boss rules make this massive body immune to displacement."] }); return; }
       if (t.form?.golden) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x,t.y]], text: `${t.name} hovers beyond the ${direction}.`, why: ["The Integrated Self ignores forced movement."] }); return; }

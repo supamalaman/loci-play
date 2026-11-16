@@ -13,6 +13,10 @@
   const B = (kit, shared, passives, sprite, status = "live") => ({ status, kit, shared, passives, sprite: `combat/sprites/${sprite}` });
 
   const builds = {
+    auditor_goblin: B(["statute","warrant","survey","verify","auditComplete","ledgerOfDebts"],{}, {
+      scrutiny:{trait:"twentyTwentyVision",trigger:"Observe a visible subject",effect:{observePoints:1},bound:"shared trait effect once",counter:"Conceal the subject."},
+      precedent:{trait:"citesPrecedent",trigger:"answer a repeated witnessed technique",effect:{reactionAp:0},bound:"PF and reaction still paid",counter:"Vary techniques or deny observation."}
+    },"auditor-goblin"),
     rapper: B(["freestyle","writtenVerse","clip","juxtapose","dissTrack"], {}, {
       embodiment:{trigger:"perform a borrowed technique",effect:{keepsOriginalCounters:true},bound:"no ultimates or class-exclusive draws",counter:"Deny its prerequisites or silence the performer."},
       sampling:{trigger:"Clip a witnessed technique",effect:{needsSourceSight:false},bound:"only techniques seen this battle; normal fragment capacity",counter:"Withhold the technique or outlast its sample."},
@@ -253,6 +257,19 @@
       entrainer: { trigger: "he fixes a foe", effect: { subject: "focus mark" }, bound: "one subject at a time", counter: "Break line of sight and the hold slips." },
       gentle_hand: { trigger: "the first lethal blow he lands on a foe", effect: { sparedAt: 1 }, bound: "once per foe per battle; the win stays non-lethal", counter: "Hit the spared foe again: the hand stays itself only once." },
     }, "hypnotist", "brief"),
+    // Hot-build cuts F1 (cursor-hotbuilds-cuts-spec; Gunwale BD, 2026-11-14): the Forum five. Roster rows only: each kit is the two
+    // concepts' own live basic and refined techniques, and no passive is declared until its hot build (F2 to F6) makes it true.
+    florence_oloo: B(["diffuseWave", "concentrationGradient", "prototype", "recombine"], { primaryBasic: "diffuseWave", primaryRefined: "concentrationGradient", secondaryBasic: "prototype", secondaryRefined: "recombine" }, {}, "florence-oloo", "brief"),
+    chitinous_archbishop: B(["statute", "warrant", "markTheVessel", "effigy"], { primaryBasic: "statute", primaryRefined: "warrant", secondaryBasic: "markTheVessel", secondaryRefined: "effigy" }, {}, "chitinous-archbishop", "brief"),
+    chitin_bishop: B(["shimmer", "allure", "focus", "deepFocus"], { primaryBasic: "shimmer", primaryRefined: "allure", secondaryBasic: "focus", secondaryRefined: "deepFocus" }, {}, "chitin-bishop", "brief"),
+    shardback: B(["regrade", "drainagePlan", "lash", "brierRing"], { primaryBasic: "regrade", primaryRefined: "drainagePlan", secondaryBasic: "lash", secondaryRefined: "brierRing" }, {}, "creature-combat", "brief"),
+    eldritch: B(["annotate", "redact", "survey", "verify"], { primaryBasic: "annotate", primaryRefined: "redact", secondaryBasic: "survey", secondaryRefined: "verify" }, {}, "eldritch", "brief"),
+    // The Treasure Hunter (TH1; Discovery + Extraction, crew street): the four live techniques; status brief until his merges (TH1b) make the roster-ready gate apply.
+    treasure_hunter: B(["survey", "verify", "chandrahasa", "seize"], { primaryBasic: "survey", primaryRefined: "verify", secondaryBasic: "chandrahasa", secondaryRefined: "seize" }, {
+      pack_strong: { trigger: "a shove or knock while he carries treasure (the relicGold state), or later in the round its gold cracked", effect: { knockbackLess: 1 }, bound: "minimum 0; only while gold or in the round the gold cracks", counter: "Crack the gold first: the first blow that lands ends the form." },
+      gold_fever: { trigger: "he chooses where to step", effect: { moveBias: "toward unclaimed pickups" }, bound: "not while a foe at 6 LF or less is within 2 tiles; not toward an item id he already used", counter: "Put loot where you want him; he walks to it." },
+      finders_keepers: { trigger: "someone on the other side picks up the treasure he dropped", effect: { inspiration: 1 }, bound: "once per battle", counter: "Leave the drop on the ground." },
+    }, "treasure-hunter", "brief"),
     // Lakshmana (Mala, 2026-10-24; docs/lakshmana-build.md): Boundary + Interposition, crew ayodhya. The line, the guard, and the
     // brother who is felled but not slain. Rule 6: every technique works on anyone, stronger on Sita (the line) and Rama (the guard).
     lakshmana: B(["boundaryLine", "lakshmanaRekhaDraw", "brothersGuard", "coveringShot", "lineNotCrossed"], { primaryBasic: "boundaryLine", primaryRefined: "lakshmanaRekhaDraw", secondaryBasic: "brothersGuard", secondaryRefined: "coveringShot" }, {

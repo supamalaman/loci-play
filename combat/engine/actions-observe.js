@@ -260,6 +260,7 @@
       observeSummon(s, a, act) {   // Observe teaches O2c (D7): study a summon's palace room: the first study each battle adds +1 hint to its calling question
         const def = summonRules?.data?.summons?.[act.summon];
         if (!def) return "No such summon.";
+        if (!def.room) return `${def.name} has no palace room to study.`;   // Tandem T2b: the Mosaic is lent from the Tandem wing, not the palace
         if (!H.Observation.eligible(a)) return "This unit cannot study a palace room.";
         if (s.summonHints?.[a.id]?.[act.summon]) return "Already studied this battle: no new hint.";
         const price = s.rules.summonRoomStudyAp;   // the one writing of the price (action seams A3a); the card reads the same field
@@ -496,7 +497,7 @@
         if (!summonRules) return [];
         const price = s.rules.summonRoomStudyAp;
         // A3b order: enumerate in SM.available order (data order), as the menu does — the unlocked list's own order differs.
-        return summonRules.available({ unlocked: summonRules.familiarSet(a, extra.unlocked || s.unlockedSummons || []) }).filter((x) => x.unlocked && (!summonRules.callsPalace || summonRules.callsPalace(a))).map((x) => {   // K1 O2: the caller's own set
+        return summonRules.available({ unlocked: summonRules.familiarSet(a, extra.unlocked || s.unlockedSummons || []) }).filter((x) => x.unlocked && summonRules.data.summons[x.id].room && (!summonRules.callsPalace || summonRules.callsPalace(a))).map((x) => {   // K1 O2: the caller's own set; a summon with no palace room (a lent tandem, T2b) has none to study
           const def = summonRules.data.summons[x.id], studied = !!s.summonHints?.[a.id]?.[x.id];
           return judge(s, { type: "observeSummon", actor: a.id, summon: x.id }, extra,
             `Study ${def.name}'s room · ${price} AP${studied ? " · studied" : ""}`, price,

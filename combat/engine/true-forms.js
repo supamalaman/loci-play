@@ -384,9 +384,10 @@
       log(s, { kind: "tend", actor: a.id, healed, tiles: near.map(u => [u.x, u.y]), text: `${a.name} tends ${near.length === 1 ? near[0].name : `${near.length} plants`}${healed ? `: +${healed} LF` : ""}, Green ward ${HX.wardProtection}.`,
         why: [`Horticulture Expertise: communed plants within ${HX.tendRange} recover ${HX.tendHeal} LF and get a ward of ${HX.wardProtection} at the start of each of the holder's turns.`] });
     }
-    // Leash: what a communed plant's AI wanted, corrected so a plant that is not fighting stays near its owner.
+    // Leash: what a communed plant's AI wanted (and, first, a strained tandem's Stall turned into End), corrected so a plant that is not fighting stays near its owner.
     // Engaged plants (an enemy within engagedRange) fight on; a plant whose owner is down acts freely.
     function leashAction(s, act) {
+      { const t = act && s.actors[act.actor]; if (act?.type === "stall" && H.summonRules?.Tandem?.strained(t)) return { type: "end", actor: t.id }; }   // Tandem T2b: a strained tandem may not Stall (T1, R-20261114-33), so the AI's fallback Stall becomes End
       const HX = Communion?.rules.horticulture, a = act && s.actors[act.actor];
       if (!HX || !a?.communed || a.defeated || act.type === "respond") return act;
       const owner = s.actors[a.communed.owner];

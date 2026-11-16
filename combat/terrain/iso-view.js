@@ -136,7 +136,7 @@
       if (dot(f.n, towards) <= 0.0001 || (cutaway && CUT.has(f.kind))) continue;
       const screen = f.p.map(project), depth = f.skirt ? -Infinity : depthOf(f.p);   // the apron is one board-sized quad: by its centre it sorted over the court (Mala, 2026-10-26: "grey blobs ... like a rectangle underneath and clipping through the map")
       faces.push({ kind: f.kind, flat: f.flat, skirt: f.skirt, x: f.x, y: f.y, screen, box: boundsOf(screen), depth, top: f.c[2], near: f.flat ? near(f.x + 0.5, f.y + 0.5) : near(f.c[0], f.c[1]),
-        up: f.n[2] > 0.5, color: f.color, wb: [Math.min(...f.p.map((p) => p[0])), Math.min(...f.p.map((p) => p[1])), Math.max(...f.p.map((p) => p[0])), Math.max(...f.p.map((p) => p[1]))], span: f.p.length === 4 ? [Math.hypot(f.p[1][0] - f.p[0][0], f.p[1][1] - f.p[0][1]), Math.hypot(f.p[3][0] - f.p[0][0], f.p[3][1] - f.p[0][1])] : null, fill: shade(f.color, f.n, sun, lighting), receiver: !f.skirt && (f.kind === "ground" || (f.kind === "ramp" && f.flat)) });
+        up: f.n[2] > 0.5, color: f.color, world: f.p, n: f.n, wb: [Math.min(...f.p.map((p) => p[0])), Math.min(...f.p.map((p) => p[1])), Math.max(...f.p.map((p) => p[0])), Math.max(...f.p.map((p) => p[1]))], span: f.p.length === 4 ? [Math.hypot(f.p[1][0] - f.p[0][0], f.p[1][1] - f.p[0][1]), Math.hypot(f.p[3][0] - f.p[0][0], f.p[3][1] - f.p[0][1])] : null, fill: shade(f.color, f.n, sun, lighting), receiver: !f.skirt && (f.kind === "ground" || (f.kind === "ramp" && f.flat)) });
     }
     // Paving under the rounded deck fills the trimmed tile corners; it goes down before everything else.
     const under = cells.filter((c) => c.underlay).map((c) => { const world = [[c.x, c.y, c.z], [c.x + 1, c.y, c.z], [c.x + 1, c.y + 1, c.z], [c.x, c.y + 1, c.z]], screen = world.map(project);
@@ -181,9 +181,24 @@
       // keep the sun's shading (tops) or dim it a little (the apron: land you cannot walk on)
       g.save(); g.globalAlpha = f.skirt ? 0.3 : 0.32; g.beginPath(); trace(g, f.screen); g.fillStyle = f.skirt ? "#0d1208" : f.fill; g.fill(); g.restore();
     }
+    // An upright face the battle dresses with front-view wall art (side(face) -> pick(centre) -> image, or null): each
+    // piece of sidePieces is drawn through the affine map of its world rectangle, so the art stands on the face, keeps its
+    // shape, and turns with the camera. The sun's shading goes back over it, as on the textured tops.
+    function dress(g, f) {
+      if (!api.side || f.up || !f.world || !f.n) return;
+      const pick = api.side(f); if (!pick) return;
+      g.save(); g.beginPath(); trace(g, f.screen); g.clip();
+      for (const q of sidePieces(f.world, f.n)) {
+        const img = pick(q.c); if (!img || !img.naturalWidth) continue;
+        const top = add(q.o, [0, 0, q.s]), tl = project(top), tr = project(add(top, mul(q.right, q.w))), bl = project(q.o);
+        g.save(); g.transform((tr[0] - tl[0]) / img.naturalWidth, (tr[1] - tl[1]) / img.naturalWidth, (bl[0] - tl[0]) / img.naturalHeight, (bl[1] - tl[1]) / img.naturalHeight, tl[0], tl[1]);
+        g.drawImage(img, 0, 0); g.restore();
+      }
+      g.globalAlpha = 0.32; g.beginPath(); trace(g, f.screen); g.fillStyle = f.fill; g.fill(); g.restore();
+    }
     function drawFace(g, f) {
       g.beginPath(); trace(g, f.screen); g.fillStyle = f.fill; g.fill(); g.strokeStyle = f.fill; g.lineWidth = 0.35; g.stroke();
-      texture(g, f);
+      texture(g, f); dress(g, f);
       if (!f.shadows) return;
       g.save(); g.beginPath(); trace(g, f.screen); g.clip(); g.globalAlpha = 0.17; g.fillStyle = "#514735"; g.beginPath();
       for (const s of f.shadows) trace(g, s.screen);
@@ -270,10 +285,32 @@
     snap.views.set(vkey, made); return made;
   }
 
+  // Pieces for front-view art on an upright face (Mala, R-20261114-49 and R-20261115-05: the ship's bulkheads take the
+  // neon spaceship wall pieces). p: the face's world corners, n: its normal. Rows of height h / round(h / 0.8) (at least
+  // one: a 0.5 wall is one row, a 1.6 hull two), columns as near square as the length allows. Each piece is
+  // { o: its bottom corner at the camera's left, right: the level direction along the face as a camera facing it sees it
+  // (n cross z: map y runs south, so the axes are left-handed; the art is never mirrored), w, s: its width and height, c: its centre }. A top, or a face under 0.05
+  // high (a coping), gets none.
+  function sidePieces(p, n) {
+    if (!p || p.length < 3 || Math.abs(n[2]) > 0.01) return [];
+    const zs = p.map((q) => q[2]), z0 = Math.min(...zs), h = Math.max(...zs) - z0;
+    if (h < 0.05) return [];
+    const right = norm([n[1], -n[0], 0]), along = p.map((q) => dot(q, right)), a0 = Math.min(...along), L = Math.max(...along) - a0;
+    if (L < 0.05) return [];
+    const b = p[zs.indexOf(z0)], o = [b[0] - right[0] * (dot(b, right) - a0), b[1] - right[1] * (dot(b, right) - a0), z0];
+    const rows = Math.max(1, Math.round(h / 0.8)), s = h / rows, cols = Math.max(1, Math.round(L / s)), w = L / cols, out = [];
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const at = [o[0] + right[0] * i * w, o[1] + right[1] * i * w, z0 + j * s];
+      out.push({ o: at, right, w, s, c: [at[0] + right[0] * w / 2, at[1] + right[1] * w / 2, at[2] + s / 2] });
+    }
+    return out;
+  }
+
   // layer(w, h) makes the canvas the scene is kept on; without one (no document) every frame paints the scene through.
   // surface(kind, face) → { img, tiles } or null for kind "top" (flat built tops) or "apron" (the ground outside the board);
   // the battle supplies the art. textureEpoch bumps when one of those images loads, which rebakes the kept scene.
-  const api = { supports, sculpted, snapshot, view, model, CUT, POPULATION, surface: null, textureEpoch: 0,
+  // side(face) → null, or pick(centre) → image for each of sidePieces on an upright face (the ship's wall pieces).
+  const api = { supports, sculpted, snapshot, view, model, sidePieces, CUT, POPULATION, surface: null, side: null, textureEpoch: 0,
     layer: typeof document !== "undefined" ? (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; } : null };
   return api;
 });

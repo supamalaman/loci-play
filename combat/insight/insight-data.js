@@ -32,6 +32,7 @@
   // Traits. open = noticed as soon as the character is seen; hidden = must be observed (difficulty).
   //   deck modifiers: allDifficulty (added to every observation), extra (deep observations added), revealAll.
   const traits = {
+    citesPrecedent:{name:"Cites Precedent",category:"values",text:"Remembers witnessed techniques. When answering a visible attacker who repeats a technique you already saw them use, the reactive technique costs 0 AP. Its ΦF and reaction are still paid. Change techniques or deny sight to defeat the precedent.",open:true},
     discernment:{name:"Discernment",category:"psychology",difficulty:2,text:"Each new hidden fact personally learned through Observe or Investigate gives +5% direct damage against that enemy, up to +25% for this battle. Repeated or shared knowledge adds nothing."},
     catNap:{name:"Cat Nap",text:"When she stalls, she spends 5 bankable AP per LF restored (up to 8 LF); remaining AP is banked. Full health keeps the normal bank.",open:true,unlocks:[]},
     honest:        { name: "Honest",        text: "Hides nothing about themselves.", open: true, deck: { revealAll: true }, unlocks: ["ask"] },
@@ -52,7 +53,7 @@
     // two powers (open, everyone can see them) and at least one CRITICAL weakness (hidden: Observe finds it).
     superStrength:   { name: "Super Strength", text: "Hits far harder than a person should.", open: true, combat: { abilityDamageMul: 1.15 } },
     denseMuscle: { name: "Dense Muscle", text: "Doubled physical damage (Strike, contact techniques, beast slams) and grappling (chance, cuts, squeezes); takes ×0.8 from everything but piercing.", open: true },
-    superSpeed:      { name: "Super Speed", text: "Covers ground in a blur: +2 movement.", open: true, combat: { extra: { moveBudgetAdd: 2 } } },
+    superSpeed:      { name: "Super Speed", text: "Runs on a faster clock: +2 movement, steps cost half AP, and water does not slow them (one who cannot swim can still run across deep water, but not stop on it). Sees a shot at them coming at any range (Guard or dodge it, once a round; the dodge costs half and reaches two tiles farther; not Strikes, fields or direct hits). The first Strike after a sprint of 3 or more tiles hits harder (+1 per 2 tiles walked, up to +6; never added to a Knight's Lance Charge). Friction (slowed, staggered, tangled, a hurt leg, grappled) takes the speed away.", open: true, combat: { extra: { moveBudgetAdd: 2 } } },
     superDurability: { name: "Super Durability", text: "Shrugs off what would floor anyone else: all damage ×0.8.", open: true, combat: { extra: { channelDamageMul: { nigredo: 0.8, albedo: 0.8, citrinitas: 0.8, rubedo: 0.8 } } } },
     superHealing:    { name: "Super Healing", text: "Wounds close as you watch: +6 LF at the start of each turn.", open: true, combat: { extra: { healPerTurn: 6 } } },
     weakToNigredo:   { name: "Critical weakness: impact", text: "Blunt force goes straight through the power: Nigredo ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { nigredo: 1.75 } } } },
@@ -236,6 +237,10 @@
     // Hotbuilds wave 1 (The Hypnotist): Entrainer carries his AI table and names his subject; Gentle Hand stays itself once per foe.
     entrainer: { name: "Entrainer", category: "psychology", text: "Sets one subject and keeps it: his attention sits on a single foe (the Focus mark).", difficulty: 2 },
     gentleHand: { name: "Gentle Hand", category: "values", text: "The first lethal blow he lands on each foe leaves that foe at 1 LF, once per foe per battle.", difficulty: 2 },
+    // The Treasure Hunter (TH1): Pack Strong (biology, innate; Lab record docs/trait-lab.md), Gold Fever (psychology, drives his pathing), Finder's Keepers (values).
+    packStrong: { name: "Pack Strong", category: "biology", text: "A back and shoulders built to haul: a shove moves him one tile less far while he carries treasure, and until the end of the round in which his gold cracks.", difficulty: 2 },
+    goldFever: { name: "Gold Fever", category: "psychology", text: "He is drawn to loot: his steps lean toward any pickup he can still turn to gold, unless a badly hurt foe is within reach.", difficulty: 1 },
+    findersKeepers: { name: "Finder's Keepers", category: "values", text: "Whatever he finds is his; the first time each battle someone takes the treasure he dropped, he gains an Inspiration.", difficulty: 2 },
     arcaneMastery: { name: "Arcane Mastery", category: "psychology", text: "Every spell carries a rider: offensive techniques curse each enemy they reach (exposed, entangled, or bleeding); support techniques bless each ally they reach (warded, membraned, or recharged).", difficulty: 3 },
     humanExperience: { name: "The Human Experience", text: "14 willpower instead of 10, and parlays land 20% better. Has lived enough to argue anything.", difficulty: 3 },
     courageous:     { name: "Courageous", text: "Fear does not decide for them: Frighten lands on them far less often, and they hold when an ally falls.", difficulty: 3, fearResist: 0.15 },
@@ -337,7 +342,7 @@
     atlasBones: { name: "Atlas Bones", category: "biology", text: "Mapped in marrow: falls cost no LF (the stagger still lands).", open: true, planned: "Tree travel (chain D unlanded)." },
   });
   const traitCategories = {
-    biology: ["swimmer", "gills", "superStrength", "superSpeed", "superDurability", "superHealing", "weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone",
+    biology: ["packStrong", "swimmer", "gills", "superStrength", "superSpeed", "superDurability", "superHealing", "weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone",
       "dreamFragile", "supernaturalWeakness", "immortal", "catNap", "touchedByMagic",
       "survivalInstincts", "keenSenses", "twentyTwentyVision", "thinVeil", "nightSighted", "hardy", "fleetFooted", "cavalry", "heavyArmor", "plantKin", "ironStomach", "frail", "resonantVoice", "dreamTouched", "reach", "strongGrip",
       "telepathy", "telekinetic", "denseMuscle", "vegetativePropagation", "highTolerance", "robot", "ceaselessAdaptation", "insaneReflexes", "cybernetic", "distributedIntelligence", "stickyFingers", "visage", "godlyAgility", "theLook", "perfectConcentration", "adhd", "fireblooded", "territorial", "quenchable", "spiritSight", "ruleOfTheThreshold", "purified", "exoskeleton", "broodmind", "molting", "faceless", "unbearable", "hollow", "rootbound", "greenblood", "woundedLand", "takeoff", "overheat", "platform", "goldenParachute", "burnRate"   /* form traits (learned forms, 2026-10-17; formOnly) */, "aerodynamic", "lightFrame", "ascended",
@@ -353,10 +358,10 @@
       /* tsukumogami self-trait, 2026-10-29 */ "animist", /* ingredient totems, 2026-11-07 */ "kitchenAnimism",
       /* the Paladin, 2026-10-31 (PALADIN.md) */ "consecrated", "faithful", "compassionate",
       /* the respec fruit, 2026-11-01 */ "fruitbound",
-      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer"],
-    values: ["believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
+      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer", /* the Treasure Hunter, TH1 */ "goldFever"],
+    values: ["citesPrecedent", "believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
       "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective",
-      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand"],
+      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand", /* the Treasure Hunter, TH1 */ "findersKeepers"],
     state: ["complex", "unexplainedEvent"],
     spiritual: ["astralPresence"],   // soul traits (Mala, 2026-10-24): invisible unless the observer is a seer (seesSpirits, planned); rolled like anything else but far rarer for the average person
   };
@@ -380,6 +385,7 @@
       texts: { won: "{speaker} preaches to {listener}, and it lands.", anti: "{speaker} preaches at {listener}, who comes away a Non-believer.", unmoved: "{speaker} preaches; {listener} shrugs it off." } },
   };
   const traitDynamics = {
+    citesPrecedent:{counters:["imaginative"],synergies:["attentionToDetail","truthSeeker"]},
     scout: { counters: ["rivalrous", "impatient"], synergies: ["curious", "collaborative", "truthSeeker", "hiker"] },
     discernment:{counters:["impatient","fool"],synergies:["curious","truthSeeker","genius"]},
     courageous: { counters: ["fearful", "skittish"], synergies: ["loyal", "proud", "honorable"] },
@@ -390,6 +396,8 @@
     neverGiveUp: { counters: ["fearful", "skittish"], synergies: ["loyal", "brave", "courageous"] },
     merciful: { counters: ["rivalrous", "vengeful", "greedy"], synergies: ["empathic", "agreeable", "pacifist"] },
     gentleHand: { counters: ["vengeful", "rivalrous"], synergies: ["merciful", "protective", "empathic"] },   // the Hypnotist (hotbuilds W1a): leaves the first kill at 1 LF; row added at landing 1.3.546 (Capstan IN) for the trait registry rule
+    findersKeepers: { counters: ["charitable", "honest"], synergies: ["greedy", "gambler", "collector"] },   // the Treasure Hunter (TH1)
+    goldFever: { counters: ["focused"], synergies: ["greedy", "gambler", "collector"] },   // the Treasure Hunter (TH1)
     honorable: { counters: ["greedy", "fool"], synergies: ["proud", "loyal", "honest", "courageous"] },
     dutiful: { counters: ["impatient", "curious"], synergies: ["loyal", "stubborn", "traditionalist"] },
     byTheBook: { counters: ["fool", "impatient"], synergies: ["dutiful", "honest"] },
@@ -534,6 +542,11 @@
         lever: "Do not reach for it — lines and fields still land.",
         counters: [{ match: { delivery: "contact" }, value: -4 }, { match: { type: "strike" }, value: -4 }] } ];
   const profiles = {
+    auditor_goblin:{traits:["twentyTwentyVision","attentionToDetail","citesPrecedent"],obs:[
+      {kind:"tell",text:"The little ledger records techniques he actually sees. A Statute names the delivery he can object to.",difficulty:1},
+      {kind:"weakness",channel:"citrinitas",text:"Paper burns: citrinitas is his weak channel.",difficulty:2},
+      {kind:"realization",text:"Mix your techniques. Repeated witnessed attacks make his answer free in AP, but it still spends ΦF and a reaction. Step outside the posted law to deny Objection; the damage itself is never cancelled.",difficulty:2}
+    ]},
     // the original class pack (Claude, 2026-10-08): hidden strengths and weaknesses as discoverable observations.
     // Agent Swarm (Mala, 2026-10-13): Cybernetic and Distributed Intelligence are his body; a Robot Sympathizer by conviction.
     agent_swarm: { traits: ["cybernetic", "distributedIntelligence", "robotSympathizer"], obs: [
@@ -788,6 +801,11 @@
       { kind: "tell", text: "He never looks behind him, and never listens when warned.", difficulty: 1 },
       { kind: "weakness", channel: "albedo", text: "He asked Brahma for protection from gods and spirits, and scorned to ask it of men: a mortal's arrow hits him fully.", difficulty: 2 },
       { kind: "realization", text: "Vibhishana's secret: the nectar is in his navel. The Brahmastra stops the heads and breaks the boon at once.", difficulty: 2, deep: true } ] },
+    treasure_hunter: { traits: ["packStrong", "goldFever", "findersKeepers"], obs: [
+      { kind: "tell", text: "He turns toward every glint on the ground, even in the middle of a fight.", difficulty: 1 },
+      { kind: "tell", text: "Once he has grabbed something, gold relics wrap him head to foot.", difficulty: 1 },
+      { kind: "weakness", channel: "nigredo", text: "The gold is thick but brittle: any blow that lands cracks it, and the treasure falls.", difficulty: 1 },
+      { kind: "realization", text: "He is gold only until he is hit. Chip him once with something cheap, then take what falls or fight the man underneath.", difficulty: 2, deep: true } ] },
     hypnotist: { traits: ["theLook", "entrainer", "gentleHand"], obs: [
       { kind: "tell", text: "He never takes his eyes off one of you.", difficulty: 1 },
       { kind: "weakness", channel: "albedo", text: "Break the gaze: cut the pendulum's cord and the hold slips.", difficulty: 2 },

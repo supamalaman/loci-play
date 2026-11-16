@@ -291,7 +291,7 @@
         if (s.pending.inst.ability === "arrest" && H.Dispatch?.wantsTrial(s, a) && opts.some((o) => o.kind === "kneel")) return traceAiReturn("aiDecide:arrestKneel", ({ type: "respond", actor: a.id, response: "kneel" }));   // cuffs coming and the docket open: kneel and claim trial
         if (switchOn(s, a, "foeMemory")) { const prefer = {}; for (const e of s.log) if (e.kind === "answered" && e.target === a.id && e.worked && e.ability) (prefer[e.attackAbility] ||= {})[e.ability] = 1.25; s.foeBrief = { for: a.id, prefer }; }   // foe-memory: earlier this battle, this answer worked against this technique
         const react = reactChoice(s, a, opts), asReact = react && { type: "respond", actor: a.id, response: "technique", ability: react.ability, target: react.target };
-        if (s.pending.reactive) return traceAiReturn("aiDecide:L223", (asReact || { type: "respond", actor: a.id, response: "none" }));   // unannounced: a reactive technique or nothing
+        if (s.pending.reactive && !opts.some((o) => o.kind === "guard")) return traceAiReturn("aiDecide:L223", (asReact || { type: "respond", actor: a.id, response: "none" }));   // unannounced: a reactive technique or nothing (a blurred speedster is offered Guard and the dodge too: SS2)
         { const DG = s.rules.reactiveDefense?.ai?.dodge; if (DG?.on && (!DG.sides || DG.sides.includes(a.side))) return traceAiReturn("aiDecide:L224", (defendChoice(s, a, opts, react))); }   // priced: a dodge has to be worth its action points
         const safe = opts.find((o) => o.kind === "reposition" && o.safe);
         const thrown = opts.find((o) => o.kind === "dodgeThrow" && o.safe);
@@ -546,6 +546,16 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
             const near = (x, y) => herd.some((t) => Math.abs(t.x - x) + Math.abs(t.y - y) <= HX.tendRange);
             if (near(to[0], to[1]) && !near(a.x, a.y)) v += 3;
             else if (!near(to[0], to[1]) && near(a.x, a.y)) v -= 3;
+          }
+        }
+        // The Treasure Hunter's Gold Fever (TH1): his steps lean toward a pickup he can still turn into gold (+8 for ending on one, +1.5 a tile closer), unless a kill is
+        // open this turn (approximated here as a foe within 2 tiles at 6 LF or less; the plan scorer's own kill bonus still decides the strike).
+        if (moverTraits.has("goldFever") && !a.states?.relicGold && (s.arena?.pickups || []).length) {
+          const open = s.arena.pickups.filter((q) => !(a.relicUsed || []).includes(q.item));
+          const finish = Object.values(s.actors).some((t) => t.side !== a.side && t.side !== "bystander" && t.side !== "civilian" && !t.defeated && !t.notArrived && t.lf <= 6 && dist(s, a.x, a.y, t.x, t.y) <= 2);
+          if (open.length && !finish) {
+            const d = (x, y) => Math.min(...open.map((q) => dist(s, x, y, q.x, q.y)));
+            v += open.some((q) => q.x === to[0] && q.y === to[1]) ? 8 : Math.max(0, d(a.x, a.y) - d(to[0], to[1])) * 1.5;
           }
         }
         // The Animal Tamer unmarked (engine/tamer.js): every move is a run for a spare life, toward a beast to tame or his
@@ -1095,7 +1105,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           if (v > R.keep && (!best || v > best.value)) best = { ...t, value: v };
           continue;
         }
-        const o = known ? play({ response: "technique", ability: t.ability, target: t.target }) : guess(t); if (!o) continue;
+        const o = known ? play({ response: "technique", ability: t.ability, target: t.target }) : apply(s, { type: "respond", actor: a.id, response: "technique", ability: t.ability, target: t.target }, { preview: true }).ok ? guess(t) : null; if (!o) continue;   // unrevealed it still guesses the outcome, but never picks an answer the engine refuses (a wall over the Tourist's exit, actions.js)
         let v = worth(o) - t.apCost * perAp - t.pf * R.pfWeight;
         if (t.coverFor && o.st && base.st) { const allyBefore = s.actors[t.coverFor]?.lf ?? 0;   // W1c cover: a revealed attack is played out, so the ally's saved LF prices exactly (unrevealed, the guess covers only self and the gaze stays home)
           v += ((allyBefore - (base.st.actors[t.coverFor]?.lf ?? 0)) - (allyBefore - (o.st.actors[t.coverFor]?.lf ?? 0))) * (R.allyWeight ?? 1); }
@@ -1638,7 +1648,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     const foeConcealedHere = (s, a) => Object.values(s.actors || {}).some((u) => !!u && !u.defeated && u.side !== a.side && !!u.status?.concealed && (u.status.concealed.until == null || u.status.concealed.until >= u.ownerTurns));   // the veiled read, ai.js:1687
     const ownRumorPendingHere = (s, a) => (s.rumors || []).some((r) => typeof r.id === "string" && r.id.startsWith(`rumor-${a.id}-`) && r.expiresRound > s.round);   // her own find, still live (resolve.js verify reads the same expiry)
     const noOwnRumorHere = (s, a) => !ownRumorPendingHere(s, a);
-    const driveChecks = { foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere, freshCatalogueTarget: freshCatalogueTargetHere, cataloguedQuarry: cataloguedQuarryHere, foeConcealed: foeConcealedHere, ownRumorPending: ownRumorPendingHere, noOwnRumor: noOwnRumorHere };
+    const driveChecks = { auditNoStatute:(s,a)=>!(s.terrainEffects||[]).some(e=>e.kind==="statute"&&e.owner===a.id&&a.ownerTurns<e.expiresAt),auditRumour:(s,a)=>s.rumors?.some(r=>r.ownerSide===a.side&&r.expiresRound>s.round), foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere, freshCatalogueTarget: freshCatalogueTargetHere, cataloguedQuarry: cataloguedQuarryHere, foeConcealed: foeConcealedHere, ownRumorPending: ownRumorPendingHere, noOwnRumor: noOwnRumorHere };
     function driveWhenHolds(checks, s, a, cand, when) {
       if (when === undefined || when === null) return true;
       // A bare ["name", x] with non-string x is one tuple; any other array is a list of atoms (tuple args are never bare strings).

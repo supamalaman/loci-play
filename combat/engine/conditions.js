@@ -34,7 +34,7 @@
     const isSwimmer=a=>(a?.traits||[]).some(t=>H.traitKey(t)==="swimmer");
     const hasGills=a=>(a?.traits||[]).some(t=>H.traitKey(t)==="gills");
     function refreshWaterDrowning(s,a,cause="water opens beneath them",surprise=false) {
-      if(!a || a.defeated || a.notArrived)return;
+      if(!a || a.defeated || a.notArrived || a.waterRunning)return;   // waterRunning: a speedster mid-run over deep water (the move action sets and clears it)
       const wet=H.waterAt(s,a.x,a.y) && !H.ClassRuntime?.flies(a), at=H.key(a.x,a.y);
       const depth=wet ? (H.surfaceAt(s,a.x,a.y)==="~"?"deep":"shallow") : "dry";
       const opened=wet && (a.waterContact!==at || (a.waterDepth==="shallow" && depth==="deep"));
@@ -1156,6 +1156,44 @@
       return out;
     }
     const hasTrait = (a, id) => !!id && (a?.traits || []).some(t => (typeof t === "string" ? t : t?.id) === id) && !((a.traitsOff || a.states) && H.States?.traitIgnored(a, id));   // Cure: a peeled layer (traitsOff) or an unmasked unit's restraint trait is ignored
+    // ── True Super Speed (rules.trueSpeed; claude-true-super-speed-spec SS1: Blur and Friction) ──
+    // Speed is time: a unit with the trait pays half the action points for a step and no water surcharge (Blur), and one
+    // that cannot swim may still run across deep water when it ends the move on dry ground. Friction is the counter:
+    // anything that holds the legs takes the blur away until it ends. friction() returns the first thing holding them, or null.
+    const speedster = (s, a) => !!s.rules.trueSpeed && !!a && hasTrait(a, s.rules.trueSpeed.trait);
+    function friction(s, a) {
+      if (a.status?.slowStart?.expiresAt > a.ownerTurns) return "a slow start";
+      if (a.status?.stagger) return "a stagger";
+      if (H.tangleCut(a) > 0) return "a tangle";
+      if (a.status?.moveAdd?.expiresAt > a.ownerTurns && a.status.moveAdd.amount < 0) return "slowed steps";
+      if ((H.Injury?.gradeOf(a, "legs") || 0) >= 1) return "a hurt leg";
+      if (H.grappled(s, a)) return "a hold";
+      return null;
+    }
+    const blur = (s, a) => speedster(s, a) && !friction(s, a);
+    // SS2 Nothing Is Sudden: a blurred unit dodges at dodgeApMul of the price, rounded down (after Insane Reflexes' half it is 12 of 50), and
+    // two tiles farther. engine.js dodgeCostFor and engine/injury.js dodgeReach call these; an unrelated unit gets its own number back.
+    const speedDodge = (s, a, cost) => (blur(s, a) ? Math.floor(cost * (s.rules.trueSpeed.dodgeApMul ?? 1)) : cost);
+    const speedReach = (s, a) => (blur(s, a) ? s.rules.trueSpeed.dodgeReachAdd || 0 : 0);
+    // Deep water under a runner who cannot swim (a flyer is over it, not on it): crossable mid-run, never a place to stop.
+    const waterRunner = (s, a) => blur(s, a) && H.cannotSwim(a) && !H.ClassRuntime?.flies(a);
+    const deepAt = (s, x, y) => { const t = H.tileAt(s, x, y); return !!t.blocksMove && !!t.tags?.includes("water"); };
+    const wetEnd = (s, a, x, y) => (waterRunner(s, a) && deepAt(s, x, y) ? "Too fast to stop on water: end the run on dry ground." : null);
+    // The move pathfinder for a unit's own move (the move action and moveOptions): engine.js paths() lets a water runner
+    // step onto deep water only while H.waterRun names it, so a dodge, a rout or an AI approach never routes one there.
+    function movePaths(s, a, budget) {
+      H.waterRun = waterRunner(s, a) ? a.id : null;
+      try { return H.paths(s, a.x, a.y, budget, "move"); } finally { H.waterRun = null; }
+    }
+    // Keeps a.speedState ("blur" | "friction") in step with the rule and logs each change once. The status card reads it.
+    function speedSync(s, a) {
+      if (!a || a.defeated || !speedster(s, a)) { if (a?.speedState) delete a.speedState; return; }
+      const now = friction(s, a) ? "friction" : "blur", was = a.speedState;
+      if (now === was) return;
+      a.speedState = now;
+      if (now === "friction") log(s, { kind: "friction", actor: a.id, target: a.id, text: `Friction: ${a.name} loses the blur.`, why: [`${friction(s, a)} holds the legs: steps cost full price and water slows again until it ends.`] });
+      else if (was === "friction") log(s, { kind: "friction", actor: a.id, target: a.id, text: `${a.name} is back up to speed.` });
+    }
     // What the door would offer this unit if it fell holding `ap` points: 0 when it cannot open at all.
     function deathDoorOdds(s, id, ap) {
       const a = s.actors[id]; if (!a || !summonRules?.deathDoorChance || a.side !== "player" || a.id !== (s.modeSetup?.hero || "player") || s.deathDoorUsed) return 0;
@@ -1298,7 +1336,7 @@
       }
       return out;
     }
-    return { relicPassives, OWN_MOVE_ACTIONS, breakHoldsApart, settleHolds, pressSubmission, submissionRound, submitFoe, slipFree, canCommitSubmission, waterState, isSwimmer, refreshWaterDrowning, waterRecovery, updateWater, previewFlood, advanceWater, waterAgenda, fishRound, fishNear, carryLegacy, carryBeasts, legacyPrice, journalOptions, nameRandomFoes, assignEnemyLoci, corpseSweep, corpseBeside, burialAp, lastRites, graveWard, formCtx, carryLearnedForms, spawnFormLarva, formsTurnStartFor, formsAfterAction, spreadIdea, spreadByTalk, adhdPrice, adhdPaid, heldCostMul, breakCost, callCompanion, cornerAdvice, adviceMul, companionTick, strikeRange, grappleCost, freeStrike, grappled, grappleChance, knownEnemyTraps, chanted, endRitual, ritualTick, finishRitualsOnWin, riteDiscount, endRite, riteTick, grantSacrifice, beadBeast, beastTick, applyPoison, poisonTick, fearless, fearCheck, visageGaze, heroFell, onEdge, adjustMoveCost, consumeMoveMods, refundMove, eatShock, staggerTurns, tangleCut, moveFloor, relocationHold, entangle,
+    return { friction, blur, speedDodge, speedReach, waterRunner, wetEnd, movePaths, speedSync, relicPassives, OWN_MOVE_ACTIONS, breakHoldsApart, settleHolds, pressSubmission, submissionRound, submitFoe, slipFree, canCommitSubmission, waterState, isSwimmer, refreshWaterDrowning, waterRecovery, updateWater, previewFlood, advanceWater, waterAgenda, fishRound, fishNear, carryLegacy, carryBeasts, legacyPrice, journalOptions, nameRandomFoes, assignEnemyLoci, corpseSweep, corpseBeside, burialAp, lastRites, graveWard, formCtx, carryLearnedForms, spawnFormLarva, formsTurnStartFor, formsAfterAction, spreadIdea, spreadByTalk, adhdPrice, adhdPaid, heldCostMul, breakCost, callCompanion, cornerAdvice, adviceMul, companionTick, strikeRange, grappleCost, freeStrike, grappled, grappleChance, knownEnemyTraps, chanted, endRitual, ritualTick, finishRitualsOnWin, riteDiscount, endRite, riteTick, grantSacrifice, beadBeast, beastTick, applyPoison, poisonTick, fearless, fearCheck, visageGaze, heroFell, onEdge, adjustMoveCost, consumeMoveMods, refundMove, eatShock, staggerTurns, tangleCut, moveFloor, relocationHold, entangle,
       edgeDistance, fleeBattle, isMonster, monsterCtx, monsterApply, monsterOf, monsterPotency, monsterRider, monsterTurnStart, monsterTurnEnd, monsterRelease, mindlessAct, arrivalBlocked, hasTrait, deathDoorOdds, communeDiscount, tryDeathDoor, performerTestOptions,
       focusedDreamTestOptions, devPlaygroundOptions, themedBattleOptions, meleeTestOptions,
       directiveLive, directiveDestOpen, consumeDirective, tilesOccupiedIn, pairWithin,

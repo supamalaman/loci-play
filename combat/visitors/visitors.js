@@ -110,24 +110,25 @@
   H.log(s,{kind:"faction",actor:victim.id,text:`${victim.name} is taken: the light folds and the visitors are gone with the specimen.`,why:["The ritual completed. What happens aboard the ship is another mission."]});
   return {victim:victim.id,crew:crew.map(u=>u.id)};
  }
- const hold=(s,a)=>{   // the ship never leaves its landing tile; a watching agent plants its feet
-  if(!a.guardUsedThisTurn&&a.tempo>=s.rules.actionCosts.guard)return {type:"guard",actor:a.id};
+ const hold=(s,a,H)=>{   // the ship never leaves its landing tile; a watching agent plants its feet
+  const g={type:"guard",actor:a.id};   // a state that refuses Guard (Lured) is asked first: the rules would reject it (Gunwale BD, 2026-11-14, F1 sweep: SC09 seed 41)
+  if(!a.guardUsedThisTurn&&a.tempo>=s.rules.actionCosts.guard&&H.apply(s,g,{preview:true}).ok)return g;
   return {type:a.tempo>0?"stall":"end",actor:a.id};
  };
  // Turn decisions for the crew. Null falls through to ordinary AI (a hostile grey fights; atWar bounds it).
  function advise(s,a,H){
-  if(isShip(a))return hold(s,a);
+  if(isShip(a))return hold(s,a,H);
   if(isScientist(a)){   // support: hold with the landing party until there is a war, then work (heals, walls, fire) through ordinary AI
    if(a.controller==="player")return null;
    const war=Object.values(s.actors||{}).some(u=>u&&!u.defeated&&!is(u)&&hostileTo(s,u.side));
-   return war?null:hold(s,a);
+   return war?null:hold(s,a,H);
   }
   if(a.ritual||a.controller==="player")return null;   // a chanting agent is held by the channeler branch
   const v=victimOf(s);
   if(!v){if(!s.preview)depart(s,H,"the specimen is gone");return {type:"end",actor:a.id};}
   if(H.chanted?.(s,v.id)){   // the chant is held: watch, unless there is a war to fight
    if(Object.values(s.actors||{}).some(u=>u&&!u.defeated&&!is(u)&&hostileTo(s,u.side)))return null;
-   return hold(s,a);
+   return hold(s,a,H);
   }
   const err=canChant(s,a,v.id,H);
   if(!err&&a.tempo>=H.RITUAL.ap){
@@ -137,7 +138,7 @@
   const near=(at)=>Math.abs(at[0]-v.x)+Math.abs(at[1]-v.y);   // close with the specimen
   const step=H.moveOptions(s,a.id).filter(o=>near(o.to)<near([a.x,a.y])).sort((p,q)=>near(p.to)-near(q.to)||p.tempoCost-q.tempoCost);
   for(const o of step.slice(0,4))if(H.apply(s,{type:"move",actor:a.id,to:o.to},{preview:true}).ok)return {type:"move",actor:a.id,to:o.to};
-  return hold(s,a);
+  return hold(s,a,H);
  }
  return { SIDE, GREY_LF, SHIP_LF, SCIENTIST_LF, CHANT_TURNS, is, isShip, isScientist, book, hostileTo, victimOf, pickVictim, specs, arrive, atWar, attacked, blocked, canChant, chant, depart, abduct, advise };
 });

@@ -122,8 +122,8 @@
       if (H.States?.refusesKind(s, s.actors[id], "move")) return [];   // States: a gate holds movement
       const a = s.actors[id];
       if (grappled(s, a) || a.status?.wrapped?.forTurn === a.ownerTurns) return [];   // Grapple: held; Binding Wraps: wrapped
-      const budget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a)), P = paths(s, a.x, a.y, budget, "move"); const out = [];   // Injury: wounded legs −1 (min 0), maimed legs 0
-      for (const [k, n] of P.dist) if (n > 0) { const [x, y] = k.split(",").map(Number), path = P.pathTo(x,y), tempoCost = movementTempoCost(s,a,path); if (tempoCost <= a.tempo) out.push({ to: [x, y], path, cost: n, tempoCost }); }
+      const budget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a)), P = H.movePaths(s, a, budget); const out = [];   // Injury: wounded legs −1 (min 0), maimed legs 0
+      for (const [k, n] of P.dist) if (n > 0) { const [x, y] = k.split(",").map(Number), path = P.pathTo(x,y), tempoCost = movementTempoCost(s,a,path); if (tempoCost <= a.tempo && !H.wetEnd(s, a, x, y)) out.push({ to: [x, y], path, cost: n, tempoCost }); }
       if (isMonster(a)) { const ctx = monsterCtx(s); return out.filter(o => EM.canEndAt(a, o.to, ctx).ok); }   // shade to shade, inside its haunt, never beside fire
       if (H.summonRules?.Tandem?.of(a)) return out.filter((o) => H.summonRules.Tandem.moveAllowed(s, a, o.to, dist));   // Tandem T1: within its leash, or back toward its user
       return out;
@@ -199,6 +199,7 @@
       if (!a || !m || m.tier === "ultimate") return false;
       const def = ab(m.ability), flag = def?.freeFirst;
       // freeFirstFor: a shared def (focus is Bastet's too) names the characters the free use belongs to (HOTBUILDS.md section 2: the Hypnotist's). Merge fix, 1.3.546.
+      if (Array.isArray(def?.freeFirstTraits) && !def.freeFirstTraits.some(t=>(a.traits||[]).some(x=>(typeof x==="string"?x:x.id)===t))) return false;
       if (Array.isArray(def?.freeFirstFor) && !def.freeFirstFor.includes(a.character)) return false;
       if (flag === "turn") return (a.freeTurns || {})[m.ability] === a.ownerTurns ? false : "turn";
       if (flag === "battle") return (a.freeBattle || {})[m.ability] ? false : "battle";

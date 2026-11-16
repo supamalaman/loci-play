@@ -19,7 +19,10 @@
   }
   // The Control ladder (Muse, 2026-10-20; docs/threat-ratings.md "Control ladder"): every fighter against the frozen
   // Control instrument, 32 duels + 32 three-a-side battles on the same seeds; wins of 64. Rows: [id, wins, battles, note?].
-  // Order breaks ties. The Cyanotype Artist is out (its result was an artifact: permanentAlly, untestable as an enemy),
+  // Order breaks ties (list() sorts by rate, then row order): a new row that ties an older one is placed below it; two new
+  // rows that tie are placed by duel wins.
+  // Ladder round 2026-11 (claude-ladder-qualifiers-spec; Mala R-20261115-18): the eight rows marked v1.3.566 are copied
+  // from sims/ladder/2026-11.tsv; the older rows were rated on older tags. The Cyanotype Artist is out (its result was an artifact: permanentAlly, untestable as an enemy),
   // and Control's mirror is the par line, not a row.
   const ROWS = [
     ["tallyman", 63, 64, "Boss: 32/32 duels, 31/32 three-a-side"],
@@ -27,17 +30,25 @@
     ["martial_artist", 55, 64, "31/32 duels, 24/32 in a team; ties the Monkey King"],
     ["sita", 55, 64, "Story kit; she calls Rama in. 27/32 alone, 28/32 in a team"],
     ["rama", 54, 64, "Story kit (the Kodanda bow). 32/32 duels: a perfect duelist"],
+    ["hanuman", 47, 64, "Story kit. 19/32 alone, 28/32 in a team (v1.3.566)"],
     ["paladin", 44, 64, "25/32 alone, 19/32 in a team (v1.3.502, after the re-spec)"],
+    ["surpanakha", 44, 64, "Story kit. 19/32 alone, 25/32 in a team (v1.3.566)"],
+    ["orgonite_trooper", 43, 64, "31/32 alone, 12/32 in a team (v1.3.566)"],
     ["thief", 41, 64, "29/32 alone, 12/32 in a team"],
     ["warden", 41, 64],
+    ["jatayu", 41, 64, "Story kit. 18/32 alone, 23/32 in a team (v1.3.566)"],
     ["kickboxer", 40, 64, "Strong both ways"],
     ["sasquatch", 38, 64, "Wild: meet him in the grove, the rim or the quarry"],
     ["director", 37, 64, "Better with a team (20/32)"],
+    ["kumbhakarna", 37, 64, "Story kit. 21/32 alone, 16/32 in a team (v1.3.566)"],
+    ["indrajit", 37, 64, "Story kit. 19/32 alone, 18/32 in a team (v1.3.566)"],
     ["starfarer", 36, 64, "Top of the new challengers"],
     ["super_heroine", 36, 64],
     ["wizard", 35, 64, "12/32 alone, 23/32 in a team; calls NPC dream monsters"],
     ["mma_fighter", 34, 64],
     ["clockwork", 33, 64, "Team climber"],
+    ["white_jacket_gunner", 33, 64, "17/32 alone, 16/32 in a team (v1.3.566)"],
+    ["animalTamer", 33, 64, "16/32 alone, 17/32 in a team (v1.3.566)"],
     ["knight", 29, 64],
     ["anime_protagonist", 27, 64, "9/32 alone, 18/32 in a team; brings one anime kit"],
     ["aviator_hero", 25, 64],

@@ -349,6 +349,7 @@
     if (S.salvage?.minPickups && out.arenaData) out = { ...out, arenaData: ensureSalvagePickups(out.arenaData, seed, S.salvage.minPickups, ctx) };   // SC17 contested scrap
     // Ward slice (SC11–SC14): Tourist via the engine's opts.tourist spawn; civilians via opts.civilians placed after create (engine afterCreate).
     if (S.tourist) out = { ...out, tourist: true };
+    if (Array.isArray(S.lend) && S.lend.length) out = { ...out, lendSummons: S.lend.slice() };   // Tandem T2b: summons lent to the player for this battle (engine/factions.js)
     if (Array.isArray(S.civilians) && S.civilians.length) {
       const taken = new Set((out.participants || []).filter((p) => p.at).map((p) => K(...p.at)));
       const mids = S.civilians.some((c) => c.middle) ? middleSpots(out.arenaData, ctx, S.civilians.filter((c) => c.middle).length, taken) : [];

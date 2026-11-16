@@ -17,6 +17,7 @@
 //   foes.lead: classId                                  one fixed foe, always drawn first and counted in `count` (the crew fills the rest)
 //   foes.traits: { classId: [traitId...] }              traits granted to that class when it is drawn as a foe (Spilled Pot: Kitchen Animism)
 //   houses: "always"                                    rules.houses.chance becomes { default: 1 } for this battle
+//   lend: [summonId...]                                 summons lent to the player for this battle only (Tandem T2b: the Mosaic); never an unlock
 //   quiet: true                                        a quiet duel: no rolled ally, no event arrivals (participants or schedule); weather stands. Teaching duels (SC22+).
 //   objective: { kind }                                 required; slice 1 has only "classic" (no deadline field)
 //   text: { open, mid: { when, text }, result: { player, enemy, none } }   same beats as a theme (Arantxa narrates them); when: { round } | { houseOwned } | { firstFall } | { foeHolds: trigger | true }; `none` is the
@@ -36,6 +37,11 @@
   const LAW = ["policeOfficer", "police_officer", "fbi_agent", "tactical_operative"];
 
   const SCENARIOS = {
+    smallPrint:{id:"smallPrint",name:"The Small Print",minTier:1,weight:1,arenas:"any",quiet:true,
+      foes:{fixed:["auditor_goblin"],at:[[6,3]],holdTurns:0},objective:{kind:"classic"},
+      text:{open:"A small goblin straightens his bow tie and opens a much larger ledger. ‘Nothing personal. Just the particulars.’ Observe him, read his posted Statute, and vary your techniques: repeated witnessed attacks give him precedent.",
+        mid:{when:{round:3},text:"His Objection adds a tax and refuses push, pull, stun and seed riders. It never cancels the damage. Leave the posted delivery behind, or show him something new."},
+        result:{player:"He checks the final entry, nods, and closes the satchel. ‘Quite in order. Well played.’",enemy:"The little auditor finds one last discrepancy. ‘A rematch, once the paperwork is sorted?’",none:"The watch ticks. The ledger stays open, with room for another day."}}},
     openHouse: { id: "openHouse", name: "The Open House", minTier: 1, weight: 1,   // SC03
       arenas: "any",
       foes: { crews: ["money", "civic"], exclude: LAW, count: [2, 2] },
@@ -379,6 +385,27 @@
         mid: { when: { round: 3 }, text: "The tab is open. Settle it from the menu, or finish this before the bill comes in." },
         result: { player: "You won on borrowed time.", enemy: "The bill came due before the win did.",
           none: "The rounds run out with the tab still open." } } },
+    theBlur: { id: "theBlur", name: "The Blur", minTier: 2, weight: 1,   // teaching True Super Speed (claude-true-super-speed-spec SS1); uncatalogued, no SC number; tier 2 like the other concept lessons
+      arenas: ["canalGarden"],
+      foes: { fixed: ["super_villain"], traits: { super_villain: ["superSpeed"] } },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "A canal runs between you and one Super Villain with Super Speed. Its steps cost half and water does not slow it, so the canal that slows anyone else does not slow it. Do not count on the water.",
+        mid: { when: { round: 3 }, text: "Friction takes the speed away. Slow it, stagger it, tangle it, hurt a leg or grab it, and the blur is gone until that ends." },
+        result: { player: "The Super Villain is down, speed and all.", enemy: "The Super Villain wins. Next time take the legs first: Friction is the counter.",
+          none: "The rounds run out, and nobody finished it." } } },
+    madeOfWhatItStrikes: { id: "madeOfWhatItStrikes", name: "Made of What It Strikes", minTier: 2, weight: 1,   // teaching the first tandem (Tandem T2b, muse-tandem-spirit-spec; R-20261115-03, R-20261115-15): the Mosaic is lent for this one battle (lend; summons.js familiarSet), never unlocked by it. Three different foes, so its tiles can fill; uncatalogued, no SC number; tier 2 like SC24, so the pinned tier-1 lists stay as they are; last in the list, so the termination files' index-mod-3 split moves no other scenario
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier", "kickboxer", "student"], at: [[6, 2], [6, 4], [7, 3]] },
+      lend: ["mosaic"],
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "The Tandem wing lends you the Mosaic for this battle: call it from your summons. It stays within 2 tiles of you, and part of every blow that hurts it echoes back to you. Each different foe it wounds lends it a tile and a harder hit. Observe it to learn the rest.",
+        mid: { when: { round: 3 }, text: "Spread its blows: a foe it has already wounded lends nothing new. Keep it close; pulled past its leash, it strains and every tile falls away." },
+        result: { player: "Three foes down. The pattern held, and the lend ends with the battle.", enemy: "The pieces scattered before the pattern was whole. Keep it close and spread its blows.",
+          none: "The rounds run out with the pattern unfinished." } } },
   };
 
   return { SCENARIOS, LAW };

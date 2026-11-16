@@ -1,5 +1,5 @@
 "use strict";
-// Actions, the summons family: tameBeast, markVessel, callPack, resolveSummonUltimate, pet, wakeDream, focusDream, summon, callPact, dismissPact, orderSummonUltimate, monsterSummon, dreamSpace, bead, callBeast, callDream, nameDream, treeant, maxChannel, sealBeast.
+// Actions, the summons family: tameBeast, markVessel, callPack, resolveSummonUltimate, pet, wakeDream, focusDream, summon, callPact, dismissPact, stretchLeash, orderSummonUltimate, monsterSummon, dreamSpace, bead, callBeast, callDream, nameDream, treeant, maxChannel, sealBeast.
 // Split out of actions.js on 2026-11-11 (tools/split-actions.mjs, action seams A2; the map is tools/action-families.json,
 // the lookup docs/action-families.md). Not a module in its own right and not in engine.js's ENGINE_PARTS: actions.js
 // installs it with the host object H and K, the names actions.js has in its own scope (K.handlers is the action table).
@@ -137,6 +137,12 @@
         s.pactActive = null;
         if (summon && !summon.defeated) { summon.defeated = true; log(s, { kind: "summon", actor: summon.id, text: `${summon.name} bows and goes home — dismissed, free.` }); (s.pactCodes ||= []).push({ type: "pactEnded", line: call.line, how: "dismissed" }); }
         else (s.pactCodes ||= []).push({ type: "pactEnded", line: call.line, how: "downed" });   // already down: closes the books with no standing
+      },
+      stretchLeash(s, a, act) {   // Tandem T2b: the user pays the tandem's price (stretch.lf LF) to stretch its leash through its next turn (summons/tandem.js stretch)
+        const T = summonRules?.Tandem, summon = s.actors[act.summon];
+        if (!T || !T.of(summon)) return "Choose your tandem on the field.";
+        const r = T.stretch(s, a, summon); if (r.error) return r.error;
+        log(s, r.event);
       },
       orderSummonUltimate(s, a, act) {
         if (!summonRules?.orderUltimate) return "Summon ultimates are unavailable.";

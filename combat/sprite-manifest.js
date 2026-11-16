@@ -78,6 +78,13 @@
       "walk-2",
       "walk-3"
     ],
+    "auditor-goblin": [
+      "cast-def",
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
+    ],
     "aviator-hero": [
       "cast-off",
       "dodge",
@@ -162,6 +169,18 @@
     ],
     "child-of-the-future": [
       "cast-def",
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
+    ],
+    "chitin-bishop": [
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
+    ],
+    "chitinous-archbishop": [
       "cast-off",
       "dodge",
       "knockback",
@@ -343,6 +362,12 @@
       "knockback",
       "ultimate"
     ],
+    "creature-combat": [
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
+    ],
     "creeper": [
       "idle-2",
       "idle-3",
@@ -396,6 +421,12 @@
       "dodge",
       "dream-open",
       "knockback"
+    ],
+    "eldritch": [
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
     ],
     "ember-moth": [
       "cast-def",
@@ -459,6 +490,12 @@
       "idle-4",
       "idle-5",
       "idle-6"
+    ],
+    "florence-oloo": [
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
     ],
     "forest_spirit": [
       "cast-def",
@@ -548,6 +585,13 @@
       "hurt",
       "infatuated",
       "knee"
+    ],
+    "golden-relic-hunter": [
+      "cast-def",
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
     ],
     "hacker": [
       "dodge",
@@ -843,6 +887,12 @@
     ],
     "moonflower": [
       "cast-def",
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
+    ],
+    "mosaic": [
       "cast-off",
       "dodge",
       "knockback",
@@ -1208,6 +1258,13 @@
       "knockback",
       "ultimate"
     ],
+    "treasure-hunter": [
+      "cast-def",
+      "cast-off",
+      "dodge",
+      "knockback",
+      "ultimate"
+    ],
     "tree_spirit": [
       "cast-def",
       "cast-off",
@@ -1292,5 +1349,5 @@
       "knockback",
       "ultimate"
     ]
-  }, folders: ["actor","actor-f","actor-m","agent-swarm","agi","amber-host","ancestral-fox","android-maker","animal-tamer","anime-protagonist","arantxa","arantxa-cathedral","arantxa-hydrozoa","arantxa-ivory","arantxa-leisure","arantxa-seijaku","arantxa-wave","architect","archivist","archivist-kaiba","archivist_elf","aristotle","aristotle-true-form","artemesia","astral_security","astronaut","auras","aviator-hero","barbarian","bard","bard-artificer","bard_elf","bastet","bengal-tiger","big-game-hunter","black_armor","black_swan_warrior","boarman","botanical","brood-mite","brushfire","burlesque-dancer","cactusguard","cactuswar","celest-crystal","celestial_astral","celestial_priestess","chef","child-of-the-future","cleric","cloaked_drifter","clockwork","clown","commune-akulikuli","commune-bamboo","commune-banyan","commune-birdOfParadise","commune-bristlecone","commune-cobraLily","commune-hibiscus","commune-indianHawthorn","commune-koa","commune-kukui","commune-loulu","commune-mockOrange","commune-monkeypod","commune-monstera","commune-nativeFern","commune-naupaka","commune-ohelo","commune-ohia","commune-passionflower","commune-pitcherPlant","commune-plumbago","commune-puya","commune-rainbowShower","commune-sundew","commune-ti","commune-ukiuki","commune-ulu","commune-venusFlytrap","commune-wiliwili","control","creeper","cuban-rooster","customer","cyanotype_artist","cyber-napoleon","cyph","daedalus","deepsea_warrior","defective-machine","detective","devouring_mother","director","disheveled_politician","doctor","dragon-boss","dream-frankenstein","dream-ghost","dream-mummy","dream-skeleton","dream-vampire","dream-werewolf","dream-zombie","ducks","earthkeeper","ecology","ember-moth","ember_judge","emissary-boss","emissary-faces","engineer","esker","exile","explorer","fbi_agent","feathered-shaman","feral-pig","ferryman","field-botanist","fighting-coach","flash-flood","forest_spirit","freemason","frogan","fruit","futuristic-armored-ninja","fx","gaia-accord","gaia-form","gaia-possessed","gaia-wounded","gambler","gardener","gardens-by-the-bay","gatepost-sentry","gemini","general","genghis-khan-true-form","genghis_khan","goethe","goethe-ascended","goethe-true-form","gold-form","gold-transform","graves","hacker","haliphron","hanuman","hanuman-chibi","hanuman-giant","hedge-sprite","hedge_witch","hermes","hooded-cyber-rogue","hot-pot-berserker","hotpot-companions","hound","hypebeast","hypnotist","inner-child-true-form","inner_child","items","jambavan","jatayu","jazz-musician","jiang-qing","jpop_idol","jujutsu-sorcerer","kaiba","kaiju-boss","kaiju-form","kaikeyi","kickboxer","knight","kobe","kobe-true-form","kraken","kumbhakarna","lakshmana","last-span","little-king-true-form","little_king","long-memory","lying_lawyer","magistrate","maid","manavu-anti-gravity-blue","manavu-anti-gravity-soldier","manavu-future-warrior-crimson-reptilian","manavu-future-warrior-white-jacket-gunner","manavu-space-admin-bronze-hooded","manavu-space-admin-crimson-horned","mandodari","mangaka","mao_zedong","martial-artist","martial-artist-ascended","mason","max-khan","mech-jellyfish","medusa","memorialist","mesoamerican_priestess","mitsuko","mitsuko-max","mitsuko-true-form","mma-fighter","mma-fighter-alternate","moa","modern-artist","monkey-king","moonflower","musician","mutant-boar","mycologist","napoleon","napoleon-true-form","neo-warden","neo-warden-cyberpunk","neo-warden-cyborg","neo-warden-dragon","neo-warden-nature","neo-warden-purple-neon","neo-warden-tallyman","neon-spaceship","neon_dj","neon_idol","nettle-caterpillar","new_oni","ninja","oak","objects","odysseus","oil-billionaire","oni-boss","oni-form","oni_yokozuna","origamist","ornithopter","pair-of-lanterns","paladin","paladin-crusader","pathfinder","pearl_diver","perimeter-guardian-true-form","perimeter_guardian","pharaoh","pioneer","pixel-treant","planner","plants","player","police-officer","porgy","president","private-meal-host","rain","rama","ranger","rapper","ravana","raven","remora-adventurer","ritual-chanter","robot_mechanic","rogue","sailor","salmacis","salt-heir","samurai","sasquatch","scarred-tomboy-warrior","scientist","sealednext","secret-warrior","seedkeeper","shadow-archer","shaman","sieve","sita","sky","smoke","soldier","spirit-raven","spirit-totem","starfarer","steam_walker","stone-warden","storm_mage","student","student-journeyman","student-master","super-hero","super-heroine","super-villain","supermodel","surpanakha","tactical_operative","talisman","tallyman","tea-ceremony-host","teal-eel","tech-billionaire","telekinetic_hero","teleporter","termites","the-king-true-form","the_king","thief","tiles","tofu-archer","tofu-warden","tofu-yokai","tomboy-warrior","tourist","town","treant","tree_spirit","treeant-ancient","treeant-banyan","treeant-bosque","treeant-bristlecone","treeant-forest","tsukumogami","tsukumogami-faces","unfinished-customer","visitor-grey","visitor-scientist","visitor-ship","walls","warden-symbiote","weather","wild-chicken","witness","wizard","wolf","world-goddess","yoga-instructor","zherm","zherm-true-form"] };
+  }, folders: ["actor","actor-f","actor-m","agent-swarm","agi","amber-host","ancestral-fox","android-maker","animal-tamer","anime-protagonist","arantxa","arantxa-cathedral","arantxa-hydrozoa","arantxa-ivory","arantxa-leisure","arantxa-seijaku","arantxa-wave","architect","archivist","archivist-kaiba","archivist_elf","aristotle","aristotle-true-form","artemesia","astral_security","astronaut","auditor-goblin","auras","aviator-hero","barbarian","bard","bard-artificer","bard_elf","bastet","bengal-tiger","big-game-hunter","black_armor","black_swan_warrior","boarman","botanical","brood-mite","brushfire","burlesque-dancer","cactusguard","cactuswar","celest-crystal","celestial_astral","celestial_priestess","chef","child-of-the-future","chitin-bishop","chitinous-archbishop","cleric","cloaked_drifter","clockwork","clown","commune-akulikuli","commune-bamboo","commune-banyan","commune-birdOfParadise","commune-bristlecone","commune-cobraLily","commune-hibiscus","commune-indianHawthorn","commune-koa","commune-kukui","commune-loulu","commune-mockOrange","commune-monkeypod","commune-monstera","commune-nativeFern","commune-naupaka","commune-ohelo","commune-ohia","commune-passionflower","commune-pitcherPlant","commune-plumbago","commune-puya","commune-rainbowShower","commune-sundew","commune-ti","commune-ukiuki","commune-ulu","commune-venusFlytrap","commune-wiliwili","control","creature-combat","creeper","cuban-rooster","customer","cyanotype_artist","cyber-napoleon","cyph","daedalus","deepsea_warrior","defective-machine","detective","devouring_mother","director","disheveled_politician","doctor","dragon-boss","dream-frankenstein","dream-ghost","dream-mummy","dream-skeleton","dream-vampire","dream-werewolf","dream-zombie","ducks","earthkeeper","ecology","eldritch","ember-moth","ember_judge","emissary-boss","emissary-faces","engineer","esker","exile","explorer","fbi_agent","feathered-shaman","feral-pig","ferryman","field-botanist","fighting-coach","flash-flood","florence-oloo","forest_spirit","freemason","frogan","fruit","futuristic-armored-ninja","fx","gaia-accord","gaia-form","gaia-possessed","gaia-wounded","gambler","gardener","gardens-by-the-bay","gatepost-sentry","gemini","general","genghis-khan-true-form","genghis_khan","goethe","goethe-ascended","goethe-true-form","gold-form","gold-transform","golden-relic-hunter","graves","hacker","haliphron","hanuman","hanuman-chibi","hanuman-giant","hedge-sprite","hedge_witch","hermes","hooded-cyber-rogue","hot-pot-berserker","hotpot-companions","hound","hypebeast","hypnotist","inner-child-true-form","inner_child","items","jambavan","jatayu","jazz-musician","jiang-qing","jpop_idol","jujutsu-sorcerer","kaiba","kaiju-boss","kaiju-form","kaikeyi","kickboxer","knight","kobe","kobe-true-form","kraken","kumbhakarna","lakshmana","last-span","little-king-true-form","little_king","long-memory","lying_lawyer","magistrate","maid","manavu-anti-gravity-blue","manavu-anti-gravity-soldier","manavu-future-warrior-crimson-reptilian","manavu-future-warrior-white-jacket-gunner","manavu-space-admin-bronze-hooded","manavu-space-admin-crimson-horned","mandodari","mangaka","mao_zedong","martial-artist","martial-artist-ascended","mason","max-khan","mech-jellyfish","medusa","memorialist","mesoamerican_priestess","mitsuko","mitsuko-max","mitsuko-true-form","mma-fighter","mma-fighter-alternate","moa","modern-artist","monkey-king","moonflower","mosaic","musician","mutant-boar","mycologist","napoleon","napoleon-true-form","neo-warden","neo-warden-cyberpunk","neo-warden-cyborg","neo-warden-dragon","neo-warden-nature","neo-warden-purple-neon","neo-warden-tallyman","neon-spaceship","neon_dj","neon_idol","nettle-caterpillar","new_oni","ninja","oak","objects","odysseus","oil-billionaire","oni-boss","oni-form","oni_yokozuna","origamist","ornithopter","pair-of-lanterns","paladin","paladin-crusader","pathfinder","pearl_diver","perimeter-guardian-true-form","perimeter_guardian","pharaoh","pioneer","pixel-treant","planner","plants","player","police-officer","porgy","president","private-meal-host","rain","rama","ranger","rapper","ravana","raven","remora-adventurer","ritual-chanter","robot_mechanic","rogue","sailor","salmacis","salt-heir","samurai","sasquatch","scarred-tomboy-warrior","scientist","sealednext","secret-warrior","seedkeeper","shadow-archer","shaman","sieve","sita","sky","smoke","soldier","spirit-raven","spirit-totem","starfarer","steam_walker","stone-warden","storm_mage","student","student-journeyman","student-master","super-hero","super-heroine","super-villain","supermodel","surpanakha","tactical_operative","talisman","tallyman","tea-ceremony-host","teal-eel","tech-billionaire","telekinetic_hero","teleporter","termites","the-king-true-form","the_king","thief","tiles","tofu-archer","tofu-warden","tofu-yokai","tomboy-warrior","tourist","town","treant","treasure-hunter","tree_spirit","treeant-ancient","treeant-banyan","treeant-bosque","treeant-bristlecone","treeant-forest","tsukumogami","tsukumogami-faces","unfinished-customer","visitor-grey","visitor-scientist","visitor-ship","walls","warden-symbiote","weather","wild-chicken","witness","wizard","wolf","world-goddess","yoga-instructor","zherm","zherm-true-form"] };
 });

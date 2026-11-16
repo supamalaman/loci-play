@@ -117,6 +117,39 @@
       if ("massive" in p) unit.massive = p.massive;
     }
 
+    // ── Treasure Hunter (TH1, cursor-treasure-hunter-spec; Mala 2026-11-15: his own flag and his own sprites per form). Stepping onto a
+    // pickup turns him gold: the item leaves the field and he carries it as treasure (state relicGold: x0.25 taken, the golden-relic-hunter
+    // sprite). Each item id does it once a battle (unit.relicUsed), so gold forms never outnumber the distinct items on the map; a
+    // second pickup while gold, or a used item id, is an ordinary pickup (returns false and the caller collects it as usual).
+    const isHunter = (u) => u?.character === "treasure_hunter";
+    function relicClaim(s, unit) {
+      if (!isHunter(unit) || !live(unit) || unit.states?.relicGold || !defOf("relicGold")) return false;
+      const pk = (s.arena?.pickups || []).find((q) => q.x === unit.x && q.y === unit.y);
+      if (!pk || (unit.relicUsed || []).includes(pk.item)) return false;
+      s.arena = { ...s.arena, pickups: s.arena.pickups.filter((q) => q !== pk) };
+      (unit.relicUsed ||= []).push(pk.item);
+      const inst = grant(s, unit, "relicGold", { by: unit.id });
+      if (inst) inst.treasure = pk.item;
+      log(s, { kind: "pickup", actor: unit.id, item: pk.item, tiles: [[unit.x, unit.y]], text: `${unit.name} seizes ${pk.name || pk.item}: gold spreads over him, and the next blow cracks it.` });
+      H.Inspiration?.gain?.(s, unit, 1, `${unit.name} has the treasure in his hands: +1 Inspiration.`);
+      return true;
+    }
+    // The breaking blow still landed at x0.25; now the treasure drops on an open tile beside him (his own tile if none is open).
+    function dropTreasure(s, holder, inst) {
+      const item = inst?.treasure; if (!item) return;
+      const taken = (x, y) => (s.arena.pickups || []).some((q) => q.x === x && q.y === y);
+      const open = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => [holder.x + dx, holder.y + dy]).find(([x, y]) => {
+        if (!H.inside(s, x, y) || H.actorAt(s, x, y) || taken(x, y)) return false;
+        const tile = H.tileAt(s, x, y);
+        return !tile.blocksMove && !((s.arena.objects || []).some((o) => o.x === x && o.y === y && o.blocksMove));
+      }) || [holder.x, holder.y];
+      const n = Math.max(0, ...(s.arena.pickups || []).map((q) => +String(q.id).slice(1) || 0)) + 1, id = `i${n}`;
+      s.arena = { ...s.arena, pickups: [...(s.arena.pickups || []), { id, item, x: open[0], y: open[1], droppedBy: holder.id }] };
+      (s.relicDrops ||= {})[id] = holder.id;
+      holder.relicBrokeRound = s.round;   // Pack Strong (resolve.js knock) reads this: the blow that cracked the gold still meets the knock at 1 tile less
+      log(s, { kind: "drop", actor: holder.id, item, tiles: [open], text: `${holder.name}'s gold cracks: the treasure drops at (${open.join(",")}).` });
+    }
+
     function grant(s, unit, id, opt = {}) {
       const def = defOf(id); if (!def || !live(unit)) return null;
       for (const oid of Object.keys(unit.states || {})) {   // a held state may refuse a grant (refusesGrant: ids): incapacitated cannot be extended, and steadied refuses it for a turn
@@ -191,6 +224,8 @@
           if (holder.routed && live(holder)) { delete holder.routed; log(s, { kind: "state", actor: holder.id, text: `${holder.name} breathes, and the fear lets go.` }); }
         } else if (e.leave) {   // Cure: the holder leaves the battle (the same fields as the leaveBattle effect, actions.js)
           if (live(holder)) { holder.defeated = true; holder.escaped = !e.noXp; holder.noXp = !!e.noXp; holder.leaveReason = e.reason; Spirit()?.onExit?.(s, holder, H); log(s, { kind: "state", actor: holder.id, text: e.reason || `${holder.name} leaves.` }); }
+        } else if (e.dropTreasure) {   // Treasure Hunter (TH1): the carried treasure falls as a pickup beside the holder (either side may take it)
+          dropTreasure(s, holder, inst);
         } else if (e.log) say(s, holder, def, inst, e.log);
         else if (e.scene && !quiet(def, inst)) log(s, { kind: "stateScene", actor: holder.id, state: def.id, title: e.scene.title, line: e.scene.line, text: e.scene.line });
       }
@@ -431,6 +466,6 @@
       return out;
     }
 
-    return { States: { grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
+    return { States: { relicClaim, grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
   })();
 });

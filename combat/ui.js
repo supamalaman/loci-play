@@ -231,9 +231,11 @@
     celestial_astral: "celestial_astral", moonflower: "moonflower", archivist_elf: "archivist_elf", bard_elf: "bard_elf", lying_lawyer: "lying_lawyer",   // hot builds wave 4 (2026-10-23)
     "hot-pot-berserker": "hot-pot-berserker", chef: "chef", seedkeeper: "seedkeeper", memorialist: "memorialist", pearl_diver: "pearl_diver", ferryman: "ferryman",   // hot builds wave 5 (2026-10-24): Posterity + Wake 3v3 buildup
     "teal-eel": "teal-eel", "remora-adventurer": "remora-adventurer",   // Wake hot builds (2026-11-11): sheets cut the same day; both sheets face right (eel: re-checked by eye 2026-11-12, Fid BD inbox row; set in SPRITE_FACES_RIGHT below)
+    "florence-oloo": "florence-oloo", "chitinous-archbishop": "chitinous-archbishop", "chitin-bishop": "chitin-bishop", "creature-combat": "creature-combat", eldritch: "eldritch",   // Hot-build cuts F1, the Forum five (Gunwale BD, 2026-11-14)
+    "treasure-hunter": "treasure-hunter", treasure_hunter: "treasure-hunter", "golden-relic-hunter": "golden-relic-hunter",   // the Treasure Hunter (TH1): base form and the gold relic form (state relicGold swaps unit.sprite)
     orgonite_trooper: "manavu-anti-gravity-soldier", leviathan_suit: "manavu-anti-gravity-blue", scale_firmware: "manavu-future-warrior-crimson-reptilian", white_jacket_gunner: "manavu-future-warrior-white-jacket-gunner", bronze_admin: "manavu-space-admin-bronze-hooded", horned_suit: "manavu-space-admin-crimson-horned",
     "manavu-anti-gravity-soldier": "manavu-anti-gravity-soldier", "manavu-anti-gravity-blue": "manavu-anti-gravity-blue", "manavu-future-warrior-crimson-reptilian": "manavu-future-warrior-crimson-reptilian", "manavu-future-warrior-white-jacket-gunner": "manavu-future-warrior-white-jacket-gunner", "manavu-space-admin-bronze-hooded": "manavu-space-admin-bronze-hooded", "manavu-space-admin-crimson-horned": "manavu-space-admin-crimson-horned",
-    hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", hypnotist: "hypnotist", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
+    hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", "auditor-goblin": "auditor-goblin", auditor_goblin: "auditor-goblin", hypnotist: "hypnotist", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
     bard_artificer: "bard-artificer", big_game_hunter: "big-game-hunter", burlesque_dancer: "burlesque-dancer", clown: "clown", mma_fighter_alternate: "mma-fighter-alternate", hermes: "hermes", kaikeyi: "kaikeyi",
     "brood-mite": "brood-mite",   // the Insect Kaiju's brood (true-forms.js callBrood): art cut 2026-11-01, registered 2026-11-08 (claude-bestiary-art-b1-build); until then the Bestiary and the battle drew a placeholder
     "tofu-yokai": "tofu-yokai", "tofu-archer": "tofu-archer", "tofu-warden": "tofu-warden",   // the Tofu trio (random-event pack, landed 1.3.497 without art): art registered 2026-11-08 (claude-tofu-trio-art-build)
@@ -254,7 +256,7 @@
   SPRITE.kaiba="#dd9a4a";
   SPRITE["neo-warden"]=SPRITE.warden; SPRITE["student-journeyman"]=SPRITE["student-master"]=SPRITE.student;
   const BIG_UNIT_SCALE = 3.05;   // the 2x2 bosses (dragon, oni, kaiju) are drawn at this scale
-  const SPRITE_SCALE = { inner_child: 0.72, "inner-child-true-form": 0.72, "nettle-caterpillar": 0.72,   // the caterpillar art is wide: at full height it spanned more than its tile (Mala, 2026-10-27: "it doesnt take much for a caterpillar to be giant")
+  const SPRITE_SCALE = { "auditor-goblin":0.6, inner_child: 0.72, "inner-child-true-form": 0.72, "nettle-caterpillar": 0.72,   // the caterpillar art is wide: at full height it spanned more than its tile (Mala, 2026-10-27: "it doesnt take much for a caterpillar to be giant")
     dragon: 3.05, oni: 3.05, kaiju: 3.05,
     "mitsuko-max": 1.17, "max-khan": 2.2   /* MX2: a 2x1 mount; the 2x2 bosses draw at 3.05 */,   // MX1: the sun halo is the top 14% of her MAX idle; 1.17 draws her body at her true form's height (lineup: claude-max-mitsuko-build qa-evidence)
     hanuman: 1.2, "hanuman-chibi": 0.85, "hanuman-giant": 1.6, kumbhakarna: 1.8, "dream-frankenstein": 1.5,   // Kumbhakarna: boss scale (Mala, 2026-10-23), on one tile; Dream Frankenstein one tile, 1.5x taller (R-20261110-03)   // Mala's map-scale rulings: heroic a bit larger, giant larger; the monkey reads small
@@ -272,6 +274,8 @@
   SPRITE_POSES["gold-form"] = ["idle", "walk", "cast", "block", "punch", "knocked-out", "knee", "hurt", "infatuated", "aura"];   // knight condition poses
   const invTax = (s, u) => (root.ConceptCombatInjury?.gradeOf(u, "head") || 0) === 1 ? (s.rules.injury?.headWoundedObserveAp ?? 10) : 0;   // Investigate pays the Observe head-wound tax (Mala, 2026-10-31)
   const SPRITE_FACES_RIGHT = Object.fromEntries(Object.keys(SPRITE_DIR).map((sprite) => [sprite, sprite === "warden" || sprite === "agi"]));
+  SPRITE_FACES_RIGHT["auditor-goblin"]=true; SPRITE_FACES_RIGHT.auditor_goblin=true;   // goblin W2 rev 1 (Bulwark IN stage return, item 3): the character key draws the same right-facing sheet
+  for (const key of ["treasure-hunter", "treasure_hunter", "golden-relic-hunter"]) SPRITE_FACES_RIGHT[key] = true;   // Treasure Hunter TH1: both sheets face right (eye-checked at the 1.3.568 merge, Gangway IN; tools/check-sprite-facing.mjs VERIFIED)
   for (const key of CARD_FAMILIARS) { SPRITE_FACES_RIGHT[key] = true; SPRITE[key] ||= "#e9a23b"; }   // the sheets draw them facing right (unreviewed: the Cutter's NOTE)
   for (const sprite of [...SUMMON_SPRITES,...TRUE_FORM_SPRITES,...MAX_SPRITES,"mitsuko-true-form"]) SPRITE_FACES_RIGHT[sprite] = true;
   SPRITE_FACES_RIGHT["dream-frankenstein"] = true;   // the 1.3.561 re-cut (cursor-frankenstein-recut) faces right; eye-checked at the ship (Bowline IN)
@@ -327,7 +331,7 @@
   Object.assign(SPRITE, { frogan: "#6ab86a", shaman: "#7a6fd0", hedge_witch: "#4f8f4f", robot_mechanic: "#d08a3e" });
   for (const sprite of ["storm_mage", "tree_spirit", "disheveled_politician", "astral_security", "mesoamerican_priestess", "celestial_astral", "moonflower", "archivist_elf", "bard_elf", "lying_lawyer"]) SPRITE_FACES_RIGHT[sprite] = true;   // hot builds wave 4 (2026-10-23): all strike right; left-facing idles/walks/dodges mirrored at import
   for (const sprite of ["hanuman", "hanuman-chibi", "hanuman-giant", "jambavan", "rama", "lakshmana", "sita", "ravana", "kumbhakarna", "shadow-archer", "mandodari", "surpanakha", "jatayu"]) SPRITE_FACES_RIGHT[sprite] = true;   // Kumbhakarna: the attack faces right at full size (qa/repeats.md #18)   // Jambavan: checked at full size, all strike right   // Hanuman: all three cuts strike right (Codex's cut notes)
-  Object.assign(SPRITE, { hanuman: "#e0a23a", "hanuman-chibi": "#e0a23a", "hanuman-giant": "#e0a23a", jambavan: "#8a5a3a", rama: "#3e6fb0", lakshmana: "#c08a2e", sita: "#d4607a", hypnotist: "#6a3aa0", ravana: "#7a2e3a", kumbhakarna: "#5a3a2a", "shadow-archer": "#5a2a6a", mandodari: "#7a4ab0", surpanakha: "#b04a6a", jatayu: "#a8743a" });
+  Object.assign(SPRITE, { "treasure-hunter": "#b8892b", "golden-relic-hunter": "#e6c200", "auditor-goblin":"#739667", auditor_goblin:"#739667", hanuman: "#e0a23a", "hanuman-chibi": "#e0a23a", "hanuman-giant": "#e0a23a", jambavan: "#8a5a3a", rama: "#3e6fb0", lakshmana: "#c08a2e", sita: "#d4607a", hypnotist: "#6a3aa0", ravana: "#7a2e3a", kumbhakarna: "#5a3a2a", "shadow-archer": "#5a2a6a", mandodari: "#7a4ab0", surpanakha: "#b04a6a", jatayu: "#a8743a" });
   Object.assign(SPRITE, { storm_mage: "#8a7ae0", tree_spirit: "#5d8a48", disheveled_politician: "#5a6e8a", astral_security: "#8676f2", mesoamerican_priestess: "#c9753a", celestial_astral: "#b9a7e8", moonflower: "#e8e4f0", archivist_elf: "#6a5a9e", bard_elf: "#9d7bd8", lying_lawyer: "#3e5a8a" });
   Object.assign(SPRITE, { bard_artificer: "#c9a227", big_game_hunter: "#6b7f4e", burlesque_dancer: "#d44d7a", clown: "#e05a3a", mma_fighter_alternate: "#4a4a52", hermes: "#7ab8e0", kaikeyi: "#8e3b5c",
     "bard-artificer": "#c9a227", "big-game-hunter": "#6b7f4e", "burlesque-dancer": "#d44d7a", "mma-fighter-alternate": "#4a4a52" });   // fighter hot-builds wave 6 (Muse Berry BD, 2026-10-29); kebab keys RETURN-2 T-1
@@ -571,10 +575,17 @@
   // Face portraits for whoever is speaking (sprites/<folder>/face-<expression>.png; docs/conversational-cast.md).
   // faceFile falls back from the asked expression to neutral, then to null: the caller shows the battle sprite instead,
   // never someone else's face.
-  const FACE_ART = { "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "dream-frankenstein":["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
+  const FACE_ART = { "auditor-goblin":["neutral","happy","angry","sad","surprised"], "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "dream-frankenstein":["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"], "treasure-hunter":["neutral","happy","angry","sad","surprised"], "golden-relic-hunter":["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
   for (const key of ["tofu-yokai", "tofu-archer", "tofu-warden"]) FACE_ART[key] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Tofu trio (claude-bestiary-art-spec B2): the same five portraits a bark shows from heads/
   FACE_ART["brood-mite"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the mite's five portraits were cut as portrait-<x>.png, a name nothing reads; face-<x>.png are the same files (claude-bestiary-art-spec B1-a)
   FACE_ART["feathered-shaman"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Shaman's Feathered look: the cut's portrait-<x>.png land as face-<x>.png (Mala, 2026-11-11)
+  // Hot-build cuts F1 (cursor-hotbuilds-cuts-spec): the Forum five (folders in SPRITE_DIR above). A colour for the token fallback; the five
+  // faces (the cut's portrait-<x>.png land as face-<x>.png, as the brood mite's did).
+  for (const [key, colour] of [["florence-oloo", "#2fb5a8"], ["chitinous-archbishop", "#d8c39a"], ["chitin-bishop", "#b76ad8"], ["creature-combat", "#b8553a"], ["eldritch", "#9a8fa0"]]) {
+    SPRITE[key] = colour; FACE_ART[key] = ["neutral", "happy", "angry", "sad", "surprised"];
+  }
+  for (const key of ["florence-oloo", "chitinous-archbishop", "chitin-bishop", "eldritch"]) SPRITE_FACES_RIGHT[key] = true;   // eye-checked 2026-11-14 (Gunwale BD): these four face right
+  SPRITE_FACES_RIGHT["creature-combat"] = false;   // Shardback's head and bite point left in idle, walk, punch and cast-off (the SPRITE_DIR default; said here so nobody "fixes" it)
   const faceFile = (sprite, expression = "neutral") => {
     if (sprite && sprite.startsWith("tsukumogami")) {   // Tsukumogami: every type shares the house mecha's five faces
       const has = ["neutral", "happy", "angry", "sad", "surprised"];
@@ -824,6 +835,7 @@
           <div class="cc-side-head"><b>Battle log</b><span class="cc-spacer"></span><button type="button" id="ccBestiaryBattle" title="Open monster bestiary">Bestiary</button>
             <button type="button" id="ccCopy" title="Copy the battle log as text">Copy log</button>
             <button type="button" id="ccAnimation" title="Full: enlarged attack pop-up. Fast: current map effects only.">Animation: Full</button>
+            <button type="button" id="ccKeysBtn" title="Every battle key on one sheet (?)" aria-haspopup="dialog">? Keys</button>
             <button type="button" id="ccPace" title="Normal: current speed. Slow: scenes last twice as long and each enemy action waits long enough to read. Space or a click on the log skips a wait.">Pace: Normal</button>
             <button type="button" id="ccText" title="Standard: today's size. Large and Largest raise every label outside the map; map labels grow with the map's zoom.">Text: Standard</button>
             <button type="button" id="ccDialogue" title="Toggle enemy dialogue bubbles">Dialogue On</button>
@@ -838,6 +850,7 @@
     // Explicit developer opt-in; normal games allocate no inspector or trace history.
     let decisionInspector = null, decisionInspectorPanel = null, decisionInspectorButton = null, pendingInspectedDecision = null;
     let surfaceUI = null;   // Forum S2: the surface screen while it shows (surface/surface-ui.js); U.surface is its flag
+    const keySheet = root.ConceptCombatKeySheet ? root.ConceptCombatKeySheet.create(host.querySelector(".cc")) : null;   // Access AC5: the key sheet (key-sheet.js); onKey and the ? Keys button open it
     function openDecisionInspector() {
       if (decisionInspector || !root.ConceptCombatDecisionInspector) return;
       const panel = document.createElement("div"); panel.className = "emissary-drawer"; panel.hidden = true; host.querySelector(".cc").appendChild(panel);
@@ -877,7 +890,11 @@
       // flat: the plates are top-down squares, so each fills its tile square and the iso camera lays it on the diamond (onGround's flat door);
       // ts1 and ts2 are drawn already in iso and keep their own height.
       neon: { folder: "neon-spaceship", flat: true, families: { deck: ["floor-plain", "floor-plain", "floor-plain", "floor-panel", "floor-panel", "floor-grate", "floor-circuit"], hazard: ["floor-hazard"] },
-        of: (ch) => (ch === "." || ch === "=" ? "deck" : null), at: (s, x, y, fam) => (fam === "deck" && (x === 0 || x === s.arena.w - 1) ? "hazard" : fam) } };
+        of: (ch) => (ch === "." || ch === "=" ? "deck" : null), at: (s, x, y, fam) => (fam === "deck" && (x === 0 || x === s.arena.w - 1) ? "hazard" : fam),
+        // and its bulkheads (R-20261114-49, R-20261115-05): the sides of the low in-board walls and of the hull around the board take the cut's
+        // front-view wall pieces (ISO.side below); windows look out of the hull only. Corner, end-cap and doorway pieces are angled art: not used.
+        walls: { inner: ["wall-straight", "wall-straight", "wall-bulkhead", "wall-bulkhead", "wall-pipes", "wall-vent", "wall-biomech"],
+          hull: ["wall-straight", "wall-straight", "wall-bulkhead", "wall-bulkhead", "wall-pipes", "wall-vent", "wall-window", "wall-biomech"] } } };
     const groundFam = (s, set, x, y) => { const fam = set.of(E.geometry.surfaceAt(s, x, y)); return set.at ? set.at(s, x, y, fam) : fam; };   // a set may choose by position (the deck's hazard ends)
     // Surfaces the isometric view lays on the world plane (Mala, 2026-10-27: "texture everything", "actual terrain instead of
     // grey blob"; textures from her anime grass and concrete atlas, sprites/objects/textures/). Tops: clean concrete, one panel a
@@ -896,6 +913,17 @@
       if (is("turf")) return tex("grass-anime", 3);
       if (is("soil")) return null;   // soil blocks keep their earth colour until a dirt texture lands
       return tex("concrete-clean", 2);   // 2x2 mirrored image: one panel a tile
+    };
+    // The sides of bulkhead-coloured faces, when the arena's ground set has wall pieces (the ship): a seeded pick a piece, from the piece's
+    // place, so the same wall always shows the same art. kind "wall" is an interior's in-board bulkhead (arena-iso.js), anything else the hull.
+    if (ISO) ISO.side = (f) => {
+      const set = U.s && GROUND_TILES[MAPD ? MAPD.groundSet(U.s.arena) : U.s.arena?.visual?.groundTiles], bulk = String(U.s?.arena.visual?.palette?.bulkhead || "#8f97a3").toLowerCase();
+      if (!set?.walls || String(f.color || "").toLowerCase() !== bulk) return null;
+      const list = set.walls[f.kind === "wall" ? "inner" : "hull"], seed = U.s.arena.visual?.seed || 0;
+      return (c) => { let k = Math.round(c[0] * 100) * 73856093 ^ Math.round(c[1] * 100) * 19349663 ^ Math.round(c[2] * 100) * 83492791 ^ seed;
+        k = Math.imul(k ^ (k >>> 15), 2246822507); k = Math.imul(k ^ (k >>> 13), 3266489909); k = (k ^ (k >>> 16)) >>> 0;   // mixed: a bare xor of odd products leaves the low bits (k % 8) stuck
+        const id = `${set.folder}/${list[k % list.length]}`;
+        topTextureKeys.add(`objects/${id}`); return worldSprite("objects", id); };   // a piece that loads later rebakes the kept scene
     };
     // The ground file a tile draws (a count of numbered files, or a list of names); the Redux loading screen asks the same question, so it warms the same files.
     function groundTileId(s, set, x, y, fam = groundFam(s, set, x, y)) {
@@ -2828,8 +2856,11 @@
       ] : null;
       // Battle Cards (C1): the saved deck rides in the loadout, with the account's cap and ownership so the engine keeps the longest legal prefix.
       const cardsLoadout = () => { if (!Cardbook || !CardsUI) return {}; const deck = Cardbook.deckFor(U.account, U.character.classId || "warden"); return deck.length ? { cards: { deck, cap: Cardbook.cap(U.account), owned: Cardbook.normalize(U.account).cardbook.owned } } : {}; };
+      // The player's reserve (R-20261115-12, Mala 2026-11-15): the main character's own declared reserve first (the Auditor Goblin's Indexing, which reaches Ledger of Debts by swap; the Wizard's; the Warden's), then the rest of the unsealed concepts as before, up to the reserve slots.
+      const reserveFor = (cr, ld, slots) => { const P = cr.primary || LOADOUTS[ld].primary, S = cr.secondary ?? LOADOUTS[ld].secondary, ok = (c) => C.concepts[c] && !C.concepts[c].sealed && c !== P && c !== S;
+        const own = (C.characters[cr.classId || mainClass()]?.reserve || []).filter(ok); return [...own, ...Object.keys(C.concepts).filter((c) => ok(c) && !own.includes(c))].slice(0, slots); };
       const playerLoadout = { primary: created.primary || C.characters.warden.primary, secondary: created.secondary ?? null,
-        reserve: Object.keys(C.concepts).filter(c => !C.concepts[c].sealed && c !== (created.primary || LOADOUTS[load].primary) && c !== (created.secondary ?? LOADOUTS[load].secondary)).slice(0, prof.reserveSlots), lens, level: prof.level, xp: prof.xp,
+        reserve: reserveFor(created, load, prof.reserveSlots), lens, level: prof.level, xp: prof.xp,
         passives: Loot?.passives(U.account) || {}, ...cardsLoadout() };
       const rush = encounter === "bossRush" && BR;
       const sealed = encounter === "secretWarrior" && SW ? SW.battleOptions({ seed: (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0, ally: ov.querySelector("#ccRushAlly")?.value || null }) : encounter === "secretWarriorNext" && SN ? SN.battleOptions({ seed: (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0 }) : null;   // the sealed fight
@@ -2926,6 +2957,7 @@
       if (U.llmEnabled) connectSocketOpponent();
       showDialogueFrom(0);
       host.classList.remove("cc-setting-up"); ov.hidden = true; U.mode = "menu"; U.menu = "root"; U.menuIndex = 0; U.sel = null;
+      keySheet?.close();   // Access AC5: a new battle starts with the key sheet shut
       surfaceUI?.close(); surfaceUI = o?.surface && root.ConceptCombatSurfaceUI ? root.ConceptCombatSurfaceUI.mount(host.querySelector(".cc-main"), surfaceDeps()) : null; U.surface = !!surfaceUI;   // Forum S2: every other start is the map
       U.narrationResultDone = false;
       U.narrationScene = (o && Object.prototype.hasOwnProperty.call(o, "narration"))
@@ -5292,7 +5324,7 @@
         // Reactive defense (2026-10-15): techniques that can answer this attack, one button each (a wall: one per tile on the line).
         const techs = ro.filter((r) => r.kind === "technique"), techButtons = techs.map((r, i) => `<button type="button" class="cc-item" data-tech="${i}">${esc(r.name)}${r.ability === "shieldWall" ? ` at (${r.target.join(",")})` : ""}${r.answer ? ` · cancels it · full ULT · ${r.inspired ? "1 Inspiration" : `${r.pf} ΦF`}` : ` · ${r.pf} ΦF`} · ${r.apCost} AP · ${price.reaction}</button>`).join("");
         const bindTech = () => el.querySelectorAll("[data-tech]").forEach((b) => b.onclick = () => { const r = techs[+b.dataset.tech]; act({ type: "respond", actor: d.id, response: "technique", ability: r.ability, target: r.target }); });
-        if (s.pending.reactive) {
+        if (s.pending.reactive && !ro.some((r) => r.kind === "guard")) {   // a blurred speedster (SS2, Nothing Is Sudden) is offered Guard and the dodge too, and takes the full window below
           el.innerHTML = `<div class="cc-title cc-alarm">Incoming</div>
             <div class="cc-muted">You see ${esc(s.actors[s.pending.attacker].name)}'s ${esc(s.pending.inst.name)} coming. Answer it with a reactive technique (${price.reaction}; its action points ${price.debt ? "owed next turn" : "spent now"}), or take it and keep your reaction.</div>
             ${techButtons}<button type="button" class="cc-item" data-resp="none">Take it · keep reaction</button>`;
@@ -5300,7 +5332,7 @@
           return;
         }
         el.innerHTML = `<div class="cc-title cc-alarm">Defensive window</div>
-          <div class="cc-muted">${esc(s.actors[s.pending.attacker].name)} ${s.pending.resume ? "committed" : "announced"} ${esc(s.pending.inst.name)}${s.pending.resume ? " and it is landing now" : ""}${s.pending.inst.deception ? `, claiming a reach of ${s.pending.inst.claimedRange} tiles` : ""}. Spend ${esc(d.name)}'s reaction?</div>
+          <div class="cc-muted">${esc(s.actors[s.pending.attacker].name)} ${s.pending.reactive ? "launched" : s.pending.resume ? "committed" : "announced"} ${esc(s.pending.inst.name)}${s.pending.resume ? " and it is landing now" : ""}${s.pending.inst.deception ? `, claiming a reach of ${s.pending.inst.claimedRange} tiles` : ""}. Spend ${esc(d.name)}'s reaction?</div>
           <button type="button" class="cc-item" data-resp="guard">Guard · ${price.guard} AP · ${price.reaction} (×${s.rules.guardMultiplier} damage)</button>
           ${s.pending.inst.ability === "arrest" && ro.some((r) => r.kind === "kneel") ? `<button type="button" class="cc-item" data-resp="kneel">Kneel · ${price.reaction} · claim trial (the court hears it; the cuffs stay on)</button>` : ""}
           <div class="cc-muted"><b>Dodge · ${price.dodge} AP · ${price.reaction}</b>${price.debt ? " · owed next turn" : " · spent now"}. ${price.dodgeAvailable ? `Click a highlighted tile (${safe} safe tile${safe === 1 ? "" : "s"} within ${price.reach}).` : "Unavailable: no legal dodge within your movement and AP/debt limits."}</div>
@@ -6132,7 +6164,7 @@
         return;
       }
       if(U.mode==="press"){el.innerHTML=`<div class="cc-title">Full Court Press · ${esc(s.actors[U.pressUnit]?.name || "ally")}</div><p>Click a green tile to relocate this ally instantly for 0 AP. One use per ally; movement vows still apply. Esc cancels without spending the relocation.</p>`;return;}
-      if (U.mode === "move") { el.innerHTML = `<div class="cc-title">Move</div><p class="cc-muted">Spend ${s.rules.actionCosts.movePerPoint} AP per terrain movement point, up to ${root.ConceptCombatInjury?.moveBudget(s, s.actors[controlledId(s)], E.movementBudget(s, controlledId(s)), !!root.ConceptCombatClassRuntime?.flies?.(s.actors[controlledId(s)])) ?? E.movementBudget(s, controlledId(s))} points on this move. Each step entering, leaving, or crossing water also costs ${s.rules.waterMoveApSurcharge ?? 20} AP; swimmers can cross deep water. You may move again while tempo remains. Slopes and mulch also affect movement. A 2+ level climb needs a ramp or Climb, and a 2+ level drop needs Jump. Remaining AP can fund other actions or be banked with Stall.</p>`; return; }
+      if (U.mode === "move") { el.innerHTML = `<div class="cc-title">Move</div><p class="cc-muted">Spend ${s.rules.actionCosts.movePerPoint} AP per terrain movement point, up to ${root.ConceptCombatInjury?.moveBudget(s, s.actors[controlledId(s)], E.movementBudget(s, controlledId(s)), !!root.ConceptCombatClassRuntime?.flies?.(s.actors[controlledId(s)])) ?? E.movementBudget(s, controlledId(s))} points on this move. Each step entering, leaving, or crossing water also costs ${s.rules.waterMoveApSurcharge ?? 20} AP; swimmers can cross deep water.${s.actors[controlledId(s)]?.speedState === "blur" ? " Blur: your steps cost half of that, and water adds nothing." : ""} You may move again while tempo remains. Slopes and mulch also affect movement. A 2+ level climb needs a ramp or Climb, and a 2+ level drop needs Jump. Remaining AP can fund other actions or be banked with Stall.</p>`; return; }
       let id = null, it = null;
       if (U.mode === "target" && U.sel && U.sel.ability) id = U.sel.ability;
       else if (U.menu === "tech") { it = foldRows(subItems())[U.menuIndex]; if (it?.fold) { el.innerHTML = `<div class="cc-title">${esc(it.group)}</div><p>${esc(menuHelp(it))}</p>`; return; } id = it && it.id; if (it && !it.x && !it.contractAction && menuHelp(it)) { el.innerHTML = `<div class="cc-title">${esc(it.label)}</div><p>${esc(menuHelp(it))}</p>`; return; } }
@@ -6310,6 +6342,7 @@
     // ── post-battle ───────────────────────────────────────────────────────
     function finish() {
       Promise.resolve(opts.llmBridge?.stop?.()).catch(() => {}); U.llmConnection = null;
+      keySheet?.close();   // Access AC5: the result and its narration are not drawn behind an open key sheet
       if (U.surface) { surfaceUI?.close(); surfaceUI = null; U.surface = false; }   // Forum S2: battle end clears the surface (FORUM.md Lifecycle)
       if (!U.report) {
         U.report = E.report(U.s);
@@ -6718,6 +6751,7 @@
         return;
       }
       if (e.target.closest(".emissary-inspector")) return;
+      if (keySheet && keySheet.isOpen()) { if (e.key === "Escape" || e.key === "?") { e.preventDefault(); keySheet.close(); } return; }   // Access AC5: while the key sheet shows it takes the keys; Esc or ? shuts it
       if (U.closeup) { if(e.key==="Escape"||e.key===" "||e.key==="Enter") {e.preventDefault();if(!(e.repeat&&U.closeup.scenes[U.closeup.index]?.kind==="postcard")&&!reportGuarded())closeAttackPopup();} return; }
       if (U.reading && e.key === " " && !e.target.closest("input,textarea,select,button")) { e.preventDefault(); skipReading(false); return; }   // Slow pace: Space skips the wait for the line on screen
       if (U.narrationHold) return;
@@ -6725,6 +6759,7 @@
       if (U.surface) return;   // Forum S2: the surface's own buttons take the keys; the hidden map menu must not
       if (U.mode === "teach") return;
       if (U.mode === "town") return;   // town/town.js listens for its own keys   // a Teach mode card is open: its own buttons take the keys
+      if (e.key === "?" && keySheet && !e.metaKey && !e.ctrlKey && !e.target.closest("input,select,textarea")) { e.preventDefault(); keySheet.open(); return; }   // Access AC5: the key sheet (key-sheet.js KEYS)
       if (e.target.closest(".cc-status") && e.key !== "Escape") return; // native disclosure keys must not issue a battle command
       if (U.mode === "studio" && !e.metaKey && !e.ctrlKey && !e.target.closest("input,select,textarea,summary")) { studioKey(e); return; }
       if (U.mode === "setup" && !$("ccGraph").hidden) { if(e.key==="Escape") {e.preventDefault();$("ccGraph").hidden=true;$("ccGraphMenu")?.focus();} return; }
@@ -6761,6 +6796,7 @@
     }
     document.addEventListener("keydown", onKey);
     $("ccGraphBtn").onclick = () => ($("ccGraph").hidden ? openGraph() : ($("ccGraph").hidden = true));
+    if (keySheet) $("ccKeysBtn").onclick = () => { if (!U.surface && !U.narrationHold && !U.closeup) keySheet.toggle(); }; else $("ccKeysBtn").hidden = true;   // Access AC5; shut over the Forum surface (T14), a narration or an attack scene, the same states in which onKey ignores ?
     $("ccAnimation").textContent = `Animation: ${U.fullAnimation?"Full":"Fast"}`;
     $("ccAnimation").onclick = () => { U.fullAnimation=!U.fullAnimation;store.set("loci:combat:full-animation",U.fullAnimation);$("ccAnimation").textContent=`Animation: ${U.fullAnimation?"Full":"Fast"}`;if(!U.fullAnimation&&U.closeup)closeAttackPopup(); if(U.fullAnimation&&U.s)animate(); };   // switching back to Full restarts the redraw loop, so standing fog and smoke breathe again
     $("ccPace").textContent = `Pace: ${U.pace === "slow" ? "Slow" : "Normal"}`;

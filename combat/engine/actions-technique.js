@@ -138,6 +138,7 @@
         else if (m.tier === "ultimate" && sequelFilm && !internal?.prepaid) { H.Inspiration.spend(s, a, Director.rules.sequelCost, "perform"); log(s, { kind: "charge", actor: a.id, text: `${a.name} films a sequel on prestige, unannounced: ${Director.rules.sequelCost} Inspiration.` }); }
         else if (m.tier === "ultimate" && !internal?.prepaid) { a.ultimateCharge -= s.rules.ultimateChargeMax; if (a.status.ward?.flow) a.status.ward = null; a.flowOn = false; log(s, { kind: "charge", actor: a.id, text: `${a.name} spends ${s.rules.ultimateChargeMax} ultimate charge on ${m.name}.` }); }   // spending the bar ends the flow state (ward included)   // MCR-04: prepaid reveals spend no bar or Inspiration beyond the set payment
         if (m.tier === "ultimate" && !internal?.prepaid) H.Inspiration.ultimateFired(s, a);   // Legend's Cloth (JG1): every cast ultimate counts once: bar, mastery or sequel; a prepaid card counted at its set (mystery.js)
+        if (!s.preview) ClassRuntime?.auditor?.committed(s,a,{...m,id:act.ability},{...classH(),Factions:H.Factions,Parley:H.Parley});
         s.stats.abilityUses[act.ability] = (s.stats.abilityUses[act.ability] || 0) + 1; H.Exposure.used(s, a, act.ability, m);
         if (crescendoFree) H.Inspiration.crescendoFreeUsed(a, act.ability);   // the free cast is spent at commit
         if (m.crescendo) H.Inspiration.crescendoArm(s, a, m);   // the Crescendo spends its Inspiration and bends the rule once the cast is committed

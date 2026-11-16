@@ -465,7 +465,10 @@
   // so a keeper's set stays empty until the Raven lands (K2). No dream key ever reaches a non-player caller.
   function familiarSet(actor, accountList = []) {
     if (!callsPalace(actor)) return [];
-    if (actor.id === "player") return SD.summons.raven && !accountList.includes("raven") ? [...accountList, "raven"] : accountList.slice();
+    if (actor.id === "player") {   // + a summon a teaching scenario lends for this battle only (lentSummons: the Mosaic, Tandem T2b; R-20261115-15)
+      const lent = (actor.lentSummons || []).filter((id) => !!SD.summons[id] && !accountList.includes(id)), list = [...accountList, ...lent];
+      return SD.summons.raven && !list.includes("raven") ? [...list, "raven"] : list;
+    }
     return [...new Set(classFamiliars(actor) || ["raven"])].filter((id) => !!SD.summons[id]);
   }
   // Once per battle, per caller (O5): s.summonUsed keeps the player's calls as bare ids, exactly as before (pacts, death's

@@ -55,6 +55,11 @@
   // name (display) is a starter placeholder until the canonical cast lands (open loop); the key
   // is the character id the engine uses (actor.sprite / character).
   const speakers = {
+    auditor_goblin:{name:"Auditor Goblin",ownOnly:true,voice:"Courteous, meticulous, fond of his work and rather fond of you; a tiny civic official, never cruel.",rules:{},events:{
+      encounter:["A pleasure. Shall we put the particulars in order?","Nothing personal. Just the particulars."],
+      attack:["One small discrepancy.","For the record."],hurt:["Oh! A note in the margin.","Careful with the satchel, please."],
+      low_lf:["A little ink left. And a little courage."],ultimate:["Every little entry accounted for. Thank you for your patience."],
+      victory:["Quite in order. Thank you for your time."],defeat:["Well played. I shall amend the record.","May I keep the receipt?"]}},
     rapper:{name:"Rapper",voice:"An inventive performer; original lines, no quoted lyrics.",rules:{},events:{encounter:["Let me find the line this room needs."],attack:["New idea, same voice."],reveal:["You heard the setup. Here is the turn."],ultimate:["I have been listening."],defeat:["Keep the lesson. Change the verse."]}},
     musician:{name:"Musician",voice:"An attentive ensemble player who listens before leading.",rules:{},events:{encounter:["Listen first. We will find the key."],attack:["Stay with the pulse."],reveal:["Agreement has to be maintained."],ultimate:["One more. Stay with me."],defeat:["Let the last note rest."]}},
     bard:{name:"Bard",voice:"A storyteller whose song carries a real, fragile charm.",rules:{},events:{encounter:["Every listener brings a different story."],attack:["Hear the next chapter."],reveal:["The charm ends when we feed the fight."],ultimate:["Let me tell you how this one ends."],defeat:["Tell it differently next time."]}},
@@ -441,6 +446,20 @@
       victory: ["You never stood up."],
       parried: ["Again. Slower this time."],
       climb: ["One step. Then another. Good."] } },
+    // The Treasure Hunter (TH1): an easy, greedy grin; every sentence is a map, a price, or a dare.
+    treasure_hunter: { name: "Treasure Hunter", ownOnly: true, voice: "Easy, greedy, delighted; every sentence is a map, a price or a dare. Talks to the loot as much as to you.", rules: {}, events: {
+      encounter: ["Somebody buried something here. I can smell it.", "Finders keepers. I will be finding."],
+      attack: ["Hold still. You are in the way of something shiny."],
+      hit: ["Ha! That one goes in the ledger."],
+      hurt: ["Careful. The gold is not the only thing that cracks."],
+      low_lf: ["One more good find and I retire. Honest."],
+      reveal: ["I see you. Nobody hides from a man with a compass."],
+      ultimate: ["Nobody leaves this map richer than me."],
+      ally_down: ["Hey. Hey! Stay with the map."],
+      defeat: ["Leave the treasure. Take me instead."],
+      victory: ["Drinks are on the dead king."],
+      parried: ["Fair. Ask me for a rematch with a bigger purse."],
+      climb: ["Up, up, up: the good stuff is always high."] } },
     // Lakshmana (docs/lakshmana-build.md "Voice"): Rama's younger brother; quick to anger, never far from Rama's side.
     lakshmana: { name: "Lakshmana", ownOnly: true, voice: "Fierce, loyal, short-tempered; protective to the bone. Speaks of Rama before himself.", rules: {}, events: {
       encounter: ["Where Rama goes, I go. Stand aside.", "I left Ayodhya with him. I will not leave him here."],
@@ -705,6 +724,12 @@
     spirit_raven: { name: "Spirit Raven", voice: "A croak that points.", rules: {}, events: { encounter: ["Caw."], defeat: ["..."] } },
     ancestral_fox: { name: "Ancestral Fox", voice: "Quiet paws; a bite that remembers.", rules: {}, events: { encounter: ["It watches."], attack: ["Snap."], defeat: ["Gone."] } },
     spirit_totem: { name: "Spirit Totem", voice: "A carved post that keeps the room.", rules: {}, events: { encounter: ["It stands watch."], defeat: ["Splinters."] } },   // SH2 guest; added at the 1.3.564 merge (Bitt IN)
+    // Hot-build cuts F1, the Forum five (1.3.567): minimal voices added at merge (Gangway IN) so every roster enemy speaks; each hot build (F2 to F6) brings the full voice.
+    florence_oloo: { name: "Florence Oloo", voice: "Field scientist; calm, exact, already testing the next version.", rules: {}, events: { encounter: ["Stand still. I am measuring."], defeat: ["Noted. Next trial."] } },
+    chitinous_archbishop: { name: "Chitinous Archbishop", voice: "Plated cleric; reads out the law, then chooses the body that will keep it.", rules: {}, events: { encounter: ["You are bound by a law you have not read."], defeat: ["This shell was never the last one."] } },
+    chitin_bishop: { name: "Chitin Bishop", voice: "Domed and patient; her gaze settles on one of you and does not move.", rules: {}, events: { encounter: ["Look at me. Only at me."], defeat: ["The dome dims."] } },
+    shardback: { name: "Shardback", voice: "A grinding, thorned creature from somewhere else; she reshapes the ground before she fights on it.", rules: {}, events: { encounter: ["This ground is wrong. I will fix it."], defeat: ["Back into the soil."] } },
+    eldritch: { name: "Eldritch Intruder", voice: "An unreadable visitor; it studies you like a page and strikes out what it dislikes.", rules: {}, events: { encounter: ["It reads you. Line by line."], defeat: ["The page closes."] } },
     hedge_witch: { name: "Hedge Witch", voice: "Hedge-keeper; fusses over candles and company with equal suspicion.",
       rules: { hw_line: ["Stay on the tame side, love."], hw_hurt: ["You snuffed my candle!"] },
       events: { encounter: ["Oh good, visitors. Mind the brambles — they mind you."], attack: ["The hedge provides!"], hurt: ["You snuffed my candle!"], rethink: ["Relighting. Replanting. Rethinking."], defeat: ["...gone to seed..."] },

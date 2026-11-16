@@ -162,7 +162,8 @@
       if (a.awakened) return 0;   // Tsukumogami: movement costs no tempo — the turn's price is the one action
       if (!route || route.length < 2) return 0;
       const points = route.slice(1).reduce((sum, [nx, ny], i) => sum + stepCost(s, route[i][0], route[i][1], nx, ny, a), 0);
-      const waterSteps = (ClassRuntime && ClassRuntime.flies(a)) || H.hasTrait(a, "treeWalker") || isKraken(a) ? 0 : route.slice(1).reduce((sum, [nx, ny], i) => sum + (waterAt(s, route[i][0], route[i][1]) || waterAt(s, nx, ny) ? 1 : 0), 0);   // ClassRuntime: flyers skip the water surcharge; Tree Walkers too (anime batch); the kraken is native (no surcharge on its own ground)
+      const blur = H.blur(s, a);   // True Super Speed: half-price steps and no water surcharge while nothing holds the legs
+      const waterSteps = (ClassRuntime && ClassRuntime.flies(a)) || H.hasTrait(a, "treeWalker") || isKraken(a) || blur ? 0 : route.slice(1).reduce((sum, [nx, ny], i) => sum + (waterAt(s, route[i][0], route[i][1]) || waterAt(s, nx, ny) ? 1 : 0), 0);   // ClassRuntime: flyers skip the water surcharge; Tree Walkers too (anime batch); the kraken is native (no surcharge on its own ground)
       // Planting is slow going: a step onto a living, walkable plant costs ×1.5 AP unless the mover is a hiker (or flies).
       const PM = vegetation?.data?.rules?.plantMove, flying = !!(ClassRuntime && ClassRuntime.flies(a));
       const hiker = !PM || flying || (a.traits || []).some(t => (typeof t === "string" ? t : t?.id) === PM.exemptTrait);
@@ -170,7 +171,7 @@
       const effective = points + plantPoints * ((PM?.apMul || 1) - 1);
       // Woodcraft (rules.ranger): a Ranger's step onto soil or a plant costs 1 action point less, never under 1 a step.
       const wood = s.rules.ranger && ClassRuntime?.isRanger(a) ? route.slice(1).filter(([x, y]) => plantUnderfoot(s, x, y) || (tileAt(s, x, y).tags || []).includes("soil")).length * s.rules.ranger.woodcraftAp : 0;
-      return H.adjustMoveCost(s, a, route, Math.max(wood ? route.length - 1 : 1, Math.round(effective * s.rules.actionCosts.movePerPoint * (a.passives?.moveCostMul || 1) * (ClassRuntime ? ClassRuntime.moveMods(a).costMul : 1)) - wood) + waterSteps * (s.rules.waterMoveApSurcharge ?? 20) + (ClassRuntime?.turnCost ? ClassRuntime.turnCost(s, a, route) : 0));   // movement money (machine P1): discounts/surcharges; ClassRuntime: Flight halves movement AP; Aerodynamic pays to turn
+      return H.adjustMoveCost(s, a, route, Math.max(wood ? route.length - 1 : 1, Math.round(effective * s.rules.actionCosts.movePerPoint * (a.passives?.moveCostMul || 1) * (ClassRuntime ? ClassRuntime.moveMods(a).costMul : 1) * (blur ? s.rules.trueSpeed.stepApMul : 1)) - wood) + waterSteps * (s.rules.waterMoveApSurcharge ?? 20) + (ClassRuntime?.turnCost ? ClassRuntime.turnCost(s, a, route) : 0));   // movement money (machine P1): discounts/surcharges; ClassRuntime: Flight halves movement AP; Aerodynamic pays to turn
     }
     function usableRamp(s, x, y, nx, ny) { return tileAt(s, x, y).ramp || tileAt(s, nx, ny).ramp; }
     function moveRefusal(s, a) {
@@ -251,6 +252,7 @@
         // Any successful action can expose or move water (bridge collapse, flooding,
         // projection, pasted terrain). Check occupied tiles after the complete mutation.
         for (const unit of Object.values(s.actors)) refreshDrowning(s, unit, "water opens beneath them");
+        for (const unit of Object.values(s.actors)) H.speedSync(s, unit);   // True Super Speed: Friction starts or ends with whatever this action did
         H.formsAfterAction?.(s);   // learned forms: Hollow takes back any healing
         H.corpseSweep?.(s);   // ritual burial: the fallen leave a body (engine/conditions.js)
         checkOutcome(s);
@@ -322,6 +324,7 @@
       a.observes=(a.observes||0)+1;   // spike cap: the AI stops studying a battle after three
       if(a.id==="player")for (const line of result.lines) log(s, { kind: "observe", actor: a.id, target: t.id, text: line });
       else log(s,{kind:"observe",actor:a.id,target:t.id,discoveries:result.revealed.length,text:aiText||`${a.name} studies ${t.name} and learns ${result.revealed.length} new detail${result.revealed.length===1?"":"s"}.`});
+      summonRules?.Tandem?.observed(s, a, t, log);   // Tandem T2b: a look at a tandem also reveals its next fragment, in order
       if (a.id === "player") {   // Observe teaches O2a: an imitable trait names its use; a dream monster teaches its lesson and the interim step
         // The refusals the Imitate action makes about the observer (imitate(): "already has that trait", "already practised that this battle"; the revealed cards come from the target's own traits): the Next line promises Imitate only for a trait the player could actually take now.
         const canImitate = (id) => insightRules?.imitable?.(id) && !(hasTrait(a, id) && !a.tempTraits?.[id] && !(s.imitation?.carried || []).includes(id)) && !(s.imitated || []).some((e) => e.actor === a.id && e.trait === id);

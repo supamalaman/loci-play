@@ -15,6 +15,15 @@
       strikeTarget, syncPresidentUnit, tileAt } = H;
     const { addStun, barsTooFast, freeStrike, grappleChance, grappleCost, grappled, hermitCharge, holdFireRefusal, sealedNext, seededChance, strikeRange, strongGrip,
       talksToAttack } = K;
+    // The sprint-and-Strike bonus (the Knight's Lance Charge, class-builds.js; and True Super Speed SS3 Momentum, rules.trueSpeed): the first Strike of a
+    // turn after walking 3 or more tiles in it. A blurred speedster gets +1 per momentumPer tiles up to momentumCap; a unit with both takes the larger, never
+    // the sum, and either one spends the once-a-turn mark (a.lanceTurn). Returns { add, kind: "lance" | "momentum" | null }.
+    const chargeBonus = (s, a) => {
+      const walked = a.walkedThisTurn || 0; if (walked < 3 || a.lanceTurn === a.ownerTurns) return { add: 0, kind: null };
+      const lance = ClassRuntime?.builds?.[a.character]?.passives?.lance_charge?.effect?.strikePotencyAdd || 0, T = s.rules.trueSpeed;
+      const momentum = T && H.blur?.(s, a) ? Math.min(T.momentumCap, Math.floor(walked / T.momentumPer)) : 0;
+      return momentum > lance ? { add: momentum, kind: "momentum" } : { add: lance, kind: lance ? "lance" : null };
+    };
     const family = {
       fullCourtPress(s,a,act) {
         const unit=s.actors[act.unit];if(!unit || unit.side!==a.side || !unit.fullCourtPress)return "Choose an ally with an unused Full Court Press relocation.";
@@ -103,13 +112,13 @@
         potency += foundryBonus;   // the Foundry's flat +2 lands after Dense Muscle, so it is not doubled
         const gearBlade = a.passives?.strikePotencyAdd || 0; if (gearBlade) potency += gearBlade;   // a worn weapon, flat, after multipliers
         // Lance Charge (the Knight's passive, class-builds.js): the first Strike of a turn after walking 3 or more tiles in it.
-        const lance = ClassRuntime?.builds?.[a.character]?.passives?.lance_charge, charged = lance && (a.walkedThisTurn || 0) >= 3 && a.lanceTurn !== a.ownerTurns ? lance.effect.strikePotencyAdd : 0;
+        const CB = chargeBonus(s, a), charged = CB.add;
         const CY = s.rules.cybernetic; if (CY && H.hasTrait(a, CY.trait)) potency += CY.strike;   // Cybernetic: a flat +3
         const AS = s.rules.ascended; if (AS && H.hasTrait(a, AS.trait)) potency += AS.strike;   // Ascended: a flat +5
         if (a.birdMountain?.red) { const g = a.birdMountain.red.gear; potency = Math.floor(potency * (g === 5 ? 3 : [1.5, 2, 2.5][g - 2])); }   // ʻUlaʻula: the red multiplies the whole Strike
         const coils = H.fruitRelease ? H.fruitRelease(s, a) : { potency: 0, n: 0 }; if (coils.n) potency += coils.potency;   // Coilfruit: the stored coils let go
         potency += ClassRuntime?.ma?.strike(s, a, log) || 0;   // Ma (five concepts M1): Still Stance +1, and the Strike spends all banked Stillness for +1 each
-        if (charged) { a.lanceTurn = a.ownerTurns; potency += charged; log(s, { kind: "effect", actor: a.id, target: t.id, text: `${a.name} strikes at the end of a ${a.walkedThisTurn}-tile run: Lance Charge, +${charged}.`, why: ["Once a turn, after walking 3 or more tiles."] }); }
+        if (charged) { a.lanceTurn = a.ownerTurns; potency += charged; log(s, CB.kind === "momentum" ? { kind: "effect", actor: a.id, target: t.id, text: `${a.name} hits at the end of a ${a.walkedThisTurn}-tile sprint: Momentum, +${charged}.`, why: ["True Super Speed: once a turn, after walking 3 or more tiles, +1 for every 2 tiles walked, up to +6 (a Knight's Lance Charge is never added to it)."] } : { kind: "effect", actor: a.id, target: t.id, text: `${a.name} strikes at the end of a ${a.walkedThisTurn}-tile run: Lance Charge, +${charged}.`, why: ["Once a turn, after walking 3 or more tiles."] }); }
         const armG = H.Injury?.gradeOf(a, "arms") || 0;
         if (armG === 1) potency *= (s.rules.injury?.armsWoundedMult ?? 0.8);
         const inst = { name: blade?.name || "Strike", ability: "strike", concept: null, delivery: "contact", damageType: blade?.damageType || "nigredo" };

@@ -13,7 +13,7 @@
   // Runs in duel() right after each actor is built; mutates the actor in place. The kit follows from
   // a.secondary at use time (abilitiesOf, pair-gated merges), so the swap is the secondary plus the mark.
   function settle(s, a, ch) {
-    const R = s.rules.wheelhouseSwap; if (!R?.on) return;
+    const R = s.rules.wheelhouseSwap; if (!R?.on && !ch?.wheelhouseEnabled) return;
     if (!a || a.id === "player" || a.boss || a.eventLoadout) return;   // the player never rolls; authored and boss kits stay fixed
     const w = ch?.wheelhouse; if (!w || w === ch.secondary || !H.C?.concepts?.[w]) return;
     if (H.seededChance(`wheelhouse:${a.id}:${s.seed}`) >= (R.chance ?? 0.10)) return;

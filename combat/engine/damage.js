@@ -262,6 +262,7 @@
       if(src&&inst&&H.Contracts&&!H.Contracts.allowed(s,src,inst))return 0;
       potency=H.Contracts?.specialize(s,src,tgt,inst,potency)??potency;
       if (src?.redInk && potency > 0) { potency += 2; why = (why || []).concat(["Red Ink burns in the blood: +2 potency."]); }   // W9.4: the rented strength hits first
+      { const lent = potency > 0 ? summonRules?.Tandem?.lentPotency(src) : 0; if (lent) { potency += lent; why = (why || []).concat([`${src.name}'s lent tiles: +${lent} potency.`]); } }   // Tandem T2b: made of what it strikes
       // A bleed-out skips the who-may-hit gates: the wound was dealt when the bleed was applied, this only finishes it.
       if (!opts.bleedOut && H.Tourist?.is(src) && src.id !== tgt?.id) return 0;
       if (!opts.bleedOut && (H.PostHuman.blocked(s, src, tgt) || H.Civilian.blocked(s, src, tgt) || H.Visitors?.blocked(s, src, tgt) || H.Factions.blocked(s, src, tgt))) return 0;   // Post-Humanity, civilians, visitors — and heroes, who only fight villains
@@ -730,6 +731,7 @@
       const dealtLf = before - tgt.lf; H.Presence?.noteLf(s, H, src?.id, dealtLf); { const brk = H.Sealing?.smashHook?.(s, tgt, dealtLf); if (brk) log(s, { kind: "seal", actor: brk.foe, text: brk.text }); }   // W2.1: the presenter's hands stay clean or the path shatters   // W2.3: smashing a sealed foe breaks it out (it eats the vessel)
       if (inst?.aimZone && !s.preview) H.Injury?.wound(s, src, tgt, inst.aimZone, "called");   // a called shot that lands wounds its zone, whatever the damage (negations exit above)
       if (!s.preview) H.Injury?.overflow(s, src, tgt, dealtLf);
+      summonRules?.Tandem?.afterHit(s, src, tgt, dealtLf, opts, log, (u, by) => hit(s, by && s.actors[by.id] ? by : null, u, null, 0, ["The echo of its tandem's wound."], { label: "Echo", bleedOut: true }));   // Tandem T2b: a lent tile; a close tandem's echo
       return dealtLf;
     }
     function applyFall(s, source, target, fromHeight, toHeight, half = false, cause = "shoved") {
@@ -776,7 +778,7 @@
         }
         if (target.passives?.hazardImmune) {
           log(s, { kind: "resist", actor: target.id, target: target.id, tiles: [[x, y]], text: `${target.name} is immune to the ${terrain.name} entry hazard.`, why: ["Hazard immunity prevents this terrain-entry hit."] });
-          syncPickup(s, target); return;
+          if (!H.States?.relicClaim?.(s, target)) syncPickup(s, target); return;
         }
         log(s, { kind: "terrain", actor: source?.id || target.id, target: target.id, tiles: [[x, y]], text: `${target.name} ${cause} ${terrain.name} at (${x},${y}): ${terrain.hazard} LF hazard.`, why: [`Entry hazard is a ${terrain.hazard} LF Nigredo · impact event.`] });
         hit(s, source || target, target, null, terrain.hazard, [`${terrain.name} entry hazard.`], { label: terrain.name + " hazard", damageType: "nigredo" });
@@ -796,7 +798,7 @@
       }
       if(source?.id === target.id && H.waterAt(s,x,y)){target.waterContact=H.key(x,y);target.waterDepth=H.surfaceAt(s,x,y)==="~"?"deep":"shallow";}
       refreshDrowning(s, target, `steps into water at (${x},${y})`, source?.id !== target.id);
-      syncPickup(s, target);
+      if (!H.States?.relicClaim?.(s, target)) syncPickup(s, target);   // Treasure Hunter (TH1): a hunter who ends a step (or a shove) on a pickup takes it as treasure instead (states.js relicClaim)
     }
 
     // A line delivery travelling from src to the tiles in `pts` (excluding src tile). Returns the index where it stopped, or -1.

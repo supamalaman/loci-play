@@ -68,6 +68,12 @@
       { id: "genghis-counter", prompt: "What's the best counter to Genghis Khan's routes?", choices: ["Close routes and compress the arena", "Spread out", "Ignore him"], answer: 0,
         explain: "Closing routes and forcing a narrow confrontation removes his advantage." },
     ],
+    mosaic: [
+      { id: "mosaic-tiles", prompt: "The Mosaic is made of what it strikes. What makes it hit harder?", choices: ["Wounding different foes, each lending a tile", "Striking the same foe again and again", "Standing far from its user"], answer: 0,
+        explain: "Each different foe it wounds lends it a tile, up to three; every tile adds to its later hits." },
+      { id: "mosaic-strain", prompt: "What happens to the Mosaic's tiles when it is pulled past its leash and strains?", choices: ["Every tile falls away", "It keeps them", "It gains one more"], answer: 0,
+        explain: "Strain breaks its pattern: every lent tile falls away, so keep it close." },
+    ],
     zherm: [
       { id: "zherm-nodes", prompt: "The Body Is a Colony spreads Zherm across fungal nodes. What's the weakness?", choices: ["Nodes can be isolated or destroyed", "He can't move", "He can't heal"], answer: 0,
         explain: "Distributed survival trades concentrated strength for dependence on the network." },

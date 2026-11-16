@@ -1253,6 +1253,21 @@ button.cc-gold:focus-visible { outline: 2px solid #fff6d8; outline-offset: 2px; 
 .cc-tandem-hex { display:grid; grid-template-columns:repeat(3, auto); gap:2px 10px; font-size: max(var(--pn-text-floor), calc(12px * var(--pn-text-step))); }
 .cc-tandem-cell b { display:inline-block; min-width:1.2em; text-align:center; }
 .cc-tandem-leash, .cc-tandem-price { margin:2px 0 0; font-size: max(var(--pn-text-floor), calc(12px * var(--pn-text-step))); opacity:.85; }
+/* Access AC5 (claude-access-spec, R-20261114-09): the key sheet (web/combat/key-sheet.js). An overlay over the battle; no motion. */
+.cc-keys { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: #0b0a0ecc; }
+.cc-keys[hidden] { display: none; }
+.cc-keys-card { width: min(720px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--pn-surface, #26232c); color: var(--pn-text, #f3eee2); border: 1px solid var(--pn-line, #3a3642); border-radius: var(--pn-r, 14px); box-shadow: 0 18px 40px #0009; padding: 14px 18px 12px; font: 400 max(var(--pn-text-floor), calc(14px * var(--pn-text-step))) var(--pn-sans, ui-sans-serif, system-ui, sans-serif); }
+.cc-keys-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.cc-keys-head b { color: var(--pn-accent, #e9c46a); font-size: max(var(--pn-text-floor), calc(18px * var(--pn-text-step))); }
+.cc-keys-close { min-height: 32px; }
+.cc-keys-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 4px 22px; }
+.cc-keys-group h3 { margin: 10px 0 4px; color: var(--pn-accent, #e9c46a); font-size: max(var(--pn-text-floor), calc(13px * var(--pn-text-step))); letter-spacing: .06em; text-transform: uppercase; }
+.cc-keys-group table { width: 100%; border-collapse: collapse; }
+.cc-keys-group th, .cc-keys-group td { padding: 4px 0; border-top: 1px solid var(--pn-line, #3a3642); text-align: left; vertical-align: top; }
+.cc-keys-group th { width: 9.5em; padding-right: 10px; font-weight: 400; white-space: nowrap; }
+.cc-keys kbd { display: inline-block; padding: 1px 6px; border: 1px solid var(--pn-line, #3a3642); border-bottom-width: 2px; border-radius: 5px; background: var(--pn-ground, #1c1a21); color: var(--pn-text, #f3eee2); font: 700 max(var(--pn-text-floor), calc(13px * var(--pn-text-step))) var(--pn-mono, ui-monospace, Menlo, monospace); }
+.cc-keys-when { display: block; color: var(--pn-muted, #b3aabd); font-size: max(var(--pn-text-floor), calc(13px * var(--pn-text-step))); }
+.cc-keys-foot { margin: 10px 0 0; color: var(--pn-muted, #b3aabd); font-size: max(var(--pn-text-floor), calc(13px * var(--pn-text-step))); }
 /* Access AC2 (claude-access-spec, R-20261114-09): reduced motion stops every animation and transition in this file; tools/motion-coverage.mjs and tests/access-ac2-reduced-motion.test.mjs hold it. Keep this block last so it wins the cascade. */
 @media (prefers-reduced-motion: reduce) {
   .cc-loading-art, .is-cast .ranged .cc-duel-flight span { animation: none; }

@@ -132,12 +132,17 @@
     function scenarioCivilians(s, opts) {
       if (s.mirror) s.mirror.salvagePicked = 0;   // SC17 salvage count starts at zero (slice 4; moved from engine.js at merge, engine cap)
       if (Array.isArray(opts.civilians)) for (const c of opts.civilians) H.Civilian.present(s, c);
+      if (Array.isArray(opts.lendSummons) && s.actors.player) s.actors.player.lentSummons = opts.lendSummons.slice();   // Tandem T2b: a teaching scenario lends a summon for this battle (summons.js familiarSet)
       if (typeof opts.afterCreate === "function") opts.afterCreate(s, { placeCivilian: (spec) => H.Civilian.present(s, spec) });
       if (opts.scenarioBattle === "theOpenDoor") { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.openDoor?.(s, H); }   // SH4 teaching: The Open Door starts with her table full (kept out of engine.js for the size cap)
     }
     // SC17 salvage (slice 4): a pickup by a player-side unit counts toward Salvage Run's n. Moved here from engine.js at merge (engine cap).
     function scenarioPickup(s, unit, got) {
       if (s.mirror && got.event?.kind === "pickup" && unit.side === "player") s.mirror.salvagePicked = (s.mirror.salvagePicked || 0) + 1;
+      // Treasure Hunter (TH1), Finder's Keepers: the first time each battle someone on the other side picks up the treasure he dropped, he gains +1 Inspiration.
+      const dropper = got.event?.kind === "pickup" ? s.actors?.[s.relicDrops?.[got.event.id]] : null;
+      if (got.event?.kind === "pickup" && s.relicDrops) delete s.relicDrops[got.event.id];   // taken by anyone: the id may be handed to a later pickup, which must not read as his drop
+      if (dropper && !dropper.defeated && dropper.side !== unit.side && H.hasTrait?.(dropper, "findersKeepers") && !dropper.findersKept) { dropper.findersKept = true; H.Inspiration?.gain?.(s, dropper, 1, `${dropper.name}: finders keepers, and the loss was a lure. +1 Inspiration.`); }
     }
     return { Factions, stanceFor, hostileSidesFor, scenarioCivilians, scenarioPickup };
   })();

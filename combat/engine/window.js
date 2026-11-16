@@ -19,9 +19,16 @@
     // same token as Guard and the dodge: "if you spend it the rest you have to endure"), its ΦF now, and its action
     // points now on your own turn or as next-turn tempo debt otherwise.
     const RD = (s) => s.rules.reactiveDefense;
+    // True Super Speed SS2 (Nothing Is Sudden; R-20261114-21 ruling 4): a blurred speedster sees a shot at them coming at any range, adjacent
+    // included, and gets the whole answer window (Guard, dodge, a reactive technique), not only the reactive one. A shot, not a field or an area.
+    const pointShot = (inst) => inst.delivery !== "field" && (!inst.area || ["single", "line"].includes(inst.area.shape));   // single targets and lines only; every other shape is an area
+    const nothingSudden = (s, d, inst) => {
+      const a = s.actors[inst.owner];
+      return !!a && !!d && H.blur(s, d) && pointShot(inst) && opponentsOn(s, a, s.pending?.announcedTiles || inst.tiles, false).some((u) => u.id === d.id);
+    };
     function seesItComing(s, d, inst) {
       const a = s.actors[inst.owner];
-      return !!a && H.hasSight(s, d.x, d.y, a.x, a.y) && dist(s, a.x, a.y, d.x, d.y) >= (RD(s)?.minRange ?? 2);
+      return !!a && H.hasSight(s, d.x, d.y, a.x, a.y) && dist(s, a.x, a.y, d.x, d.y) >= (H.blur(s, d) && pointShot(inst) ? 0 : (RD(s)?.minRange ?? 2));
     }
     // What the defender can know about the attack (Mala, 2026-10-15): a revealed technique says out loud what it does, so
     // the defender is told which answers it beats; an unrevealed one is judged by what each answer normally stops, and a
@@ -40,17 +47,17 @@
     };
     const learnedFails = (s, d, inst, ability) => s.log.some((e) => e.kind === "answered" && e.target === d.id && e.attackAbility === inst.ability && e.attacker === inst.owner && e.ability === ability && !e.worked);
     const canPayAp = (s, d, ap) => d.id === currentId(s) ? d.tempo >= ap : hasAgility(d, s) || (d.tempoDebt || 0) + ap <= s.rules.maxTempoDebt;
-    const answerAp = (s, m) => Math.ceil(m.tempoCost * (RD(s)?.answerApShare ?? 1));   // the reaction is fast: a reactive answer pays only its share of the tempo cost
+    const answerAp = (s, m, d, attack) => ClassRuntime?.auditor.reactionAp(s,d,attack||{},Math.ceil(m.tempoCost * (RD(s)?.answerApShare ?? 1))) ?? Math.ceil(m.tempoCost * (RD(s)?.answerApShare ?? 1));   // the reaction is fast: a reactive answer pays only its share of the tempo cost
     // An answer ultimate (My Answer Has Changed, docs/beam-clash.md §2): a hard reaction to any attack he sees coming, from an
     // attacker within its reach and in sight, once the bar is full (ΦF or 1 Inspiration pays: docs/inspired-ultimates.md).
     function answerReady(s, d, x, atk, def, inst) {
-      return !!atk && (inst?.potency || 0) > 0 && (inst.effect === "damage" || inst.effect == null) && !atk.defeated && x.affordable && canPayAp(s, d, answerAp(s, x.m)) && dist(s, d.x, d.y, atk.x, atk.y) <= (def.answer.range ?? 5) && H.hasSight(s, d.x, d.y, atk.x, atk.y);
+      return !!atk && (inst?.potency || 0) > 0 && (inst.effect === "damage" || inst.effect == null) && !atk.defeated && x.affordable && canPayAp(s, d, answerAp(s, x.m, d, inst)) && dist(s, d.x, d.y, atk.x, atk.y) <= (def.answer.range ?? 5) && H.hasSight(s, d.x, d.y, atk.x, atk.y);
     }
     // The answer meets the attack and both cancel out (Mala: "in the case of this technique, it would cancel out"): the attack
     // does nothing to him; nobody takes the difference. Strength is his 22 plus stored energy, set against what was coming.
     function castAnswer(s, d, opt, attack) {
       const m = H.manifest(s, d, opt.ability), now = d.id === currentId(s), atk = s.actors[attack.owner];
-      const tax = starReactionTax(s, d, attack?.owner), apCost = answerAp(s, m) * tax, inspired = H.inspiredPay(s, d, m);
+      const tax = starReactionTax(s, d, attack?.owner), apCost = answerAp(s, m, d, attack) * tax, inspired = H.inspiredPay(s, d, m);
       if (inspired) H.Inspiration.spend(s, d, s.rules.inspiration?.ultimatePoint ?? 1, "perform"); else d.pf -= m.cost;
       if (now) { d.tempo -= apCost; d.tempoSpent = (d.tempoSpent || 0) + apCost; } else if (!hasAgility(d, s)) d.tempoDebt = (d.tempoDebt || 0) + apCost;
       d.reaction -= 1;
@@ -74,11 +81,12 @@
       const coverOnly = !targeted && !inst.announced;   // W1c: in a reactive window a non-target answers only by covering (announced keeps wall answers for off-tile defenders)
       for (const x of H.availableAbilities(s, d.id, { answers: true })) {
         const m = x.m, def = H.ab(x.id);
-        if (coverOnly && x.id !== "fixedGaze" && x.id !== "guestPortion") continue;
-        if (def?.answer) { if (answerReady(s, d, x, atk, def, inst)) out.push({ kind: "technique", ability: x.id, target: [atk.x, atk.y], apCost: answerAp(s, m), pf: H.inspiredPay(s, d, m) ? 0 : m.cost, name: m.name, answer: true, ...(H.inspiredPay(s, d, m) ? { inspired: true } : {}) }); continue; }
-        if (!def?.reactive || d.pf < m.cost || !canPayAp(s, d, answerAp(s, m))) continue;
+        if (coverOnly && x.id !== "fixedGaze" && x.id !== "guestPortion" && x.id !== "objection") continue;
+        if (def?.answer) { if (answerReady(s, d, x, atk, def, inst)) out.push({ kind: "technique", ability: x.id, target: [atk.x, atk.y], apCost: answerAp(s, m, d, inst), pf: H.inspiredPay(s, d, m) ? 0 : m.cost, name: m.name, answer: true, ...(H.inspiredPay(s, d, m) ? { inspired: true } : {}) }); continue; }
+        if (!def?.reactive || d.pf < m.cost || !canPayAp(s, d, answerAp(s, m, d, inst))) continue;
         if (learnedFails(s, d, inst, x.id)) continue;   // it failed against this technique already this battle
-        const opt = (at) => ({ kind: "technique", ability: x.id, target: at, apCost: answerAp(s, m), pf: m.cost, name: m.name });
+        const opt = (at) => ({ kind: "technique", ability: x.id, target: at, apCost: answerAp(s, m, d, inst), pf: m.cost, name: m.name });
+        if (x.id === "objection") { const offer=ClassRuntime.auditor.option(s,d,inst,shown,H); if(offer)out.push({...opt(offer.target),...offer}); continue; }
         if (x.id === "guestPortion") {   // SH2: every attacked ally within 4 of her seated guest, nearest guest takes it
           for (const u of opponentsOn(s, atk, inst.tiles, false)) {
             if (u.side !== d.side || u.defeated || dist(s, atk.x, atk.y, u.x, u.y) < (RD(s)?.minRange ?? 2)) continue;
@@ -117,7 +125,8 @@
         if (o.side !== t.side || o.id === t.id || o.defeated || o.notArrived || targets.some((u) => u.id === o.id) || cover.some((u) => u.id === o.id)) continue;
         if (Object.values(s.actors).some((g) => !g.defeated && g.companion?.guest && g.companion.owner === o.id && dist(s, g.x, g.y, t.x, t.y) <= 4)) cover.push(o);
       }
-      const defenders = [...targets, ...cover].filter((t) => reactiveOptions(s, t, inst).length);
+      for(const d of Object.values(s.actors))if(!targets.includes(d)&&!cover.includes(d)&&reactiveOptions(s,d,inst).some(o=>o.ability==="objection"))cover.push(d);   // Auditor Goblin W2: an Objection holder anywhere may answer
+      const defenders = [...targets, ...cover].filter((t) => reactiveOptions(s, t, inst).length || (nothingSudden(s, t, inst) && seesItComing(s, t, inst) && responseOptions(s, t, inst).length));   // SS2: a speedster with Guard or a dodge to spend counts too
       // Deception, the other way: a line that looks like a field finds a defender who would have walled it offering
       // nothing. It lands; the defender sees what it really was, and is not fooled by this deceiver again this battle.
       for (const t of targets) { const shown = shownDelivery(s, t, inst);
@@ -131,7 +140,8 @@
       s.pending = { inst, attacker: a.id, defenders: defenders.map((t) => t.id), responded: [], lookedAway: [], announcedTiles: inst.tiles, reactive: true };
       log(s, { kind: "incoming", actor: a.id, tiles: inst.tiles, text: `${defenders.map((t) => t.name).join(", ")} see${defenders.length === 1 ? "s" : ""} ${a.name}'s ${inst.name} coming.`,
         why: ["Reactive defense: a ranged attack you can see coming can be answered with a reactive technique (one reaction a round).",
-          ...defenders.filter((t) => shownDelivery(s, t, inst) !== inst.delivery).map((t) => `To ${t.name} it looks like a ${shownDelivery(s, t, inst)} attack.`)] });
+          ...defenders.filter((t) => shownDelivery(s, t, inst) !== inst.delivery).map((t) => `To ${t.name} it looks like a ${shownDelivery(s, t, inst)} attack.`),
+          ...defenders.filter((t) => nothingSudden(s, t, inst)).map((t) => { const k = responseOptions(s, t, inst).map((o) => o.kind); return k.includes("guard") ? `Nothing is sudden to ${t.name}: at speed they see a shot coming at any range, so Guard${k.includes("reposition") ? " and a dodge are" : " is"} open too (one reaction a round).` : null; }).filter(Boolean)] });
       skipUnable(s);
       return true;
     }
@@ -158,11 +168,12 @@
       const m = H.manifest(s, d, opt.ability), t = H.target(s, d, m, ...(opt.coverFor ? [d.x, d.y] : opt.target), {});   // W1c cover: the option names the ally's tile, but the self-targeted manifest re-validates at the holder (the offer itself already seated the ally)
       if (!t.ok) return t.error;
       const now = d.id === currentId(s);
-      const tax = starReactionTax(s, d, attack?.owner), apCost = answerAp(s, m) * tax;
+      const tax = starReactionTax(s, d, attack?.owner), apCost = answerAp(s, m, d, attack) * tax;
       d.pf -= m.cost;
       if (now) { d.tempo -= apCost; d.tempoSpent = (d.tempoSpent || 0) + apCost; } else if (!hasAgility(d, s)) d.tempoDebt = (d.tempoDebt || 0) + apCost;
       const crescendoAnswer = H.Inspiration.crescendoAnswer(s, d);   // a Crescendo's answer bend: this answer spends no reaction and is not rushed
       if (crescendoAnswer) H.Inspiration.crescendoAnswerUsed(d); else d.reaction -= 1;
+      ClassRuntime?.auditor.committed(s,d,{...m,id:opt.ability},H);
       s.stats.abilityUses[opt.ability] = (s.stats.abilityUses[opt.ability] || 0) + 1;
       log(s, { kind: "respond", actor: d.id, response: "technique", ability: opt.ability, tiles: t.tiles, apCost,
         text: `${d.name} answers ${attack.name} with ${m.name} (${crescendoAnswer ? "Crescendo: no reaction spent" : "reaction spent"}; ${m.cost} ΦF, ${apCost} AP ${now ? "spent now" : "charged as next-turn tempo debt"}).`,
@@ -184,7 +195,9 @@
       if (hidden) log(s, { kind: "respond", actor: d.id, fromCover: true, text: `${s.actors[attack.owner]?.name} fired from cover: ${d.name} sees it late.`, why: [`A rushed answer to a shot from cover catches ${Math.round(RD(s).fromCover.rushed * 100)}%, not ${Math.round((RD(s).rushed ?? 1) * 100)}%. A perfect answer still catches everything.`] });
       if (crescendoAnswer) log(s, { kind: "respond", actor: d.id, crescendo: true, ability: opt.ability, text: `${d.name}'s Crescendo: the answer is not rushed and no reaction is spent.`, why: ["A Crescendo's answer bend (HOTBUILDS.md 1c): it catches everything, as if prepared."] });
       const fixedPrimed = opt.ability === "fixedGaze" && (H.fixedFoes?.(s, d) || [H.fixedFoe?.(s, d)]).includes(attack?.owner);   // primed: the shooter is a Fixed foe — either mark (W1c); the ward fires whole (like perfect) and the shooter loses its rhythm
-      const caught = perfect || crescendoAnswer || fixedPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
+      const auditPrimed=opt.ability==="objection" && d.status?.auditPrimed?.until>d.ownerTurns;
+      const caught = perfect || crescendoAnswer || fixedPrimed || auditPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
+      if(opt.ability==="objection"){ClassRuntime.auditor.sustain(s,d,attack,{...opt,caught},H);delete d.status.auditPrimed;}
       if (fixedPrimed) { const atk = s.actors[attack.owner]; if (atk && !atk.defeated) { atk.status.offTempo = { banned: attack.ability, expiresAt: (atk.ownerTurns ?? 0) + 2, by: d.id }; log(s, { kind: "respond", actor: d.id, target: atk.id, ability: opt.ability, primed: true, text: `${d.name}'s Fixed Gaze meets ${atk.name}'s ${attack.name} whole: the held image holds. ${atk.name} is off-tempo: ${H.ab?.(attack.ability)?.name || attack.ability} is forbidden for a round.`, why: ["Fixed Gaze, primed: the Fixed foe's shot meets the whole ward, and the shooter cannot repeat the technique for a round."] }); } H.Inspiration?.cash(s, d, "Stay."); }   // W1c: a primed gaze cashes (the Hypnotist's line; the round-cap and Inspiration cap live in cash)
       if (m.effect === "parry" && d.status.parry) { const pn = d.status.parry.name || "Rebound"; Object.assign(d.status.parry, crescendoAnswer ? { reacted: true, label: `${pn} (Crescendo)` } : perfect ? { reacted: true, perfect: true, label: `${pn} (perfect)` } : { reacted: true, rushed: caught, label: `${pn} (rushed)` }); }   // armed by the reaction: catching this hit costs no second one
       if (m.effect === "membrane" && d.status.membrane && !perfect && !crescendoAnswer) Object.assign(d.status.membrane, { rushed: caught, label: "Membrane (rushed)" });
@@ -210,7 +223,7 @@
       if (inst.directHit) return [];   // Drunken Monkey Style: too unpredictable to answer — no guard, no dodge
       const freeRead = d.freeReactionVs === inst.owner;
       const reactive = reactiveOptions(s, d, inst);
-      if (s.pending?.reactive) return reactive;   // unannounced: only a reactive technique answers it
+      if (s.pending?.reactive && !nothingSudden(s, d, inst)) return reactive;   // unannounced: only a reactive technique answers it (a blurred speedster answers it in full: SS2)
       if (d.reaction <= 0 && !freeRead) return [];
       const watching = d.status.overwatch?.expiresAt > d.ownerTurns;   // Overwatch (Muse-2): the held reaction is spent — no guard, no dodge (reactive techniques still answer)
       const opts = watching ? [] : [{ kind: "guard" }];
