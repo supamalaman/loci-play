@@ -566,7 +566,7 @@
     "archetype": "terrace",
     "map": [
       ",T,hh,hh,T,",
-      ",ww,,~,,ww,",
+      ",ww,d~d,ww,",
       "...././....",
       "...........",
       "...........",
@@ -604,7 +604,7 @@
         ]
       ]
     },
-    "note": "A stone court in front of a retained lawn. One step up, two ramps, a pool in the gate, and basins in front of the trees.",
+    "note": "A stone court in front of a retained lawn. One step up, two ramps, a pool in the gate, a wooden pier flanking the pool, and basins in front of the trees.",
     "schemaVersion": 1,
     "id": "gardenCourt",
     "requirements": {
@@ -751,6 +751,68 @@
           ]
         }
       ]
+    }
+  },
+  "iceCourt": {
+    "schemaVersion": 1,
+    "id": "iceCourt",
+    "name": "Ice Court",
+    "archetype": "terrace",
+    "map": [
+      "T.,,,,,,,,T",
+      ",.iiiiiii.,",
+      "..iiiiiii..",
+      "..iiiiiii..",
+      "..iiiiiii..",
+      ",.iiiiiii.,",
+      "T.,,,,,,,,T"
+    ],
+    "height": [
+      "00000000000",
+      "00000000000",
+      "00000000000",
+      "00000000000",
+      "00000000000",
+      "00000000000",
+      "00000000000"
+    ],
+    "spawns": {
+      "player": [
+        [
+          1,
+          3
+        ]
+      ],
+      "enemy": [
+        [
+          7,
+          3
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          9,
+          5
+        ]
+      ]
+    },
+    "note": "A frozen terrace court. The ice sheet (i) in the middle cracks then gives way under a placed or area blow; paving and turf at the rims stay whole. Player spawn is paving; the first enemy spawn stands on ice.",
+    "visual": {
+      "style": "isometric",
+      "seed": 71,
+      "lighting": "day",
+      "dressing": "none",
+      "palette": {
+        "stone": "#c5d4e0",
+        "soil": "#6a5a4a",
+        "turf": "#6b8f6a",
+        "water": "#7eb8c9",
+        "wall": "#8aa0b0",
+        "ramp": "#a8b8c4"
+      },
+      "features": []
     }
   },
   "loiTerraces": {

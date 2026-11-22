@@ -19,12 +19,30 @@
     // user's. planPounce (her mark-then-Pounce plan) is built and tested and stays off: it showed no gain.
     focusRenewal: { enabled: true, of: ["bastet"], planPounce: false, announcements: true },
     flowState: { enabled: true, inspirationChance: 0.15, ward: 3, moveAdd: 1, strikeMul: 1.15 },   // holding a full ult bar supercharges: ward + move + strikes + a per-turn Inspiration roll (Mala, 2026-10-15)
+    // Exile tenancy (T0a; spec claude-anime-exile-spec EXILE_TENANCY.md sections 1, 2, 8, 12; plan claude/exile-t0a/PLAN.md). Every number is PROVISIONAL
+    // until the T19 sim; account/tenancy.js builds every player-read line from this block. An exile lodges with a host at a per-pair Coherence (1 to 100).
+    // Rungs: efficacy 0 lends nothing (Stranger); the rest scale the lent power. The ladder is the spec's (Stranger 1-19 ... Coherent 80-100; Full is exactly 100).
+    tenancy: {
+      max: 100, start: 1, full: 100,
+      rungs: [
+        { id: "stranger", name: "Stranger", from: 1, efficacy: 0 }, { id: "guest", name: "Guest", from: 20, efficacy: 1 },
+        { id: "tenant", name: "Tenant", from: 40, efficacy: 1.25 }, { id: "housemate", name: "Housemate", from: 60, efficacy: 1.5 },
+        { id: "coherent", name: "Coherent", from: 80, efficacy: 2 },
+      ],
+      scales: "ap",                                                   // what efficacy multiplies for Ways Between (D4, PROVISIONAL): the AP price, returned after the step as price - round(price / efficacy)
+      gains: { time: 4, restraint: 3 },                               // per completed battle housed; a won battle with her way open and not taken
+      offer: { chance: 0.3, minBattles: 3, declineRest: 5 },          // door 1 (spec section 8): a flat chance at the start of a random battle; T1 adds the Crews standing
+      exiles: { aziza: { name: "the One Who Knows the Ways", response: "hopeful", subfaction: "exiles", power: "waysBetween", uses: 2, rent: { takes: "guard", nth: 1 } } },   // one constant for the card name (cultural review pending, spec section 14)
+    },
     maxLF: 100, maxPF: 30, pfRegen: 3,          // LF / ΦF baseline, regen at owner turn start
     moveBudget: 3,                               // terrain movement points per move action
+    waterAi: { depth: 3, drift: 6, surge: 4, fordProgress: 2, fordClaim: 7, displacement: 0.75 },
+    fordMoveCost: 2,                              // movement points to enter a submerged crossing stone
     waterMoveApSurcharge: 20,                    // AP per step entering, leaving, or crossing water; swimmers can cross deep water
     actionPointsPerTurn: 100,                    // one full turn = 100 tempo points
     maxBankedActionPoints: 100,                  // Stall may carry at most one turn forward
     maxTempoDebt: 100, maxOverclockPerAction: 100,
+    cure: { maxLayers: 3, peelRounds: 3, fearAdd: 0.1 },
     actionCosts: { movePerPoint: 10, jump: 25, climb: 50, strike: 25, strikeMin: 10, strikeMax: 50, guard: 15, ability: { basic: 25, refined: 35, ultimate: 50 }, utility: 20, swap: 35 },
     summonRoomStudyAp: 20,   // Observe teaches O2c: studying a summon's palace room; the handler and the action card both read it (action seams A3a)
     catNap: { apPerLF:5, maxHeal:8 },
@@ -303,13 +321,16 @@
       ai: { moment: 8, perBeliever: 3, observe: 13 } },
     commitments: { keptCharge: 20, homecomingRadius: 2, homecomingAdd: 0, ai: { promise: 3, guarantee: 2, accord: 4, home: 0.5, finishBelow: 0.4, reach: 6 } },
     aggressive: { pressBelow: 3 },
+    // A familiar or dream call, as the AI prices it (ai.js score): base + perTurn x the call's turns, + outnumbered when foes outnumber friends.
+    // base was 30 until the K2 rework (Mala, 2026-11-15, R-20261115-41: "just lower summoning down a little bit, but summoning should be happening at the start of battle").
+    callAi: { base: 26, perTurn: 6, outnumbered: 10 },
     // NPC Observe (insight/observation.js). Mala, 2026-10-11: an AI unit studies an enemy only if a trait of its own
     // inclines it to; everyone else gets on with the fight (before this every unit Observed about once a turn, 17 to 20
     // times a battle). The number is what one Observe is worth to the AI, on the damage scale; the highest trait counts.
     // `scout` is listed for when that trait exists. Curious (Mala): it counts, but only just above doing nothing, so a
     // curious unit looks someone over when it has no better use for the turn and never instead of a real action. (At
     // 10 it made 4 units in 10 study every turn.) A Stall is worth 0 to the AI; anything useful scores 3 or more.
-    observation: { ai: { traits: { discernment: 14, scout: 12, truthSeeker: 10, curious: 1 }, place: { botanist: 12, base: 9 } } },
+    observation: { ai: { traits: { discernment: 14, scout: 12, messenger: 12, truthSeeker: 10, curious: 1 }, place: { botanist: 12, base: 9 } } },
     // Standoff (docs/termination-audit.md, seed 5507): two sides six tiles apart recast their own buffs for 33 rounds.
     // After `rounds` rounds with no attack between opposing units, an AI unit whose best option harms nobody closes the
     // distance instead. Units at or below `spareBelowLf` of their life are spared; modes where waiting is the job
@@ -318,6 +339,12 @@
     // Hotbuild wheelhouse swap (W0a): a hot-build NPC swaps its secondary for its wheelhouse concept at `chance`
     // on one seeded roll. Dark until a character uses it (`on: false` on the shelf; the flipper is this switch).
     wheelhouseSwap: { on: false, chance: 0.10 },
+    // The Treasure Hunter's kit numbers (TH1b, cursor-treasure-hunter-spec section 1; the rules are engine/states.js "Treasure Hunter").
+    // compassApOff: a move that ends on a pickup he has surveyed costs this much less AP, once per mark (movement money, never under its floor).
+    // idolStepTiles: Idol Claim's free step is one move of at most this many tiles that ends nearer the nearest pickup he has surveyed, the round it is cast.
+    // relicPathTurns: a laid Relic Path lasts until his first move, or this many of his turn starts. ai: what his AI scores each technique (damage scale).
+    treasureHunter: { compassApOff: 10, idolStepTiles: 3, relicPathTurns: 2, secondClaimsPerBattle: 1,
+      ai: { survey: 6, idolClaimPerPickup: 5, idolClaimCap: 12, relicPath: 6, secondClaim: 5, nearTiles: 6 } },
     // AI ledgers (least-used build, 2026-10-12): score() prices what previews can't show. Threat: protection is worth
     // the incoming LF it stops on covered allies (cover fractions per effect), capped by the protector's own LF.
     // Info: an observe-on-hit rider or focus mark is worth hidden cards × perCard when it lands. Order: threat → info.
@@ -346,9 +373,18 @@
         // Entrainer (hotbuilds W1b; the Hypnotist's AI table, HOTBUILDS.md section 2): fix the open foe, image the
         // watched one, gaze a second when two show themselves (W1c: the Crescendo is on the shelf now).
         attentionToDetail: {statute:{bonus:7,when:["auditNoStatute",["foeNear",4]]},verify:{bonus:8,when:["auditRumour"]}},
+        // Liturgist (hot-build cuts F3, the Chitinous Archbishop): post the law first, then mark who stands in it.
+        liturgist: { statute: { bonus: 8, when: ["auditNoStatute"] },
+          markTheVessel: { bonus: 6, when: ["statuteFoe"] } },
         entrainer: { focus: { bonus: 6, when: [["foeNear", 6], "noneFixed"] },
           holdTheImage: { bonus: 8, when: ["fixedFoeRanged", "noWard"] },
-          secondGaze: { bonus: 4, when: [["foesInSight", 2]] } },
+          secondGaze: { bonus: 4, when: [["foesInSight", 2]] },
+          allure: { bonus: 8, when: ["fixedFoeRanged"] },
+          crownOfPlates: { bonus: 10, when: ["fixedFoeRanged"] } },
+        // Clinician (hot-build cuts F2, Florence): set the field down first, then innovate on it.
+        clinician: { diffuseWave: { bonus: 7, when: ["noFieldLive", ["foeNear", 5]] },
+          prototype: { bonus: 6, when: ["fieldLive"] },
+          recombine: { bonus: 6, when: ["fieldLive"] } },
         // Posterity suits (grok-manavu-hotbuilds, 2026-11-04): seven suit traits; merged behind the Entrainer at landing (Capstan IN, 1.3.546).
         dutiful: {
           stealPresent: { bonus: 6, when: [["foeNear", 1]] },
@@ -505,10 +541,12 @@
     droneTowers: { max: 3, placeRange: 3, range: 3, potency: 4, dataCenterRange: 1, dataCenterWard: 1 },
     // True Super Speed (claude-true-super-speed-spec; Mala, R-20261114-21). SS1 Blur: a unit with the trait pays stepApMul
     // of the action points for a step and no water surcharge; Friction (engine/conditions.js friction) switches it off. SS2 Nothing Is
-    // Sudden: the same unit sees an unannounced shot at it coming at any range (engine/window.js) and dodges at dodgeApMul of the price.
-    trueSpeed: { trait: "superSpeed", stepApMul: 0.5, dodgeApMul: 0.5, dodgeReachAdd: 2, momentumPer: 2, momentumCap: 6 },   // SS2 Nothing Is Sudden: a dodge at dodgeApMul of the price (floored after every factor) and dodgeReachAdd tiles farther; SS3 Momentum: +1 potency per momentumPer tiles walked before the first Strike of a turn, up to momentumCap (merged at 1.3.568, Gangway IN)
+    // Sudden: the same unit sees an unannounced shot at it coming at any range (engine/window.js) and dodges at dodgeApMul of the price (0: free; it still spends the reaction, Mala R-20261115-30).
+    trueSpeed: { trait: "superSpeed", stepApMul: 0.5, dodgeApMul: 0, dodgeReachAdd: 2, momentumPer: 2, momentumCap: 6, beatShare: 0.5 },   // SS2 Nothing Is Sudden: a dodge at dodgeApMul of the price (0: free, still the reaction; Mala R-20261115-30) and dodgeReachAdd tiles farther; SS3 Momentum: +1 potency per momentumPer tiles walked before the first Strike of a turn, up to momentumCap (SS2 dodge price merged with SS4 beatShare at 1.3.569, Bowsprit IN)
     cybernetic: { trait: "cybernetic", move: 1, strike: 3, grapple: 0.25, dodgeOff: 15, damageMul: 0.85, transcendInspiration: 1 },
     ascended: { trait: "ascended", move: 1, strike: 5 },   // Ascending Martial Artist's gold form (Mala, 2026-10-22); flight via isFlyer
+    // The maid's Vocational form (R-20261115-61, -63, -65): her foes count as waste. Base damage before her x1.5 per blow (trait vocational).
+    vocational: { trait: "vocational", sort: 12, sortBoxed: 18, clear: 18, clearPush: 2, removal: 14, sweep: 28 },
     ultimateChargeMax: 100,
     ultimateChargePerConcept: 20,
     ultimateChargePairBonus: 12,
@@ -942,10 +980,10 @@
     paleStampede: { name: "Pale Stampede", tier: "ultimate", concepts: ["sightline", "boundary"], merge: true, pairOnly: true, pairs: [["sightline", "boundary"]], delivery: "line", target: "enemy", area: { shape: "line" }, mechanism: "Ride one straight line (12 potency): every foe on the line and beside it is trampled, and the churned ground costs +10 AP to cross until it is cleaned.", cost: 16, range: 5, potency: 12, effect: "paleStampede", reveal: "Pale Stampede strikes every foe on the line and on the tiles beside it, then leaves the whole path trampled: crossing costs +10 AP until cleaned. Announced: step off the path.", announce: "The Pale Stampede rides.", prompt: "Which tiles does the stampede trample?" },
     tripThreshold: { name: "Trip Threshold", tier: "basic", concepts: ["threshold"], delivery: "routed", target: "enemy", area: { shape: "single" }, routeBudget: 7, timing: "delayed", trigger: "targetTurnStart", mechanism: "Mark a target; the strike triggers at the start of their next turn.", cost: 4, range: 0, potency: 11, effect: "damage", reveal: "Trip Threshold is committed now and lands at the target's next turn start, with a response window." },
     criticalThreshold: { name: "Critical Threshold", tier: "ultimate", concepts: ["threshold"], delivery: "routed", target: "enemy", area: { shape: "plus" }, routeBudget: 9, timing: "delayed", trigger: "targetTurnStart", mechanism: "Set a broad threshold; the marked zone erupts at the target's next turn start.", cost: 17, range: 0, potency: 19, effect: "damage", reveal: "Critical Threshold strikes the marked tile and its neighbors at the target's next turn start.", announce: "The marked zone will erupt at the start of your next turn; move clear or brace." },
-    diffuseWave: { name: "Diffuse Wave", tier: "basic", concepts: ["diffusion"], delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, mechanism: "Spread a low-intensity wave through nearby open space and push bodies outward.", cost: 5, range: 0, potency: 7, effect: "damage", knockback: 1, reveal: "Diffuse Wave reaches every opponent within 2 tiles and shoves each one tile away." },
+    diffuseWave: { name: "Diffuse Wave", tier: "basic", concepts: ["diffusion"], delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, mechanism: "Spread a low-intensity wave through nearby open space and push bodies outward.", cost: 5, range: 0, potency: 7, effect: "damage", knockback: 1, freeFirst: "turn", freeFirstFor: ["florence_oloo"], reveal: "Diffuse Wave reaches every opponent within 2 tiles and shoves each one tile away. Florence's first Diffuse Wave each turn is free." },
     prune: { name: "Prune", tier: "basic", concepts: ["pruning"], delivery: "placed", target: "tile", mechanism: "Remove one named part from a reachable plant or eligible plant hazard.", cost: 3, range: 1, potency: 0, effect: "prune", reveal: "Prune removes one eligible plant or hazard part. An invalid target consumes the action and ΦF without changing the board; it cannot affect Life Force, paving, or pillars.", prompt: "Which local part was removed, and what changed around it?" },
     carefulPrune: { name: "Careful Prune", tier: "refined", concepts: ["pruning"], delivery: "placed", target: "tile", mechanism: "Make a deliberate cut at greater reach, using the same one-part removal rule.", cost: 5, range: 2, potency: 0, effect: "prune", reveal: "Careful Prune removes one eligible part. Greater reach does not add another cut or bypass a Barrier." },
-    focus: { name: "Fix Attention", tier: "basic", concepts: ["focus"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Attend to one visible target and retain one useful detail about their cover.", cost: 3, range: 5, potency: 0, effect: "focus", duration: 1, retainedDetail: 1, freeFirst: "turn", freeFirstFor: ["hypnotist"], reveal: "Focus marks one target through your next owner turn. Your reactions are limited to that target until another concept is used; a later Sightline shot can ignore one adjacent partial-cover source. You retain one detail: your next Observe on them gains +1 point." },
+    focus: { name: "Fix Attention", tier: "basic", concepts: ["focus"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Attend to one visible target and retain one useful detail about their cover.", cost: 3, range: 5, potency: 0, effect: "focus", duration: 1, retainedDetail: 1, freeFirst: "turn", freeFirstFor: ["hypnotist", "chitin_bishop"], reveal: "Focus marks one target through your next owner turn. Your reactions are limited to that target until another concept is used; a later Sightline shot can ignore one adjacent partial-cover source. You retain one detail: your next Observe on them gains +1 point. The Hypnotist's and the Chitin Bishop's first Fix Attention each turn is free." },
     deepFocus: { name: "Deep Focus", tier: "refined", concepts: ["focus"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Sustain attention on one visible target across a longer observation window.", cost: 5, range: 4, potency: 0, effect: "focus", duration: 2, retainedDetail: 1, reveal: "Deep Focus marks one target for two owner turns. It grants no extra cover ignores; the reaction restriction lasts only while Focus is your latest technique. You retain one detail: your next Observe on them gains +1 point." },
     annotate: { name: "Annotate", tier: "basic", concepts: ["cipher"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Mark one visible target and write down what is hidden: their soul force and traits are revealed to your side.", cost: 3, range: 5, potency: 0, effect: "annotate", duration: 2, damageType: "albedo", reveal: "Annotate marks one target for two owner turns and reveals their hidden stats. A record outlasts attention: the mark survives to your turn after next, enabling Redact and Plaintext riders." },
     redact: { name: "Redact", tier: "refined", concepts: ["cipher"], delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Seal the victim's latest damage channel until their next turn start; an annotated victim also takes 8 spiritual damage.", cost: 5, range: 4, potency: 8, effect: "redact", damageType: "albedo", reveal: "Redact seals one damage channel (the victim's latest). Annotated victims take spiritual damage: the soul, not the body." },
@@ -1023,6 +1061,10 @@
     vapourStep: { name: "Vapour Step", tier: "refined", fruitOnly: true, concepts: ["stealth"], delivery: "placed", target: "tile", area: { shape: "single" }, cost: 5, range: 4, tempoCost: 15, potency: 0, effect: "fruit", effectCategory: "conditional",
       mechanism: "Mistfruit, Ripe: standing in fog, step to any empty fog tile within 4 tiles, no line needed. A step, not a leap: it provokes nothing, but what is on the tile you land on still happens.",
       reveal: "Weather you can walk through.", counter: "Water takes the power; with no fog to land in the step is refused; Steel will lands through the Drift you keep.", teaches: "You can be where the weather is." },
+    // Exile tenancy (T0a): a tenant's lent power, not a technique anyone learns (tenantOnly: the Performers' pool and the Locusfruit skip it). engine/tenancy.js validates and resolves it.
+    waysBetween: { name: "Ways Between", tier: "refined", tenantOnly: true, concepts: ["adjacency"], delivery: "placed", target: "tile", area: { shape: "single" }, cost: 4, range: 4, tempoCost: 25, potency: 0, effect: "tenant", effectCategory: "conditional",
+      mechanism: "A tenant's way: step to any open tile within 4, whatever the ground costs. It provokes nothing; what is on the tile you land on still happens. Twice a battle; her keep is your first Guard each battle.",
+      reveal: "A road only she remembers.", counter: "A taken or walled tile stays closed; the reach never grows; a blade beside where you land still reaches you; held or rooted, you cannot go.", teaches: "Distance is what the road charges, not what the map shows." },
     audition: { name: "Audition", tier: "basic", concepts: ["deception"], delivery: "signal", target: "self", area: { shape: "single" }, cost: 4, range: 0, potency: 0, effect: "classEffect", classKind: "actor", effectCategory: "conditional",
       mechanism: "Hold auditions: three villain classes answer (60% the last role holds a familiar slot). Play one for N turns, N its consecutive plays to a cap of 3: its pair techniques and mandatory class traits are yours, over your own.",
       reveal: "Audition plays a villain's kit for up to 3 turns; repeats build Typecast.", counter: "Force the revert early: the part ends when the run does.", teaches: "Every part is borrowed craft: wear it, then give it back." },
@@ -1127,6 +1169,7 @@
   // code all see one catalog rather than a parallel ability registry.
   const playableKits = { ...(Kits.abilities || {}) };
   Object.assign(abilities, playableKits);
+  Object.assign(concepts, Kits.cureConcepts);
   const presidentEffects = { swornIn: "presidentOffice", executiveDirection: "presidentDirection", dueProcess: "presidentLaw",
     publicPromise: "presidentPromise", credibleGuarantee: "presidentGuarantee", burnTheBoats: "presidentCommitment", theAccordHolds: "presidentAccord" };
   for (const [id, effect] of Object.entries(presidentEffects)) if (abilities[id]) abilities[id].effect = effect;
@@ -1448,6 +1491,51 @@
     counter: "Be out of the radius when it resolves; have nothing hidden.",
     teaches: "Total survey costs total exposure." };
 
+  // The Treasure Hunter's own techniques (TH1b, cursor-treasure-hunter-spec section 1; R-20261115-26). Pair-gated to Discovery + Extraction,
+  // his pair; Sun Ward and Second Claim also ride his wheelhouse blend (Discovery + Alternate Pathway), and Relic Path is that blend's merge.
+  // Numbers: rules.treasureHunter above. Rules: engine/states.js (the "Treasure Hunter" section); window.js asks it for Sun Ward's gate and prime.
+  // Sun Ward: a reactive self ward, his base form only (the gold is the defence while he carries treasure). Rushed like any reaction; whole
+  // when the shooter stands on a tile his own live Survey rumor names.
+  abilities.sunWard = { name: "Sun Ward", tier: "refined", concepts: ["discovery", "extraction"], pairOnly: true, pairs: [["discovery", "extraction"], ["discovery", "pathway"]],
+    delivery: "self", target: "self", area: { shape: "single" }, cost: 2, tempoCost: 10, range: 0, potency: 0, protection: 10, duration: 1, effect: "barrier", wardLabel: "Sun Ward",
+    effectCategory: "conditional", domains: ["ideas", "action", "self"], reactive: true, answerOnly: true, expiry: "ownerNextTurnStart",
+    mechanism: "Catch a shot you see coming from 2 or more tiles on a polished sun disc: a ward of 10 on yourself until your next turn. As a reaction it catches half (5); it catches all 10 when the shooter stands on a tile your own live Survey rumor names.",
+    newEffect: "reactive self ward (status.ward); primed by an own live rumor on the attacker's tile; refused while relicGold is held or a ward stands.",
+    reveal: "Sun Ward answers only: it is never cast on your own turn. Not while he is gold, and not over a ward he already holds.",
+    price: "2 ΦF, 5 AP (owed next turn off-turn) and the round's one reaction.",
+    counter: "Close to 1 tile, or shoot him while he is gold (no Sun Ward then); step off the tile his rumor names and the ward is only half.",
+    teaches: "A find you have marked is a shot you have already seen." };
+  // Idol Claim (merge ultimate): every pickup within 4 nobody has surveyed is surveyed by him (a compass mark: the AP discount below), and one move this round toward the nearest is free.
+  abilities.idolClaim = { name: "Idol Claim", tier: "ultimate", merge: true, concepts: ["discovery", "extraction"], pairOnly: true, pairs: [["discovery", "extraction"]],
+    delivery: "self", target: "self", area: { shape: "radius", radius: 4 }, cost: 16, range: 0, potency: 0, effect: "treasureHunt", hunt: "idolClaim", timing: "announced",
+    effectCategory: "conditional", domains: ["ideas", "action", "self"], announce: "Every idol in this room has my name on it.",
+    mechanism: "Merge: Discovery finds it and Extraction takes it. Every pickup within 4 that nobody has surveyed is surveyed by you (your next move ending on each costs 10 AP less), and one move this round of up to 3 tiles that ends nearer the nearest pickup you have surveyed costs no AP.",
+    newEffect: "pickup.surveyedBy on every unsurveyed pickup in radius 4; a once move discount per mark and one waived move (status.moveMods).",
+    reveal: "Announced: everyone sees which loot he has claimed and where he will step.",
+    price: "16 ΦF, 50 AP and a full ultimate bar; it deals no damage.",
+    counter: "Take the pickups first, or stand between him and the nearest one: the free step is one move of 3 tiles, this round only.",
+    teaches: "Claiming is not holding: a mark is only a cheaper walk." };
+  // Relic Path (the wheelhouse blend's merge technique): a walked line of up to 4 tiles that costs him 1 move point a tile whatever the ground, climbs included, for his next move.
+  abilities.relicPath = { name: "Relic Path", tier: "refined", merge: true, concepts: ["discovery", "pathway"], pairOnly: true, pairs: [["discovery", "pathway"]],
+    delivery: "placed", target: "tile", area: { shape: "single" }, cost: 5, range: 4, potency: 0, effect: "treasureHunt", hunt: "relicPath",
+    effectCategory: "conditional", domains: ["ideas", "action"],
+    mechanism: "Merge: Discovery reads the old route and Alternate Pathway walks it. Lay a path of up to 4 tiles to an open tile; for your next move each tile of it costs you 1 move point whatever the ground, and a climb of any height on it is a plain step. If a pickup is within the path's reach, the path must end on one.",
+    newEffect: "terrainEffects relicPath { owner, tiles }: the owner's step cost onto a path tile is 1 and a rise of 2 or more is walkable; spent by the owner's next move.",
+    reveal: "Only he walks it: for everyone else the ground is what it was. It opens rough ground and climbs, not walls, deep water or drops of 2 or more.",
+    price: "5 ΦF and 35 AP; the path is spent by his next move, used or not, and fades after his next turn.",
+    counter: "Stand on the path: an occupied tile is still closed. Take the pickup it ends on before he walks.",
+    teaches: "The old road is still there for whoever knows where it ran." };
+  // Second Claim (his Crescendo): 1 Inspiration takes one item off his used list, once a battle; relicClaim (states.js) still allows one gold form at a time.
+  abilities.secondClaim = { name: "Second Claim", tier: "basic", concepts: ["discovery", "extraction"], pairOnly: true, pairs: [["discovery", "extraction"], ["discovery", "pathway"]],
+    delivery: "self", target: "self", area: { shape: "single" }, cost: 0, tempoCost: 0, inspirationPrice: 1, range: 0, potency: 0, effect: "treasureHunt", hunt: "secondClaim",
+    effectCategory: "conditional", domains: ["ideas", "action", "self"],
+    mechanism: "Spend 1 Inspiration, no action: one item that already turned you gold this battle can do it once more (the one lying nearest on the field, or the last one you used). Once a battle.",
+    newEffect: "removes one item id from unit.relicUsed; unit.secondClaims counts the use (cap rules.treasureHunter.secondClaimsPerBattle).",
+    reveal: "Second Claim needs an item he has already turned to gold with, and it is once a battle. He is still gold with one treasure at a time.",
+    price: "1 Inspiration.",
+    counter: "Pick the cracked treasure up yourself before he walks back to it.",
+    teaches: "A second claim on the same find costs more than the first." };
+
   // Folding (Origamist Track A, docs/origamist.md; playable 2026-10-16, muse): reversibly
   // rotate a bounded patch about a declared crease. Valley Fold lays a paper crossing (one
   // cheap, safe tile); Mountain Fold raises a cover panel facing one approach; A World Small
@@ -1575,9 +1663,70 @@
     reveal: "Read the Charge catches line attacks only, and pushes nothing back. Charged is public; an enemy that moves her (a shove, a throw, a swap) knocks it loose, and it ends after her second turn.",
     prompt: "Which of her foes can reach her without a line?" };
   abilities.secondGaze = { name: "Second Gaze", tier: "basic", concepts: ["focus"],
-    delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Fix a second foe this turn with no action: hold two marks at once (either primes Fixed Gaze).",
+    delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Fix a second foe this turn with no action: hold two marks at once (either primes Fixed Gaze or Purple Litany).",
     cost: 0, tempoCost: 0, inspirationPrice: 1, range: 5, potency: 0, effect: "secondGaze", effectCategory: "conditional", duration: 1,
-    reveal: "Second Gaze fixes a second foe this turn. No action, 1 Inspiration." };
+    pairs: [["focus", "imagination"], ["glamour", "focus"]],
+    reveal: "Second Gaze fixes a second foe this turn. No action, 1 Inspiration. Either mark primes Fixed Gaze or Purple Litany." };
+  // Florence Oloo (hot-build cuts F2; cursor-hotbuilds-cuts-spec section 2): her merges and her Crescendo spend.
+  // Nanite Bloom spends the Dose her Latch Dose banks (engine/damage.js): allies in the bloom heal by it, foes take half.
+  abilities.naniteBloom = { name: "Nanite Bloom", tier: "ultimate", concepts: ["diffusion", "innovation"], merge: true, pairOnly: true, pairs: [["diffusion", "innovation"]],
+    delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, mechanism: "Spend all banked Dose at once: allies within 2 heal by the Dose, and foes within 2 take half of it as citrinitas.",
+    cost: 16, range: 0, potency: 0, effect: "naniteBloom", effectCategory: "constructive", timing: "announced", announce: "Bloom.",
+    reveal: "Nanite Bloom spends every point of Dose banked by Latch Dose (at most 12): she and each ally within 2 tiles recover up to that much LF (to max LF), each foe within 2 takes half of it (rounded down) as citrinitas, through every ward as damage always goes. With no Dose banked it still blooms, for nothing.",
+    price: "16 ΦF, a full ultimate bar, and every point of Dose she has caught.", counter: "Hit her from inside 2 tiles or in melee: Latch Dose only banks ranged hits, so an empty vial blooms for nothing.", teaches: "What the field catches, the field returns.", domains: ["ideas", "action", "others"] };
+  // Case Notes is the wheelhouse blend (Diffusion + Inference): read the room off the field she already laid.
+  abilities.caseNotes = { name: "Case Notes", tier: "refined", concepts: ["diffusion", "inference"], merge: true, pairOnly: true, pairs: [["diffusion", "inference"]],
+    delivery: "line", target: "enemy", area: { shape: "single" }, mechanism: "Write the case up: one foe within 5 is marked, and every hidden foe within 4 of her is revealed.",
+    cost: 5, range: 5, potency: 0, effect: "caseNotes", effectCategory: "conditional", duration: 2,
+    reveal: "Case Notes marks one foe for 2 of her turns: the marked foe's next ranged hit that Latch Dose catches banks at the primed rate, wherever it came from, and the mark is spent. Hidden foes within 4 are revealed.",
+    price: "5 ΦF and the Inference pair: the main Diffusion+Innovation pair cannot write them.", counter: "Stay hidden past 4 tiles, or spend the mark on a cheap shot she would rather not bank.", teaches: "A case is a field, written down.", domains: ["ideas", "action"] };
+  // Clinical Review is her Crescendo spend (the spec's Second Opinion; the Doctor already holds that technique name):
+  // 1 Inspiration buys a Survey with no action, through the same rumor the Discovery pair plants.
+  abilities.clinicalReview = { name: "Clinical Review", tier: "basic", concepts: ["inference"], pairOnly: true, pairs: [["diffusion", "innovation"], ["diffusion", "inference"]],
+    delivery: "self", target: "self", area: { shape: "single" }, mechanism: "A second look at the whole field, paid in Inspiration: survey without an action.",
+    cost: 0, tempoCost: 0, inspirationPrice: 1, range: 0, potency: 0, effect: "survey", effectCategory: "conditional",
+    reveal: "Clinical Review surveys as Survey does (a rumor of the nearest hidden trap or concealed foe), for 1 Inspiration and no action. It belongs to Florence's two pairs.",
+    price: "1 Inspiration; the rumor can still lie, as any survey can.", counter: "Give her nothing hidden to find, or make her spend the Inspiration elsewhere.", teaches: "A second opinion is a first look, taken twice.", domains: ["ideas"] };
+  // The Chitinous Archbishop (hot-build cuts F3; cursor-hotbuilds-cuts-spec section 3; rulings R-20261116-01, -03 to -06).
+  // Rules in law/law.js (the liturgy section): named = a foe inside her live Statute; a Vessel is followed by her Statute.
+  const LAWS = "laws_of_gods_of_men";
+  abilities.plateChoir = { name: "Plate Choir", tier: "refined", concepts: [LAWS, "transmigration"], pairOnly: true, pairs: [[LAWS, "transmigration"], [LAWS, "constraint"]],
+    delivery: "self", target: "self", area: { shape: "single" }, mechanism: "Her plates catch a ranged attack into the Choir: one caught delivery is stored, and an attacker under her law pays for it.",
+    cost: 3, tempoCost: 10, range: 0, potency: 0, effect: "classEffect", effectCategory: "conditional", reactive: true, answerOnly: true,
+    reveal: "Plate Choir answers a ranged attack from 2 or more tiles that hits her, while no Choir is stored: the attack's delivery is caught into the Choir (one stored) and the damage still lands. If the attacker stands in her Statute or is her Vessel, they owe up to 15 AP for it (15 on a perfect answer, 8 on a rushed catch) and the attack's push, pull, stun and seed riders on her are refused. Her next Statute sings the Choir back: it names the caught delivery and costs no ΦF.",
+    price: "3 ΦF, 10 AP and the round's reaction; it stores only one Choir at a time.", counter: "Close inside 2 tiles, or stay out of her Statute so the catch costs you nothing.", teaches: "What strikes the plate is written down.", domains: ["action", "others"] };
+  abilities.chitinLiturgy = { name: "Chitin Liturgy", tier: "ultimate", concepts: [LAWS, "transmigration"], merge: true, pairOnly: true, pairs: [[LAWS, "transmigration"]],
+    delivery: "self", target: "self", area: { shape: "radius", radius: 5 }, mechanism: "Every foe standing in her Statute within 5 is drawn one step toward her and marked as her Vessel.",
+    cost: 16, range: 0, potency: 0, effect: "classEffect", effectCategory: "conditional", timing: "announced", announce: "Come forward and be written.",
+    reveal: "Chitin Liturgy pulls every foe inside her live Statute and within 5 one step toward her, onto open ground, and marks each as her Vessel for 2 of its turns: her Statute's tax follows a Vessel everywhere, and a Vessel who walks into her Binding Vestment is pinned. A Vessel who is a believer is a body she may wake in if she falls.",
+    price: "16 ΦF and a full ultimate bar; it needs a live Statute with foes inside it.", counter: "Step out of the Statute before the bar fills.", teaches: "The congregation is whoever stands in the law.", domains: ["others", "action"] };
+  abilities.bindingVestment = { name: "Binding Vestment", tier: "refined", concepts: [LAWS, "constraint"], merge: true, pairOnly: true, pairs: [[LAWS, "constraint"]],
+    delivery: "placed", target: "tile", area: { shape: "radius", radius: 1 }, mechanism: "Lay a vestment over the ground: the delivery her law names is halved from inside it, and a foe her law holds who walks in is pinned.",
+    cost: 5, range: 3, potency: 0, effect: "classEffect", effectCategory: "conditional",
+    reveal: "Binding Vestment lays a radius-1 zone within 3 for 2 of her turns. A foe's technique of the delivery her live Statute names (or, with no Statute, the delivery nearby foes use most) lands at half when cast from inside it. A foe her law holds (standing in her live Statute, or marked as her Vessel) who walks into it cannot move again until their next turn ends.",
+    price: "5 ΦF and the Constraint pair: the main Laws + Transmigration pair cannot lay it.", counter: "Cast from outside the vestment, or with another delivery.", teaches: "A rule worn is a rule kept.", domains: ["action", "others"] };
+  abilities.secondReading = { name: "Second Reading", tier: "basic", concepts: [LAWS], pairOnly: true, pairs: [[LAWS, "transmigration"], [LAWS, "constraint"]],
+    delivery: "field", target: "tile", area: { shape: "radius", radius: 2 }, mechanism: "Read the law again where the foes now stand: re-post her Statute with no action, paid in Inspiration.",
+    cost: 0, tempoCost: 0, inspirationPrice: 1, range: 3, potency: 0, effect: "classEffect", effectCategory: "conditional",
+    reveal: "Second Reading re-posts her Statute (radius 2, within 3; it replaces the one standing) for 1 Inspiration and no action. It needs a Statute of hers already live. A stored Choir is sung back into it as into any Statute.",
+    price: "1 Inspiration and a Statute already posted.", counter: "Make her spend the Inspiration, then walk out again.", teaches: "A law is read twice: once to post it, once to mean it.", domains: ["ideas", "others"] };
+  // The Chitin Bishop (hot-build cuts F4; cursor-hotbuilds-cuts-spec section 4). Purple Litany is a renamed twin of
+  // Fixed Gaze: live fixedGaze stays pairOnly Focus+Imagination (the Hypnotist). She does not share that id.
+  abilities.purpleLitany = { name: "Purple Litany", tier: "refined", concepts: ["glamour", "focus"], pairOnly: true, pairs: [["glamour", "focus"]],
+    delivery: "self", target: "self", mechanism: "Raise the dome against a shot you see coming: whole if the shooter is the foe you have Fixed (and the shooter loses its rhythm for a round). With no mark, rushed (half). While a mark is held, only that foe's shot is answered.",
+    cost: 0, tempoCost: 10, range: 0, potency: 0, protection: 8, duration: 1, effect: "barrier", effectCategory: "conditional", reactive: true, answerOnly: true, expiry: "ownerNextTurnStart", wardLabel: "Purple Litany",
+    reveal: "Purple Litany answers a ranged shot from 2 or more tiles. Primed against the Fixed foe (whole 8-point dome, Off-tempo: the attacker's last technique is forbidden for a round). With no mark, rushed (half). While she holds a mark, only that foe's shot is answered (Focus lock). It also covers an unwarded ally within 2.",
+    prompt: "Who is the dome watching when the shot comes?" };
+  abilities.crownOfPlates = { name: "Crown of Plates", tier: "ultimate", concepts: ["glamour", "focus"], merge: true, pairOnly: true, pairs: [["glamour", "focus"]],
+    delivery: "self", target: "self", area: { shape: "radius", radius: 3 }, mechanism: "The Fixed foe cannot attack on its next turn; allies within 3 gain a 6-point ward.",
+    cost: 16, range: 0, potency: 0, effect: "classEffect", effectCategory: "conditional", timing: "announced", announce: "Kneel.",
+    reveal: "Crown of Plates Entrances the foe she has Fixed: that foe cannot attack (Strike or a damaging technique) on its next turn, and may still move, Guard and support. Each living ally within 3 gains a 6-point ward until their next turn. Needs a live Fixed mark.",
+    price: "16 ΦF and a full ultimate bar; it needs a Fixed foe.", counter: "Break the mark, or swap who shoots before the crown lands.", teaches: "One gaze, a whole congregation.", domains: ["others", "action"] };
+  abilities.domeHarmonic = { name: "Dome Harmonic", tier: "refined", concepts: ["glamour", "resonance"], merge: true, pairOnly: true, pairs: [["glamour", "resonance"]],
+    delivery: "self", target: "self", area: { shape: "single" }, mechanism: "For two of her turns, each foe's first attack on her each round misses (it lands on an echo; no echo tile is placed).",
+    cost: 5, range: 0, potency: 0, effect: "classEffect", effectCategory: "conditional", duration: 2,
+    reveal: "Dome Harmonic holds for two of her turns. Each foe's first attack on her each round in that window misses (an echo pops; no tile is placed). Area attacks still find her. The echo costs her nothing.",
+    price: "5 ΦF and the Resonance pair: the main Glamour + Focus pair cannot lay it.", counter: "A second shot in the same round, or a field that covers her tile.", teaches: "The dome is never where you hit it first.", domains: ["action", "self"] };
   abilities.makeRoomForPossibility = { ...imagineCommon, name: "Make Room for Possibility", tier: "ultimate", cost: 16, potency: rules.imagination.possibilityWard, delivery: "field", area: { shape: "radius", radius: 3 }, effect: "imaginedCompany", timing: "announced",
     announce: "There is room for what we have not yet become.",
     mechanism: "Give yourself and your own living summons within 3 a 10-point ward; those summons gain one remaining turn, once per incarnation.",
@@ -1893,26 +2042,28 @@
       breakers: [{ ability: "remind", from: "ally", do: [{ scene: { title: "Hanuman Remembers", line: "You are Hanuman, son of the Wind. Remember what you are." } }] },
         { ability: "rememberWhatYouAre", from: "ally", do: [{ scene: { title: "Jambavan Speaks", line: "Son of the Wind, why do you sit silent? You leapt for the sun as a child. Leap now." } }] },
         { present: "jambavan", side: "ally", do: [{ scene: { title: "Jambavan Speaks", line: "Son of the Wind, why do you sit silent? You leapt for the sun as a child. Leap now." } }] }] },
-    // Cure (claude-cure-spec rev 3, slice S1; staged: no ability, class or scenario grants these yet). Numbers provisional, see specs/CURE.md.
+    // Cure S2: the kit is available to authored holders. The Asker's encounter installs askable in S4.
+    curePeeled: { name: "Restraint peeled", hidden: true, text: "A restraint has been peeled.", why: "A reminder restores the most recent layer.", offers: { ability: "remind", to: "allies" } },
+    askable: { name: "Able to ask", text: "Who Are You? can be asked of the Asker.", why: "The question is free in the Interview Room.", offers: { ability: "whoAreYou", to: "self" } },
     // Mesmerism sets the hold and the order; Disinhibition peels the restraint a unit holds (traitsOff, unmasked).
     fixated: { name: "Fixated", text: "Their eyes will not leave the flame.", why: "Attention can be borrowed: held on one thing, a person does not move, and a friend can call them back.",
       gate: { blocks: ["move"], reason: "their eyes will not leave the flame" }, clock: { counts: "ownerTurns", n: 1 },
       offers: { ability: "remind", to: "allies" }, breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }] },
     latent: { name: "Latent order", hidden: true, text: "A cue sleeps in them.", why: "An order given to a held mind waits for its cue; the one holding it does not remember.",
-      clock: { counts: "rounds", n: 3 }, breakers: [{ ability: "remind", from: "ally" }],
+      clock: { counts: "rounds", n: 3 }, offers: { ability: "remind", to: "allies" }, breakers: [{ ability: "remind", from: "ally" }],
       triggers: [{ on: "turnStart", if: { cue: true }, do: [{ grant: "unmasked", to: "self", turns: 1, byOrigin: true }, { grant: "marked", to: "self", byOrigin: true }, { remove: "latent", from: "self" }] }] },
     unmasked: { name: "Unmasked", text: "They are not themselves, and only themselves.", why: "The restraints are off, so their other traits and their needs decide, with no thought for sides. They are not stronger.",
       anySide: true, unmasks: true, gate: { blocks: ["ultimate"], reason: "they are not themselves, and cannot gather that much" }, clock: { counts: "ownerTurns", n: 1 } },
     marked: { name: "Marked", text: "The cut is the signature.", why: "An act done under an order leads back, one link, to whoever left it." },
     emptied: { name: "Emptied", text: "Nothing is left of them but the question.", why: "The capability has gone to someone else; the one who carried it keeps only the asking.",
-      gate: { blocks: ["all"], reason: "nothing is left of them but the question" }, clock: { counts: "ownerTurns", n: 3 } },
+      gate: { blocks: ["all"], reason: "nothing is left of them but the question", except: ["whoAreYou"] }, clock: { counts: "ownerTurns", n: 3 } },
     suggestedHold: { name: "Told to wait", text: "They stand and wait.", why: "A held mind takes one plain suggestion for its next turn: here, to do nothing.",
-      gate: { blocks: ["all"], reason: "they were told to wait" }, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedBack", "suggestedGuard", "incapacitated"], breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }] },
+      gate: { blocks: ["all"], reason: "they were told to wait" }, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedBack", "suggestedGuard", "incapacitated"], offers: { ability: "remind", to: "allies" }, breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }] },
     suggestedBack: { name: "Told to step back", text: "They step away.", why: "A held mind takes one plain suggestion for its next turn: here, one step back.",
-      clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedHold", "suggestedGuard"], breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }],
+      clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedHold", "suggestedGuard"], offers: { ability: "remind", to: "allies" }, breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }],
       triggers: [{ on: "turnStart", limit: 1, do: [{ step: "away", tiles: 1 }] }] },
     suggestedGuard: { name: "Told to lower their guard", text: "They drop their guard.", why: "A held mind takes one plain suggestion for its next turn: here, to leave off guarding.",
-      gate: { blocks: ["guard", "overwatch"], reason: "they were told to lower their guard" }, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedHold", "suggestedBack"], breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }] },
+      gate: { blocks: ["guard", "overwatch"], reason: "they were told to lower their guard" }, clock: { counts: "ownerTurns", n: 1 }, refusesGrant: ["suggestedHold", "suggestedBack"], offers: { ability: "remind", to: "allies" }, breakers: [{ hurt: 1 }, { ability: "remind", from: "ally" }] },
     spoken: { name: "Already spoken to", hidden: true, text: "One suggestion or one order a battle: this one has had theirs.", why: "Marks a subject that has taken its one suggestion or latent order this battle." },
     heard: { name: "Already steadied", hidden: true, text: "One calming word each, a battle.", why: "Marks a unit that has had its one steadying word this battle." },
     calm: { name: "Calm", text: "A calm voice: they will not break.", why: "A steady word: for a little while, fear does not take them.", clock: { counts: "ownerTurns", n: 2 } },
@@ -1966,8 +2117,8 @@
       states: { grant: [{ id: "lured", to: "target", thematic: { rama: "luredBrothers", lakshmana: "luredBrothers" } }], ai: 4 } },
     cryForVengeance: { name: "Cry for Vengeance", tier: "ultimate", merge: true, concepts: ["glamour", "plasticity"], delivery: "self", target: "self", effect: "none", effectCategory: "conditional", cost: 15, range: 0, potency: 0,
       area: { shape: "radius", radius: 4 }, pairs: [["glamour", "plasticity"]], timing: "announced", announce: "Brother! Look what they did to me!",
-      mechanism: "Merge: the guise is spent and her shape is grief and rage: every ally within 4 deals x1.25 for 2 rounds.",
-      reveal: "Announced: Lanka hears her.", states: { grant: [{ id: "lankaVengeance", to: "allies" }], ai: 12 } },
+      mechanism: "Merge: the guise is spent and her shape is grief and rage: she and every ally within 4 deal x1.25 for 2 rounds.",
+      reveal: "Announced: Lanka hears her.", states: { grant: [{ id: "lankaVengeance", to: "self" }, { id: "lankaVengeance", to: "allies" }], ai: 12 } },
     counsel: { name: "Counsel", tier: "refined", concepts: ["inference"], delivery: "placed", target: "ally", effect: "none", effectCategory: "conditional", cost: 4, range: 4, potency: 0,
       pairs: [["inference", "harmony"]], mechanism: "Warn an ally within 4: x0.7 taken for 2 turns while they hold back; if they attack anyway, x1.3 taken for 2 rounds. On Ravana: x0.5, or x1.6.",
       reveal: "A quiet word. Whether it is heeded is up to them.", states: { grant: [{ id: "mandodariCounsel", to: "target", thematic: { ravana: "mandodariCounselKing" } }], ai: 5 } },
@@ -1989,6 +2140,7 @@
   });
   const subfactions = {
     street: { name: "Street", blurb: "The fight is hands, a hustle, or a night shift." },
+    exiles: { name: "Exiles", blurb: "Refugee spirits who lodge with a host and lend a power while they are made welcome.", wall: false },   // tenants are not classes: no one stands on the crew wall (Exile T0a)
     stage: { name: "Stage", blurb: "Someone is watching, and the watching is the point of the kit." },
     lab: { name: "Lab", blurb: "A researcher, a machine, or the person who built that machine." },
     wilds: { name: "Wilds", blurb: "A beast, or a person whose partner in the fight is a living thing outside the city." },
@@ -2291,6 +2443,11 @@
         configs: [{ id: `${cls}-1`, label: `${concepts[p].name} + ${concepts[sec].name}`, primary: p, secondary: sec, reserve: [], lens: {} }],
         primary: p, secondary: sec, reserve: [], lens: { [p]: "balanced", [sec]: "balanced" } };
     }
+    // The Treasure Hunter's wheelhouse blend (TH1b; spec section 0: "Wheelhouse (10% NPC): Alternate Pathway"): the player reaches Discovery + Alternate Pathway with the reserve swap or the
+    // second config, an NPC with the seeded secondary swap (engine/wheelhouse.js). That blend holds Relic Path; Sun Ward and Second Claim ride both pairs.
+    if (characters.treasure_hunter) Object.assign(characters.treasure_hunter, { wheelhouse: "pathway", wheelhouseEnabled: true, reserve: ["pathway"], conceptPool: ["discovery", "extraction", "pathway"],
+      configs: [{ id: "treasure_hunter-1", label: "Discovery + Extraction", primary: "discovery", secondary: "extraction", reserve: ["pathway"], lens: {} },
+        { id: "treasure_hunter-path", label: "Discovery + Alternate Pathway", primary: "discovery", secondary: "pathway", reserve: ["extraction"], lens: {} }] });
     if (characters.auditor_goblin) Object.assign(characters.auditor_goblin,{traits:["twentyTwentyVision","attentionToDetail","citesPrecedent"],wheelhouse:"indexing",wheelhouseEnabled:true,reserve:["indexing"],conceptPool:["laws_of_gods_of_men","discovery","indexing"],configs:[{id:"auditor-main",label:"Law + Discovery",primary:"laws_of_gods_of_men",secondary:"discovery",reserve:["indexing"],lens:{}},{id:"auditor-ledger",label:"Law + Indexing",primary:"laws_of_gods_of_men",secondary:"indexing",reserve:["discovery"],lens:{}}]});
     if (characters.hanuman) Object.assign(characters.hanuman, { traits: ["loyal", "courageous", "playfulness", "rivalrous"], startStates: ["hanumanBase", "hanumanForgotten"],
       learned: ["formBase", "formMonkey", "formGiant", "vanish"], allyFavors: ["jambavan"] });
@@ -2337,7 +2494,12 @@
     if (characters.starfarer) characters.starfarer.traits = ["lightFrame", "shipsEngineer"];   // Starfarer (Mala, 2026-10-19), whoever controls her
     if (characters.pioneer) characters.pioneer.traits = ["homestead", "markedGround"];   // Pioneer (Mala, 2026-10-19), whoever controls her
     if (characters.martial_artist) characters.martial_artist.traits = ["playfulness", "competitive"];   // Martial Artist (Mala, 2026-10-22): values trait playfulness, same as Monkey King
+    for (const id of ["statute", "warrant"]) if (abilities[id]?.pairs && !abilities[id].pairs.some(([p, q]) => p === "laws_of_gods_of_men" && q === "constraint")) abilities[id].pairs.push(["laws_of_gods_of_men", "constraint"]);   // F3: the Archbishop's Constraint blend keeps her law (an unused pair)
+    if (abilities.statute) Object.assign(abilities.statute, { freeFirst: "turn", freeFirstFor: ["chitinous_archbishop"], reveal: `${abilities.statute.reveal} The Chitinous Archbishop's first Statute each turn is free.` });   // F3: her first Statute each turn is free (the def is shared with the Magistrate and the Goblin)
+    if (characters.chitinous_archbishop) Object.assign(characters.chitinous_archbishop, { traits: ["carapace", "liturgist", "citesPrecedent"], wheelhouse: "constraint", wheelhouseEnabled: true, reserve: ["constraint"], conceptPool: ["laws_of_gods_of_men", "transmigration", "constraint"], configs: [{ id: "archbishop-main", label: "Laws + Transmigration", primary: "laws_of_gods_of_men", secondary: "transmigration", reserve: ["constraint"], lens: {} }, { id: "archbishop-vestment", label: "Laws + Constraint", primary: "laws_of_gods_of_men", secondary: "constraint", reserve: ["transmigration"], lens: {} }] });   // Chitinous Archbishop (hot-build cuts F3): Carapace, Liturgist, Cites Precedent (R-20261116-04) and the Constraint wheelhouse
     if (characters.memorialist) characters.memorialist.traits = ["steadyHands", "eulogy"];   // Memorialist (Codex, 2026-10-24): longer Roll wards + once-a-battle self-mend
+    if (characters.florence_oloo) Object.assign(characters.florence_oloo, { traits: ["steadyHands", "clinician", "doNoHarm"], wheelhouse: "inference", wheelhouseEnabled: true, reserve: ["inference"], conceptPool: ["diffusion", "innovation", "inference"], configs: [{ id: "florence-main", label: "Diffusion + Innovation", primary: "diffusion", secondary: "innovation", reserve: ["inference"], lens: {} }, { id: "florence-notes", label: "Diffusion + Inference", primary: "diffusion", secondary: "inference", reserve: ["innovation"], lens: {} }] });   // Florence Oloo (hot-build cuts F2): her three traits and the Inference wheelhouse
+    if (characters.chitin_bishop) Object.assign(characters.chitin_bishop, { traits: ["theLook", "entrainer", "gentleHand"], wheelhouse: "resonance", wheelhouseEnabled: true, reserve: ["resonance"], conceptPool: ["glamour", "focus", "resonance"], configs: [{ id: "bishop-main", label: "Glamour + Focus", primary: "glamour", secondary: "focus", reserve: ["resonance"], lens: {} }, { id: "bishop-dome", label: "Glamour + Resonance", primary: "glamour", secondary: "resonance", reserve: ["focus"], lens: {} }] });   // Chitin Bishop (hot-build cuts F4): The Look, Entrainer, Gentle Hand and the Resonance wheelhouse
     if (characters.seedkeeper) characters.seedkeeper.traits = ["cacheMinded", "hardy", "posterity"];   // Seedkeeper (Codex, 2026-10-24): 4 caches, Hardy vs field, first bury cheap
     if (characters.ferryman) characters.ferryman.traits = ["strongBack", "tollkeeper", "theFare"];   // Ferryman (Codex, 2026-10-24): range 5 + holds first shove, 12-AP tolls, first Ferry free
     if (characters.pearl_diver) characters.pearl_diver.traits = ["breathHolder", "tideReader", "theDeep"];   // Pearl Diver (Codex, 2026-10-24): long conceal + holds first shove, +1 swale range, cheap Drown per basin

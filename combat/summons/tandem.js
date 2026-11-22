@@ -89,12 +89,18 @@
   }
   // The user's stretch (T2b, its price): `user` pays stretch.lf LF and the tandem acts within stretch.leash tiles through its
   // next turn. Returns a refusal string, or the event to log.
-  function stretch(s, user, a) {
+  // Why `user` cannot pay the stretch for `a` now, or null when it can (T2c: the engine action, the menu button and the card all ask this).
+  function stretchRefusal(user, a) {
     const t = of(a), st = t && t.stretch;
-    if (!st) return { error: "That is not a tandem with a leash to stretch." };
-    if (a.defeated || a.summon.owner !== user.id) return { error: "Choose your own tandem on the field." };
-    if (stretched(a)) return { error: `${a.name}'s leash is already stretched.` };
-    if (user.lf <= st.lf) return { error: `Stretching the leash costs ${st.lf} LF, and you need more than ${st.lf} to pay it (you have ${user.lf}).` };
+    if (!st) return "That is not a tandem with a leash to stretch.";
+    if (a.defeated || !user || a.summon.owner !== user.id) return "Choose your own tandem on the field.";
+    if (stretched(a)) return `${a.name}'s leash is already stretched.`;
+    if (user.lf <= st.lf) return `Stretching the leash costs ${st.lf} LF, and you need more than ${st.lf} to pay it (you have ${user.lf}).`;
+    return null;
+  }
+  function stretch(s, user, a) {
+    const t = of(a), st = t && t.stretch, no = stretchRefusal(user, a);
+    if (no) return { error: no };
     user.lf -= st.lf;
     a.status = a.status || {};
     a.status.leashStretch = { label: "Leash stretched", leash: st.leash, until: (a.ownerTurns || 0) + 1 };
@@ -162,11 +168,39 @@
   // The hexagon as rows for a card: [{ key, label, letter }].
   const hexagon = (t) => HEXAGON.map(([key, label]) => ({ key, label, letter: (t && t.hexagon && t.hexagon[key]) || "?" }));
   // The card block: the six letters, the leash in tiles, the rule and the price. `esc` is the page's HTML escaper.
-  function cardHtml(t, esc) {
+  // `now` (T2c, optional; without it the output is T1's, byte for byte): { unbound } for a Trial's tandem, or { pay, ok, leash } for
+  // one on the field with a user: `pay` is the line about the price right now, `leash` the leash it acts within this turn.
+  function cardHtml(t, esc, now = null) {
     if (!t) return "";
     const cells = hexagon(t).map((r) => `<span class="cc-tandem-cell" data-hex="${r.key}"><b>${esc(r.letter)}</b> ${esc(r.label)}</span>`).join("");
-    return `<div class="cc-tandem" data-tandem><div class="cc-tandem-hex">${cells}</div><p class="cc-tandem-leash">Leash ${t.leash} tile${t.leash === 1 ? "" : "s"} · ${esc(t.rule)}</p><p class="cc-tandem-price">Price: ${esc(t.price)}</p></div>`;
+    if (now && now.unbound) return `<div class="cc-tandem" data-tandem data-unbound><div class="cc-tandem-hex">${cells}</div><p class="cc-tandem-leash">Unbound: no user, so no leash and no strain · ${esc(t.rule)}</p><p class="cc-tandem-price">It cannot be killed: a blow that would finish it leaves it at 1 LF.</p></div>`;
+    const leash = now && now.leash != null ? now.leash : t.leash;
+    return `<div class="cc-tandem" data-tandem><div class="cc-tandem-hex">${cells}</div><p class="cc-tandem-leash">Leash ${leash} tile${leash === 1 ? "" : "s"}${leash !== t.leash ? " (stretched)" : ""} · ${esc(t.rule)}</p><p class="cc-tandem-price">Price: ${esc(t.price)}</p>${now && now.pay ? `<p class="cc-tandem-pay" data-can-pay="${now.ok ? "yes" : "no"}">${esc(now.pay)}</p>` : ""}</div>`;
   }
 
-  return { LETTERS, HEXAGON, of, userOf, reach, outside, stretched, leashOf, shed, lentPotency, afterHit, stretch, observed, moveAllowed, strained, strain, turnStart, aimRefusal, moveRefusal, actionRefusal, responseRefusal, admission, hexagon, cardHtml };
+  // T2c (R-20261115-42). Unbound: the tandem a Trial sets against the player (summons/tandem-trial.js place). It has no user, so
+  // userOf is null and the leash, the strain and the echo never apply; engine/damage.js hit keeps it at 1 LF.
+  const unbound = (a) => !!(of(a) && a.summon.unbound);
+  // The command-menu rows for `p`'s own tandems on the field: one "stretch the leash" row each (ui.js rootItems; the row sends the
+  // engine action stretchLeash). Off, with the engine's own refusal as the reason, while `p` cannot pay.
+  function menuItems(s, p) {
+    if (!p || !s) return [];
+    return Object.values(s.actors).filter((a) => !a.defeated && of(a) && of(a).stretch && a.summon.owner === p.id).map((a) => {
+      const st = of(a).stretch, no = stretchRefusal(p, a);
+      return { id: "stretchLeash", summonId: a.id, label: `Stretch ${a.name}'s leash to ${st.leash} tiles · ${st.lf} LF`, off: !!no,
+        why: no || `Pay ${st.lf} LF (you have ${p.lf}): ${a.name} acts within ${st.leash} tiles of you through its next turn. No AP.` };
+    });
+  }
+  // The card for a tandem on the field (ui.js renderDetail): the T1 card, plus one line that agrees with the engine about the price
+  // right now (its user can pay it, or why not), or, for an unbound tandem, that the leash and the price do not apply.
+  function cardFor(s, a, esc) {
+    const t = of(a); if (!t) return "";
+    if (unbound(a)) return cardHtml(t, esc, { unbound: true });
+    const u = s && a.summon ? s.actors[a.summon.owner] : null, st = t.stretch;
+    if (!st || !u) return cardHtml(t, esc);
+    const no = stretchRefusal(u, a);
+    return cardHtml(t, esc, { pay: no ? `${u.name} cannot pay it now: ${no}` : `${u.name} can pay it now (${u.lf} LF; the stretch takes ${st.lf}).`, ok: !no, leash: leashOf(a) });
+  }
+
+  return { unbound, stretchRefusal, menuItems, cardFor, LETTERS, HEXAGON, of, userOf, reach, outside, stretched, leashOf, shed, lentPotency, afterHit, stretch, observed, moveAllowed, strained, strain, turnStart, aimRefusal, moveRefusal, actionRefusal, responseRefusal, admission, hexagon, cardHtml };
 });

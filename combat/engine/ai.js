@@ -173,13 +173,25 @@
       if (seenMemo?.log !== s.log || seenMemo.n !== s.log.length) { seenMemo = { log: s.log, n: s.log.length, by: {} }; for (const e of s.log) if (e.actor && e.ability && (e.kind === "answered" || e.kind === "respond" || e.kind === "act")) (seenMemo.by[e.actor] ||= new Set()).add(e.ability); }
       return seenMemo.by[id] || new Set();
     };
+    // The attacker's answer model and a speedster's dodge (R-20261115-30, Mala: "in movies and comics people still attack speedsters as if they
+    // wont dodge them"): it expects the dodge of an unannounced shot only after it has seen that unit dodge. The public log is the knowledge.
+    let dodgeMemo = null;
+    const sawDodge = (root, who) => {
+      if (dodgeMemo?.log !== root.log || dodgeMemo.n !== root.log.length) { dodgeMemo = { log: root.log, n: root.log.length, by: new Set() }; for (const e of root.log) if (e.kind === "respond" && e.actor && (e.response === "reposition" || e.response === "dodgeThrow")) dodgeMemo.by.add(e.actor); }
+      return dodgeMemo.by.has(who);
+    };
+    const answerCourt = (s, d) => {
+      const step = responseOptions(s, d, s.pending.inst).find((option) => option.kind === "reposition" && option.safe);
+      return step ? { type: "respond", actor: d.id, response: "reposition", to: step.to } : { type: "respond", actor: d.id, response: "none" };
+    };
     const publicAnswer = (st, who, root) => {
       const d = st.actors[who], inst = st.pending?.inst; if (!d || !inst) return { type: "respond", actor: who, response: "none" };
+      if (inst.convene) return answerCourt(st, d);
       if (inst.submissionFinish) return { type: "respond", actor: who, response: responseOptions(st, d, inst).length ? "breakHold" : "none" };   // fight the finish whenever it can
       const opts = faithfulResponses(st, d, responseOptions(st, d, inst)), seen = seenAnswers(root, who);
       const known = opts.filter((o) => o.kind !== "technique" || seen.has(o.ability) || !!st.disclosures?.[who]?.[o.ability]);
       const react = reactChoice(st, d, known), asReact = react && { type: "respond", actor: who, response: "technique", ability: react.ability, target: react.target };
-      if (st.pending.reactive) return asReact || { type: "respond", actor: who, response: "none" };
+      if (st.pending.reactive && !(opts.some((o) => o.kind === "guard") && sawDodge(root, who))) return asReact || { type: "respond", actor: who, response: "none" };   // a speedster's window offers Guard and the dodge; the model uses them only for a unit it has seen dodge
       { const DG = st.rules.reactiveDefense?.ai?.dodge; if (DG?.on && (!DG.sides || DG.sides.includes(d.side))) return defendChoice(st, d, known, react); }
       const step = known.find((o) => (o.kind === "dodgeThrow" || o.kind === "reposition") && o.safe);
       if (step) return { type: "respond", actor: who, response: step.kind, to: step.to };
@@ -224,7 +236,9 @@
     const applyOpen = (st, cand, on) => { if (!on) return apply(st, cand, { preview: true });
       const was = st.answerPreview; st.answerPreview = true;
       try { const r = apply(st, cand, { preview: true }); if (r.ok) delete r.state.answerPreview; return r; } finally { if (was) st.answerPreview = was; else delete st.answerPreview; } };
+    let lookaheadFollow = null;
     const lookaheadValue = (st, a, cand) => {
+      lookaheadFollow = null;
       if (cand.type !== "ability") return 0;
       const AM = amFor(st, a);
       let s2 = applyOpen(st, cand, AM);
@@ -240,10 +254,70 @@
       let fu = 0;
       for (const f of candidates(s2, a.id, false, false)) {
         if (f.type !== "ability" && f.type !== "strike") continue;
-        fu = Math.max(fu, score(s2, a.id, f));
+        const v = score(s2, a.id, f); if (v > fu) lookaheadFollow = f;   // AI Sight I2: the follow-up it sets up (an ally's reason line names it)
+        fu = Math.max(fu, v);
       }
       return terminal + Math.max(0, fu) * 0.5;
     };
+    // ── AI Sight I2: the reason line (spec claude-ai-sight-spec, AI_SIGHT.md section 4 "I2"; Decision 4, R-20261110-04) ──
+    // When a scored pick won on something other than plain damage, its log entry gains one `why` sentence. A term is the
+    // reason only when it decided the pick: Focus, Protect and an order decide when the winner earns more of the bonus than
+    // the best act on any other target does, by at least the winner's lead over it (without it, a tie at best); the lookahead bonus that put it on top, or a cost that sank the act that
+    // would otherwise have won (the walk to a better attack, when the pick is itself an attack). The spec's reserve row
+    // waits for the answer reserve to be switched on (rules.aiLedger.reserve is off), and its standing row for a root-only
+    // part of standingValue (its harm also counts item locks and reveals, which "pins" would misname); see the I2 NOTE. The largest such term speaks.
+    // What the player may read (Decision 4): their own side, every line; a foe, its own-resource line (the walk),
+    // its Focus once the player has studied its side once and its Protect after the second study (I3's two steps,
+    // orders.js observeNotes), never a follow-up line. A hidden largest term means no line at all, so the
+    // absence of a sentence tells the player nothing. A concealed unit is never named. The decider writes no state.
+    const targetKey = (c) => JSON.stringify(c.target ?? null);   // Focus, Protect and an order are worth the same on every act aimed at one target
+    const REASONS = {
+      focus: (a, x) => `${a.name} joins the push on ${x.name}.`,
+      protect: (a, x) => `${a.name} covers ${x.name}.`,
+      lookahead: (a, x) => `${a.name} sets up ${x.name}.`,
+      walkCost: (a) => `${a.name} strikes from where they stand.`,
+    };
+    const seen = (s, id) => { const u = id ? s.actors[id] : null; return u && !u.defeated && !(u.status?.concealed && (u.status.concealed.until == null || u.status.concealed.until >= u.ownerTurns)) ? u : null; };
+    function reasonTerms(s, a, best, rival, la, walkRival) {
+      const out = [], cand = best.cand, st = best.st || s, me = st.actors[a.id] || a, def = cand.type === "ability" ? ab(cand.ability) : null;
+      const tid = typeof cand.target === "string" ? cand.target : Array.isArray(cand.target) ? actorAt(st, cand.target[0], cand.target[1])?.id : null;
+      if (la && la.follow) out.push({ term: "lookahead", v: la.la, who: { name: la.follow.type === "ability" ? ab(la.follow.ability)?.name || "a strike" : "a strike" } });   // a bonus from a kill alone names no follow-up, so it says nothing
+      const margin = rival ? best.sc - rival.sc : Infinity;
+      if (!la && margin < Infinity) {
+        // A term decided the pick when the winner earns more of it than the rival does, by at least the winner's lead:
+        // a bonus both acts earn alike (two targets beside the one they cover) separates nothing (Cathead AD batch 20).
+        const terms = (r) => { const rst = r.st || s, ru = rst.actors[a.id] || a, rdef = r.cand.type === "ability" ? ab(r.cand.ability) : null;
+          const p = Spirit()?.parts?.(rst, ru, r.cand, rdef, { actorAt }) || {}, ov = Orders()?.orderValue?.(rst, ru, r.cand, rdef, H) || 0;
+          return { focus: p.focus || 0, protect: p.protect || 0, ov }; };
+        const w = terms(best), l = terms(rival), sig = Spirit()?.cached?.(st, a.side)?.signals || {}, role = me.order?.role;
+        const decides = (k) => w[k] - l[k] > 0 && w[k] - l[k] >= margin;
+        if (decides("focus")) out.push({ term: "focus", v: w.focus - l.focus, id: tid });
+        if (decides("protect")) out.push({ term: "protect", v: w.protect - l.protect, id: sig.protect });
+        if (decides("ov") && (role === "focus" || role === "strike") && me.order.focus) out.push({ term: "focus", v: w.ov - l.ov, id: me.order.focus });
+        if (decides("ov") && role === "screen") out.push({ term: "protect", v: w.ov - l.ov, id: st.spirit?.[a.side]?.signals?.protect });
+      }
+      if (!la && !best.to && best.hits && walkRival && walkRival.v > best.sc) out.push({ term: "walkCost", v: walkRival.walk });
+      return out.sort((x, y) => y.v - x.v);
+    }
+    function reasonLine(s, a, best, rival, la, walkRival) {
+      if (!best?.cand || a.routed) return null;
+      const top = reasonTerms(s, a, best, rival, la, walkRival)[0];
+      if (!top) return null;
+      if (a.side !== "player") {
+        const read = s.spiritRead?.[a.side] || 0;
+        const open = top.term === "walkCost" || (top.term === "focus" && read >= 1) || (top.term === "protect" && read >= 2);
+        if (!open) return null;
+      }
+      const who = top.who || (top.id ? seen(s, top.id) : null);
+      if (top.term !== "walkCost" && !who) return null;   // a line that names someone needs someone the player can see
+      return { term: top.term, text: REASONS[top.term](a, who) };
+    }
+    // Kill-beats-all over calls (K2 rework, Mala R-20261115-40): a palace or dream call buys turns, but it never outranks an act that
+    // takes a foe out of the fight now. removesFoe: a foe standing before the act is not standing in its preview.
+    const CALLS = new Set(["summon", "callDream"]);
+    // killFoe: the foe set kill-beats-all counts (killBeatsAll below): parley partners, truces, civilians and wilds are not foe kills.
+    const killFoe = (s, a, t) => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, t));
+    const removesFoe = (st, after, a) => Object.values(st.actors).some((t) => killFoe(st, a, t) && after.actors[t.id] && !H.Instinct.standing(after.actors[t.id]));
     function aiDecide(s) {
       const dc = decider(s); if (!dc) return traceAiReturn("aiDecide:L204", (null));
       if (dc.kind === "mind" && MindDuel && s.mindDuel) {   // Mind duel: max-min over replies, concede to buy intel; sim-driven sides roll their poison too
@@ -278,12 +352,13 @@
       if (H.Tourist?.is(a)) return traceAiReturn("aiDecide:L213", (H.Tourist.decide(s,a,H.touristH())));
       if (H.Kaiba?.is(a)) return traceAiReturn("aiDecide:L214", (H.Kaiba.decide(s, a, { moveOptions, apply, dist })));
       if (dc.kind === "turn" && H.Hires) { const h = H.Hires.aiAction(s, a); if (h && apply(s, h, { preview: true }).ok && !sightBlind(s, a, h)) return traceAiReturn("aiDecide:L215", (h)); if (a.hired?.kind === "mediator") return traceAiReturn("aiDecide:L215", ({ type: a.tempo > 0 ? "stall" : "end", actor: a.id })); }   // contracts in hand; a mediator never fights
-      if (dc.kind !== "response" && H.Visitors?.is(a)) { const v = H.Visitors.advise(s, a, { moveOptions, apply, dist, RITUAL, chanted, log }); if (v) return traceAiReturn("aiDecide:L216", (v)); }   // visitors: mission first, war only if started (null falls through to ordinary AI)
+      if (dc.kind !== "response" && H.Visitors?.is(a)) { const v = H.Visitors.advise(s, a, { moveOptions, apply, dist, RITUAL, chanted, log, Rites: H.Rites }); if (v) return traceAiReturn("aiDecide:L216", (v)); }   // visitors: mission first, war only if started (null falls through to ordinary AI)
       // The Sage declares turns 0–1 (preview-guarded; invalid falls through to ordinary AI).
       if (dc.kind === "turn" && !a.defeated && Sage()) { const sg = Sage().decide(s, a);
         if (sg && apply(s, sg, { preview: true }).ok && !sightBlind(s, a, sg)) return traceAiReturn("aiDecide:sage", (sg)); }
       if(dc.kind!=="response"&&a.status?.verse&&!a.status.verse.id)return traceAiReturn("aiDecide:L217", ({type:"chooseVerse",actor:a.id,ability:a.status.verse.choices.slice().sort((x,y)=>(ab(y).potency||0)-(ab(x).potency||0)||x.localeCompare(y))[0]}));
       if (dc.kind === "response") {
+        if (s.pending.inst.convene) return answerCourt(s, a);
         const opts = faithfulResponses(s, a, responseOptions(s, a, s.pending.inst));
         if (aiTrace) traceAiEvent("response-options", { actor: a.id, options: opts });
         if (s.pending.inst.submissionFinish) return { type: "respond", actor: a.id, response: opts.some((o) => o.kind === "breakHold") ? "breakHold" : "none" };   // Submission: fight the finish whenever it can
@@ -332,7 +407,7 @@
         for(const exit of exits){const action={type:"move",actor:a.id,to:exit.to};if(apply(s,action,{preview:true}).ok)return traceAiReturn("aiDecide:L259", (action));}
       }
       // C18: a channeler plants their feet: guard if able, otherwise bank the turn. Never move, never strike.
-      if (a.ritual) {
+      if (H.Rites.capture(a)) {
         if (!a.guardUsedThisTurn && a.meditateNoGuard !== a.ownerTurns && a.tempo >= s.rules.actionCosts.guard && !(Vows && Vows.refuses(s, a, "guard")) && !H.States?.refusesKind(s, a, "guard")) return traceAiReturn("aiDecide:L263", ({ type: "guard", actor: a.id }));
         return traceAiReturn("aiDecide:L264", ({ type: a.tempo > 0 ? "stall" : "end", actor: a.id }));
       }
@@ -505,11 +580,15 @@
           else return traceAiReturn("aiDecide:plan", structuredClone(a.aiPlan.act));
         }
       }
-const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !to || !faithfulRetreat(s, a, to));   // Faithful: while its oath holds, no step that ends farther from the nearest foe than it stood at its last turn start (the oath's retreat term)
+      const hunt = H.tamedTigerHunt(s, a, (to) => !faithfulRetreat(s, a, to) && !routeCrossesKnownTrap(s, a, to)
+        && !steppedThisTurn(s, a).has(to.join(",")));
+      if (hunt && !sightBlind(s, a, hunt)) return traceAiReturn("aiDecide:tamedTigerHunt", hunt);
+      const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !to || !faithfulRetreat(s, a, to));   // Faithful: while its oath holds, no step that ends farther from the nearest foe than it stood at its last turn start (the oath's retreat term)
       const LA = switchOn(s, a, "lookahead"), scored = [];
+      let plainBest = null;   // AI Sight I2: the plain argmax, before any override (a reason line explains only a scored pick)
       let hitHere = 0;
       const amMove = ledgerOn(s, a, "walkCost") ? apWorth(s, a) * (s.rules.aiLedger.walkCost.weight ?? 0.5) : 0;   // walk cost: LF a step's action points are worth to this unit
-      let best = null, bestStay = null, bestReal = null;   // bestReal: the best act that is not an escape (a real strike outranks both escapes)
+      let best = null, bestStay = null, bestReal = null, bestRemoval = null, walkRival = null, laPick = null; const byTarget = new Map();   // byTarget, walkRival, laPick: AI Sight I2 (the best act on each target; the best step-then-act candidate before its walk cost, which only attacks pay; the lookahead pick when it changed the pick). bestReal: the best act that is not an escape (a real strike outranks both escapes); bestRemoval: the best act that takes a foe out (a call yields to it)
       const liveFoes = Object.values(s.actors).filter(t => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side);   // a lying foe is not counted as a threat
       const liveAllies = Object.values(s.actors).filter(t => !t.defeated && !H.Tourist?.is(t) && t.id !== a.id && t.side === a.side);
       const painEff = a.pain ? a.pain.v * Math.pow(0.5, Math.max(0, s.round - a.pain.round)) : 0;
@@ -531,6 +610,17 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       // wind any shaded or sheltered neighbour beat staying, and from there the first tile did too: units paced between two
       // tiles all turn (Mala's Survive log, 2026-10-14; tools/check-ai-pacing.mjs counts it).
       const weatherHere = weatherAt([a.x, a.y]);
+      // AI Sight T1: the escape mode's own goal tiles: the exit for the escaping side, the interdict posts for the enemy.
+      const MS = s.modeSetup, objDev = MS?.mode === "escape" && !a.dream && !a.summon ? wantDev(s, a, "objective") : 0;
+      const objGoals = !objDev ? [] : a.side === "enemy" ? (MS.guard?.tiles || []) : a.side === s.actors[MS.hero]?.side ? (MS.exits || []) : [];
+      const objDist = (x, y) => Math.min(...objGoals.map(([gx, gy]) => Math.abs(x - gx) + Math.abs(y - gy)));
+      const atFord = s.rules.scenario?.id === "holdTheFord" && s.rules.waterAi?.fordProgress > 0
+        && ["player", "enemy"].includes(a.side) && MS?.zone?.length;
+      const fordDistanceFrom = (u, [x, y]) => Math.abs(u.x - x) + Math.abs(u.y - y);
+      const fordDistance = (at) => Math.min(...MS.zone.map(([x, y]) => Math.abs(at[0] - x) + Math.abs(at[1] - y)));
+      const fordHold = atFord && !liveAllies.some(u => u.id !== a.id && fordDistance([u.x, u.y]) === 0)
+        ? s.rules.waterAi.fordClaim : 0;
+      const waterHere = waterRisk(s, a, [a.x, a.y]);
       const moveValue = (to) => {
         let v = weatherAt(to) - weatherHere;
         if (ClassRuntime?.mise) v += ClassRuntime.mise.stayValue(s, a, to, classH());   // Mise en Place: do not walk off a station that is still worth something
@@ -576,7 +666,14 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
             v += H.houseSite(s, a, to);
             if (mine && d(a.x, a.y) === 1 && d(to[0], to[1]) !== 1) v -= HR.site * 0.5;
           } }
+        if (objDev && objGoals.length) v += (objDist(a.x, a.y) - objDist(to[0], to[1])) * T1.objectivePerStep * objDev;   // AI Sight T1: an `objective` trait pulls toward the mode's goal
+        v += waterHere - waterRisk(s, a, to);
+        if (atFord) {
+          const here = fordDistance([a.x, a.y]), there = fordDistance(to);
+          v += (here - there) * s.rules.waterAi.fordProgress + (Number(there === 0) - Number(here === 0)) * fordHold;
+        }
         v += Spirit()?.spacingValue(s, a, to, H) || 0;   // group spirit: no two allies adjacent at turn end
+        v -= H.crackedStand?.(s, to) || 0;   // DT4: do not end a turn on a cracked breakable floor
         return v;   // C27: known-trap routing is filtered before scoring (stays loop), not priced here
       };
       const scheduled = (s.randomEventSchedule || []).filter(e => !e.resolved && e.round >= s.round).sort((x,y) => x.round-y.round)[0];
@@ -644,23 +741,29 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           const mv = motivesOf(st, a), care = (cand.type === "guard" || cand.type === "recover") ? (mv.selfHealth ?? 1) : ["observe", "observePlace", "observePlant", "insight"].includes(cand.type) ? (mv.knowledge ?? 1) : 1;
           const hits = cand.type === "strike" || cand.type === "grapple" || ["damage", "prototype", "recombine"].includes(def?.effect);   // Innovation's copies and fusions are attacks too (as window.js judges them)
           const walk = to && amMove && hits && hitHere > 0 ? Math.max(0, a.tempo - (st.actors[a.id]?.tempo ?? a.tempo)) * amMove : 0;   // walk cost (rules.aiLedger.walkCost): walking to a better attack, when one is open from here, pays for the walk. Closing in from out of range, and walking to talk, film, raise an aura or set up, are priced as before
-          const sc = -traceAiTerm("walkCost", walk) + traceAiTerm("careAdjustment", tactical * care - tactical) + traceAiTerm("chargeBuild", buildValue * (mv.ultCharge ?? 1)) + traceAiTerm("reliableTactical", tactical * reliability) - traceAiTerm("landCost", landCost) - traceAiTerm("moveHarm", moveHarm * (mv.selfHealth ?? 1)) + traceAiTerm("petMatch", petMatchBonus(st, st.actors[a.id], cand)) + traceAiTerm("workflow", workflow && tactical > 0 ? Workflow.bias(workflow, a, cand, def, context) : 0) - traceAiTerm("moveTiePenalty", to ? 0.01 : 0) + traceAiTerm("position", to ? moveValue(to) : 0) + traceAiTerm("trampleGain", trampleGain) + weatherBonus(st, cand, def);
+          const sc = -traceAiTerm("walkCost", walk) + traceAiTerm("careAdjustment", tactical * care - tactical) + traceAiTerm("chargeBuild", buildValue * (mv.ultCharge ?? 1)) + traceAiTerm("reliableTactical", tactical * reliability) - traceAiTerm("landCost", landCost) - traceAiTerm("moveHarm", moveHarm * (mv.selfHealth ?? 1)) + traceAiTerm("petMatch", petMatchBonus(st, st.actors[a.id], cand)) + traceAiTerm("workflow", workflow && tactical > 0 ? Workflow.bias(workflow, a, cand, def, context) : 0) - traceAiTerm("moveTiePenalty", to ? 0.01 : 0) + traceAiTerm("position", to ? moveValue(to) : -(H.crackedStand?.(st, [a.x, a.y]) || 0)) + traceAiTerm("trampleGain", trampleGain) + weatherBonus(st, cand, def);
           if (aiTrace) traceAiEvent("scored", { to, action: cand, value: sc, tactical, reliability, care, chargeGain, buildValue, moveHarm });
           if (!to && hits && sc > hitHere) hitHere = sc;   // the stays come first: the best attack open without a step
-          if (!best || sc > best.sc) best = { sc, to, cand, harm };
+          { const rec = { sc, to, cand, harm, st, hits }, tk = targetKey(cand);   // AI Sight I2: the record keeps what the reason line reads
+            if (!byTarget.has(tk) || sc > byTarget.get(tk).sc) byTarget.set(tk, rec);
+            if (!best || sc > best.sc) best = rec;
+            if (to && walk > 0 && (!walkRival || sc + walk > walkRival.v)) walkRival = { v: sc + walk, walk }; }
           if (cand.type !== "scramble" && cand.type !== "playDead" && (!bestReal || sc > bestReal.sc)) bestReal = { sc, to, cand, harm };
+          if (sc > 0 && !CALLS.has(cand.type) && (!hold || !to || hold(to)) && (!bestRemoval || sc > bestRemoval.sc) && removesFoe(st, predicted.state, a)) bestRemoval = { sc, to, cand, harm };   // a held unit's removal stays inside its hold
           if (!to && (!bestStay || sc > bestStay.sc)) bestStay = { sc, to, cand, harm };
           if (LA && cand.type === "ability") scored.push({ sc, to, cand, st, harm });
           if (hold && (!to || hold(to)) && (!held || sc > held.sc)) held = { sc, to, cand, harm };
         }
       }
+      plainBest = best;
       if (best && (best.cand.type === "scramble" || best.cand.type === "playDead") && bestReal && bestReal.sc >= 8) best = bestReal;   // Survival Instincts: nothing strong on offer, or it escapes
       if (hold && held && held.sc > 0) { if (aiTrace) traceAiEvent("override", { reason: "held-commitment", action: held.cand, to: held.to, value: held.sc }); best = held; }   // Exposure: a Dutiful unit keeps to his wall while there is something worth doing there
+      if (best && CALLS.has(best.cand.type) && bestRemoval) { if (aiTrace) traceAiEvent("override", { reason: "call-yields-to-removal", previous: best.cand, action: bestRemoval.cand, to: bestRemoval.to, value: bestRemoval.sc }); best = bestRemoval; }   // K2 rework (R-20261115-40): kill-beats-all holds over a familiar or dream call
       if (LA && scored.length && !(hold && held && held.sc > 0)) {   // a kept hold is a vow, not a score: lookahead never breaks it
         for (const o of scored.filter((x) => x.sc > 0).sort((x, y) => y.sc - x.sc).filter((x, i, all) => all.findIndex((y) => (y.cand.ability || y.cand.type) === (x.cand.ability || x.cand.type) && JSON.stringify(y.cand.target) === JSON.stringify(x.cand.target)) === i).slice(0, 4)) {
           const la = lookaheadValue(o.st, a, o.cand);
           if (aiTrace) traceAiEvent("lookahead", { action: o.cand, to: o.to, base: o.sc, bonus: la, value: o.sc + la });
-          if (la > 0 && (!best || o.sc + la > best.sc)) best = { sc: o.sc + la, to: o.to, cand: o.cand, harm: o.harm };
+          if (la > 0 && (!best || o.sc + la > best.sc)) { const changed = !best || (o.sc <= best.sc && (o.cand.type !== best.cand.type || o.cand.ability !== best.cand.ability || targetKey(o.cand) !== targetKey(best.cand))); best = { sc: o.sc + la, to: o.to, cand: o.cand, harm: o.harm }; laPick = changed ? { rec: best, la, follow: lookaheadFollow } : null; }   // I2: lookahead is the reason only when it changed the pick
         }
       }
       if (best?.to && s.rules.aiLedger?.pairVerify) {   // OFF pending Mala (Lantern, 2026-10-18: it fails the aura-raise and Director film gates; Muse's NOTE "open contract decision"). Pair verification (muse, 2026-10-18, seed 3962880737): the loop scores (move,
@@ -711,6 +814,12 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
             for(const move of moves) { const act={type:"move",actor:a.id,to:move.to};if(apply(s,act,{preview:true}).ok)return traceAiReturn("aiDecide:L567", (act)); }
           }
         }
+        const fordGoal = atFord && MS.zone.filter(([x, y]) => !actorAt(s, x, y))
+          .sort((p, q) => waterRisk(s, a, p) - waterRisk(s, a, q) || fordDistanceFrom(a, p) - fordDistanceFrom(a, q))[0];
+        if (fordGoal && fordDistance([a.x, a.y]) > 0) {
+          const step = approach(s, a, { x: fordGoal[0], y: fordGoal[1] });
+          if (step) return traceAiReturn("ford-approach", step);
+        }
         const app = !holdingExit && approach(s, a); if (app) return traceAiReturn("aiDecide:L570", (app));
         if (!a.guardUsedThisTurn && a.meditateNoGuard !== a.ownerTurns && a.tempo >= s.rules.actionCosts.guard && !(Vows && Vows.refuses(s, a, "guard")) && !H.States?.refusesKind(s, a, "guard")) return traceAiReturn("aiDecide:L571", ({ type: "guard", actor: a.id }));
         return traceAiReturn("aiDecide:L572", ({ type: a.tempo > 0 ? "stall" : "end", actor: a.id }));
@@ -719,8 +828,10 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       // The walk carries a plan only when the paired act needs the destination (illegal from here):
       // a plan for an act that already works would foreclose re-deciding for nothing (a hurt soldier
       // would buff instead of detouring to food). Costs one preview per walk-half decision.
-      if (best.to && ledgerOn(s, a, "onePlan") && !apply(s, best.cand, { preview: true }).ok) return traceAiReturn("aiDecide:L574", ({ type: "move", actor: a.id, to: best.to, plan: structuredClone(best.cand) }));
-      return traceAiReturn("aiDecide:L574", (best.to ? { type: "move", actor: a.id, to: best.to } : best.cand));
+      const rival = best === plainBest ? [...byTarget].filter(([k]) => k !== targetKey(best.cand)).reduce((m, [, r]) => !m || r.sc > m.sc ? r : m, null) : null;   // the best act on any other target
+      const reason = reasonLine(s, a, best, rival, laPick?.rec === best ? laPick : null, best === plainBest ? walkRival : null);   // AI Sight I2
+      if (best.to && ledgerOn(s, a, "onePlan") && !apply(s, best.cand, { preview: true }).ok) return traceAiReturn("aiDecide:L574", ({ type: "move", actor: a.id, to: best.to, plan: reason ? { ...structuredClone(best.cand), reason } : structuredClone(best.cand) }));
+      return traceAiReturn("aiDecide:L574", (best.to ? { type: "move", actor: a.id, to: best.to } : reason ? { ...best.cand, reason } : best.cand));
     }
     // Observation options are costly to build (path searches for plant routes) and were rebuilt for every candidate that
     // was scored, which tripled sim time. The decision loop builds them once per previewed state and scores from that.
@@ -870,6 +981,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       if (a.status.onePossession?.expiresAt > a.ownerTurns && a.status.onePossession.targetId) foes = foes.filter(t => t.id === a.status.onePossession.targetId);
       if (a.forceTarget && a.forceTargetUntil >= s.round && foes.some((t) => t.id === a.forceTarget)) foes = foes.filter((t) => t.id === a.forceTarget);
       // Pet Fighting (insight-data.js): a Pet Fighter's pet goes for the other side's pets while any stand.
+      if (H.Courtroom?.hasBench(a, H)) for (const t of foes) if (H.Courtroom.aiConvene(s, H, a, t.id)) out.push({ type: "convene", actor: id, target: t.id });
       if (petOf(a) && H.hasTrait(s.actors[petOf(a)], "petFighting")) { const pets = foes.filter((t) => petOf(t)); if (pets.length) foes = pets; }
       // AGI Takeoff fear aggro: a transcended AGI is every opponent's only target. Same-side
       // allies can't turn (strikes and hostile abilities forbid friendly fire engine-wide).
@@ -887,6 +999,12 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         if (!a.summon && !a.communed && !a.status?.soothed && dist(s, a.x, a.y, o.x, o.y) <= H.strikeRange(s, a) && a.tempo >= s.rules.actionCosts.strikeMin)
           for (const effort of new Set([Math.min(s.rules.actionCosts.strike, s.rules.actionCosts.strikeMax, a.tempo), Math.min(s.rules.actionCosts.strikeMax, a.tempo)]))
             out.push({ type: "strike", actor: id, target: [o.x, o.y], effort });
+      if (s.arena.waterAgenda && !a.status?.soothed && a.tempo >= s.rules.actionCosts.strikeMin) {
+        for (const o of s.arena.objects || []) if (isWaterContainer(o) && dist(s, a.x, a.y, o.x, o.y) <= H.strikeRange(s, a)) {
+          const effort = Math.min(s.rules.actionCosts.strikeMax, a.tempo);
+          out.push({ type: "strike", actor: id, target: [o.x, o.y], effort });
+        }
+      }
       out.push(...(H.courtCandidates?.(s, a) || []));   // Heart Court: the heart is a strike, when the tile is empty
       const relays = ClassRuntime?.relayOrigins?.(s, a) || [];   // Distributed Intelligence: a Strike can be made from any of his towers
       for (const m of (s.wild || []).filter((w) => provokersOf(s, a).has(w.id))) if (!a.status?.soothed && dist(s, a.x, a.y, m.x, m.y) <= H.strikeRange(s, a) && a.tempo >= s.rules.actionCosts.strikeMin)
@@ -960,6 +1078,8 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           // per role by potency); Final Chapter may quote ultimates up to its montageUlts. Before this the AI never cast either.
           // Clip and Juxtapose (Lantern, 2026-10-18, for the Mangaka's Sampler): Clip aims once per fragment kind it could
           // take; Juxtapose once per held fragment. Before this the AI only ever tried Clip on cover and never pasted.
+          const cureChoices = ab(x.id)?.cureChoices;
+          if (cureChoices) return Object.keys(cureChoices).map((cureChoice) => ({ opts: { cureChoice }, tg: targeting(s, id, x.id, { cureChoice }) })).filter((v) => v.tg.legal.length);
           if (x.id === "fourForces") return ["thrust", "drag", "lift", "weight"].map((force) => ({ opts: { force }, tg: targeting(s, id, x.id) })).filter((v) => v.tg.legal.length);   // the Aviator picks a force
           if (x.id === "ulaula") { const gears = a.birdMountain?.vows?.neverQuench ? [2, 3, 4, 5] : [2, 3, 4]; return gears.map((gear) => ({ opts: { gear }, tg: targeting(s, id, x.id) })).filter((v) => v.tg.legal.length); }   // ʻUlaʻula picks a gear (2026-10-22)
           if (x.id === "clip") return ["cover", "membrane", "wallProtection10", "thorns", "absorbOneLine"].map((fragment) => ({ opts: { fragment }, tg: targeting(s, id, x.id, { fragment }) })).filter((v) => v.tg.legal.length);
@@ -1334,6 +1454,12 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     // added, so a unit with no mapped trait scores exactly as before. rules.traitMotives = false turns it off (a sim arm).
     const MOTIVE = { kill: 12, scale: 1 };
     const motivesOf = (s, a) => (s.rules.traitMotives === false || !H.UtilityAI ? {} : H.UtilityAI.personalityFor([...((a.traitsOff || a.states) ? (a.traits || []).filter((t) => !H.States?.traitIgnored(a, typeof t === "string" ? t : t?.id)) : (a.traits || [])), ...(H.stateTraits?.(s, a) || [])]).weightMul);   // Cure: a peeled or unmasked restraint trait motivates nothing   // + state traits (the Tamer's fear and delusion)
+    // AI Sight T1 (claude-ai-sight-spec): `position` and `objective` had trait rows in ai/utility.js and no reader where an
+    // action is scored. position scales the protection term in rawScore(); objective scales the escape mode's goal pull in
+    // the decide loop's moveValue (the exit for the escaping side, the interdict post for the enemy). Only the difference
+    // from 1 is applied, so a unit with no such trait (or rules.traitMotives = false) scores exactly as before.
+    const T1 = { objectivePerStep: 1.5 };
+    const wantDev = (s, a, k) => { const m = motivesOf(s, a)[k]; return m == null ? 0 : m - 1; };
     function motiveTerm(s, a, pv) {
       const m = motivesOf(s, a); if (!Object.keys(m).length) return 0;
       const dev = (k) => (m[k] ?? 1) - 1;
@@ -1457,7 +1583,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     // kills the caller already believes in. Contact maneuvers (throw, grapple) and delayed arrival
     // strikes are not covered: their damage rarely kills and no preview prices it here.
     function killBeatsAll(s, a, pv, dealMul) {
-      const foeOf = (t) => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, t));
+      const foeOf = (t) => killFoe(s, a, t);
       const foes = Object.values(s.actors).filter(foeOf), foeIds = new Set(foes.map((t) => t.id));
       if (!foeIds.size) return 0;
       const dealt = new Map();
@@ -1484,7 +1610,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       return { ap: decider(s)?.actor === a.id && s.phase === "action" ? 20 : 0, lf: law.penalty || 0 };
     }
     function focusActive(s, u) {
-      return u && !u.defeated && !u.notArrived && (u.ritual || u.rite || u.status?.heldTones || s.dreamSpace?.owner === u.id);
+      return u && !u.defeated && !u.notArrived && (H.Rites.capture(u) || u.rite || u.status?.heldTones || s.dreamSpace?.owner === u.id);
     }
     function concentrationValue(s, a, cand) {
       const W = s.rules.concentrationAI || {};
@@ -1648,7 +1774,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
     const foeConcealedHere = (s, a) => Object.values(s.actors || {}).some((u) => !!u && !u.defeated && u.side !== a.side && !!u.status?.concealed && (u.status.concealed.until == null || u.status.concealed.until >= u.ownerTurns));   // the veiled read, ai.js:1687
     const ownRumorPendingHere = (s, a) => (s.rumors || []).some((r) => typeof r.id === "string" && r.id.startsWith(`rumor-${a.id}-`) && r.expiresRound > s.round);   // her own find, still live (resolve.js verify reads the same expiry)
     const noOwnRumorHere = (s, a) => !ownRumorPendingHere(s, a);
-    const driveChecks = { auditNoStatute:(s,a)=>!(s.terrainEffects||[]).some(e=>e.kind==="statute"&&e.owner===a.id&&a.ownerTurns<e.expiresAt),auditRumour:(s,a)=>s.rumors?.some(r=>r.ownerSide===a.side&&r.expiresRound>s.round), foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere, freshCatalogueTarget: freshCatalogueTargetHere, cataloguedQuarry: cataloguedQuarryHere, foeConcealed: foeConcealedHere, ownRumorPending: ownRumorPendingHere, noOwnRumor: noOwnRumorHere };
+    const driveChecks = { auditNoStatute:(s,a)=>!(s.terrainEffects||[]).some(e=>e.kind==="statute"&&e.owner===a.id&&a.ownerTurns<e.expiresAt),auditRumour:(s,a)=>s.rumors?.some(r=>r.ownerSide===a.side&&r.expiresRound>s.round), foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere, freshCatalogueTarget: freshCatalogueTargetHere, cataloguedQuarry: cataloguedQuarryHere, foeConcealed: foeConcealedHere, ownRumorPending: ownRumorPendingHere, noOwnRumor: noOwnRumorHere, fieldLive: (s, a) => !!a.substrate, noFieldLive: (s, a) => !a.substrate, statuteFoe: (s, a) => Object.values(s.actors || {}).some((u) => !!ClassRuntime?.law?.named?.(s, a, u)) };
     function driveWhenHolds(checks, s, a, cand, when) {
       if (when === undefined || when === null) return true;
       // A bare ["name", x] with non-string x is one tuple; any other array is a list of atoms (tuple args are never bare strings).
@@ -1680,6 +1806,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
 
       const a = s.actors[id];
       { const v = H.States?.aiValue(s, a, cand); if (v != null) return v; }   // States: an ability's def.states.ai (a Remind is worth a lot)
+      if (cand.type === "convene") return ClassRuntime?.law?.aiValue(s, a, cand, H) ?? 0;
       if(cand.type==="contractSpeak"||cand.type==="contractPrepare")return apply(s,cand,{preview:true}).ok?Math.min(16,4+(ab(cand.ability).potency||ab(cand.ability).protection||0)*.3):-1;
       if (ClassRuntime?.aiVeto?.(s, a, cand)) return 0;   // Esker never aims at its own ward while the line holds (classes/esker.js)
       if (cand.type === "ability" && a.status?.overpressure && !ClassRuntime?.wire?.[cand.ability]?.relief) return 0;   // overpressure: vent (a relief wire) or nothing — Strike and moves still score, mirroring the beforeAbility guard
@@ -1751,6 +1878,25 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
           const after = apply(s, cand, { preview: true }); if (!after.ok) return -1;
           const left = (after.state.arena.objects || []).find((p) => p.id === o.id && p.type === "house")?.hp ?? 0;
           return H.houseBreakValue(s, a, o, o.hp - left, left <= 0); } }
+      if (s.arena.waterAgenda && cand.type === "strike" && cand.target &&
+          s.arena.objects?.some(o => isWaterContainer(o) && o.x === cand.target[0] && o.y === cand.target[1])) {
+        const hit = preview(s, cand);
+        if (!hit.ok) return -1;
+        const added = (hit.state.water?.surge || []).slice(s.water?.surge?.length || 0);
+        const volume = new Map(added.flatMap(e => e.tiles.map(at => [H.key(...at), 1])));
+        for (const {at, volume: n} of added.flatMap(e => e.sources)) volume.set(H.key(...at), n);
+        let value = 0;
+        for (const u of Object.values(s.actors)) {
+          if (u.defeated || u.notArrived || H.isSwimmer(u) || hasTrait(u, "gills") || ClassRuntime?.flies(u) || u.form?.golden) continue;
+          const add = volume.get(H.key(u.x, u.y));
+          if (!add) continue;
+          const tile = H.waterState(s, u.x, u.y, false);
+          const deepens = s.arena.waterAgenda.maxDepth === 3 && tile.depth === "shallow" &&
+            !H.isFord(s, u.x, u.y) && tile.volume + add >= 3;
+          if (!tile.standing || deepens) value += u.side === a.side ? -8 : waterHostile(s, a, u) ? 6 : 0;
+        }
+        return value;
+      }
       { const o = strikesCenter(s, a, cand);   // damage to the building counts for more than the same damage to a body; the blow that fells it also costs the AGI
         if (o) { const R = s.rules.dataCenter, after = apply(s, cand, { preview: true }); if (!after.ok) return -1;
           const left = (after.state.arena.objects || []).find((p) => p.id === o.id)?.hp ?? 0; return (o.hp - left) * R.aggro + (left <= 0 ? R.fall.lf : 0); } }
@@ -1767,14 +1913,14 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
         if (foes.length === 0 || foes.reduce((n, t) => n + t.lf, 0) <= 12) return 4;
         const friends = Object.values(s.actors).filter((t) => !t.defeated && !t.notArrived && t.side === a.side).length;
         const turns = summonRules?.data?.rules?.baseDuration ?? 3;
-        return (30 + 6 * turns + (foes.length > friends ? 10 : 0)) * MOTIVE.scale;
+        const CA = s.rules.callAi; return (CA.base + CA.perTurn * turns + (foes.length > friends ? CA.outnumbered : 0)) * MOTIVE.scale;   // numbers: content.js callAi
       }
-      if (cand.type === "callDream") {   // D2: a called dream buys whole extra turns too (same slot, same purpose): the summon pricing, over the dream's own duration. Kept a separate branch so the tuned palace lines above stay byte-identical.
+      if (cand.type === "callDream") {   // D2: a called dream buys whole extra turns too (same slot, same purpose): the summon pricing, over the dream's own duration. Kept a separate branch (it reads its own duration); both read content.js callAi since the K2 rework.
         const foes = Object.values(s.actors).filter((t) => H.Instinct.standing(t) && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander");
         if (foes.length === 0 || foes.reduce((n, t) => n + t.lf, 0) <= 12) return 4;
         const friends = Object.values(s.actors).filter((t) => !t.defeated && !t.notArrived && t.side === a.side).length;
         const turns = s.rules.enemySummons?.turns ?? 3;
-        return (30 + 6 * turns + (foes.length > friends ? 10 : 0)) * MOTIVE.scale;
+        const CA = s.rules.callAi; return (CA.base + CA.perTurn * turns + (foes.length > friends ? CA.outnumbered : 0)) * MOTIVE.scale;   // numbers: content.js callAi
       }
       if (cand.type === "aura") return Auras ? (Auras.aiValue(s, a, auraH()) ?? 0) * (s.rules.aiAuraMul ?? 1.8) : 0;   // Auras (rules.aiAuraMul: a sim arm, 2026-10-15)
       if (cand.type === "ability" && ab(cand.ability)?.effect === "craftHone") return a.lastTechnique && ab(a.lastTechnique).potency > 0 && !a.practice ? 5 : 0;   // Craftsmanship: worth starting once, on a technique that hits
@@ -2035,10 +2181,11 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const readyUlt = (cMan?.tier === "ultimate" && cMan.effect === "damage" && !dreamFinisher && (a.ultimateCharge || 0) >= s.rules.ultimateChargeMax ? s.rules.aiLedger?.readyUltimate || 0 : 0)
         - (inspiredUlt ? s.rules.reactiveDefense?.ai?.inspirationWeight ?? 3 : 0);   // the point is priced on every inspired ultimate, damage or not
       const standing = standingValue(s, a, cand, pv);   // AI Sight D1: harm adds; protect is paid against threatValue's cover price, the larger of the two
+      const protection = Math.max(standing.protect, threatValue(s, a, cand, def));   // AI Sight T1: a `position` trait scales this term (only its difference from 1)
       const taste = TA && cand.type === "ability" && a.adhdChain?.ability ? Object.entries(TA.variety || {}).reduce((n, [k, v]) => hasTrait(a, k) ? n + v : n, 0) : 0;
       const variety = taste ? (a.adhdChain.ability === cand.ability ? -taste : taste) : 0;   // ADHD: something new appeals, the same again bores
       return dmg - self * 1.5 - cost * 0.3 - reserveCost(s, a, cand, cost) + variety + (pv.answerCost || 0) * (AM?.costWeight ?? 1) + (cand.announce ? 2 : 0) + spite - heed + playful + bait + curiousBonus(s, id, cand) + setupBo + rgBo + readyUlt + foundBonus
-        + scribedComponentValue(s,a,cand,pv) + standing.harm + Math.max(standing.protect, threatValue(s, a, cand, def)) + infoValue(s, a, cand, pv, def) + develop + (H.traitDriveBonus?.(s, a, cand) || 0) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus;   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill
+        + scribedComponentValue(s,a,cand,pv) + standing.harm + protection + protection * wantDev(s, a, "position") + infoValue(s, a, cand, pv, def) + develop + (H.traitDriveBonus?.(s, a, cand) || 0) + traceAiTerm("waterDisplacement", pushedWaterValue(s, a, pv)) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus + (H.floorValue?.(s, a, cand) || 0);   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill; DT4: the floor under a foe
     }
     // ── In-match lessons (Mala, 2026-10-14: "AI should learn during the match if an attack is effective or not AND
     // understand why"). What a preview already shows (a Shield Wall across a line, a resistance in the damage sum) is
@@ -2096,7 +2243,7 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       if (t.status?.attention && t.status.attention.target !== a.id) return true;
       if ((t.lastTechniqueConcept === "focus" || t.focus?.earned) && t.focus && t.focus.target !== a.id) return true;
       const dodgeAp = H.Injury.dodgeCost(s, t, H.dodgeCostFor(s, t));
-      if ((t.tempoCapacity || 100) - (t.status?.stun?.points || 0) - (t.tempoDebt || 0) < dodgeAp) return true;
+      if (dodgeAp > 0 && (t.tempoCapacity || 100) - (t.status?.stun?.points || 0) - (t.tempoDebt || 0) < dodgeAp) return true;   // a free dodge (a blurred speedster's, R-20261115-30) is never refused for want of points
       const P = paths(s, t.x, t.y, H.Injury.dodgeReach(s, t), "move");
       for (const [, n] of P.dist) if (n > 0) return false;
       return true;
@@ -2125,6 +2272,39 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const route = paths(st, u.x, u.y, 99, "move").pathTo(to[0], to[1]) || [];
       return route.slice(1).some(([x, y]) => knownTrapOn(st, u, x, y));
     };
+    const isWaterContainer = o => o.hp > 0 && (o.type === "cistern" || o.type === "parterreFountain");
+    const waterHostile = (s, a, u) => !H.Tourist?.is(u) && H.PostHuman.atWar(s, a, u) && H.Civilian.atWar(s, a, u)
+      && (H.Visitors?.atWar(s, a, u) ?? true) && H.Factions.atWar(s, a, u)
+      && !(a.truceWith === u.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, u));
+    function waterRisk(s, a, [x, y]) {
+      const W = s.rules.waterAi;
+      if (!W || !s.arena.waterAgenda || ClassRuntime?.flies(a) || a.form?.golden) return 0;
+      const swimmer = H.isSwimmer(a) && !H.cannotSwim(a);
+      if (swimmer) return 0;
+      const gills = hasTrait(a, "gills");
+      const water = H.waterState(s, x, y, false);
+      const depth = !gills && (water.depth === "deep" || (water.standing && H.cannotSwim(a))) ? W.depth : 0;
+      const queued = s.water?.surge?.some(e => e.round === s.round + 1 && e.tiles.some(at => at[0] === x && at[1] === y));
+      const route = !a.status.anchor && H.previewCurrent(s, [x, y], a.id);
+      const drift = route && H.waterState(s, ...route.to, false).standing ? W.drift : 0;
+      return depth + drift + (queued && !H.isFord(s, x, y) ? W.surge : 0);
+    }
+    function pushedWaterValue(s, actor, pv) {
+      const W = s.rules.waterAi;
+      if (!W || !s.arena.waterAgenda) return 0;
+      const moved = new Set((pv.events || []).filter(e => e.kind === "move" && e.forced && e.direction !== "current").map(e => e.actor));
+      let value = 0;
+      for (const id of moved) {
+        const before = s.actors[id], after = pv.state.actors[id];
+        if (!before || !after || after.defeated || after.notArrived || H.Tourist?.is(after)) continue;
+        const ally = after.side === actor.side;
+        if (!ally && !waterHostile(s, actor, before)) continue;
+        const drowning = !!after.status.drowning - !!before.status.drowning;
+        const delta = waterRisk(pv.state, after, [after.x, after.y]) - waterRisk(s, before, [before.x, before.y]);
+        value += (ally ? -1 : 1) * (delta + drowning * 8) * (1 - (pv.hidden?.[id] || 0));
+      }
+      return value * W.displacement;
+    }
     function approach(s, a, toward = null) {
       toward ||= siegeOf(s, a);   // aggro: with nothing better to do, a unit at war with his AGI closes on the building
       const foe = toward || Object.values(s.actors).filter((f) => H.Instinct.standing(f) && !H.Tourist?.is(f) && f.side !== a.side && H.PostHuman.atWar(s, a, f) && H.Civilian.atWar(s, a, f) && (H.Visitors?.atWar(s, a, f) ?? true) && H.Factions.atWar(s, a, f) && !(a.truceWith === f.id && a.truceUntil >= s.round) && (!a.forceTarget || a.forceTargetUntil < s.round || f.id === a.forceTarget))[0]; if (!foe) return null;
@@ -2140,6 +2320,8 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       // (seed 8109: a Samurai on one terrace and a Surveyor on the other waited 30 rounds). Take the reachable tile
       // furthest along that route; with no walking route at all, fall back to the straight line.
       const pool = safe.length ? safe : options;
+      const prior = s.arena.waterAgenda ? steppedThisTurn(s, a) : null;
+      const forward = prior ? pool.filter(o => !prior.has(H.key(...o.to))) : pool;
       // Hazard-aware routing (muse, 2026-10-18, seed 3962880737): closing in bends around entry
       // hazards instead of through them. A step of progress weighs the same as 1 LF of avoided
       // bleeding (the engine's smallest harm unit); off-route sidesteps compete on closing
@@ -2148,20 +2330,20 @@ const stays = [null, ...moveOptions(s, a.id).map((o) => o.to)].filter((to) => !t
       const P = paths(s, a.x, a.y, 99, "move");
       const bleed = (to) => (P.pathTo(to[0], to[1]) || []).slice(1).reduce((n, [x, y]) => n + (tileAt(s, x, y).hazard || 0), 0);
       const route = paths(s, a.x, a.y, 99, "move", [foe.x, foe.y]).pathTo(foe.x, foe.y);
-      const hereD = dist(s, a.x, a.y, foe.x, foe.y);
+      const hereD = dist(s, a.x, a.y, foe.x, foe.y), waterHere = waterRisk(s, a, [a.x, a.y]);
       if (route && route.length > 1) {
         const step = new Map(route.map(([x, y], i) => [H.key(x, y), i]));
         let along = null;
-        for (const o of pool) {
+        for (const o of forward) {
           const i = step.get(H.key(o.to[0], o.to[1]));
           const progress = i > 0 ? i : hereD - dist(s, o.to[0], o.to[1], foe.x, foe.y);
-          const v = progress - bleed(o.to);
-          if ((i > 0 || progress > 0) && (!along || v > along.v)) along = { v, to: o.to };
+          const v = progress - bleed(o.to) + waterHere - waterRisk(s, a, o.to);
+          if ((i > 0 || progress > 0) && (!prior || v > 0) && (!along || v > along.v)) along = { v, to: o.to };
         }
         if (along) return { type: "move", actor: a.id, to: along.to };
       }
       let best = null;
-      for (const o of pool) { const d = dist(s, o.to[0], o.to[1], foe.x, foe.y) + bleed(o.to); if (!best || d < best.d) best = { d, to: o.to }; }
+      for (const o of forward) { const d = dist(s, o.to[0], o.to[1], foe.x, foe.y) + bleed(o.to) + waterRisk(s, a, o.to) - waterHere; if (!best || d < best.d) best = { d, to: o.to }; }
       return best && best.d < hereD ? { type: "move", actor: a.id, to: best.to } : null;
     }
     function retreat(s, a) {

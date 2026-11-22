@@ -1086,7 +1086,6 @@
 .cc-pt-counts { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
 .cc-pt-count { padding: 6px 10px; border: 1px solid #3a3550; border-radius: 6px; }
 .cc-pt-count small { color: #9a9ec4; margin-left: 6px; }
-.cc-pt-count.struck b, .cc-pt-count.absolved b { text-decoration: line-through; color: #8a8698; }
 .cc-pt-favor { margin: 4px 0 12px; }
 .cc-pt-zones { display: grid; grid-template-columns: 10.5fr 3fr 10.5fr; font: 700 max(var(--pn-text-floor), calc(11px * var(--pn-text-step))) ui-monospace, Menlo, monospace; text-transform: uppercase; letter-spacing: .04em; }
 .cc-pt-zones span { padding: 3px 6px; }
@@ -1099,8 +1098,6 @@
 .cc-pt-log { margin: 0 0 10px; padding-left: 20px; max-height: 220px; overflow: auto; font-size: max(var(--pn-text-floor), calc(13px * var(--pn-text-step))); }
 .cc-pt-log li { margin: 3px 0; }
 .cc-pt-lesson { display: block; color: #9a9ec4; font-size: max(var(--pn-text-floor), calc(12px * var(--pn-text-step))); }
-.cc-pt-moves { flex-wrap: wrap; gap: 8px; }
-.cc-pt-moves button { flex: 1 1 130px; min-width: 0; }
 .cc-pt-verdict { margin: 8px 0; padding: 10px 14px; border: 1px solid #e9c46a; border-radius: 8px; background: #1f1c27; }
 .cc-pt-verdict h3 { margin: 0 0 6px; color: #e9c46a; }
 @media (prefers-reduced-motion: reduce) { .cc-pt-track i { transition: none; } }
@@ -1272,4 +1269,128 @@ button.cc-gold:focus-visible { outline: 2px solid #fff6d8; outline-offset: 2px; 
 @media (prefers-reduced-motion: reduce) {
   .cc-loading-art, .is-cast .ranged .cc-duel-flight span { animation: none; }
   .cc-loading-fill, .cc-duel-landing .cc-duel-tile, .cc-mind-vows button { transition: none; }
+}
+
+/* The familiar collection uses the same dialog in the game and on the Random Battle page. */
+.cc-familiar-picker {
+  box-sizing: border-box; width: min(990px, calc(100vw - 24px)); max-height: 90dvh;
+  padding: clamp(16px, 3vw, 28px); overflow: auto; border: 1px solid #605573; border-radius: 16px;
+  color: #f4ecf9; background: #231e2b; font: 1rem/1.45 system-ui, sans-serif;
+}
+.cc-familiar-picker::backdrop { background: #0e0b15c9; }
+.cc-familiar-picker > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cc-familiar-picker h2, .cc-familiar-picker h3 { margin: 0; line-height: 1.2; }
+.cc-familiar-picker h3 { font-size: 1.03rem; }
+.cc-familiar-picker #cc-familiar-dreams-heading { font-size: 1.2rem; }
+.cc-familiar-picker [data-familiar-dreams] { margin-top: 24px; }
+.cc-familiar-card .cc-familiar-drawback b { color: #f2d39b; }
+.cc-familiar-picker p { margin: .45em 0; }
+.cc-familiar-picker button {
+  padding: .45em .75em; min-height: 36px; color: inherit; font: inherit;
+  border: 1px solid #746987; border-radius: 7px; background: #352c43; cursor: pointer;
+}
+.cc-familiar-picker button:hover { border-color: #f2d39b; background: #443653; }
+.cc-familiar-picker button:focus-visible { outline: 2px solid #f2d39b; outline-offset: 3px; }
+.cc-familiar-picker [data-familiar-progress], .cc-familiar-picker [data-familiar-status] { color: #d8cadf; }
+.cc-familiar-picker [data-familiar-status]:empty { display: none; }
+.cc-familiar-picker [data-familiar-grid] { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.cc-familiar-card {
+  display: grid; grid-template-rows: auto auto auto 1fr auto auto; align-items: start;
+  padding: 12px; border-radius: 10px; border: 1px solid #564b65; background: #30283b; font-size: .9rem;
+}
+.cc-familiar-card[data-state="met"] { border-color: #9b8459; }
+.cc-familiar-card[data-state="choose"] { border-color: #799ed0; }
+.cc-familiar-art {
+  height: 104px; display: grid; place-items: center; margin-bottom: 12px; overflow: hidden;
+  border-radius: 6px; background: radial-gradient(ellipse at 50% 80%, #524161, #211b2c 75%);
+}
+.cc-familiar-art img { width: 100%; height: 104px; object-fit: contain; image-rendering: pixelated; }
+.cc-familiar-card[data-state="level"] img { opacity: .58; }
+.cc-familiar-card[data-state="met"] strong { color: #f2d39b; }
+.cc-familiar-card[data-state="choose"] button { background: #2f4a71; }
+.cc-familiar-card[data-state="choose"] button:hover { background: #405f8b; }
+.cc-familiar-card strong, .cc-familiar-card button { grid-row: 6; }
+.cc-familiar-card .cc-familiar-tags { color: #dccde8; grid-row: 5; }
+.cc-familiar-card .cc-familiar-role { color: #dccde8; }
+@media (max-width: 680px) {
+  .cc-familiar-picker [data-familiar-grid] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 350px) {
+  .cc-familiar-picker [data-familiar-grid] { grid-template-columns: 1fr; }
+}
+/* Shared courtroom scene for Codex practice and combat. */
+.cc-court-dialog, .cc-card.cc-court-practice {
+  box-sizing: border-box;
+  width: min(940px, calc(100vw - 32px));
+  max-width: 940px;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: clamp(12px, 2.5vw, 26px);
+  color: #f3eadb;
+  background: #1c1b24;
+  border: 1px solid #8f7659;
+  border-radius: 12px;
+  overscroll-behavior: contain;
+}
+.cc-court-dialog::backdrop { background: #100e16d9; }
+.cc-court-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cc-court-header h2, .cc-court-practice h2 { margin: 0; }
+.cc-court-mode, .cc-court-seat figcaption span { color: #f0cb91; font-size: .8em; font-weight: 700; letter-spacing: .06em; }
+.cc-court-mode { margin: 0 0 4px; }
+.cc-court-layout { display: grid; grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.cc-court-stage {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: space-between;
+  padding: clamp(10px, 2vw, 20px);
+  gap: 10px;
+  border: 1px solid #96684b;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, transparent 45%, #653a32 45% 55%, transparent 55%) left bottom / 100% 42% no-repeat,
+    repeating-linear-gradient(0deg, #58443d 0 2px, #715a4c 2px 21px) left bottom / 100% 42% no-repeat,
+    repeating-linear-gradient(90deg, #3f2e31 0 12%, #574043 12% 14%, #392e35 14% 26%);
+}
+.cc-court-seat { min-width: 0; margin: 0; text-align: center; }
+.cc-court-seat[data-court-seat="bench"] { grid-row: 1; grid-column: 1 / -1; width: min(190px, 70%); justify-self: center; }
+.cc-court-seat[data-court-seat="dock"] { grid-row: 2; grid-column: 1; }
+.cc-court-seat[data-court-seat="prosecutor"] { grid-row: 2; grid-column: 3; }
+.cc-court-seat[data-court-seat="witness"] { grid-row: 2; grid-column: 2; }
+.cc-court-person { position: relative; height: clamp(56px, 15vw, 118px); display: grid; place-items: end center; }
+.cc-court-person img { position: absolute; inset: 0; width: 100%; height: 100%; object-position: center bottom; object-fit: contain; filter: drop-shadow(0 3px 4px #0009); }
+.cc-court-empty { width: clamp(20px, 5vw, 32px); height: 47%; border: 2px solid #90654c; border-radius: 6px 6px 0 0; background: #543e3c; }
+.cc-court-seat figcaption {
+  min-height: 3em;
+  padding: 5px 3px 7px;
+  border: 1px solid #a07855;
+  border-top: 4px solid #be966c;
+  border-radius: 2px 2px 5px 5px;
+  background: linear-gradient(#573a32,#33242a);
+  overflow-wrap: anywhere;
+}
+.cc-court-seat[data-court-seat="bench"] figcaption { box-shadow: 0 6px 0 #261b21, 0 10px 0 #715947; margin-bottom: 8px; }
+.cc-court-seat[data-court-seat="dock"] figcaption { background: repeating-linear-gradient(90deg, #493138 0 15px, #523a3b 15px 16px); }
+.cc-court-seat[data-current] figcaption { outline: 2px solid #f2cc89; outline-offset: 1px; }
+.cc-court-seat strong { display: block; margin-top: 2px; font-size: .92em; }
+.cc-court-seat .cc-court-you { color: #17232a; background: #e8ca94; font: 700 max(var(--pn-text-floor), calc(12px * var(--pn-text-step))) system-ui, sans-serif; padding: 1px 4px; border-radius: 3px; letter-spacing: normal; }
+.cc-court-docket h3 { margin: 0 0 6px; }
+.cc-court-docket .cc-pt-count small { display: block; margin: 3px 0 0; color: #c0b5c6; }
+.cc-court-docket [aria-current] { border-color: #cfa973; background: #332b34; }
+.cc-court-docket [data-count-status="struck"] strong { text-decoration: line-through; }
+.cc-court-transcript { grid-column: 1 / -1; border-top: 1px solid #56495b; padding: 8px 0 0; }
+.cc-court-transcript summary { cursor: pointer; }
+.cc-court-transcript .cc-pt-log { margin-top: 8px; }
+.cc-court-transcript li b { display: inline-block; color: #e7bf83; margin-right: 4px; }
+.cc-court-actions { display: grid; gap: 6px; }
+.cc-court-dialog button, .cc-court-actions button { padding: 6px 9px; border: 1px solid #967c63; border-radius: 5px; background: #372e37; color: #fff1db; font: inherit; cursor: pointer; }
+.cc-court-actions button { text-align: left; }
+.cc-court-actions button small { display: block; margin-top: 2px; color: #c7b8cb; }
+.cc-court-actions button:disabled { opacity: .66; cursor: default; }
+.cc-court-dialog :focus-visible, .cc-court-practice :focus-visible { outline: 2px solid #fbd08d; outline-offset: 2px; }
+.cc-court-queued { color: #f0cb91; }
+@media (max-width: 660px) {
+  .cc-court-layout { grid-template-columns: minmax(0, 1fr); }
+  .cc-court-stage { gap: 7px; }
+  .cc-card.cc-court-practice { width: 100%; }
+  .cc-court-seat figcaption { font-size: max(var(--pn-text-floor), calc(13px * var(--pn-text-step))); }
 }

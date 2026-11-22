@@ -77,7 +77,7 @@
  // weakening and no bead at the end — the specimen goes up into the ship instead.
  function canChant(s,grey,victimId,H){
   if(!grey||grey.defeated||!is(grey)||isShip(grey)||isScientist(grey))return "Only a grey agent performs the retrieval.";
-  if(grey.ritual)return "Already holding a chant.";
+  if(H.Rites.capture(grey))return "Already holding a chant.";
   const v=victimOf(s);
   if(!v)return "The specimen is gone.";
   if(v.id!==victimId)return "The manifest names one specimen.";
@@ -87,15 +87,14 @@
  }
  function chant(s,grey,victimId,H){
   const v=s.actors[victimId];
-  grey.ritual={monsterId:victimId,turnsLeft:CHANT_TURNS,visitor:true};
-  (s.captureLog||=[]).push({actor:grey.id,kind:"visitor",started:true});
+  H.Rites.beginCapture(s,grey,{monsterId:victimId,turnsLeft:CHANT_TURNS,visitor:true},"visitor");
   H.log(s,{kind:"ritual",actor:grey.id,target:victimId,tiles:[[v.x,v.y]],started:true,text:`${grey.name} begins the retrieval chant over ${v.name}.`,why:[`${v.name} hangs suspended: nothing can hit them and they cannot act. Break the agent's chant within ${CHANT_TURNS} of its turns or ${v.name} goes up into the ship.`]});
  }
  // No specimen, no reason to stay: the crew lifts (silently clears chants — this is leaving, not breaking).
  function depart(s,H,why){
   const b=book(s);if(b.departed)return;b.departed=true;
   const crew=Object.values(s.actors||{}).filter(u=>is(u)&&!u.defeated);
-  for(const u of crew){u.ritual=null;u.defeated=true;u.escaped=true;u.noXp=true;u.tempo=0;u.leaveReason=why||"the specimen is gone";}
+  for(const u of crew){H.Rites.setCapture(u,null);u.defeated=true;u.escaped=true;u.noXp=true;u.tempo=0;u.leaveReason=why||"the specimen is gone";}
   H.log(s,{kind:"faction",actor:crew[0]?.id||null,text:`The light folds and the visitors are gone (${why||"the specimen is gone"}).`,why:["They came for one specimen. Without it there is no ritual and no war."]});
  }
  // The specimen is taken: off the field, into the ship. Anyone else's battle goes on.
@@ -105,7 +104,7 @@
   victim.defeated=true;victim.escaped=true;victim.abducted=true;victim.noXp=true;victim.tempo=0;
   victim.leaveReason="taken by the visitors";
   const crew=Object.values(s.actors||{}).filter(u=>is(u)&&!u.defeated);
-  for(const u of crew){u.defeated=true;u.escaped=true;u.noXp=true;u.tempo=0;u.leaveReason="beamed up with the specimen";if(u.ritual)u.ritual=null;}
+  for(const u of crew){u.defeated=true;u.escaped=true;u.noXp=true;u.tempo=0;u.leaveReason="beamed up with the specimen";if(H.Rites.capture(u))H.Rites.setCapture(u,null);}
   s.abduction={victim:victim.id,round:s.round};
   H.log(s,{kind:"faction",actor:victim.id,text:`${victim.name} is taken: the light folds and the visitors are gone with the specimen.`,why:["The ritual completed. What happens aboard the ship is another mission."]});
   return {victim:victim.id,crew:crew.map(u=>u.id)};
@@ -123,7 +122,7 @@
    const war=Object.values(s.actors||{}).some(u=>u&&!u.defeated&&!is(u)&&hostileTo(s,u.side));
    return war?null:hold(s,a,H);
   }
-  if(a.ritual||a.controller==="player")return null;   // a chanting agent is held by the channeler branch
+  if(H.Rites.capture(a)||a.controller==="player")return null;   // a chanting agent is held by the channeler branch
   const v=victimOf(s);
   if(!v){if(!s.preview)depart(s,H,"the specimen is gone");return {type:"end",actor:a.id};}
   if(H.chanted?.(s,v.id)){   // the chant is held: watch, unless there is a war to fight

@@ -1,5 +1,5 @@
 "use strict";
-// Actions, the parley family: declineOrder, blessing, terms, tallySettle, tallyTerms, stakes, setIntent, revealIntent, myol, stakeSeeds, doubleDown, answerTerms, mediate, order, parley, invokeTrial, trialPlay, trialDefend.
+// Actions, the parley family: declineOrder, blessing, terms, tallySettle, tallyTerms, stakes, setIntent, revealIntent, myol, stakeSeeds, doubleDown, answerTerms, mediate, order, parley, invokeTrial, convene, trialPlay, trialDefend.
 // Split out of actions.js on 2026-11-11 (tools/split-actions.mjs, action seams A2; the map is tools/action-families.json,
 // the lookup docs/action-families.md). Not a module in its own right and not in engine.js's ENGINE_PARTS: actions.js
 // installs it with the host object H and K, the names actions.js has in its own scope (K.handlers is the action table).
@@ -119,19 +119,28 @@
         const r = Courtroom.invoke(s, H, a.id, act.target);
         if (!r.ok) return r.error;
       },
+      convene(s, a, act) {
+        if (!Courtroom) return "No court today.";
+        const no = Courtroom.canConvene(s, H, a.id, act.target);
+        if (no) return no;
+        const spend = spendTempo(s, a, Courtroom.RULES.conveneTempo, "Convene the Court");
+        if (spend) return spend;
+        H.openCourtResponse(s, a, act.target);
+      },
       trialPlay(s, a, act) {   // W1.3: Talk ▸ trial rows — the invoker queues prosecution plays
         if (!Courtroom) return "No court today.";
-        if (a.id !== "player" || !s.trial || s.trial.over) return "No trial in session.";
+        if (!s.trial || s.trial.over) return "No trial in session.";
+        if (s.trial.invokerId !== a.id) return "Only the prosecutor directs the prosecution.";
         if ((a.tempo || 0) < Courtroom.RULES.playTempo) return `Trial plays need ${Courtroom.RULES.playTempo} tempo.`;
         const no = Courtroom.queuePlay(s, act.move);
         if (no) return no;
         a.tempo -= Courtroom.RULES.playTempo;
         log(s, { kind: "trial", actor: a.id, text: `${a.name} queues the prosecution's ${act.move}.` });
       },
-      trialDefend(s, a, act) {   // arrest-trial: the accused (player) queues their own defense
+      trialDefend(s, a, act) {   // the accused queues their own defense
         if (!Courtroom) return "No court today.";
-        if (a.id !== "player" || !s.trial || s.trial.over) return "No trial in session.";
-        if (s.trial.accusedId !== "player") return "Only the accused directs the defense.";
+        if (!s.trial || s.trial.over) return "No trial in session.";
+        if (s.trial.accusedId !== a.id) return "Only the accused directs the defense.";
         if ((a.tempo || 0) < Courtroom.RULES.playTempo) return `Trial plays need ${Courtroom.RULES.playTempo} tempo.`;
         const no = Courtroom.queueDefense(s, act.move);
         if (no) return no;
@@ -141,5 +150,21 @@
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-parley.js)`);
     Object.assign(K.handlers, family);
+    // Action seams card (R-20261110-46): Convene the Court, one row per opponent the court can summon. The Talk drawer
+    // still builds its own row in ui.js; E.actionOptions serves this card the same way it serves the Observe cards.
+    const cards = {
+      convene: { type: "convene", drawer: "talk", options(s, a) {
+        if (!Courtroom?.hasBench(a, H)) return [];
+        const cost = Courtroom.conveneCost(s, H, a);
+        return Object.values(s.actors).filter((t) => !Courtroom.canConvene(s, H, a.id, t.id)).map((t) => {
+          const act = { type: "convene", actor: a.id, target: t.id }, pv = H.preview(s, act);
+          return { act, label: `Convene the Court: ${t.name} · ${cost} AP`, cost, off: !pv.ok, why: pv.ok ? "" : pv.error,
+            help: "Summon a charged opponent within five tiles and sight. They can dodge before the hearing opens." };
+        });
+      } },
+    };
+    H.actionCards ||= {};
+    for (const type of Object.keys(cards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-parley.js)`);
+    Object.assign(H.actionCards, cards);
   })();
 });

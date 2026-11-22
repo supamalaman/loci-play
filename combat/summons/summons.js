@@ -12,9 +12,9 @@
 // Bond with the palace: visiting a summon's room unlocks it (bond 1); recalling it correctly in
 // Recall mode strengthens it (bond 2: +1 turn). Learning the palace is how you build your roster.
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./summons-data.js"), require("../terrain/mapgen.js"), require("../classes/classes-data.js"), require("./tandem.js"));
-  else root.ConceptCombatSummons = factory(root.ConceptCombatSummonData, root.ConceptCombatMapgen, root.ConceptCombatClassData, root.ConceptCombatTandem);
-})(typeof self !== "undefined" ? self : this, function (SD, G, CD, Tandem) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./summons-data.js"), require("../terrain/mapgen.js"), require("../classes/classes-data.js"), require("./tandem.js"), require("./tandem-trial.js"));
+  else root.ConceptCombatSummons = factory(root.ConceptCombatSummonData, root.ConceptCombatMapgen, root.ConceptCombatClassData, root.ConceptCombatTandem, root.ConceptCombatTandemTrial);
+})(typeof self !== "undefined" ? self : this, function (SD, G, CD, Tandem, Trial) {
   const R = SD.rules, DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const man = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   // A body's tiles, anchor top-left (engine.js footprint). Technique and ultimate reach is measured from the nearest tile of a
@@ -483,6 +483,6 @@
     { const unfit = Tandem ? Tandem.admission(id, SD.summons[id]) : []; if (unfit.length) return { ok: false, reason: `Not admitted as a tandem: ${unfit[0]}.` }; }   // Tandem T1: a tandem row that fails admission cannot be called
     return canSummon({ ...battle, used: usedBy(battle.used, actor.id) }, id, { unlocked: familiarSet(actor, accountList) });
   }
-  return { Tandem, callsPalace, familiarSet, usedKey, usedBy, canCall, NOT_A_CALLER, ownerState, freshen, revealTrueForm, revealMaxForm, maxRoom, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
+  return { Tandem, Trial, callsPalace, familiarSet, usedKey, usedBy, canCall, NOT_A_CALLER, ownerState, freshen, revealTrueForm, revealMaxForm, maxRoom, activeForm, activeUltimate, trueFormTechnique, imaginaryFriendHost, deathDoor, deathDoorChance, deathDoorNeed, available, canSummon, placeSummon, placementTiles, makeSummonActor, afterOwnTurn, pickTarget,
     canOrderUltimate, orderUltimate, resolveUltimate, orderLost, data: SD };
 });

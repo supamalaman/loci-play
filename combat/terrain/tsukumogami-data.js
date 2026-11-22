@@ -49,6 +49,7 @@
     pillarCompositePorphyry: ["load_distribution", "preservation"], pillarRomanBrick: ["load_distribution", "preservation"],
     pillarOrnateGilded: ["load_distribution", "preservation"], pillarOrnateMarble: ["load_distribution", "preservation"],
     monument: ["load_distribution", "preservation"],
+    cruiseShipWreck: ["preservation", "hardware"],
     planter: ["constraint", "boundary"], parterreFountain: ["constraint", "boundary"],
     cistern: ["gradingDrainage", "constraint"],
     workstation: ["hardware", "craftsmanship"], dataCenter: ["hardware", "load_distribution"],

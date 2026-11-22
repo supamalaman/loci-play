@@ -7,6 +7,8 @@
 //   landWound(s, a, kind, n, tiles)   → wounds the ledger; warns; enrages an arrived Accord
 //   landRound(s)                      → round start: the chance she emerges, and her arrival
 //   setGaiaForm(s, g, form, why)      → the Living Accord or the Wounded Ground (kit, side, size, sprite)
+//   floorValue(s, a, cand)            → DT4: bonus for a ground-targeting hit on a breakable floor under a foe
+//   crackedStand(s, at)               → DT4: cost of ending a turn on a cracked breakable tile
 //
 // Gaia STARTS as the Living Accord. She emerges beside whoever has wounded the land most and fights for the other
 // side; more wounds after that, or the ENRAGED condition, turn her into the Wounded Ground, hostile to everyone, who
@@ -172,6 +174,44 @@
         why: [`The land took ${st.wounds} wounds; ${sinner.name} dealt the most (${st.ledger[sinner.id]}).`, `${R.enrageAfter} more wounds turn her into the Wounded Ground, hostile to everyone.`] });
     }
 
+    // DT4: the AI values a ground-targeting hit that cracks or drops a breakable floor under a foe,
+    // and pays to finish a turn off a cracked tile. Collapse Life Force is already in the damage
+    // preview; these terms are the floor itself (a crack the preview does not price, and stagger
+    // on a drop). Numbers are provisional; they live here so content.js stays out of this slice.
+    const FLOOR_AI = { crackUnderFoe: 4, breakStagger: 3, standCracked: 8 };
+    function floorKey(x, y) { return x + "," + y; }
+    function crackedStand(s, at) {
+      if (!s || !at) return 0;
+      const [x, y] = at;
+      const t = H.tileAt?.(s, x, y);
+      if (!t?.breakable) return 0;
+      const n = (s.arena?.terrainDamage || {})[floorKey(x, y)] || 0;
+      return n > 0 ? FLOOR_AI.standCracked : 0;
+    }
+    function floorValue(s, a, cand) {
+      if (!s || !a || !cand?.target || cand.type !== "ability") return 0;
+      if (groundControl(s, a) >= 1) return 0;   // live rule: full place control leaves the dirt whole
+      const def = H.ab(cand.ability); if (!def || !H.structures?.isGroundTargeting(def)) return 0;
+      const m = H.manifest(s, a, cand.ability);
+      const tiles = H.areaTiles(s, a, m, cand.target[0], cand.target[1]) || [];
+      const potency = m?.potency || 0;
+      const channel = def.damageType;
+      let v = 0;
+      for (const [x, y] of tiles) {
+        const t = H.tileAt(s, x, y);
+        const b = t && t.breakable;
+        if (!b) continue;
+        const occupant = Object.values(s.actors || {}).find((u) => !u.defeated && !u.notArrived && u.x === x && u.y === y);
+        if (!occupant || occupant.side === a.side || occupant.side === "bystander") continue;
+        const mul = (channel && b.materials && b.materials[channel]) || 1;
+        const struct = def.destructive && (t.tags || []).includes("structure") ? 2 : 1;
+        const dmg = Math.round(potency * mul) * struct;
+        const total = ((s.arena.terrainDamage || {})[floorKey(x, y)] || 0) + dmg;
+        v += total >= b.integrity ? FLOOR_AI.breakStagger : FLOOR_AI.crackUnderFoe;
+      }
+      return v;
+    }
+
     // What an AI candidate would cost the land, for a plant-based fighter who doesn't know the place yet (0 otherwise):
     // a ground-targeting technique's open tiles at groundTile, plants in its area at plantHit; a Strike on a plant.
     const PLANTS = ["tree", "hedge", "shrub", "groundcover"];
@@ -188,6 +228,6 @@
       return w;
     }
 
-    return { groundControl, landWound, landRound, setGaiaForm, landState, landCost, siteTemper: (s) => { const R = L(); return R ? { ...temper(s, R), ...composition(s) } : null; } };
+    return { groundControl, landWound, landRound, setGaiaForm, landState, landCost, floorValue, crackedStand, siteTemper: (s) => { const R = L(); return R ? { ...temper(s, R), ...composition(s) } : null; } };
   })();
 });

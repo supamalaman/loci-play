@@ -32,6 +32,9 @@
   // Traits. open = noticed as soon as the character is seen; hidden = must be observed (difficulty).
   //   deck modifiers: allDifficulty (added to every observation), extra (deep observations added), revealAll.
   const traits = {
+    // Chitinous Archbishop (hot-build cuts F3): Carapace (biology, innate; Lab record docs/trait-lab.md), Liturgist (psychology, carries her AI table).
+    carapace:{name:"Carapace",category:"biology",difficulty:2,text:"Plates over the body: the first foe hit on her each round loses 3 potency."},
+    liturgist:{name:"Liturgist",category:"psychology",difficulty:2,text:"The law first, then the body: she posts a Statute while none of hers stands, and marks as her Vessel whoever stands in it. A believer she marks is a body she may wake in."},
     citesPrecedent:{name:"Cites Precedent",category:"values",text:"Remembers witnessed techniques. When answering a visible attacker who repeats a technique you already saw them use, the reactive technique costs 0 AP. Its ΦF and reaction are still paid. Change techniques or deny sight to defeat the precedent.",open:true},
     discernment:{name:"Discernment",category:"psychology",difficulty:2,text:"Each new hidden fact personally learned through Observe or Investigate gives +5% direct damage against that enemy, up to +25% for this battle. Repeated or shared knowledge adds nothing."},
     catNap:{name:"Cat Nap",text:"When she stalls, she spends 5 bankable AP per LF restored (up to 8 LF); remaining AP is banked. Full health keeps the normal bank.",open:true,unlocks:[]},
@@ -53,7 +56,7 @@
     // two powers (open, everyone can see them) and at least one CRITICAL weakness (hidden: Observe finds it).
     superStrength:   { name: "Super Strength", text: "Hits far harder than a person should.", open: true, combat: { abilityDamageMul: 1.15 } },
     denseMuscle: { name: "Dense Muscle", text: "Doubled physical damage (Strike, contact techniques, beast slams) and grappling (chance, cuts, squeezes); takes ×0.8 from everything but piercing.", open: true },
-    superSpeed:      { name: "Super Speed", text: "Runs on a faster clock: +2 movement, steps cost half AP, and water does not slow them (one who cannot swim can still run across deep water, but not stop on it). Sees a shot at them coming at any range (Guard or dodge it, once a round; the dodge costs half and reaches two tiles farther; not Strikes, fields or direct hits). The first Strike after a sprint of 3 or more tiles hits harder (+1 per 2 tiles walked, up to +6; never added to a Knight's Lance Charge). Friction (slowed, staggered, tangled, a hurt leg, grappled) takes the speed away.", open: true, combat: { extra: { moveBudgetAdd: 2 } } },
+    superSpeed:      { name: "Super Speed", text: "Runs on a faster clock: +2 movement, steps cost half AP, and water does not slow them (one who cannot swim can still run across deep water, but not stop on it). Sees a shot at them coming at any range (Guard or dodge it, once a round; the dodge costs no action points, only the reaction, and reaches two tiles farther; not Strikes, fields, areas or direct hits). The first Strike after a sprint of 3 or more tiles hits harder (+1 per 2 tiles walked, up to +6; never added to a Knight's Lance Charge). Acts twice a round, half a turn each. Friction (slowed, staggered, tangled, a hurt leg, grappled) takes the speed away.", open: true, combat: { extra: { moveBudgetAdd: 2 } } },
     superDurability: { name: "Super Durability", text: "Shrugs off what would floor anyone else: all damage ×0.8.", open: true, combat: { extra: { channelDamageMul: { nigredo: 0.8, albedo: 0.8, citrinitas: 0.8, rubedo: 0.8 } } } },
     superHealing:    { name: "Super Healing", text: "Wounds close as you watch: +6 LF at the start of each turn.", open: true, combat: { extra: { healPerTurn: 6 } } },
     weakToNigredo:   { name: "Critical weakness: impact", text: "Blunt force goes straight through the power: Nigredo ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { nigredo: 1.75 } } } },
@@ -119,6 +122,9 @@
     zealous:       { name: "Zealous", category: "values", text: "A true believer who holds the line: never flees or routes, and strikes ×1.3 harder at dream creatures and ×1.2 harder while a Dream Space is open.", difficulty: 3, neverFlees: true, open: true, unlocks: [] },
     scout:         { name: "Scout", category: "psychology", difficulty: 2, open: true, unlocks: ["report"],
       text: "Ranges ahead and comes back: after observing 3 times in a battle, seeks an ally within 3 tiles to share everything noticed. Reports once per battle." },
+    messenger:     { name: "Messenger", category: "psychology", difficulty: 1, open: true, unlocks: [],
+      share: { radius: 3, help: 1, trueRadius: 5, trueHelp: 2 },
+      text: "Brings word back at once: each outward Observe it lands (Survey Shot hits count; Verify shares nothing) is shared with allies within 3, who observe that subject 1 easier for the rest of the battle (in its true form: within 5, and 2 easier). What it was shown is shared as it stands, true or not." },
     talkative:     { name: "Talkative", text: "Can't stop talking. Will try to talk you down, or talk at you until you can't look away.", open: true },
     annoying:      { name: "Annoying", text: "Gets under your skin: their distractions land more often and last longer.", difficulty: 1 },
     agreeable:     { name: "Agreeable", text: "Looks for a way to agree: quicker to stand down and come to terms.", difficulty: 2 },
@@ -237,9 +243,13 @@
     // Hotbuilds wave 1 (The Hypnotist): Entrainer carries his AI table and names his subject; Gentle Hand stays itself once per foe.
     entrainer: { name: "Entrainer", category: "psychology", text: "Sets one subject and keeps it: his attention sits on a single foe (the Focus mark).", difficulty: 2 },
     gentleHand: { name: "Gentle Hand", category: "values", text: "The first lethal blow he lands on each foe leaves that foe at 1 LF, once per foe per battle.", difficulty: 2 },
+    // Florence Oloo (hot-build cuts F2): Steady Hands (biology, innate; Lab record docs/trait-lab.md), Clinician (psychology, carries her AI table), Do No Harm (values, her vow).
+    steadyHands: { name: "Steady Hands", category: "biology", text: "Hands that do not shake in a moving field: her field techniques catch a foe that has moved since its last turn harder (x1.1), once per technique per turn.", difficulty: 2 },
+    clinician: { name: "Clinician", category: "psychology", text: "Her eye prices the field before the innovation: Diffusion while no field is live, Innovation once the substrate is down.", difficulty: 2 },
+    doNoHarm: { name: "Do No Harm", category: "values", text: "Each foe once: the first hit of hers that would drop them from above 1 LF to 0 leaves them at 1.", difficulty: 2 },
     // The Treasure Hunter (TH1): Pack Strong (biology, innate; Lab record docs/trait-lab.md), Gold Fever (psychology, drives his pathing), Finder's Keepers (values).
     packStrong: { name: "Pack Strong", category: "biology", text: "A back and shoulders built to haul: a shove moves him one tile less far while he carries treasure, and until the end of the round in which his gold cracks.", difficulty: 2 },
-    goldFever: { name: "Gold Fever", category: "psychology", text: "He is drawn to loot: his steps lean toward any pickup he can still turn to gold, unless a badly hurt foe is within reach.", difficulty: 1 },
+    goldFever: { name: "Gold Fever", category: "psychology", text: "He is drawn to loot: his steps lean toward any pickup he can still turn to gold, unless a foe within 2 tiles at 6 LF or less is open.", difficulty: 1 },
     findersKeepers: { name: "Finder's Keepers", category: "values", text: "Whatever he finds is his; the first time each battle someone takes the treasure he dropped, he gains an Inspiration.", difficulty: 2 },
     arcaneMastery: { name: "Arcane Mastery", category: "psychology", text: "Every spell carries a rider: offensive techniques curse each enemy they reach (exposed, entangled, or bleeding); support techniques bless each ally they reach (warded, membraned, or recharged).", difficulty: 3 },
     humanExperience: { name: "The Human Experience", text: "14 willpower instead of 10, and parlays land 20% better. Has lived enough to argue anything.", difficulty: 3 },
@@ -253,6 +263,7 @@
     // Dreamer (Mala, 2026-10-13): a value anyone can roll. Opens a Dream Space at a full bar, and an AI-run Dreamer
     // prefers it whenever the ultimate has nothing worth hitting (engine/ai.js, content.js rules.dreamer).
     dreamer:        { name: "Dreamer", text: "Would rather change the place than spend the moment: opens a Dream Space at a full bar, and does so when the ultimate has nothing worth hitting.", difficulty: 2 },
+    bench:          { name: "The Bench", text: "Convenes court for 20 AP against a charged opponent within sight and 5 tiles. The accused can dodge. One docket per battle.", difficulty: 2 },
     dutiful:        { name: "Dutiful", text: "An order given is an order kept, after it stops being smart.", difficulty: 2 },
     byTheBook:     { name: "By the Book", text: "The chain is the job: a successful Grapple on a cuffed opponent pays 50 ultimate charge at once.", difficulty: 2 },
     thrifty:        { name: "Thrifty", text: "Nothing is spent that does not need to be: prepares, holds back.", difficulty: 2 },
@@ -287,6 +298,10 @@
     perfectMemory:       { name: "Perfect Memory", text: "Nothing observed is lost: Observing a subject with nothing left to learn costs no action points. It reveals nothing unobserved.", open: true, difficulty: 3, formOnly: "cyborg" },
     // Form traits (learned forms, 2026-10-17; docs/learned-forms.md): granted while a form is held or vowed, gone on release.
     // Biology + formOnly (the Cyborg's precedent): nobody spawns with them and nobody can imitate them.
+    // The maid's Vocational form (Mala, 2026-11-15, R-20261115-61, R-20261115-63): "a buffed up version of her character (same concepts but way overtuned)".
+    // A boss's form trait: granted only by the scenario The Vocation (foes.traits); in no profile draw, not in the Lab catalog, biology so never imitable.
+    vocational: { name: "Vocational", text: "Her calling, fully realised: her foes count as waste, so Sort, Clear the Obstruction, Controlled Removal and Empty the Room strike them hard. +100 Life Force, every blow she lands ×1.5, her techniques fill her ultimate ×1.5 as fast, +15 ΦF and +3 ΦF regen.", open: true, formOnly: true,
+      combat: { extra: { maxLFAdd: 100, damageDealtMul: 1.5, ultimateChargeMul: 1.5, maxPFAdd: 15, pfRegenAdd: 3 } } },
     fireblooded: { name: "Fireblooded", text: "Dragon-blooded: fire is home. Burning ground does not hurt them.", open: true, formOnly: true },
     territorial: { name: "Territorial", text: "Dragon-blooded: within 2 tiles of where they took the form, they deal 15% more and take 20% less.", open: true, formOnly: true },
     quenchable: { name: "Quenchable", text: "Dragon-blooded's flaw: on water or in rain, holding the form drains twice as much.", open: true, formOnly: true },
@@ -348,9 +363,9 @@
       "telepathy", "telekinetic", "denseMuscle", "vegetativePropagation", "highTolerance", "robot", "ceaselessAdaptation", "insaneReflexes", "cybernetic", "distributedIntelligence", "stickyFingers", "visage", "godlyAgility", "theLook", "perfectConcentration", "adhd", "fireblooded", "territorial", "quenchable", "spiritSight", "ruleOfTheThreshold", "purified", "exoskeleton", "broodmind", "molting", "faceless", "unbearable", "hollow", "rootbound", "greenblood", "woundedLand", "takeoff", "overheat", "platform", "goldenParachute", "burnRate"   /* form traits (learned forms, 2026-10-17; formOnly) */, "aerodynamic", "lightFrame", "ascended",
       /* anime theorycraft batch, 2026-10-26 */ "ironJaw", "poisonAffinity", "crushingHands", "typedSoul", "gyoEyes", "heavyBones", "copyEye", "oneBlindSpot", "treeWalker", "vesselBody", "soulLayers", "looseFit", "vatGrown", "shockEater", "pluggedEye", "oldBlood", "deepWells", "redSliver", "automailLimb", "softSoles", "filterLungs", "openVessel", "atlasBones",
       /* feats batch, 2026-10-27 */ "packMule", "fourArms",
-      /* prehensile tail PT1, 2026-11-12 */ "prehensileTail",
+      /* prehensile tail PT1, 2026-11-12 */ "prehensileTail", /* Florence F2, 2026-11-15 */ "steadyHands",
       /* tsukumogami structures, 2026-10-29 */ "heavy", "rigid", "brittle", "light",
-      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory"],
+      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory", /* the maid's Vocational form, 2026-11-15: a boss form */ "vocational", /* Chitinous Archbishop F3, 2026-11-16 */ "carapace"],
     psychology: ["discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
       "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "comparative", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
@@ -358,10 +373,11 @@
       /* tsukumogami self-trait, 2026-10-29 */ "animist", /* ingredient totems, 2026-11-07 */ "kitchenAnimism",
       /* the Paladin, 2026-10-31 (PALADIN.md) */ "consecrated", "faithful", "compassionate",
       /* the respec fruit, 2026-11-01 */ "fruitbound",
-      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer", /* the Treasure Hunter, TH1 */ "goldFever"],
+      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer", /* the Treasure Hunter, TH1 */ "goldFever", /* Florence F2, 2026-11-15 */ "clinician",
+      /* Chitinous Archbishop F3, 2026-11-16 */ "liturgist", /* the Raven Messenger, K3 (re-cut of R2) */ "messenger", /* the Magistrate's bench, court M2a (1.3.572) */ "bench"],
     values: ["citesPrecedent", "believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
       "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective",
-      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand", /* the Treasure Hunter, TH1 */ "findersKeepers"],
+      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand", /* the Treasure Hunter, TH1 */ "findersKeepers", /* Florence F2, 2026-11-15 */ "doNoHarm"],
     state: ["complex", "unexplainedEvent"],
     spiritual: ["astralPresence"],   // soul traits (Mala, 2026-10-24): invisible unless the observer is a seer (seesSpirits, planned); rolled like anything else but far rarer for the average person
   };
@@ -396,6 +412,7 @@
     neverGiveUp: { counters: ["fearful", "skittish"], synergies: ["loyal", "brave", "courageous"] },
     merciful: { counters: ["rivalrous", "vengeful", "greedy"], synergies: ["empathic", "agreeable", "pacifist"] },
     gentleHand: { counters: ["vengeful", "rivalrous"], synergies: ["merciful", "protective", "empathic"] },   // the Hypnotist (hotbuilds W1a): leaves the first kill at 1 LF; row added at landing 1.3.546 (Capstan IN) for the trait registry rule
+    doNoHarm: { counters: ["vengeful", "rivalrous"], synergies: ["merciful", "gentleHand", "empathic"] },   // Florence F2 (hotbuilds F2, 1.3.570 merge Northlight IN): mirrors gentleHand, the same spare-at-1-LF mechanic; row added at landing for the trait registry rule (traits.test)
     findersKeepers: { counters: ["charitable", "honest"], synergies: ["greedy", "gambler", "collector"] },   // the Treasure Hunter (TH1)
     goldFever: { counters: ["focused"], synergies: ["greedy", "gambler", "collector"] },   // the Treasure Hunter (TH1)
     honorable: { counters: ["greedy", "fool"], synergies: ["proud", "loyal", "honest", "courageous"] },
@@ -542,6 +559,16 @@
         lever: "Do not reach for it — lines and fields still land.",
         counters: [{ match: { delivery: "contact" }, value: -4 }, { match: { type: "strike" }, value: -4 }] } ];
   const profiles = {
+    chitinous_archbishop:{traits:["carapace","liturgist","citesPrecedent"],obs:[
+      {kind:"tell",text:"She writes your name on the plate: a foe standing in her Statute can be marked as her Vessel, and her law follows a Vessel everywhere. A ranged hit on her rings into the Choir, and her next Statute names it.",difficulty:1},
+      {kind:"weakness",channel:"rubedo",text:"Crack the carapace: rubedo is her weak channel.",difficulty:2},
+      {kind:"realization",text:"Change delivery: her Statute only taxes what she named, and the Choir only sings back what you threw. Kill the believer she marked before you kill her, or she wakes in them while the mark holds.",difficulty:2},
+      {kind:"state",id:"choir",text:"A stored Choir: one caught delivery waiting to be written into her next Statute.",difficulty:2}]},
+    chitin_bishop:{traits:["theLook","entrainer","gentleHand"],obs:[
+      {kind:"tell",text:"The dome never looks away: she Fixes one foe and the lure pulls only that one. A ranged hit on her (or an unwarded ally within 2) is the Purple Litany: whole against the Fixed foe; with no mark, half. While she holds a mark, only that foe's shot is answered.",difficulty:1},
+      {kind:"weakness",channel:"albedo",text:"Name the glamour: albedo is her weak channel.",difficulty:2},
+      {kind:"realization",text:"Swap who shoots; break line of sight. The dome primes only against the foe she has Fixed.",difficulty:2},
+      {kind:"state",id:"crown",text:"A Crown of Plates: the Fixed foe cannot attack on its next turn.",difficulty:2}]},
     auditor_goblin:{traits:["twentyTwentyVision","attentionToDetail","citesPrecedent"],obs:[
       {kind:"tell",text:"The little ledger records techniques he actually sees. A Statute names the delivery he can object to.",difficulty:1},
       {kind:"weakness",channel:"citrinitas",text:"Paper burns: citrinitas is his weak channel.",difficulty:2},
@@ -642,7 +669,7 @@
       { kind: "tell", text: "Shifts its feet to find a base before it grabs.", difficulty: 1 },
       { kind: "weakness", channel: "rubedo", text: "Vibration breaks its contact.", difficulty: 2 },
       { kind: "realization", text: "Broken contact removes both its control and its read on you.", difficulty: 2 } ] },
-    magistrate: { traits: ["honorable", "dutiful"], chanceTraits: [["truthSeeker", 0.5]], obs: [
+    magistrate: { traits: ["honorable", "dutiful", "truthSeeker", "bench"], obs: [
       { kind: "tell", text: "Reads the charge aloud before acting; her target is never a surprise.", difficulty: 1 },
       { kind: "weakness", channel: "citrinitas", text: "His statutes are written light: dispel the zones or outrange them.", difficulty: 2 },
       { kind: "realization", text: "The ledger only fills inside his zones; the law ends at the border.", difficulty: 2 } ] },
@@ -811,6 +838,11 @@
       { kind: "weakness", channel: "albedo", text: "Break the gaze: cut the pendulum's cord and the hold slips.", difficulty: 2 },
       { kind: "realization", text: "He watches one foe and one foe only: everything he does answers the marked one. Send someone else.", difficulty: 2, deep: true },
       { kind: "state", id: "fixed", text: "His attention sits on one foe: the marked one.", difficulty: 1 } ] },
+    florence_oloo: { traits: ["steadyHands", "clinician", "doNoHarm"], obs: [
+      { kind: "tell", text: "Her vials tick when someone bleeds: ranged hits near her fill the Dose.", difficulty: 1 },
+      { kind: "weakness", channel: "nigredo", text: "Nigredo cannot rot the substrate itself: only her own Prototype or Recombine spends it. Deny her the cast and the field carries nothing.", difficulty: 2 },
+      { kind: "realization", text: "Kill the field before she innovates on it: strip the gradient, then burst her.", difficulty: 2, deep: true },
+      { kind: "state", id: "dose", text: "Her vials hold the Dose she has banked from caught shots; the Bloom spends it all.", difficulty: 1 } ] },
     sita: { traits: ["devoutBeliever", "loyal"], obs: [
       { kind: "tell", text: "She looks toward the edge of the field, as if someone is about to arrive.", difficulty: 1 },
       { kind: "tell", text: "Her eyes go far away before the world around her turns to dream.", difficulty: 1 },

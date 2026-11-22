@@ -7,17 +7,19 @@
 // THE CLOCK (termination, docs/termination-audit.md): every objective has a deadline of at most 14 rounds (below maxRounds 40). When
 // `snap.round > deadline` the battle ends with `onDeadline` ("win" or "lose"), so a side that never understands the objective still ends the fight.
 //
-//   survive   win at the clock; early when `clear` is set and no enemy-side unit and no rift-spawned dream monster stands
+//   survive   win at the clock; early when `clear` is set and no enemy-side unit and no rift-spawned dream monster stands; with `hero` set, lose the moment the hero is down
 //   hold      win at the clock if a player unit stands in the zone and no enemy does; or at any time when no enemy stands; lose at the clock
 //             when the zone is not held ("pushed off": a loss at the clock, nobody has to be dead; the outcome carries no nonLethal flag)
 //   ward      win when the ward has escaped, or is alive at the clock, or no enemy stands; lose if the ward falls without escaping, or any named civilian falls (slice 5)
 //   break     win when the named object's hp is gone, or no enemy stands; lose at the clock (slice 4, SC16)
 //   salvage   win when player-side carriers have gained n items this battle (event-counted pickups in mirror.salvagePicked, n = min(3, 2 × carriers)), or no enemy stands; lose at the clock (slice 4, SC17)
+//   bounty    win when the marked foe is defeated, or no enemy stands; lose if the mark escaped alive, or at the clock (slice 7, SC18)
+//   exit      win when the hero reaches the exit, or no enemy stands; lose at the clock (slice 7, SC19)
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatObjectives = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  const KINDS = ["survive", "hold", "ward", "break", "salvage"];
+  const KINDS = ["survive", "hold", "ward", "break", "salvage", "bounty", "exit"];
   const MAX_DEADLINE = 14;
   const alive = (u) => u && !u.defeated && (u.lf == null || u.lf > 0);
   const objectiveOf = (rules) => rules?.scenario?.objective || null;
@@ -39,6 +41,7 @@
     const o = objectiveOf(rules); if (!o || !KINDS.includes(o.kind)) return null;
     const deadline = Math.min(MAX_DEADLINE, Number(o.deadline) || MAX_DEADLINE), over = snap.round > deadline;
     if (o.kind === "survive") {
+      if (o.hero && !alive(snap.units.find((u) => u.id === (setup.hero || "player")))) return lose("You fell before the count ran out.");   // Tandem T2c, the ordeal: the hero must be the one standing (a summon holding the field is not enough)
       if (o.clear && !enemyStanding(snap) && !riftStanding(snap)) return win("Nothing is left to wait out.");
       if (over) return o.onDeadline === "lose" ? lose(`Not clear by round ${deadline}.`) : win(`Survived to round ${deadline}.`);
       return null;
@@ -74,6 +77,26 @@
       if (over) return lose("The scrap is gone before you got to it.");
       return null;
     }
+    if (o.kind === "bounty") {
+      const targetClass = o.targetClass;
+      const targetUnit = snap.units.find((u) => u.side === "enemy" && (u.classId === targetClass || u.class === targetClass || u.character === targetClass || (o.targetId && u.id === o.targetId)));
+      if (targetUnit && (targetUnit.escaped || targetUnit.fled || targetUnit.leaveReason)) return lose("The marked target escaped alive.");
+      if ((targetUnit && targetUnit.defeated) || !enemyStanding(snap)) return win("Marked target defeated.");
+      if (over) return lose(`Not defeated by round ${deadline}.`);
+      return null;
+    }
+    if (o.kind === "exit") {
+      const hero = snap.units.find((u) => u.side === "player" && (u.hero || u.id === "player"));
+      const exits = setup.exits || [];
+      if (hero && exits.some(([x, y]) => hero.x === x && hero.y === y)) {
+        hero.escaped = true;
+        hero.leaveReason = "reached the exit";
+        return win("Reached the exit.");
+      }
+      if (!enemyStanding(snap)) return win("No enemy is left to stop the escape.");
+      if (over) return lose("The clock ran out before you reached the exit.");
+      return null;
+    }
     return null;
   }
 
@@ -99,6 +122,16 @@
     if (o.kind === "salvage") {
       const need = salvageNeed(snap), got = salvageGot(snap);
       return `${rules.scenario.name || "Salvage"}: ${left} round${left === 1 ? "" : "s"} left · ${got}/${need} gained`;
+    }
+    if (o.kind === "bounty") {
+      const targetClass = o.targetClass;
+      const targetUnit = snap.units.find((u) => u.side === "enemy" && (u.classId === targetClass || u.class === targetClass || u.character === targetClass || (o.targetId && u.id === o.targetId)));
+      const markState = !targetUnit ? "not on the field" : targetUnit.defeated ? "down" : "standing";   // not on the field: the target was on your side, so the bounty is won by clearing the field
+      return `${rules.scenario.name || "Bounty"}: ${left} round${left === 1 ? "" : "s"} left · mark ${markState}`;
+    }
+    if (o.kind === "exit") {
+      const goal = setup.exits?.[0] ? `reach (${setup.exits[0].join(",")})` : "no way out: clear the field";   // no reachable far-edge tile (modes.js farExit): only a cleared field wins
+      return `${rules.scenario.name || "Escape"}: ${left} round${left === 1 ? "" : "s"} left · ${goal}`;
     }
     return "";
   }

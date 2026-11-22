@@ -15,8 +15,13 @@
 //   force: { <checkpointId>: { type, ...fields } }      authored event at that checkpoint (random-events.js create force); wild: [{ kind: "brushfire" }]  a field form at the start
 //                                                      one crew is drawn, then `count` of its classes (tier trims the count)
 //   foes.lead: classId                                  one fixed foe, always drawn first and counted in `count` (the crew fills the rest)
-//   foes.traits: { classId: [traitId...] }              traits granted to that class when it is drawn as a foe (Spilled Pot: Kitchen Animism)
+//   foes.traits: { classId: [traitId...] }              traits granted to that class when it is drawn as a foe (Spilled Pot: Kitchen Animism); a granted trait carries its passives at spawn (R-20261115-38)
+//   foes.look: { classId: { name?, sprite? } }         the drawn foe's name and sprite folder for this scenario (The Vocation: the maid's Vocational form, R-20261115-63)
 //   houses: "always"                                    rules.houses.chance becomes { default: 1 } for this battle
+//   foes: { fixed: [], unbound: summonId, at: [[x, y]] }           a tandem's Trial (Tandem T2c): the only foe is that tandem, unbound; without `at` it arrives where a called summon would, within 2 tiles of the player; never rolled (chainOnly), begun from the Tandem wing
+//   chainOnly: true                                    never drawn by the Random Encounter roll (scenarios.js candidates)
+//   objective.exact: true                              the deadline is not moved by the tier; objective.hero: true (survive) loses the moment the hero is down
+//   lendTenant: exileId                                 the exile lodges with the player at Guest for this battle only, borrowed: it settles nothing (Exile T0a: Aziza)
 //   lend: [summonId...]                                 summons lent to the player for this battle only (Tandem T2b: the Mosaic); never an unlock
 //   quiet: true                                        a quiet duel: no rolled ally, no event arrivals (participants or schedule); weather stands. Teaching duels (SC22+).
 //   objective: { kind }                                 required; slice 1 has only "classic" (no deadline field)
@@ -143,13 +148,18 @@
     holdTheFord: { id: "holdTheFord", name: "Hold the Ford", minTier: 1, weight: 1,   // SC15
       arenas: ["canalGarden", "bioswaleCourt"],
       weather: "rain",
+      ford: {
+        canalGarden: { crossing: [[6, 2], [7, 2], [8, 2]], spill: [[6, 1], [7, 1], [8, 1]], bypassRow: 8 },
+        bioswaleCourt: { crossing: [[4, 3], [5, 3], [6, 3]], spill: [[4, 2], [5, 2], [6, 2]] },
+      },
       foes: "roll", count: [2, 3],
-      force: { midpoint: { type: "terrain", effect: "shallow-flood" } },   // at round 5 the water rises
+      checkpoints: [{ id: "fordRise", round: 4, label: "Ford surge warning" }],
+      force: { fordRise: { type: "terrain", effect: "water-surge" } },
       objective: { kind: "hold", deadline: 8, onDeadline: "lose" },
-      hazard: { wild: [{ kind: "flashFlood" }], checkpoints: [{ id: "fordEarly", round: 3, label: "The water comes early" }], force: { fordEarly: { type: "terrain", effect: "shallow-flood" } } },   // tier 3: a flash flood front and an earlier rise
+      hazard: { wild: [{ kind: "flashFlood" }], checkpoints: [{ id: "fordRise", round: 2, label: "Early ford surge warning" }] },   // tier 3: a flash flood front and an earlier rise
       text: {
-        open: "The bridge is gone. The ford is three stones wide and everyone needs it.",
-        mid: { when: { round: 5 }, text: "The water rises one hand's width, and the ford gets harder to hold." },
+        open: "Hold the three ford stones. Crossing shallow water costs movement. Watch the marked current and the surge warnings.",
+        mid: { when: { round: 5 }, text: "Check the marked tiles before ending your turn. A current can sweep you off the ford." },
         result: { player: "The crossing is yours, and the water gives no opinion.", enemy: "The ford belongs to whoever crosses it last.",
           none: "The water takes the ford, and with it the argument." } } },
 
@@ -205,6 +215,17 @@
         result: { player: "The shot is taken. Nobody tells him what it cost.", enemy: "The forest keeps the picture, and so does he, somewhere.",
           none: "The forest keeps its quiet, and the clock runs out." } } },
 
+    linerOnTheShoal: { id: "linerOnTheShoal", name: "The Liner on the Shoal", minTier: 1, weight: 1,
+      arenas: ["canalGarden"], wreckLesson: true, quiet: true,
+      foes: { fixed: ["student"], holdTurns: 2 },
+      objective: { kind: "classic" },
+      text: {
+        open: "The Cruise Ship Wreck still has a soul. Study it from Observe, then stand beside any tile and Wake it from Rituals. The Archivist is with you.",
+        mid: { when: { round: 3 }, text: "An awakened wreck walks on three tiles. Leave room for the whole hull." },
+        result: { player: "The canal quiets around the old liner.", enemy: "The canal closes over the lesson.", none: "The liner outlasts the fight." },
+      },
+    },
+
     // ── Slice 4: break and salvage (SCENARIOS.md section 9 row 4; modes/objectives.js) ──
     breakTheSluice: { id: "breakTheSluice", name: "Break the Sluice", minTier: 2, weight: 1,   // SC16
       arenas: ["canalGarden"],
@@ -243,6 +264,41 @@
         result: { player: "The alley is yours until somebody tells it otherwise.", enemy: "You leave through the end of the alley the others left open.",
           none: "Nobody gives way, and the round limit comes. The alley is still nobody's, and all three crews know it." } } },
 
+    // ── Slice 7: Chain-only notice-board scenarios (SCENARIOS.md section 4) ──
+    bountyHunt: { id: "bountyHunt", name: "Bounty Hunt", minTier: 1, weight: 1,   // SC18
+      arenas: "any",
+      chainOnly: true,
+      foes: "roll", count: [2, 3],
+      objective: { kind: "bounty", deadline: 12, onDeadline: "lose" },
+      text: {
+        open: "Your name is not on this warrant. Somebody else's is, and they are in this room.",
+        mid: { when: { round: 3 }, text: "The mark knows now that the warrant has their name on it." },
+        result: { player: "The mark is down, and the posting takes it from there.", enemy: "The mark is gone, and so is the posting's patience.",
+          none: "The warrant expires with the mark still on their feet." } } },
+
+    backDoor: { id: "backDoor", name: "Back Door", minTier: 1, weight: 1,   // SC19
+      arenas: "any",
+      chainOnly: true,
+      foes: "roll", count: [2, 3],
+      objective: { kind: "exit", deadline: 12, onDeadline: "lose" },
+      text: {
+        open: "The front door is watched. The back door is also watched, but it is farther from the people who watch it.",
+        mid: { when: { round: 3 }, text: "Someone has noticed which door you are walking toward." },
+        result: { player: "You are through, and the door closes behind you on a battle that is no longer yours.", enemy: "The door was never going to open for you.",
+          none: "The back door is shut tight before you reach it." } } },
+
+    // ── Slice 8: Polish and Hired Hands (SCENARIOS.md section 4 SC20) ──
+    hiredHands: { id: "hiredHands", name: "Hired Hands", minTier: 2, weight: 1,   // SC20
+      arenas: "any",
+      foes: { crews: ["court", "street"], exclude: LAW, count: [3, 3] },
+      gift: ["safeConduct"],
+      objective: { kind: "classic" },
+      text: {
+        open: "You came with a letter. The people across from you have not decided whether to read it.",
+        mid: { when: { round: 3 }, text: "One of them lowers a weapon, and the others look at him." },
+        result: { player: "Nobody has to be carried off.", enemy: "Nobody read the letter.",
+          none: "Nobody gives way, and the letter is forgotten." } } },
+
     // Teaching scenario for ingredient totems (Mala's 2026-11-02 rule: every major change ships one; spec claude-ingredient-totems-spec T2).
     // A Hot Pot Berserker who has learned Kitchen Animism leads a street crew: every landed blow on him spills an ingredient beside him (Spilled
     // Pot), and he wakes what spills into a totem. A cook who sees it learns it (+1 Inspiration and Kitchen Animism, kept on the account).
@@ -271,6 +327,20 @@
         mid: { when: { round: 3 }, text: "An ambusher is strongest from cover: its first leap out of the grass hits half again as hard. In the open you can see it coming." },
         result: { player: "The field is yours. The grass goes still.", enemy: "You give up the field to whatever was waiting in it.",
           none: "Nobody gives way. Something in the grass keeps watching." } } },
+    // Read the Room (AI Sight I2, claude-ai-sight-spec section 4 "I2"; teaching scenario, Mala's 2026-11-02 rule): three foes who
+    // fight as one on the Canal Garden. Once you have studied them, an act their Focus decided says so in the log (one study),
+    // and an act their cover decided says so too (two studies). You, and the ally the random battle rolls when it rolls one, against the three (R-20261116-07:
+    // not a true three-on-three, no new allies field; event arrivals still come, as in any random battle). Tier 2, as Tall Grass: the lesson reads Observe, which a first battle teaches.
+    readTheRoom: { id: "readTheRoom", name: "Read the Room", minTier: 2, weight: 1,
+      arenas: ["canalGarden"],
+      foes: { fixed: ["soldier", "mason", "knight"] },
+      objective: { kind: "classic" },
+      text: {
+        open: "Three of them, and they move as one. Observe them: once you have read their side, the log tells you when their shared target is what moved one of them.",
+        mid: { when: { round: 3 }, text: "While two or more of them stand, they pick a target together and cover one of their own. Study them a second time and the log also says when that cover moved one of them." },
+        result: { player: "The garden is yours.", enemy: "You give up the garden.",
+          none: "Nobody gives way. The garden stays contested." } } },
+
     meetMeThere: { id: "meetMeThere", name: "Meet Me There", minTier: 1, weight: 1,   // teaching scenario for Cooperative Principle P1: three allies, one marked tile, a short clock
       arenas: "any",
       foes: "roll", count: [1, 1],
@@ -385,6 +455,16 @@
         mid: { when: { round: 3 }, text: "The tab is open. Settle it from the menu, or finish this before the bill comes in." },
         result: { player: "You won on borrowed time.", enemy: "The bill came due before the win did.",
           none: "The rounds run out with the tab still open." } } },
+    theVocation: { id: "theVocation", name: "The Vocation", minTier: 3, weight: 1,   // the maid's Vocational form, a foe-only boss (R-20261115-61, R-20261115-63); uncatalogued, no SC number; tier 3: a boss
+      arenas: ["gardenCourt"],
+      foes: { fixed: ["maid"], traits: { maid: ["vocational"] }, look: { maid: { name: "The Maid, Vocational Form" } } },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "The maid has found her vocation, and her foes are the waste. Her cleaning tools now strike, and every number is past what a person should carry: she takes far more to fall, every blow lands half again as hard, her techniques fill her ultimate faster and her focus runs deeper.",
+        mid: { when: { round: 3 }, text: "To her you are the mess. Her sorting, clearing, removing and sweeping all land on you now. Spread out: her sweep hits every foe within 2 of one spot." },
+        result: { player: "The Vocational maid is down.", enemy: "The Vocational maid wins. You were swept up with the rest of the mess.",
+          none: "The rounds run out with the Vocational maid still standing." } } },
     theBlur: { id: "theBlur", name: "The Blur", minTier: 2, weight: 1,   // teaching True Super Speed (claude-true-super-speed-spec SS1); uncatalogued, no SC number; tier 2 like the other concept lessons
       arenas: ["canalGarden"],
       foes: { fixed: ["super_villain"], traits: { super_villain: ["superSpeed"] } },
@@ -406,6 +486,59 @@
         mid: { when: { round: 3 }, text: "Spread its blows: a foe it has already wounded lends nothing new. Keep it close; pulled past its leash, it strains and every tile falls away." },
         result: { player: "Three foes down. The pattern held, and the lend ends with the battle.", enemy: "The pieces scattered before the pattern was whole. Keep it close and spread its blows.",
           none: "The rounds run out with the pattern unfinished." } } },
+    foolsGold: { id: "foolsGold", name: "Fool's Gold", minTier: 2, weight: 1,   // teaching the Treasure Hunter (TH1c, cursor-treasure-hunter-spec "Teaching scenario"; R-20261115-26): he is the one foe on an open map with at least 4 pickups (the terrace's own). Gold: engine/states.js relicClaim (x0.25 taken until a blow lands, states.relicGold), dropTreasure (the cracking blow drops it beside him); Finder's Keepers: engine/factions.js, his first Inspiration from a foe taking his drop. Uncatalogued, no SC number; tier 2 like the other concept lessons
+      arenas: ["terraceGarden"],
+      foes: { fixed: ["treasure_hunter"] },
+      quiet: true,
+      // No `salvage` guarantee: E.create's own placePickups runs its item, food and jar passes on a terrace (pickups.js rules; the test pins >= 4), and stacking
+      // the SC17 guarantee on top duplicates ids and tiles (placePickups restarts both; loop filed by Thwartship BD, 2026-11-15).
+      objective: { kind: "classic" },
+      text: {
+        open: "One Treasure Hunter, and treasure all over the terraces. When he steps onto an item he seizes it and turns gold: he takes a quarter of the damage until a blow hurts him, and that blow cracks the gold.",
+        mid: { when: { round: 3 }, text: "Crack the gold first: any blow that hurts him, even a little, breaks it. Then hit him for real. The treasure he drops is anyone's, but the first time one of you takes it, he gains an Inspiration." },
+        result: { player: "The Treasure Hunter is down, gold and all.", enemy: "The Treasure Hunter wins the terraces. Next time crack the gold first: any blow that hurts him breaks it.",
+          none: "The rounds run out with the treasure still in play." } } },
+    theMosaicsOrdeal: { id: "theMosaicsOrdeal", name: "The Mosaic's Ordeal", minTier: 1, weight: 1, chainOnly: true,   // the Mosaic's Trial (Tandem T2c, muse-tandem-spirit-spec section 3; R-20261115-03, R-20261115-42): never rolled, begun from the Tandem wing (summons/tandem-wing.js); the numbers are the row's (summons-data.js mosaic.tandem.trial; a test pins that they agree)
+      arenas: ["punchbowlRim"],
+      foes: { fixed: [], unbound: "mosaic" },   // fixed: [] = no rolled or drawn foe; the tandem is the only one
+      quiet: true,
+      objective: { kind: "survive", deadline: 5, onDeadline: "win", exact: true, hero: true },
+      text: {
+        open: "The Mosaic stands unbound within 2 tiles of you: no user, no leash, no strain, and no blow can finish it. Stay on your feet for 5 rounds and it takes a room in your palace, with its first call free. Fall first and the Trial takes 10 of your life at the start of your next battle, though never your last point.",
+        mid: { when: { round: 3 }, text: "Round three. You cannot bring it down, only outlast it: guard, give ground, and count." },
+        result: { player: "Five rounds, and you are still standing. The Mosaic takes its room in your palace, and its first call is free.", enemy: "You fell before the count ran out. The Trial takes 10 of your life at the start of your next battle, though never your last point, and opens again after that battle.",
+          none: "The count ends with nothing settled." } } },
+    waysBetweenLesson: { id: "waysBetweenLesson", name: "The Road Only She Remembers", minTier: 2, weight: 1,   // teaching the first tenant (Exile T0a, claude-anime-exile-spec): the One Who Knows the Ways lodges with the player at Guest for this one battle (lendTenant), never housed by it
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier", "kickboxer"], at: [[6, 3], [7, 3]] },
+      lendTenant: "aziza",
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "The One Who Knows the Ways lodges with you for this battle, at Guest, and lends you her road: step up to 4 tiles to any open tile, whatever the ground costs, twice. It provokes nothing. Her keep is your first Guard of the battle: it is paid, and no guard forms.",
+        mid: { when: { round: 3 }, text: "A step past a blade's reach is a step nobody swings at; walking the same way would have been. A taken or walled tile stays closed." },
+        result: { player: "Both foes down. She was lent for this battle only: nothing here changes her Coherence.", enemy: "The road did not save you. Step out of reach, not just across the map: she lends it only twice a battle.",
+          none: "The rounds run out, and nobody finished it." } } },
+    thinIce: { id: "thinIce", name: "Thin Ice", minTier: 2, weight: 1,   // teaching breakable floors (DT2, cursor-destructive-map-tiles-spec "Teaching scenario"): one soldier on Ice Court ice; a placed or area blow cracks then drops that tile to rubble (structures.js hitBreakableFloor, terrain-data.js i). Uncatalogued, no SC number; last in the list so the termination files' index-mod-3 split moves no other scenario; tier 2 so the pinned tier-1 lists stay as they are
+      arenas: ["iceCourt"],
+      foes: { fixed: ["soldier"], at: [[7, 3]], holdTurns: 2 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "One soldier stands on a sheet of ice. Hit that ice with a placed or area attack. A light blow only cracks it; a harder one drops the floor, and they fall with it. Untagged paving and turf will not break.",
+        mid: { when: { round: 3 }, text: "Hit the ice they stand on. A light blow only cracks it; a harder one drops the floor. The paving under your feet stays whole." },
+        result: { player: "The soldier is down.", enemy: "The soldier held the court. Next time hit the ice they stand on.",
+          none: "The rounds run out." } } },
+    theExchange: { id: "theExchange", name: "The Exchange", minTier: 2, weight: 1,   // SC25 (R-20261110-52): teaching Mystery S3 held card + RIK R1 exchange together; tier 2 so the pinned tier-1 lists stay as they are; loop 1a1c7e9e5e6
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["student"], at: [[5, 4]], holdTurns: 2 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "A student holds the crater, and they set face-down cards. A card that only wounds you can still be the first half of a kill: they reveal it, then finish with a cheap blow, and the bar stays unspent.",
+        mid: { when: { foeHolds: "manual" }, text: "A face-down card is waiting. If it only wounds you, the rest of the kill is a cheap blow, not the bar." },
+        result: { player: "The setter is down.", enemy: "They held the crater.",
+          none: "The rounds run out." } } },
   };
 
   return { SCENARIOS, LAW };

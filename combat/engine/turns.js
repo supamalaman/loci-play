@@ -70,6 +70,68 @@
     }
 
     // ── turn structure (spec §7 provisional turn-start order) ─────────────────
+    // ── True Super Speed SS4: Second Beat (claude-true-super-speed-spec 1.5; R-20261114-21, R-20261115-32) ──
+    // A speedster acts twice a round, half a turn each. Beat 1 is the owner turn at their own slot: at its start the
+    // budget is split (beatShare now, the rest held in a.secondBeat). Beat 2 is a copy of their id that placeBeats puts
+    // half a round after their own slot, counted round the order (a late slot's beat 2 comes early in the round, and
+    // spends what the last round's beat 1 held). Beat 2 is not an owner turn: ownerTurns does not move and no upkeep
+    // runs. s.beats[id].rank says which occurrence of the id is the beat, so splices of other ids never confuse it.
+    const beatShare = (s) => s.rules.trueSpeed?.beatShare || 0;
+    function dropBeats(s) {
+      for (const [id, b] of Object.entries(s.beats || {})) {
+        const at = s.order.map((x, i) => (x === id ? i : -1)).filter((i) => i >= 0);
+        if (at.length < 2) continue;
+        const i = at[b.rank]; s.order.splice(i, 1); if (i < s.turnIndex) s.turnIndex -= 1;
+      }
+      s.beats = {};
+    }
+    function placeBeats(s) {
+      dropBeats(s);
+      if (!beatShare(s)) return;
+      const live = (id, i) => s.order.indexOf(id) === i && s.actors[id] && !s.actors[id].defeated && !s.actors[id].notArrived;
+      const slots = s.order.map((id, i) => (live(id, i) ? i : -1)).filter((i) => i >= 0), wait = Math.max(1, Math.floor(slots.length / 2));   // alone: beat 2 follows beat 1
+      const after = {};   // order index → speedster ids whose beat 2 follows that slot
+      for (const [k, i] of slots.entries()) {
+        const id = s.order[i]; if (!hasTrait(s.actors[id], s.rules.trueSpeed.trait)) continue;
+        const at = slots[(k + wait) % slots.length];
+        (after[at] ||= []).push({ id, rank: at < i ? 0 : 1 });   // rank 0: counted round the order, beat 2 comes before the own slot
+      }
+      const next = [];
+      for (const [i, id] of s.order.entries()) { next.push(id); for (const b of after[i] || []) { next.push(b.id); s.beats[b.id] = { rank: b.rank }; } }
+      s.order = next;
+    }
+    function isBeat(s) {
+      const id = s.order[s.turnIndex], b = s.beats?.[id]; if (!b) return false;
+      const at = s.order.map((x, i) => (x === id ? i : -1)).filter((i) => i >= 0);
+      return at.length > 1 && at[b.rank] === s.turnIndex;
+    }
+    // Beat 1, after every turn-start modifier: keep beatShare of the budget, hold the rest for beat 2. Friction keeps the whole turn.
+    function splitBeat(s, a) {
+      a.secondBeat = null;
+      if (!s.beats?.[a.id] || !H.blur?.(s, a) || a.tempo <= 0) return;
+      const now = Math.floor(a.tempo * beatShare(s)), held = a.tempo - now;
+      a.tempo = now; a.tempoCapacity = Math.max(1, now); a.secondBeat = { ap: held };
+      log(s, { kind: "tempo", actor: a.id, text: `${a.name} runs on a faster clock: ${now} action points now, ${held} in the second beat.` });
+    }
+    function beatTurn(s, a) {
+      // A late slot's beat 2 comes before its own slot, so it spends what the last round's beat 1 held. In round 1 there was
+      // no last round: before the first owner turn the early beat gets a fresh half turn, so round 1 is worth a whole turn too.
+      const opening = a && !a.defeated && !a.ownerTurns && !a.secondBeat && H.blur?.(s, a) ? Math.floor(s.rules.actionPointsPerTurn * beatShare(s)) : 0;
+      const held = a?.secondBeat?.ap || opening;
+      if (a) a.secondBeat = null;
+      if (!held || a.defeated) { endTurn(s); return; }   // nothing held (Friction at beat 1, or under Friction at round 1's early beat): the slot passes
+      H.speedSync(s, a);
+      if (!H.blur(s, a)) {   // Friction at the beat: the held half is banked, not lost
+        const kept = Math.max(0, Math.min(held, (s.rules.maxBankedActionPoints ?? 100) - (a.bankedTempo || 0)));
+        a.bankedTempo = (a.bankedTempo || 0) + kept;
+        log(s, { kind: "tempo", actor: a.id, text: `${a.name} is slowed out of the second beat; ${kept} AP held.` });
+        endTurn(s); return;
+      }
+      s.turnDamageCounts = {};
+      a.beatNo = 1; a.moved = false; a.acted = false; a.walkedThisTurn = 0; a.tempo = held; a.tempoCapacity = Math.max(1, held);
+      log(s, { kind: "turn", actor: a.id, text: opening && !a.secondBeat && held === opening && !a.ownerTurns ? `${a.name} is quick off the mark: half a turn before their own.` : `${a.name} moves again: the second beat.` });
+      log(s, { kind: "tempo", actor: a.id, text: `${a.name} has ${held} action points.` });
+    }
     function beginRound(s) {
       s.round += 1;
       H.mysteryTick?.(s);   // Mystery (Muse W2.5): set plans age; stale ones fade unrevealed
@@ -99,6 +161,7 @@
       for (const a of Object.values(s.actors)) if (a.notArrived && a.arrivesRound <= s.round) {
         const mark = a.arrivesFor && s.actors[a.arrivesFor];
         if (a.arrivesFor && (!mark || (mark.defeated && !mark.notArrived))) {
+          H.Rites.retainCaptureHistory(s, a);
           delete s.actors[a.id]; s.order = s.order.filter((id) => id !== a.id);
           log(s, { kind: "arrival", actor: a.id, text: `${a.name} stands down: nothing left to challenge.` });
           continue;
@@ -111,7 +174,7 @@
       H.courtRound?.(s);   // Heart Court: one telegraphed act (engine/living-map.js)
       H.advanceTime(s);   // day and night: phase, nightfall creatures, dawn flight (engine.js; rules.time)
       processRandomEvents(s);
-      H.waterAgenda?.(s);   // Living Water W1: the agenda phase, after weather (engine/conditions.js)
+      H.waterAgenda?.(s);   // Living Water: the agenda phase, after weather (engine/conditions.js)
       H.Hires?.roundStart(s);   // a called merc or mediator arrives (engine/hires.js)
       { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.roundStart?.(s, H); }   // Shaman Totem (SH2): round-based guest clocks tick here
       H.friendRound?.(s);
@@ -122,6 +185,7 @@
       if (!s.outcome) Spirit()?.roundHook(s, H);   // group spirit: per-side assessment, cached for the round
       if (!s.outcome) Orders()?.roundHook(s, H);   // talk orders: rout deeds, then every enemy leader calls the shots
       plateHeavyArmor(s);   // before anyone acts, including the opener
+      if (!s.outcome) placeBeats(s);   // True Super Speed SS4: each speedster's second beat, half a round after their own slot
     }
     function patchAt(s, x, y) { return (s.successionPatches || []).find(p => p.x === x && p.y === y); }
     function createSuccessionPatch(s, a, x, y, { nurseLog = false, stage = 1, permanent = false, name = "Pioneer Patch", duration = 4 } = {}) {
@@ -169,6 +233,7 @@
     }
     function startTurn(s) {
       const a = s.actors[currentId(s)];
+      if (isBeat(s)) return beatTurn(s, a);   // True Super Speed SS4: beat 2 is not an owner turn (no upkeep, ownerTurns holds)
       if (a?.concedeStall && !s.preview) { a.concedeStall = false; log(s, { kind: "parley", actor: a.id, text: `${a.name} sits out the turn (conceded in a battle of minds).` }); a.tempo = 0; ClassRuntime?.mise?.satOut?.(s, a); endTurn(s); return; }   // Mind duel: a forced stall skips the whole turn
       if (a && s.rules.soul && a.maxSoul == null) { a.maxSoul = s.rules.soul.max; if (a.soul == null) a.soul = a.maxSoul; }
       if (a?.husk) { a.tempo = 0; if (!s.preview) { log(s, { kind: "ritual", actor: a.id, text: `${a.name} is an empty husk and cannot act.` }); ClassRuntime?.mise?.satOut?.(s, a); endTurn(s); } return; }
@@ -200,7 +265,7 @@
       }
       EmergentIdeas?.syncSummonWards(s);
       if (EmergentIdeas?.refreshSummonWard(s, a)) log(s, { kind: "emergentIdea", actor: EmergentIdeas.summonerOf(a), target: a.id, text: `${a.name} refreshes its ${a.status.ward.protection}-point Proficient Summoner ward; protection is replaced, never added.` });
-      a.moved = false; a.acted = false; a.guardUsedThisTurn = false; a.walkedThisTurn = 0;   // walkedThisTurn: Lance Charge (the Knight)
+      a.moved = false; a.acted = false; a.guardUsedThisTurn = false; a.walkedThisTurn = 0; a.beatNo = 0;   // walkedThisTurn: Lance Charge (the Knight); beatNo: SS4's beat 1
       if (!a.defeated) H.monsterTurnStart(s, a);   // a wrap lapses; a heal cures an infection
       if (isMonster(a) && !a.defeated) monsterApply(s, a, EM.startOfTurn(a, monsterCtx(s)));   // werewolf form and regeneration, fire panic, burning
       if (MaidSystems && a.character === "maid") for (const found of MaidSystems.visibleFilth(s, a, (x, y) => hasSight(s, a.x, a.y, x, y)))
@@ -450,6 +515,7 @@
         a.secondary = a.pendingSwap; a.pendingSwap = null;
         log(s, { kind: "swap", actor: a.id, text: `${a.name}'s new secondary, ${conceptName(a.secondary)}, is now usable.` });
       }
+      splitBeat(s, a);   // True Super Speed SS4: half now, half in the second beat
       if (a.tempo <= 0) { log(s, { kind: "tempo", actor: a.id, text: `${a.name} has no action points after debt and turn-start effects; the turn passes.` }); endTurn(s); }
     }
     function summonSnapshot(s) { return { round: s.round, width: s.arena.w, height: s.arena.h,
@@ -547,6 +613,10 @@
     }
     function endTurn(s) {
       const a = s.actors[currentId(s)];
+      if (isBeat(s)) {   // True Super Speed SS4: beat 2 ends without the owner turn's end upkeep
+        if (a?.beatNo === 1) { a.beatNo = 0; log(s, { kind: "turn-end", actor: a.id, text: `${a.name} ends the second beat.` }); }
+        return roundTail(s);
+      }
       totemTurnEnd(s, a);   // ingredient totems: the host's count runs at her turn end (not the turn she woke it)
       ClassRuntime?.ma?.turnEnd(s, a, log);   // Ma (five concepts M1): a still turn in Still Stance banks 1
       if (s.law?.dispatch?.pending && H.Dispatch) { s.law.dispatch.autoArrived = true; H.Dispatch.arrive(s, H); }   // no UI played the call (sims, headless): the officers still come
@@ -560,6 +630,7 @@
       companionTick(s, a);   // a class companion (the Fighting Coach) counts down too
       { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.clockEnded?.(s, a, H); }   // Shaman Inspiration (SH4): a guest clock that ends with the guest standing
       H.Hires?.turnEnd(s, a);   // a merc's contract and nerve, a mediator's patience
+      if (a) H.tenantTurnEnd?.(s, a);   // Exile tenancy: a way left open is logged once (restraint)
       if (a) H.fruitTurnEnd?.(s, a);   // Sinkerfruit (Locusfruit): a Ripe eater leaves a memory mark on the tile it ends a turn on
       H.Multitudes.turnEnd(s, a); H.Exposure.turnEnd(s, a);   // Exposure: a turn ended beside his own wall   // Contains Multitudes: an embodiment ends with his last turn of it
       // Visage (biology): whoever ends their turn within 2 of the face meets its gaze. The gaze itself
@@ -609,6 +680,10 @@
       }
       EnemySummons?.afterOwnTurn(s, a, H);
       if (a.defeated && a.summonBinding?.expired) Spirit()?.onExit?.(s, a, H);   // SP-05: a group summon's stay ending is a quiet exit
+      roundTail(s);
+    }
+    // The end of every slot, an owner turn or a second beat: the round's environment step, the outcome, the next slot.
+    function roundTail(s) {
       // The round's environment step runs after the last unit still standing in the order, not only after the last slot:
       // advance() skips defeated units, so when the unit in the last slot was down (or had not arrived yet) the step
       // never ran again and wild animals, fire and floods froze for the rest of the battle (seed 303, 2026-10-11).

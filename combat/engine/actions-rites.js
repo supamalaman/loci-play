@@ -46,12 +46,13 @@
           if (!s.actors[m.dream.summoner]?.defeated) return "The brood answers its mother: take one only once she has fallen.";
           if (H.broodHeld(a) >= (s.rules.brood?.maxHeld ?? 4)) return "You already hold as many Brood Mite beads as one hand can keep.";
         } else if (m.lf >= m.maxLF * RITUAL.weakBelow) return `It must be weakened below ${Math.round(RITUAL.weakBelow * 100)}% LF first.`;
-        if (a.ritual) return "You are already holding a ritual.";
+        if (H.Rites.capture(a)) return "You are already holding a ritual.";
         if (chanted(s, m.id)) return "Someone is already chanting over it.";
         if (dist(s, a.x, a.y, tx, ty) > RITUAL.range) return `The ritual reaches ${RITUAL.range} tiles.`;
         const spendError = spendTempo(s, a, riteDiscount(s, a, RITUAL.ap), "Capture ritual"); if (spendError) return spendError;
-        a.ritual = { monsterId: m.id, turnsLeft: RITUAL.turns, ...(mind ? { mind: true } : {}), ...(gaia ? { gaia: true } : {}) }; if (!mind && !gaia) m.suspended = true;
-        (s.captureLog ||= []).push({ actor: a.id, kind: mind ? `dream:${m.dream.key}` : gaia ? "gaia" : m.kind, started: true });
+        const capture = { monsterId: m.id, turnsLeft: RITUAL.turns, ...(mind ? { mind: true } : {}), ...(gaia ? { gaia: true } : {}) };
+        H.Rites.beginCapture(s, a, capture, mind ? `dream:${m.dream.key}` : gaia ? "gaia" : m.kind);
+        if (!mind && !gaia) m.suspended = true;
         log(s, { kind: "ritual", actor: a.id, target: m.id, tiles: [[tx, ty]], started: true, text: `${a.name} begins a capture ritual on the ${(m.name || m.kind).toLowerCase()}.`,
           why: [`It hangs suspended: nothing can hit it and it cannot act. Hold still and take no damage for ${RITUAL.turns} of your turns and it becomes a bead.`] });
       },
@@ -102,7 +103,7 @@
       },
       riteStep(s, a, act) {   // Rites (Muse-2): one section per turn — words (cheap), sigils (locks movement), blood (LF)
         const R = s.rules.rite ?? {};
-        if (a.ritual) return "You are already holding a capture ritual: one channel at a time.";
+        if (H.Rites.capture(a)) return "You are already holding a capture ritual: one channel at a time.";
         const rite = a.rite || { steps: [], hold: 0 };
         if (rite.steps.length >= (R.maxSteps ?? 3)) return "The rite is complete at three steps: apply it or abandon it.";
         if (rite.stepTurn === a.ownerTurns || a.riteStepTurn === a.ownerTurns) return "One rite step per turn.";
@@ -135,16 +136,18 @@
           }
           bank(deep ? "deep" : "blood");
         } else if (section === "tea") {   // Tea refinement T1 (R-20261106-02 D5): words parity, no LF; a rite that ends in tea seals double ULT charge
+          const oath = Vows?.gate(s, a, "teaStepBanked", null, act, H); if (oath) return oath;
           const spendError = spendTempo(s, a, riteDiscount(s, a, R.teaAp ?? 10), "Rite: tea ceremony"); if (spendError) return spendError;
           log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} pours tea for the rite: the bowl is offered and received.` });
           bank("tea");
+          Vows?.riteEvent(s, a, "teaStepBanked", H);
         } else if (section === "burial") {   // Last Rites (ritual burial): a whole turn beside a body, unless the desert taught you speed
           const no = H.lastRites(s, a, spendTempo); if (no) return no;
           bank("burial");
         } else return "Choose words, sigils, blood, a deep cut, tea, or last rites.";
       },
       riteComplete(s, a, act) {   // Rites (Muse-2): seal banked steps into a shared augment pool; checkboxes pick which techniques draw
-        const rite = a.rite;
+        const rite = H.Rites.of(a) || a.rite;
         if (!rite || !rite.steps.length) return "No rite steps banked.";
         if (a.riteAugment) return "An augment is already active: spend it first.";
         const n = (t) => rite.steps.filter((x) => x.type === t).length;
@@ -172,8 +175,11 @@
         if (plant) g.plantMend = R.plantMend ?? 4;
         const tea = rite.steps[rite.steps.length - 1]?.type === "tea";   // Tea T1 (D3): every rite whose last step is tea, not only the capstone
         if (tea) g.ultMul = R.teaUltMul ?? 2;
+        const observance = Vows?.riteEvent(s, a, "teaRiteSealed", H, tea) || 0;
+        g.charges += observance;
         H.Rites.clear(s, a);   // L1: the seal empties the ledger record with the mirror
         log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} seals the rite: ${g.charges} charge${g.charges === 1 ? "" : "s"}${g.potencyAdd ? `, +${g.potencyAdd} potency` : ""}${g.rangeAdd ? `, +${g.rangeAdd} range` : ""}${g.piercing ? ", piercing" : ""}${g.bleedRider ? `, ${g.bleedRider} bleed` : ""}. Check techniques to spend them.${dreamFed ? " The dream feeds the rite." : ""}${witness ? " Someone beside them witnesses it." : ""}${ground ? " The ground feeds it." : ""}${plant ? " A communed plant leans in." : ""}` });
+        if (observance) log(s, { kind: "vow", actor: a.id, text: `Full Observance: the tea seal gains ${observance} rite charge.` });
         if (tea) log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite seals with tea: the ink carries double ULT charge.`, why: ["Each technique that draws this ink builds twice the ultimate charge its use earns. A use that earns none still earns none."] });
       },
       riteToggle(s, a, act) {   // Rites (Muse-2): checkbox — this technique draws from the augment pool or not
@@ -185,16 +191,19 @@
         g.checked[act.ability] = !g.checked[act.ability];
         log(s, { kind: "ritual", actor: a.id, text: g.checked[act.ability] ? `${m.name} will draw from the rite (${g.charges} charge${g.charges === 1 ? "" : "s"} left).` : `${m.name} no longer draws from the rite.` });
       },
-      riteAbandon(s, a) {
+      riteAbandon(s, a, act) {
         if (!a.rite) return "No rite in progress.";
+        if (a.side === "player") {
+          const oath = Vows?.gate(s, a, "teaStepAbandoned", null, act, H); if (oath) return oath;
+        }
         endRite(s, a, "abandoned");
       },
       visitorRitual(s, a, act) {   // Intergalactic visitors P1: a grey begins the retrieval chant over the specimen
         if (!H.Visitors) return "The visitors are not here.";
-        const err = H.Visitors.canChant(s, a, act.target, { chanted, dist, RITUAL });
+        const err = H.Visitors.canChant(s, a, act.target, { chanted, dist, RITUAL, Rites: H.Rites });
         if (err) return err;
         const spendError = spendTempo(s, a, RITUAL.ap, "Retrieval chant"); if (spendError) return spendError;
-        H.Visitors.chant(s, a, act.target, { log });
+        H.Visitors.chant(s, a, act.target, { log, Rites: H.Rites });
       },
       vow(s, a, act) {   // Technique stances (Muse-2): a standalone free oath; the restrictions are the price
         if (!Vows) return "Vows are unavailable.";

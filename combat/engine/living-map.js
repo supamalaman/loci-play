@@ -124,9 +124,8 @@
         s.knowledge[id][other] = { secondary: true, lens: true, abilities: {} };
       }
     }
-    function dropFromOrder(s, id) {
-      const i = s.order.indexOf(id);
-      if (i >= 0) { s.order.splice(i, 1); if (i < s.turnIndex) s.turnIndex -= 1; }
+    function dropFromOrder(s, id) {   // every copy: a speedster's second beat is a second slot (True Super Speed SS4)
+      for (let i = s.order.length - 1; i >= 0; i--) if (s.order[i] === id) { s.order.splice(i, 1); if (i < s.turnIndex) s.turnIndex -= 1; }
     }
     function insertActor(s, actor, at) {
       actor.x = at[0]; actor.y = at[1];
@@ -190,7 +189,7 @@
       const c = court(s); if (!c || c.ascended) return;
       c.ascended = true; c.heldGrade = null; c.roused = true;
       if (!c.brokenBy) c.brokenBy = source?.side || "wild";
-      for (const u of Object.values(s.actors)) if (u.boss === "gaia") { dropFromOrder(s, u.id); delete s.actors[u.id]; }
+      for (const u of Object.values(s.actors)) if (u.boss === "gaia") { dropFromOrder(s, u.id); H.Rites.retainCaptureHistory(s, u); delete s.actors[u.id]; }
       if (s.land) s.land.gaia = null;
       const B = H.bossRules?.data?.bosses?.worldGoddess;
       const lf = B?.lf || 340;

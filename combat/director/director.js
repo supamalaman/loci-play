@@ -204,6 +204,7 @@
       H?.log(s, { kind: "cancel", text: `${s.actors[id]?.name || "A departed unit"}'s ${s.pending.inst?.name || "strike"} is cancelled (its owner left the field).` });
       s.pending = (s.pendingStack || []).pop() || null; s.phase = s.pending ? "response" : "action";
     }
+    H?.Rites?.retainCaptureHistory(s, s.actors[id]);
     delete s.actors[id]; delete s.knowledge[id]; delete s.disclosures[id];
     if (s.observedAbilities) delete s.observedAbilities[id];
     if (s.insight?.decks) delete s.insight.decks[id];

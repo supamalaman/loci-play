@@ -29,6 +29,13 @@
     "b": { name: "wooden bridge", moveCost: 1, blocksMove: false, sightHeight: 0, cover: 0,   hazard: 0, tags: ["hard", "bridge", "wood"] },
     "*": { name: "thorn rubble", moveCost: 2, blocksMove: false, sightHeight: 0, cover: 0,   hazard: 3, tags: ["hazard"] },
     "^": { name: "thorn mat", moveCost: 2, blocksMove: false, sightHeight: 0, cover: 0, hazard: 3, tags: ["plant", "hazard", "soil"] },
+    "i": { name: "ice sheet", moveCost: 1, blocksMove: false, sightHeight: 0, cover: 0, hazard: 0, tags: ["hard", "ice"],
+      breakable: { integrity: 24, under: "r", rubbleArt: "ice", collapseDamage: 6, materials: { nigredo: 1.25, rubedo: 1, citrinitas: 0.75, albedo: 0.5 } } },
+    "c": { name: "thin crust", moveCost: 1, blocksMove: false, sightHeight: 0, cover: 0, hazard: 0, tags: ["hard"],
+      breakable: { integrity: 24, under: "r", rubbleArt: "asphalt", collapseDamage: 6, materials: { nigredo: 1.25, rubedo: 1, citrinitas: 0.75, albedo: 0.5 } } },
+    "d": { name: "wooden deck", moveCost: 1, blocksMove: false, sightHeight: 0, cover: 0, hazard: 0, tags: ["hard", "wood", "structure"],
+      breakable: { integrity: 24, under: "r", rubbleArt: "stone", collapseDamage: 6, materials: { nigredo: 1.25, rubedo: 1, citrinitas: 0.75, albedo: 0.5 } } },
+    "r": { name: "rubble", moveCost: 2, blocksMove: false, sightHeight: 0, cover: 0, hazard: 0, tags: ["hard", "rubble"] },
   };
 
   // How the current flat engine (Loci ≤1.3.x, tiles . ~ #) should read these maps until P1.
@@ -42,8 +49,9 @@
     fall: { 2: 8, 3: 16 },      // LF by drop (plan §4); drop 1 = 0
     fairness: { maxCostGap: 2, maxSpawnHeightGap: 1 },
     attempts: 24,
-    // Destructible terrain (structures.js). Solid ground never breaks; cliff faces and
-    // bridges do. Only ground-targeting attacks (placed, or area damage) hit terrain.
+    // Destructible terrain (structures.js). Solid ground never breaks; cliff faces,
+    // bridges, and tiles tagged breakable (ice, crust, wooden deck) do. Only ground-targeting
+    // attacks (placed, or area damage) hit terrain. The deck carries the structure tag: a destructive blow doubles integrity damage.
     ground: {
       targetingDeliveries: ["placed", "field"],          // plus any damage ability with an area shape other than "single"
       cliff: { integrityPerLevel: 15, integrityBase: 10, masonryMul: 1.25, weakenNeighbours: 0.5,
@@ -304,7 +312,7 @@
       name: "Garden Court", archetype: "terrace", ground: "continuous",
       map: [
         ",T,hh,hh,T,",
-        ",ww,,~,,ww,",
+        ",ww,d~d,ww,",
         "...././....",
         "...........",
         "...........",
@@ -321,7 +329,7 @@
         "00000000000",
       ],
       spawns: { player: [[1, 6]], enemy: [[9, 6], [9, 5], [9, 4]] },
-      note: "A stone court in front of a retained lawn. One step up, two ramps, a pool in the gate, and basins in front of the trees.",
+      note: "A stone court in front of a retained lawn. One step up, two ramps, a pool in the gate, a wooden pier flanking the pool, and basins in front of the trees.",
     },
     // Heart Court is a set piece beside Garden Court, not a rewrite of it. Living turf, one supertree.
     // setPiece keeps it out of random encounters. Archetype terrace, placed after gardenCourt, so a

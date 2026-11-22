@@ -9,6 +9,7 @@
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
     const { addStun, ClassRuntime, continueTurnStart, currentId, dist, dodgeCostFor, endTurn, grappled, hit, key, log, opponentsOn, paths, resolveAbility, resolveDelayed } = H;
+    const apWords = (n, owed) => (n ? `${n} AP${owed}` : "no action points");   // a free dodge (a blurred speedster's, R-20261115-30) says so, not "0 AP, owed next turn"
     const starReactionTax = (s, d, attackerId) => (ClassRuntime?.actor && attackerId ? ClassRuntime.actor.reactionTax(s, d, attackerId) : 1);   // GDP taxes reactions off the star's attacks
     const hasReflexes = (u) => (u?.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === "insaneReflexes");
     const hasAgility = (u, s) => (u?.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === "godlyAgility") && !(s && H.Tally?.binds(s, u));   // the ledger boss forgives no debt
@@ -81,12 +82,13 @@
       const coverOnly = !targeted && !inst.announced;   // W1c: in a reactive window a non-target answers only by covering (announced keeps wall answers for off-tile defenders)
       for (const x of H.availableAbilities(s, d.id, { answers: true })) {
         const m = x.m, def = H.ab(x.id);
-        if (coverOnly && x.id !== "fixedGaze" && x.id !== "guestPortion" && x.id !== "objection") continue;
+        if (coverOnly && x.id !== "fixedGaze" && x.id !== "purpleLitany" && x.id !== "guestPortion" && x.id !== "objection") continue;
         if (def?.answer) { if (answerReady(s, d, x, atk, def, inst)) out.push({ kind: "technique", ability: x.id, target: [atk.x, atk.y], apCost: answerAp(s, m, d, inst), pf: H.inspiredPay(s, d, m) ? 0 : m.cost, name: m.name, answer: true, ...(H.inspiredPay(s, d, m) ? { inspired: true } : {}) }); continue; }
         if (!def?.reactive || d.pf < m.cost || !canPayAp(s, d, answerAp(s, m, d, inst))) continue;
         if (learnedFails(s, d, inst, x.id)) continue;   // it failed against this technique already this battle
         const opt = (at) => ({ kind: "technique", ability: x.id, target: at, apCost: answerAp(s, m, d, inst), pf: m.cost, name: m.name });
         if (x.id === "objection") { const offer=ClassRuntime.auditor.option(s,d,inst,shown,H); if(offer)out.push({...opt(offer.target),...offer}); continue; }
+        if (x.id === "plateChoir") { const offer = ClassRuntime?.law?.choirOption(s, d, inst, H); if (offer) out.push({ ...opt(offer.target), ...offer }); continue; }   // Chitinous Archbishop (F3): law/law.js
         if (x.id === "guestPortion") {   // SH2: every attacked ally within 4 of her seated guest, nearest guest takes it
           for (const u of opponentsOn(s, atk, inst.tiles, false)) {
             if (u.side !== d.side || u.defeated || dist(s, atk.x, atk.y, u.x, u.y) < (RD(s)?.minRange ?? 2)) continue;
@@ -101,6 +103,9 @@
         if (m.effect === "barrier") {
           if (x.id === "fixedGaze" && (!d.status?.ward?.image || !seesItComing(s, d, inst))) continue;   // Fixed Gaze rides on Hold the Image and meets shots it sees coming: announced or not, closer than minRange means no gaze (triage 2026-11-04: the ranged gate)
           if (x.id === "fixedGaze" && coverOnly) { for (const t of opponentsOn(s, atk, inst.tiles, false)) if (t.side === d.side && t.id !== d.id && !t.defeated && !t.status?.ward && dist(s, d.x, d.y, t.x, t.y) <= 2) out.push({ ...opt([t.x, t.y]), coverFor: t.id }); continue; }   // W1c cover: the image meets a shot at an unwarded ally within 2 (a warded ally needs nothing; the image never overwrites)
+          if (x.id === "purpleLitany" && !seesItComing(s, d, inst)) continue;   // Purple Litany (Bishop F4): a twin of Fixed Gaze with no prepaid image; the ranged gate is the same
+          if (x.id === "purpleLitany" && coverOnly) { for (const t of opponentsOn(s, atk, inst.tiles, false)) if (t.side === d.side && t.id !== d.id && !t.defeated && !t.status?.ward && dist(s, d.x, d.y, t.x, t.y) <= 2) out.push({ ...opt([t.x, t.y]), coverFor: t.id }); continue; }
+          if (x.id === "sunWard" && !(H.States?.sunWardOpen?.(s, d) && seesItComing(s, d, inst) && dist(s, d.x, d.y, atk.x, atk.y) >= 2)) continue;   // Sun Ward (Treasure Hunter TH1b): base form only, no ward already held, and a shot he sees coming from minRange or more, announced or not (states.js)
           if (m.range === 0) { out.push(opt([d.x, d.y])); continue; }   // Fortress lens: a ward on yourself
           if (shown !== "line" || !atk) continue;   // a wall stops only line deliveries (as far as the defender can tell)
           const between = new Set(H.line(atk.x, atk.y, d.x, d.y).slice(1, -1).map(([x, y]) => key(x, y)));
@@ -194,17 +199,20 @@
       const hidden = !perfect && attack?.delivery === "line" && RD(s).fromCover && H.shooterCover?.(s, s.actors[attack.owner], (coverAlly || d).x, (coverAlly || d).y) > 0;
       if (hidden) log(s, { kind: "respond", actor: d.id, fromCover: true, text: `${s.actors[attack.owner]?.name} fired from cover: ${d.name} sees it late.`, why: [`A rushed answer to a shot from cover catches ${Math.round(RD(s).fromCover.rushed * 100)}%, not ${Math.round((RD(s).rushed ?? 1) * 100)}%. A perfect answer still catches everything.`] });
       if (crescendoAnswer) log(s, { kind: "respond", actor: d.id, crescendo: true, ability: opt.ability, text: `${d.name}'s Crescendo: the answer is not rushed and no reaction is spent.`, why: ["A Crescendo's answer bend (HOTBUILDS.md 1c): it catches everything, as if prepared."] });
-      const fixedPrimed = opt.ability === "fixedGaze" && (H.fixedFoes?.(s, d) || [H.fixedFoe?.(s, d)]).includes(attack?.owner);   // primed: the shooter is a Fixed foe — either mark (W1c); the ward fires whole (like perfect) and the shooter loses its rhythm
+      const fixedPrimed = (opt.ability === "fixedGaze" || opt.ability === "purpleLitany") && (H.fixedFoes?.(s, d) || [H.fixedFoe?.(s, d)]).includes(attack?.owner);   // primed: the shooter is a Fixed foe — either mark (W1c); the ward fires whole (like perfect) and the shooter loses its rhythm
       const auditPrimed=opt.ability==="objection" && d.status?.auditPrimed?.until>d.ownerTurns;
-      const caught = perfect || crescendoAnswer || fixedPrimed || auditPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
+      const sunPrimed = opt.ability === "sunWard" && !!H.States?.sunWardPrimed?.(s, d, attack);   // Sun Ward, primed (Treasure Hunter TH1b): the shooter stands on a tile his own live Survey rumor names, so the ward is whole
+      if (sunPrimed) log(s, { kind: "respond", actor: d.id, target: attack.owner, ability: opt.ability, primed: true, text: `${d.name} had ${s.actors[attack.owner]?.name}'s tile marked: the Sun Ward meets ${attack.name} whole.`, why: ["Sun Ward, primed: the shooter stands on a tile his own live Survey rumor names, so the ward is not rushed."] });
+      const caught = perfect || crescendoAnswer || fixedPrimed || auditPrimed || sunPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
       if(opt.ability==="objection"){ClassRuntime.auditor.sustain(s,d,attack,{...opt,caught},H);delete d.status.auditPrimed;}
-      if (fixedPrimed) { const atk = s.actors[attack.owner]; if (atk && !atk.defeated) { atk.status.offTempo = { banned: attack.ability, expiresAt: (atk.ownerTurns ?? 0) + 2, by: d.id }; log(s, { kind: "respond", actor: d.id, target: atk.id, ability: opt.ability, primed: true, text: `${d.name}'s Fixed Gaze meets ${atk.name}'s ${attack.name} whole: the held image holds. ${atk.name} is off-tempo: ${H.ab?.(attack.ability)?.name || attack.ability} is forbidden for a round.`, why: ["Fixed Gaze, primed: the Fixed foe's shot meets the whole ward, and the shooter cannot repeat the technique for a round."] }); } H.Inspiration?.cash(s, d, "Stay."); }   // W1c: a primed gaze cashes (the Hypnotist's line; the round-cap and Inspiration cap live in cash)
+      if (opt.ability === "plateChoir") ClassRuntime.law.choirSustain(s, d, attack, { ...opt, caught }, H);   // F3: store the Choir; tax a named attacker
+      if (fixedPrimed) { const atk = s.actors[attack.owner]; const litany = opt.ability === "purpleLitany"; const gazeName = litany ? "Purple Litany" : "Fixed Gaze"; if (atk && !atk.defeated) { atk.status.offTempo = { banned: attack.ability, expiresAt: (atk.ownerTurns ?? 0) + 2, by: d.id }; log(s, { kind: "respond", actor: d.id, target: atk.id, ability: opt.ability, primed: true, text: litany ? `${d.name}'s Purple Litany meets ${atk.name}'s ${attack.name} whole: the dome holds. ${atk.name} is off-tempo: ${H.ab?.(attack.ability)?.name || attack.ability} is forbidden for a round.` : `${d.name}'s Fixed Gaze meets ${atk.name}'s ${attack.name} whole: the held image holds. ${atk.name} is off-tempo: ${H.ab?.(attack.ability)?.name || attack.ability} is forbidden for a round.`, why: [`${gazeName}, primed: the Fixed foe's shot meets the whole ward, and the shooter cannot repeat the technique for a round.`] }); } H.Inspiration?.cash(s, d, litany ? "Look." : "Stay."); }   // W1c: a primed gaze cashes (the Hypnotist's line; Bishop F4 cashes "Look."; the round-cap and Inspiration cap live in cash)
       if (m.effect === "parry" && d.status.parry) { const pn = d.status.parry.name || "Rebound"; Object.assign(d.status.parry, crescendoAnswer ? { reacted: true, label: `${pn} (Crescendo)` } : perfect ? { reacted: true, perfect: true, label: `${pn} (perfect)` } : { reacted: true, rushed: caught, label: `${pn} (rushed)` }); }   // armed by the reaction: catching this hit costs no second one
       if (m.effect === "membrane" && d.status.membrane && !perfect && !crescendoAnswer) Object.assign(d.status.membrane, { rushed: caught, label: "Membrane (rushed)" });
       if (m.effect === "barrier" && m.range === 0 && d.status.ward && !opt.coverFor) d.status.ward.protection = Math.round(d.status.ward.protection * caught);
       if (opt.coverFor && m.effect === "barrier" && m.range === 0) { const ally = s.actors[opt.coverFor];   // W1c cover: project the image's protection onto the ally for the one shot; the held image itself is untouched, the ally books whatever gets through
-        if (ally && !ally.defeated && !ally.status?.ward) { ally.status.ward = { label: "Projected gaze", owner: d.id, protection: Math.round((d.status.ward?.protection || 0) * caught), expiresAt: (ally.ownerTurns ?? 0) + 1, gazeCover: true };
-          log(s, { kind: "respond", actor: d.id, target: ally.id, ability: opt.ability, text: `${d.name} stands the image over ${ally.name}: ${ally.status.ward.protection} protection against the one shot.`, why: [`Cover: the image's ${d.status.ward?.protection ?? 0} protection fires ${perfect || fixedPrimed ? "whole (primed)" : "rushed"} over an unwarded ally. The held image stays where it is.`] }); } }
+        if (ally && !ally.defeated && !ally.status?.ward) { ally.status.ward = { label: opt.ability === "purpleLitany" ? "Projected dome" : "Projected gaze", owner: d.id, protection: Math.round((d.status.ward?.protection || 0) * caught), expiresAt: (ally.ownerTurns ?? 0) + 1, gazeCover: true };
+          log(s, { kind: "respond", actor: d.id, target: ally.id, ability: opt.ability, text: opt.ability === "purpleLitany" ? `${d.name} stands the dome over ${ally.name}: ${ally.status.ward.protection} protection against the one shot.` : `${d.name} stands the image over ${ally.name}: ${ally.status.ward.protection} protection against the one shot.`, why: [`Cover: the ${opt.ability === "purpleLitany" ? "dome" : "image"}'s ${d.status.ward?.protection ?? 0} protection fires ${perfect || fixedPrimed ? "whole (primed)" : "rushed"} over an unwarded ally.`] }); } }
       if (m.effect === "barrier" && m.range !== 0 && !perfect && !crescendoAnswer) { const b = H.barrierAt(s, opt.target[0], opt.target[1]); if (b) b.rushed = caught; }
     }
 
@@ -222,19 +230,24 @@
       if(d.status.attention&&d.status.attention.target!==inst.owner)return [];
       if (inst.directHit) return [];   // Drunken Monkey Style: too unpredictable to answer — no guard, no dodge
       const freeRead = d.freeReactionVs === inst.owner;
-      const reactive = reactiveOptions(s, d, inst);
+      const reactive = inst.convene ? [] : reactiveOptions(s, d, inst);
       if (s.pending?.reactive && !nothingSudden(s, d, inst)) return reactive;   // unannounced: only a reactive technique answers it (a blurred speedster answers it in full: SS2)
       if (d.reaction <= 0 && !freeRead) return [];
       const watching = d.status.overwatch?.expiresAt > d.ownerTurns;   // Overwatch (Muse-2): the held reaction is spent — no guard, no dodge (reactive techniques still answer)
-      const opts = watching ? [] : [{ kind: "guard" }];
+      const opts = watching || inst.convene ? [] : [{ kind: "guard" }];
       if (!watching && inst.ability === "arrest" && !d.status?.kneeling && (!H.Dispatch || H.Dispatch.wantsTrial(s, d))) opts.push({ kind: "kneel" });   // answer cuffs by kneeling: claim trial (only while the docket is open; loop 1a17c856419)
       const P = paths(s, d.x, d.y, H.Injury.dodgeReach(s, d), "move");
       const area = new Set((s.pending?.announcedTiles || inst.announcedTiles || inst.tiles).map((t) => key(t[0], t[1])));
       const dodgeAp = H.Injury.dodgeCost(s, d, dodgeCostFor(s, d, inst.owner));   // C15: Restless dodges for less; GDP taxes dodges off the star's attacks
       const canPayDodge = !grappled(s, d) && (d.id === currentId(s) ? d.tempo >= dodgeAp : hasAgility(d, s) || (d.tempoDebt || 0) + dodgeAp <= s.rules.maxTempoDebt);   // Grapple: a held unit cannot dodge; godly agility: debt-free off-turn
-      if (!watching && canPayDodge) for (const [k, n] of P.dist) if (n > 0) { const [x, y] = k.split(",").map(Number); const safe = !area.has(k); if (safe || !freeRead) opts.push({ kind: "reposition", to: [x, y], safe, apCost: dodgeAp }); }
       const atk = s.actors[inst.owner];
-      const throwAp = H.Injury.dodgeCost(s, d, 50 * starReactionTax(s, d, inst.owner));   // a dodge-throw is a dodge: maimed legs double it too
+      if (!watching && canPayDodge) for (const [k, n] of P.dist) if (n > 0) {
+        const [x, y] = k.split(",").map(Number);
+        const safe = inst.convene ? !H.Courtroom.inCourtReach(s, H, atk, x, y) : !area.has(k);
+        if (safe || !freeRead) opts.push({ kind: "reposition", to: [x, y], safe, apCost: dodgeAp });
+      }
+      if (inst.convene) return opts;
+      const throwAp = H.Injury.dodgeCost(s, d, H.speedDodge(s, d, 50 * starReactionTax(s, d, inst.owner)));   // a dodge-throw is a dodge: maimed legs double it too, and a blurred speedster's is as free as their dodge
       const canPayThrow = hasReflexes(d) && !grappled(s, d) && atk && !atk.defeated && (d.id === currentId(s) ? d.tempo >= throwAp : (d.tempoDebt || 0) + throwAp <= s.rules.maxTempoDebt);
       if (!watching && canPayThrow) for (const [k, n] of P.dist) if (n > 0) { const [x, y] = k.split(",").map(Number); const safe = !area.has(k);
         if ((safe || !freeRead) && dist(s, x, y, atk.x, atk.y) <= 6) opts.push({ kind: "dodgeThrow", to: [x, y], safe, apCost: throwAp }); }
@@ -248,8 +261,17 @@
       const message = inst.deception ? `I can only reach ${inst.claimedRange} tiles.` : d.announce || `Here comes ${inst.name}.`;
       log(s, { kind: "announce", actor: a.id, tiles: announcedTiles, text: inst.audienceOnly ? `${a.name} performs ${inst.name} for an audience.` : `${a.name} ${["ANNOUNCES", "ANNOUNCES", "EXPLAINS", "SHOWS EVERYTHING OF"][inst.revelation || 1]} ${inst.name}: “${message}”`,
         why: [inst.audienceOnly ? "Only the named target receives the technique. Each visible audience member may spend a reaction to look away before the signal affects them." : inst.deception ? `Declared reach: ${inst.claimedRange} tiles. The amber envelope marks the announced threat area.` : inst.cardRip ? "A hidden card, torn open by an Observe: announced like an attack but with no power boost, and the Observer may answer it." : `${d.tier === "ultimate" || inst.tier === "ultimate" || inst.summonUltimateOrder ? "Announced ultimate" : "Announced attack"} ×${inst.revelationMul ?? s.rules.announceMultiplier}${(inst.revelation || 1) > 1 ? ` (${s.rules.revelation.names[inst.revelation]}: the more you give away, the harder it hits, and the more a reader can use)` : ""} (applied once). Committed area and cost are fixed now.`,
-          ...defenders.map((t) => inst.directHit ? `${t.name} cannot answer it: too unpredictable (direct hit).` : t.status.overwatch?.expiresAt > t.ownerTurns ? `${t.name} holds Overwatch: no Guard or dodge while watching.` : t.freeReactionVs === a.id ? `${t.name} read the tell: the reaction is free; dodging still costs ${H.Injury.dodgeCost(s, t, dodgeCostFor(s, t, a.id))} AP.` : t.reaction > 0 ? `${t.name} may respond: Guard, or dodge up to ${H.Injury.dodgeReach(s, t)} tiles for ${H.Injury.dodgeCost(s, t, dodgeCostFor(s, t, a.id))} AP (owed next turn if responding off-turn).${hasReflexes(t) ? ` Insane Reflexes: a dodge-throw (${H.Injury.dodgeCost(s, t, 50 * starReactionTax(s, t, a.id))} AP, land within 6 of the attacker) also answers.` : ""}` : `${t.name} has no reaction left this round: no response.`)] });
+          ...defenders.map((t) => inst.directHit ? `${t.name} cannot answer it: too unpredictable (direct hit).` : t.status.overwatch?.expiresAt > t.ownerTurns ? `${t.name} holds Overwatch: no Guard or dodge while watching.` : t.freeReactionVs === a.id ? `${t.name} read the tell: the reaction is free; dodging still costs ${apWords(H.Injury.dodgeCost(s, t, dodgeCostFor(s, t, a.id)), "")}.` : t.reaction > 0 ? `${t.name} may respond: Guard, or dodge up to ${H.Injury.dodgeReach(s, t)} tiles for ${apWords(H.Injury.dodgeCost(s, t, dodgeCostFor(s, t, a.id)), " (owed next turn if responding off-turn)")}.${hasReflexes(t) ? ` Insane Reflexes: a dodge-throw (${apWords(H.Injury.dodgeCost(s, t, H.speedDodge(s, t, 50 * starReactionTax(s, t, a.id))), "")}, land within 6 of the attacker) also answers.` : ""}` : `${t.name} has no reaction left this round: no response.`)] });
       const drAnn = (s.dreamRecent ||= {}); drAnn.announcements = (drAnn.announcements || 0) + 1;   // ambient dreams hear announcements
+      skipUnable(s);
+    }
+    function openCourtResponse(s, a, accusedId) {
+      const t = s.actors[accusedId], tiles = [[t.x, t.y]];
+      const inst = { convene: true, owner: a.id, accusedId, name: "Convene the Court", tiles, delivery: "placed" };
+      s.phase = "response";
+      s.pending = { inst, attacker: a.id, defenders: [accusedId], responded: [], lookedAway: [], announcedTiles: tiles };
+      log(s, { kind: "announce", actor: a.id, target: accusedId, tiles,
+        text: `${a.name} calls ${t.name} before the bench: “The court is in session.”` });
       skipUnable(s);
     }
     function skipUnable(s) {
@@ -267,6 +289,7 @@
       const d = s.actors[id];
       if (d.soulless && act.response !== "none") return "The body lies soulless and cannot answer.";
       if ((H.Injury?.gradeOf(d, "head") || 0) === 2 && act.response !== "none") return "Too dazed to answer (maimed head: no reactions).";
+      if (p.inst.convene && !["reposition", "none"].includes(act.response)) return "Answer the summons by dodging or appearing in court.";
       const freeRead = d.freeReactionVs === p.attacker;
       if (p.inst.submissionFinish && !['breakHold', 'none'].includes(act.response)) return 'Break the hold or tap out.';
       if (act.response === 'breakHold' && p.inst.submissionFinish) { if (d.reaction <= 0) return 'No reaction left to break the hold.'; d.reaction -= 1; d.tempoDebt = (d.tempoDebt || 0) + s.rules.submission.finishBreakAp; p.broke = true; H.slipFree(s, d, `breaks the finishing hold (${s.rules.submission.finishBreakAp} AP owed next turn)`); p.responded.push(id); skipUnable(s); return; }
@@ -284,18 +307,18 @@
         else if (!hasAgility(d, s)) d.tempoDebt = (d.tempoDebt || 0) + dodgeAp;   // godly agility: the debt never lands
         if (!freeRead) d.reaction -= 1; else d.freeReactionVs = null;
         d.x = opt.to[0]; d.y = opt.to[1];
-        log(s, { kind: "respond", actor: id, response: "reposition", safe: !!opt.safe, apCost: dodgeAp, text: `${d.name} dodges to (${d.x},${d.y})${opt.safe ? ", out of the announced area" : ", still inside the area"}; ${dodgeAp} AP ${spendsNow ? "spent now" : hasAgility(d, s) ? "debt-free (godly agility)" : "charged as next-turn tempo debt"}${freeRead ? "; free reaction" : "; reaction spent"}.` });
+        log(s, { kind: "respond", actor: id, response: "reposition", safe: !!opt.safe, apCost: dodgeAp, text: `${d.name} dodges to (${d.x},${d.y})${p.inst.convene ? (opt.safe ? ", beyond the court’s reach" : ", still in the court’s reach") : (opt.safe ? ", out of the announced area" : ", still inside the area")}; ${dodgeAp ? `${dodgeAp} AP ${spendsNow ? "spent now" : hasAgility(d, s) ? "debt-free (godly agility)" : "charged as next-turn tempo debt"}` : "no action points"}${freeRead ? "; free reaction" : "; reaction spent"}.` });
       } else if (act.response === "dodgeThrow") {
         const opt = responseOptions(s, d, p.inst).find((o) => o.kind === "dodgeThrow" && o.to[0] === (act.to || [])[0] && o.to[1] === act.to[1]);
         if (!opt) return "A dodge-throw needs Insane Reflexes, the attacker within 6 of where you land, and 50 AP (debt limit included).";
-        const spendsNow = d.id === currentId(s), throwAp = opt.apCost || 50;
+        const spendsNow = d.id === currentId(s), throwAp = opt.apCost ?? 50;
         if (spendsNow) { if (d.tempo < throwAp) return `A dodge-throw needs ${throwAp} AP on this turn.`; d.tempo -= throwAp; d.tempoSpent = (d.tempoSpent || 0) + throwAp; }
         else if (!hasAgility(d, s)) d.tempoDebt = (d.tempoDebt || 0) + throwAp;   // godly agility: the debt never lands
         if (!freeRead) d.reaction -= 1; else d.freeReactionVs = null;
         d.x = opt.to[0]; d.y = opt.to[1];
         if (d.status?.concealed) delete d.status.concealed;
         const atk = s.actors[p.attacker], bleedTurns = 2 + ((s.log.length * 7 + s.round * 13) % 4);   // deterministic 2-5 (this H has no seededChance)
-        log(s, { kind: "respond", actor: id, response: "dodgeThrow", safe: !!opt.safe, apCost: throwAp, text: `${d.name} throws mid-dodge to (${d.x},${d.y}) (${throwAp} AP${spendsNow ? " spent now" : " charged as next-turn tempo debt"}; reaction spent).` });
+        log(s, { kind: "respond", actor: id, response: "dodgeThrow", safe: !!opt.safe, apCost: throwAp, text: `${d.name} throws mid-dodge to (${d.x},${d.y}) (${throwAp ? `${throwAp} AP${spendsNow ? " spent now" : " charged as next-turn tempo debt"}` : "no action points"}; reaction spent).` });
         if (atk && !atk.defeated) {
           const dealt = hit(s, d, atk, { name: "Shuriken", ability: null, delivery: "line", potency: 6 }, 6, [`${d.name}'s mid-dodge shuriken: 6.`], { label: "Shuriken" });
           // Ward ruling (Mala, 2026-10-18): wards are external — a shuriken that doesn't pierce leaves no bleed.
@@ -316,7 +339,7 @@
         log(s, { kind: "respond", actor: id, response: "kneel", text: `${d.name} kneels and claims trial: the court will hear it.` });
       } else if (act.response === "none") {
         if (freeRead) d.freeReactionVs = null;
-        log(s, { kind: "respond", actor: id, text: `${d.name} takes it without responding (keeps the reaction).` });
+        log(s, { kind: "respond", actor: id, text: p.inst.convene ? `${d.name} answers the summons (keeps the reaction).` : `${d.name} takes it without responding (keeps the reaction).` });
       } else return "Respond with guard, reposition, dodgeThrow, kneel, technique or none.";
       p.responded.push(id);
       skipUnable(s);
@@ -342,6 +365,12 @@
     function closeInner(s) {
       const p = s.pending; s.pending = null; s.phase = "action";
       const a = s.actors[p.attacker];
+      if (p.inst.convene) {
+        const result = H.Courtroom.convene(s, H, a.id, p.inst.accusedId);
+        if (!result.ok) log(s, { kind: "trial", actor: a.id, target: p.inst.accusedId, text: result.error });
+        maybeEndTurn(s, a);
+        return;
+      }
       if (p.inst.submissionFinish) {   // nobody broke it: the finish lands
         const t = s.actors[p.inst.target]; if (!p.broke && t && !t.defeated) H.submitFoe(s, a, t, `${t.name} did not break the finish.`);
         H.checkOutcome?.(s);
@@ -375,7 +404,8 @@
         const after = s.log.slice(mark), taken = after.filter((e) => e.kind === "damage" && e.actor === a.id && e.target === d.id).reduce((n, e) => n + (e.amount || 0), 0);
         // Worked: the answer caught something (a rushed answer catches its share and the rest lands). Failed: disrupted or bypassed.
         const worked = taken === 0 || after.some((e) => (e.kind === "parry" && e.actor === d.id) || (e.kind === "negate" && e.barrierOwner === d.id)
-          || (e.kind === "damage" && e.target === d.id && (e.why || []).some((w) => /rushed (Shield Wall|Membrane)/.test(w))));
+          || (e.kind === "damage" && e.target === d.id && (e.why || []).some((w) => /rushed (Shield Wall|Membrane)/.test(w)))
+          || (!!H.ab(ans.ability)?.wardLabel && e.kind === "damage" && e.target === d.id && e.warded > 0));   // a named self ward (Sun Ward, Treasure Hunter TH1b) that soaked part of the hit caught its share: not a failed answer
         log(s, { kind: "answered", attacker: a.id, target: d.id, actor: d.id, ability: ans.ability, attackAbility: p.inst.ability, delivery: p.inst.delivery, concept: p.inst.concept, stopped: taken === 0, worked, taken,
           text: taken === 0 ? `${d.name}'s ${H.ab(ans.ability).name} answered ${p.inst.name}: nothing got through.` : worked ? `${d.name}'s rushed ${H.ab(ans.ability).name} caught part of ${p.inst.name}: ${taken} LF got through.` : `${d.name}'s ${H.ab(ans.ability).name} did not stop ${p.inst.name}: ${taken} LF got through.` });
       }
@@ -392,6 +422,6 @@
       else maybeEndTurn(s, a);
     }
 
-    return { responseOptions, reactiveOptions, openReactionWindow, openResponseWindow, skipUnable, respond, closeResponseWindow };
+    return { responseOptions, reactiveOptions, openReactionWindow, openResponseWindow, openCourtResponse, skipUnable, respond, closeResponseWindow };
   })();
 });

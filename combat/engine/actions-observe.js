@@ -79,7 +79,7 @@
         if (!s.outcome && currentId(s) === a.id) endTurn(s);
       },
       observe(s, a, act) {
-        if (!H.Observation.eligible(a)) return "This unit cannot Observe.";
+        if (!H.Observation.eligible(a) && !(a.summon && hasTrait(a, "messenger"))) return "This unit cannot Observe.";   // K3 Messenger: a Messenger summon may Observe (Investigate precedent, above)
         const freeSurvey = a.id === "player" && s.surveyFlag, freeCodex = (a.codexObserve || 0) > 0, free = freeSurvey || freeCodex;
         const spendFree = () => { if (freeSurvey && s.surveyFlag) s.surveyFlag--; else if (a.codexObserve > 0) { a.codexObserve--; log(s, { kind: "observe", actor: a.id, text: "The codex is open: this Observe is free." }); } };   // Wizard's codex: survey flag spends first
         const woundTax = (H.Injury?.gradeOf(a, "head") || 0) === 1 ? (s.rules.injury?.headWoundedObserveAp ?? 10) : 0;
@@ -129,7 +129,7 @@
         if (t.side !== a.side) H.mysteryForce?.(s, t.id, undefined, "ripped by Observe", { invest: 0, observer: a.id });   // Mystery: Observe rips a foe's oldest set plan; allies' cards are left alone (Harbor round-2 item 7 ruling). Battle Cards C2: this legacy Observe has no study, so a face-down card set (which needs study AP, Cards.ripAp) stays down
       },
       observePlace(s, a, act, deep = null) {
-        if (!H.Observation.eligible(a)) return "This unit cannot Observe the place.";
+        if (!H.Observation.eligible(a) && !(a.summon && hasTrait(a, "messenger"))) return "This unit cannot Observe the place.";   // K3: same Messenger exception (Messenger shares place readings)
         if (!Climate || !insightRules || !s.weatherState) return "There is no active weather to survey here.";
         // Investigate the place (I3): all the AP the caller allowed, deepest first (deepLook)
         const invest = Math.max(10, Math.min(50, Math.floor((act.invest || 20) / 10) * 10));
@@ -139,7 +139,7 @@
         const bySubject = H.Observation.knowledge(s,a,true);
         const know = bySubject[deck.subject.key] || insightRules.spawnKnowledge(deck);
         const result = deep ? Climate.investigatePlace({ deck, know, cognitive: H.Observation.cognitive(s,a), ap: deep.ap, dreamField: s.dreamSpace })
-          : Climate.observePlace({ deck, know, cognitive: H.Observation.cognitive(s,a), invest, dreamField: s.dreamSpace, seed: s.seed + s.round });
+          : Climate.observePlace({ deck, know, cognitive: H.Observation.cognitive(s,a), invest, dreamField: s.dreamSpace, seed: s.seed + s.round, shared: s.scoutShare?.[a.id]?.[deck.subject.key] || 0 });   // K3: a place word shared by a Messenger (or a Scout's Report) makes this read easier
         if (result.error) return result.lines.join(" ");
         const spend = spendTempo(s, a, deep ? a.tempo : invest, deep ? "Investigate the place" : "Observe the place"); if (spend) return spend;
         if (deep) deep.spent = true;
@@ -285,7 +285,7 @@
             why: ["Only an Animist can wake a structure. You can still study it."] });
           return;
         }
-        const before = book.familiarity[obj.id] || 0;
+        const before = book.familiarity[wreckKey(obj)] || 0;
         // Investigate a structure (I3): as a plant, after the free Animist warning
         if (deep && before >= prof.need) return `You already know the ${prof.common} as well as it can be known: there is nothing left to Investigate.`;
         const result = deep ? { familiarity: before + Math.floor(deep.ap / Tsukumogami.rules.observeStep) + insightRules.data.rules.investigate.depthBonus, spend: a.tempo }
@@ -293,15 +293,15 @@
         const spend = spendTempo(s, a, result.spend, deep ? "Investigate a structure" : "Study a structure"); if (spend) return spend;
         if (deep) deep.spent = true;
         const gained = H.recallFamiliarity?.(a, result.familiarity) ?? result.familiarity;   // Perfect Recall (S6c): +1 familiarity on every Observe
-        book.familiarity[obj.id] = gained; scoutNoted(s, a, null); H.Exposure.looked(s, a);
+        book.familiarity[wreckKey(obj)] = gained; scoutNoted(s, a, null); H.Exposure.looked(s, a);
         const ready = gained >= prof.need, fam = Math.min(gained, prof.need);
         const matDef = insightRules?.data?.traits?.[Tsukumogami.materialTrait(prof.material)] || null;
-        H.Observation.recordFact(s, a, { id: `structure:${obj.id}:${fam}`, kind: "structure", subject: obj.id, type: obj.type, familiarity: fam, text: `${prof.common}: familiarity ${fam}/${prof.need}.` }, "observeStructure");
+        H.Observation.recordFact(s, a, { id: `structure:${wreckKey(obj)}:${fam}`, kind: "structure", subject: wreckKey(obj), type: obj.type, familiarity: fam, text: `${prof.common}: familiarity ${fam}/${prof.need}.` }, "observeStructure");
         // Observe teaches O2a: the study that makes a structure ready shows the study note for the question it will ask, and every result names the next step. Perfect Recall also restores a note kept on the account.
         const q = ready ? Tsukumogami.questionFor(obj, s.seed) : null;
         const saved = H.perfectRecall?.(a) ? H.studyNoteOf?.(s, "structure", (q || Tsukumogami.questionFor(obj, s.seed))?.id) : null;   // only this battle's question
         const clue = q?.clue || (H.perfectRecall?.(a) && saved) || null;
-        if (clue) { (book.clues ||= {})[obj.id] = true; H.Observation.recordFact(s, a, { id: `structure:${obj.id}:clue`, kind: "structure", subject: obj.id, type: obj.type, familiarity: fam, clue: true, text: `${prof.common}: study note: ${clue}` }, "observeStructure"); if (q?.clue) H.noteStudy?.(s, a, "structure", q.id, q.clue); }
+        if (clue) { (book.clues ||= {})[wreckKey(obj)] = true; H.Observation.recordFact(s, a, { id: `structure:${wreckKey(obj)}:clue`, kind: "structure", subject: wreckKey(obj), type: obj.type, familiarity: fam, clue: true, text: `${prof.common}: study note: ${clue}` }, "observeStructure"); if (q?.clue) H.noteStudy?.(s, a, "structure", q.id, q.clue); }
         const d = dist(s, a.x, a.y, obj.x, obj.y), phi = Math.max(0, prof.phi - communeDiscount(a, "structure"));
         const forYou = a.id === "player";   // the next-step line addresses the player: a foe's or an ally's study must not tell you to approach and wake it
         const step = forYou ? H.Observation.nextStep({ kind: "structure", ready, need: prof.need, fam, step: Tsukumogami.rules.observeStep, bonus: H.perfectRecall?.(a) ? 1 : 0, dist: d, range: Tsukumogami.rules.range, deed: "wake it", ritual: "Wake", ap: Tsukumogami.rules.communeAp, phi, common: prof.common }) : null;
@@ -316,7 +316,7 @@
         const obj = (s.arena.objects || []).find(o => o.id === act.object);
         const active = Object.values(s.actors).filter(x => x.awakened && !x.defeated && x.awakened.owner === a.id).length;
         const disc = communeDiscount(a, "structure");
-        const can = Tsukumogami.canCommune({ obj, familiarity: obj ? book.familiarity[obj.id] || 0 : 0, active,
+        const can = Tsukumogami.canCommune({ obj, familiarity: obj ? book.familiarity[wreckKey(obj)] || 0 : 0, active,
           ap: a.tempo, pf: a.pf + disc, dist: obj ? dist(s, a.x, a.y, obj.x, obj.y) : 99, animist: hasTrait(a, "animist") });
         if (!can.ok) return can.reason;
         if (actorAt(s, obj.x, obj.y)) return `Someone is standing in that ${can.profile.common}.`;
@@ -456,10 +456,14 @@
       return { act, label, cost, off: !pv.ok, why: pv.ok ? "" : pv.error, help };
     };
     const woundTax = (s, a) => (H.Injury?.gradeOf(a, "head") || 0) === 1 ? (s.rules.injury?.headWoundedObserveAp ?? 10) : 0;
-    const nearSort = (s, a, list) => list.sort((x, y) => dist(s, a.x, a.y, x.x, x.y) - dist(s, a.x, a.y, y.x, y.y)).slice(0, 6);
+    const nearSort = (s, a, list, limit = 6) => list.sort((x, y) => dist(s, a.x, a.y, x.x, x.y) - dist(s, a.x, a.y, y.x, y.y)).slice(0, limit);
     const studySpend = (R, invest) => Math.max(R.observeStep, Math.min(R.observeMax, Math.floor(invest / R.observeStep) * R.observeStep));
     // Registration order is drawer order (the query serves cards in this order): it follows the menu —
     // place, plants, structures, rooms, then actors; rituals run commune, ingredient, wake, as their tab does.
+    const wreckKey = (o) => o.wreckId || o.id;
+    const structuresNear = (s, a, R) => nearSort(s, a, (s.arena.objects || []).filter((o) =>
+      o.kind === "object" && o.hp > 0 && Tsukumogami.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange), Infinity)
+      .filter((o, i, rows) => !o.wreckId || rows.findIndex((p) => p.wreckId === o.wreckId) === i).slice(0, 6);
     const cards = {
       observePlace: { type: "observePlace", drawer: "observe", options(s, a, extra = {}) {
         if (!Climate || !s.weatherState) return [];
@@ -483,9 +487,9 @@
       observeStructure: { type: "observeStructure", drawer: "observe", options(s, a, extra = {}) {
         if (!Tsukumogami || !s.tsukumogami || !(a.traits || []).some((t) => (t.id || t) === "animist") || !Tsukumogami.rules.released) return [];
         const R = Tsukumogami.rules, book = H.Observation.structureBook(s, a), spend = studySpend(R, extra.invest ?? R.observeStep);
-        return nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && Tsukumogami.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
-          .filter((o) => (book.familiarity[o.id] || 0) < Tsukumogami.profile(o.type).need).map((o) => {
-            const pr = Tsukumogami.profile(o.type), fam = book.familiarity[o.id] || 0;
+        return structuresNear(s, a, R)
+          .filter((o) => (book.familiarity[wreckKey(o)] || 0) < Tsukumogami.profile(o.type).need).map((o) => {
+            const pr = Tsukumogami.profile(o.type), fam = book.familiarity[wreckKey(o)] || 0;
             const sees = dist(s, a.x, a.y, o.x, o.y) <= 1 || hasSight(s, a.x, a.y, o.x, o.y);
             const matDef = insightRules?.data?.traits?.[Tsukumogami.materialTrait(pr.material)] || null;
             return judge(s, { type: "observeStructure", actor: a.id, object: o.id, invest: spend }, extra,
@@ -501,7 +505,7 @@
           const def = summonRules.data.summons[x.id], studied = !!s.summonHints?.[a.id]?.[x.id];
           return judge(s, { type: "observeSummon", actor: a.id, summon: x.id }, extra,
             `Study ${def.name}'s room · ${price} AP${studied ? " · studied" : ""}`, price,
-            studied ? "Studied this battle: no new hint. Call it from Rituals ▸ Summon ally." : `Study ${def.name}'s palace room: one wrong choice on its calling question is struck this battle.`);
+            studied ? "Studied this battle: no new hint. Call it from Rituals ▸ Call a familiar." : `Study ${def.name}'s palace room: one wrong choice on its calling question is struck this battle.`);
         });
       } },
       observe: { type: "observe", drawer: "observe", options(s, a, extra = {}) {
@@ -535,8 +539,8 @@
         }
         if (Tsukumogami && s.tsukumogami && (a.traits || []).some((t) => (t.id || t) === "animist") && Tsukumogami.rules.released) {
           const R = Tsukumogami.rules, book = H.Observation.structureBook(s, a);
-          studies.push(...nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && Tsukumogami.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
-            .filter((o) => (book.familiarity[o.id] || 0) < Tsukumogami.profile(o.type).need).map((o) => ({ o, pr: Tsukumogami.profile(o.type), fam: book.familiarity[o.id] || 0, kind: "structure" })));
+          studies.push(...structuresNear(s, a, R)
+            .filter((o) => (book.familiarity[wreckKey(o)] || 0) < Tsukumogami.profile(o.type).need).map((o) => ({ o, pr: Tsukumogami.profile(o.type), fam: book.familiarity[wreckKey(o)] || 0, kind: "structure" })));
         }
         for (const { o, pr, fam, kind } of studies) {
           const sees = dist(s, a.x, a.y, o.x, o.y) <= 1 || hasSight(s, a.x, a.y, o.x, o.y);
@@ -626,8 +630,8 @@
       communeStructure: { type: "communeStructure", drawer: "rituals", options(s, a, extra = {}) {
         if (!Tsukumogami || !s.tsukumogami || !(a.traits || []).some((t) => (t.id || t) === "animist") || !Tsukumogami.rules.released) return [];
         const R = Tsukumogami.rules, book = H.Observation.structureBook(s, a), disc = communeDiscount(a, "structure");
-        return nearSort(s, a, (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && Tsukumogami.profile(o.type) && dist(s, a.x, a.y, o.x, o.y) <= R.observeRange))
-          .filter((o) => (book.familiarity[o.id] || 0) >= Tsukumogami.profile(o.type).need).map((o) => {
+        return structuresNear(s, a, R)
+          .filter((o) => (book.familiarity[wreckKey(o)] || 0) >= Tsukumogami.profile(o.type).need).map((o) => {
             const pr = Tsukumogami.profile(o.type);
             return judge(s, { type: "communeStructure", actor: a.id, object: o.id, questionId: Tsukumogami.questionFor(o, s.seed)?.id }, extra,
               `Wake the ${pr.common} ▸ ${R.communeAp} AP + ${Math.max(0, pr.phi - disc)} ΦF`, R.communeAp,

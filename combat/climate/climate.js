@@ -232,10 +232,10 @@
     const hidden = deck.cards.filter((c) => !c.open);
     return CD.observe.familiarityShare * hidden.filter((c) => know.revealed.includes(c.id)).length / (hidden.length || 1);
   }
-  function observePlace({ deck, know, cognitive, invest, dreamField = null, seed = 0 }) {
+  function observePlace({ deck, know, cognitive, invest, dreamField = null, seed = 0, shared = 0 }) {
     if (dreamField?.type === "dreamSpace" && CD.observe.ult.inDreamSpace === "blocked")
       return { know, cognitive, revealed: [], unlocked: [], charge: 0, error: true, lines: ["Inside a Dream Space the sky belongs to the dreamer. There's no place here to read."] };
-    const r = Insight.observe({ deck, know, cognitive, subjectKey: deck.subject.key, invest, seed });
+    const r = Insight.observe({ deck, know, cognitive, subjectKey: deck.subject.key, invest, seed, shared });
     if (r.error) return { ...r, charge: 0 };
     const grants = grantsFrom(deck, r.know), familiarity = weatherFamiliarity(deck, r.know);
     // No ultimate charge from reading the place: its payoff to the bar is a cheaper, longer Dream Space here.

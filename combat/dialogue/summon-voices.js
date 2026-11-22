@@ -172,6 +172,19 @@
       ultimate: ["All rise for the King. Which one? Does it matter?"],
       defeat: ["Unmasked. How dull.", "Curtain."],
       rethink: ["They see through it. New disguise."] } },
+
+    raven: { summary: "Watchful, dry, and loyal: it saw it first and says so.", lines: {
+      summoned: ["I flew ahead. I have seen it.", "Thought first. Then me."],
+      dismissed: ["I will remember the rest for you.", "Call me when it needs remembering."],
+      attack: ["Seen.", "Marked, then struck."],
+      hit: ["Right where I said.", "Told you."],
+      hurt: ["Feathers. Not memory.", "I will recall that."],
+      ally_hurt: ["Behind you!", "I saw that coming. I should have been louder."],
+      low_lf: ["The wings are heavy. The mind is not."],
+      ordered: ["Understood. I will bring it back."],
+      ultimate: ["Thought saw it coming. Memory kept it."],
+      defeat: ["Back to the palace. The notes stay.", "Gone. What I saw is still true."],
+      rethink: ["Wrong branch. Try the other."] } },
   };
 
   const fallback = { summoned: "Here.", dismissed: "Back to the palace.", attack: "Now.", hit: "Got one.", hurt: "Ah.", ally_hurt: "Hold on!", ordered: "Understood.",

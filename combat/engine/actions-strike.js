@@ -18,8 +18,10 @@
     // The sprint-and-Strike bonus (the Knight's Lance Charge, class-builds.js; and True Super Speed SS3 Momentum, rules.trueSpeed): the first Strike of a
     // turn after walking 3 or more tiles in it. A blurred speedster gets +1 per momentumPer tiles up to momentumCap; a unit with both takes the larger, never
     // the sum, and either one spends the once-a-turn mark (a.lanceTurn). Returns { add, kind: "lance" | "momentum" | null }.
+    // The mark is keyed to the beat (True Super Speed SS4): a speedster's second beat (a.beatNo 1) is a fresh sprint.
+    const beatMark = (a) => a.ownerTurns * 2 + (a.beatNo || 0);
     const chargeBonus = (s, a) => {
-      const walked = a.walkedThisTurn || 0; if (walked < 3 || a.lanceTurn === a.ownerTurns) return { add: 0, kind: null };
+      const walked = a.walkedThisTurn || 0; if (walked < 3 || a.lanceTurn === beatMark(a)) return { add: 0, kind: null };
       const lance = ClassRuntime?.builds?.[a.character]?.passives?.lance_charge?.effect?.strikePotencyAdd || 0, T = s.rules.trueSpeed;
       const momentum = T && H.blur?.(s, a) ? Math.min(T.momentumCap, Math.floor(walked / T.momentumPer)) : 0;
       return momentum > lance ? { add: momentum, kind: "momentum" } : { add: lance, kind: lance ? "lance" : null };
@@ -40,6 +42,7 @@
         if(a.status?.soothed)return "Soothed: hostile actions are unavailable this turn.";
         { const no = holdFireRefusal(s, a, true); if (no) return no; }
         if(a.status?.detained&&(a.status.detained.until==null||a.status.detained.until>=a.ownerTurns))return "Detained: no actions until the hold ends.";
+        if(a.status?.crownEntranced&&(a.status.crownEntranced.until==null||a.status.crownEntranced.until>=a.ownerTurns))return "Entranced: you cannot attack until the hold ends.";   // Crown of Plates (Bishop F4): cannot Strike; not Genjutsu's side-swap
         if ((H.Injury?.gradeOf(a, "arms") || 0) === 2) return "Maimed arms can't strike: techniques only.";
         const flowMul = s.rules.flowState?.enabled !== false && ((a.ultimateCharge ?? 0) >= (s.rules.ultimateChargeMax || 100) || !!a.form?.golden) ? s.rules.flowState?.strikeMul || 1 : 1;   // Flow state: a pocketed ult hits harder, live off the bar; gold is flow incarnate
         const arming = (s.arena.objects || []).find((o) => (o.hp ?? 0) > 0 && o.side === a.side && ((o.type === "foundry" && dist(s, a.x, a.y, o.x, o.y) <= 2) || (o.type === "keep" && Math.max(Math.abs(o.x - a.x), Math.abs(o.y - a.y)) === 1)));
@@ -118,10 +121,10 @@
         if (a.birdMountain?.red) { const g = a.birdMountain.red.gear; potency = Math.floor(potency * (g === 5 ? 3 : [1.5, 2, 2.5][g - 2])); }   // ʻUlaʻula: the red multiplies the whole Strike
         const coils = H.fruitRelease ? H.fruitRelease(s, a) : { potency: 0, n: 0 }; if (coils.n) potency += coils.potency;   // Coilfruit: the stored coils let go
         potency += ClassRuntime?.ma?.strike(s, a, log) || 0;   // Ma (five concepts M1): Still Stance +1, and the Strike spends all banked Stillness for +1 each
-        if (charged) { a.lanceTurn = a.ownerTurns; potency += charged; log(s, CB.kind === "momentum" ? { kind: "effect", actor: a.id, target: t.id, text: `${a.name} hits at the end of a ${a.walkedThisTurn}-tile sprint: Momentum, +${charged}.`, why: ["True Super Speed: once a turn, after walking 3 or more tiles, +1 for every 2 tiles walked, up to +6 (a Knight's Lance Charge is never added to it)."] } : { kind: "effect", actor: a.id, target: t.id, text: `${a.name} strikes at the end of a ${a.walkedThisTurn}-tile run: Lance Charge, +${charged}.`, why: ["Once a turn, after walking 3 or more tiles."] }); }
+        if (charged) { a.lanceTurn = beatMark(a); potency += charged; log(s, CB.kind === "momentum" ? { kind: "effect", actor: a.id, target: t.id, text: `${a.name} hits at the end of a ${a.walkedThisTurn}-tile sprint: Momentum, +${charged}.`, why: ["True Super Speed: once a turn (once a beat, with a second beat), after walking 3 or more tiles, +1 for every 2 tiles walked, up to +6 (a Knight's Lance Charge is never added to it)."] } : { kind: "effect", actor: a.id, target: t.id, text: `${a.name} strikes at the end of a ${a.walkedThisTurn}-tile run: Lance Charge, +${charged}.`, why: ["Once a turn, after walking 3 or more tiles."] }); }
         const armG = H.Injury?.gradeOf(a, "arms") || 0;
         if (armG === 1) potency *= (s.rules.injury?.armsWoundedMult ?? 0.8);
-        const inst = { name: blade?.name || "Strike", ability: "strike", concept: null, delivery: "contact", damageType: blade?.damageType || "nigredo" };
+        const inst = { name: blade?.name || "Strike", ability: "strike", ...(t.side === "civilian" ? { courtTarget: t.id } : {}), concept: null, delivery: "contact", damageType: blade?.damageType || "nigredo" };
         if (act.aim) { inst.aimZone = act.aim; log(s, { kind: "act", actor: a.id, target: t.id, text: `${a.name} aims the strike at the ${act.aim} (+${aimAp} AP).` }); }
         if (hasTrait(a, "drunkenMonkey")) inst.directHit = true;   // Drunken Monkey Style: every attack lands direct
         if (steel) inst.carriesWill = true;

@@ -1,0 +1,35 @@
+{
+  "size_class": "terrain",
+  "footprint": "1x1 tile",
+  "note": "arcane rubble: a broken arcane floor (star and moon inlay); the broken-floor rubble tile of cursor-destructive-map-tiles-spec (R-20261115-60, R-20261115-62); flat = top-down board, iso = isometric block",
+  "views": {
+    "flat": {
+      "source": "ChatGPT Image Nov 15, 2026, 09_27_12 PM.png",
+      "pixel_size": [
+        938,
+        934
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        934,
+        930
+      ],
+      "sha256": "049ad61691a84de62947846f5ffd1e1bdda72c66c378087de32913c5552e658b"
+    },
+    "iso": {
+      "source": "ChatGPT Image Nov 15, 2026, 09_28_04 PM-3.png",
+      "pixel_size": [
+        1110,
+        894
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        1106,
+        890
+      ],
+      "sha256": "b8e0086a289cbbf655ffb0d166f4a2d614457a0ad6756604fb4bd6c0d2193b20"
+    }
+  }
+}

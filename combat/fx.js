@@ -8,7 +8,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.ConceptCombatFX = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
-  const DURATIONS = { pose: 200, travel: 420, impact: 220, float: 640, wait: 280, slide: 200, announce: 240 };
+  const DURATIONS = { pose: 200, bodyCast: 640, travel: 420, impact: 220, float: 640, wait: 280, slide: 200, announce: 240 };
   const SHAPES = ["line", "routed", "field", "placed", "self", "delayed", "contact", "release"];
   const MATERIALS = {
     nigredo: { id: "nigredo", gesture: "stamp", width: 7, core: "#c45a3a" },
@@ -80,6 +80,12 @@
       announce: "line",
       width: 3.5,
       cap: 1200,
+    },
+    // FX3 F2 (claude-fx3-bastion-spec Decision 1, R-20261114-29): the ultimate cap, so its three hits can be counted.
+    bastionCollapse: {
+      id: "bastionCollapse",
+      name: "Bastion Collapse",
+      cap: 1800,
     },
   };
   const HEAL = "#7cc6a4";
@@ -257,6 +263,7 @@
       positions: x.positions || a.positions || null,
       pose: poseFor({ pose: x.pose || a.pose || null, type, effect, delivery, response: x.response || a.response || null, name, ability: x.ability || a.ability || a.id || null, def: a }),
       phase: x.phase || a.phase || null,
+      bodyCast: x.bodyCast || a.bodyCast || null,
       stopAt: xy(x.stopAt != null ? x.stopAt : a.stopAt),
     };
   }
@@ -1283,11 +1290,21 @@
         return Math.max(0, wait);
       },
       idle(now) { return this.sample(now).done; },
+      // FX3 F2: the script playing at `now` and how far into it play is, or null when none is. Read-only: unlike
+      // sample() it drops nothing from the queue. With several queued, the first pushed that is playing.
+      current(now) {
+        const t = now || 0;
+        for (const item of items) {
+          const elapsed = t - item.t0;
+          if (elapsed >= 0 && elapsed <= item.script.tail) return { script: item.script, elapsed };
+        }
+        return null;
+      },
       sample(now) {
         const t = now || 0;
         const ops = [];
         const groups = [];   // per script: its cue's identity and the ops it drew (fx-sprites.js)
-        const poses = {};
+        const poses = {}, bodyCasts = {};
         let pose = null;
         let actor = null;
         const keep = [];
@@ -1299,6 +1316,10 @@
           const drawn = sampleScript(item.script, local);
           for (const op of drawn.ops) ops.push(op);
           const cue = item.script.cue;
+          const first = item.script.beats[0];
+          if (cue?.actor && first?.bodyCast && first.ms > 0 && local >= first.start && local < first.end) {
+            bodyCasts[cue.actor] = { id: first.bodyCast, p: progress(first, local) };
+          }
           if (drawn.ops.length) groups.push({ cue: cue ? { concept: cue.concept, effect: cue.effect, type: cue.type, damageType: cue.damageType, ability: cue.ability } : null, ops: drawn.ops });
           if (drawn.pose) {
             pose = drawn.pose;
@@ -1310,7 +1331,7 @@
           }
         }
         items = keep;
-        return { pose, poses, actor, ops, groups, done: keep.length === 0 };
+        return { pose, poses, bodyCasts, actor, ops, groups, done: keep.length === 0 };
       },
     };
   }
@@ -1321,6 +1342,7 @@
     if (cue.ability === "longView" || cue.name === "Long View") return "longView";
     if (cue.ability === "sieveVerdict" || cue.name === "Sieve Verdict") return "sieveVerdict";
     if (cue.ability === "undividedAttention" || cue.name === "Undivided Attention") return "undividedAttention";
+    if (cue.ability === "bastionCollapse" || cue.name === "Bastion Collapse") return "bastionCollapse";
     return null;
   }
 
@@ -1462,12 +1484,13 @@
     const beats = [];
     let path = [];
     if (built) {
-      beats.push({ kind: "pose", dur: "pose", blocks: true, pose: built.pose, actor: built.actor });
+      const bodyCast = !commit && !announceOnly ? built.bodyCast : null;
+      beats.push({ kind: "pose", dur: bodyCast ? "bodyCast" : "pose", blocks: true, pose: built.pose, actor: built.actor, ...(bodyCast ? { bodyCast } : {}) });
       if (commit) {
         const scheduled = evs.find((e) => e.kind === "schedule" && e.tiles);
         const tiles = built.tiles.length ? built.tiles.slice() : normalizeTiles(scheduled && scheduled.tiles);
         beats.push({ kind: "wait", dur: "wait", blocks: true, shape: "hatch", tiles: tiles.length ? tiles : (built.origin ? [built.origin] : []), color: built.color || "#f08c83" });
-      } else if (!announceOnly) {
+      } else if (!announceOnly && !bodyCast) {
         const travel = travelBeat(built, stop);
         if (travel) {
           if (travel.points) path = travel.points;
@@ -1556,8 +1579,12 @@
         });
       }
     }
-    const raised = ult && ULTIMATES[ult] && ULTIMATES[ult].cap != null && (opts == null || opts.cap == null);
-    const layoutOpts = raised ? Object.assign({ cap: ULTIMATES[ult].cap }, opts) : opts;
+    // A named ultimate plays to its row's cap when the caller passes none, or when the caller opts in with rowCaps and its cap
+    // is shorter: the battle screen passes 880 for every cue (ui.js fxTiming), which kept every row from applying live.
+    // Fast mode stays instant through its scale of 0 (layout makes every beat 0 ms); any other explicit cap still wins. R-20261115-29 (Mala, 2026-11-15), FX3 F2 rev 1.
+    const rowCap = ult && ULTIMATES[ult] ? ULTIMATES[ult].cap : null;
+    const raised = rowCap != null && (opts == null || opts.cap == null || (opts.rowCaps === true && opts.cap < rowCap));
+    const layoutOpts = raised ? Object.assign({}, opts, { cap: rowCap }) : opts;
     const timed = layout(beats, layoutOpts);
     return { pose: built ? built.pose : null, actor: built ? built.actor : null, beats, blockingMs: timed.blockingMs, tail: timed.tail, path, cue: built };
   }

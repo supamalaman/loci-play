@@ -168,13 +168,69 @@
         return true;
       },
     };
-    // ── Rites (RITE-LEDGER.md; L1 socket): one ledger per actor for ritual state. a.rites[] holds a
-    // record per kind ({ id, kind, steps[], bank{}, hold, audience, state }); a.rite stays behind as a
-    // dual-written mirror so every old reader (capture gate, seal, tick, concentration, menus) reads
-    // byte-identical state until L2 moves it. Rebuild-on-write: a mirror with no record (an old save,
-    // a sacrifice grant ahead of the first step) is absorbed on the next ledger write, never duplicated.
+    // Rites (RITE-LEDGER.md): a.rites[] owns active channels. Legacy mirrors keep the
+    // shapes used by presentation and older snapshots. A mirror-only channel is adopted on write.
+    const isCaptureChannel = (r) => r.state === "open" && (r.kind === "capture" || r.kind === "chant");
+    const isCaptureHistory = (r) => r.kind === "capture" && r.state === "recorded";
+    const captureActors = (s) => Object.values({ ...s.film?.saved?.actors, ...s.actors });
+    function appendCaptureStep(s, actor, type, event) {
+      const a = s.actors[actor] || s.film?.saved?.actors?.[actor];
+      const ledger = a ? (a.rites ||= []) : (s.retiredCaptureRites ||= []);
+      let rec = ledger.find((r) => isCaptureHistory(r) && r.bank.actor === actor);
+      if (!rec) {
+        rec = { id: `${actor}:capture:history`, kind: "capture", steps: [], bank: { actor }, hold: 0, audience: null, state: "recorded" };
+        ledger.push(rec);
+      }
+      rec.steps.push({ type, order: s.riteCaptureCount++, event });
+    }
     const Rites = {
-      of(a, kind = "muse2") { return (a.rites || []).find((r) => r.kind === kind) || null; },
+      of(a, kind = "muse2") { return a?.rites?.find((r) => r.kind === kind && r.state === "open") || null; },
+      capture(a) {
+        const rec = a?.rites?.find(isCaptureChannel);
+        return rec ? { ...rec.bank, turnsLeft: rec.hold } : a?.ritual;
+      },
+      setCapture(a, capture) {
+        if (!capture) {
+          if (a.rites) a.rites = a.rites.filter((r) => !isCaptureChannel(r));
+          a.ritual = null;
+          return;
+        }
+        const { turnsLeft, ...bank } = capture;
+        let rec = a.rites?.find(isCaptureChannel);
+        if (!rec) {
+          const kind = capture.visitor ? "chant" : "capture";
+          rec = { id: `${a.id}:${kind}`, kind, steps: [], bank: {}, hold: 0, audience: null, state: "open" };
+          (a.rites ||= []).push(rec);
+        }
+        rec.bank = bank;
+        rec.hold = turnsLeft;
+        a.ritual = { ...capture };
+      },
+      beginCapture(s, a, capture, kind) {
+        this.setCapture(a, capture);
+        this.recordCapture(s, a, "started", { kind, started: true });
+      },
+      recordCapture(s, a, type, event) {
+        if (s.riteCaptureCount === undefined) {
+          s.riteCaptureCount = 0;
+          for (const { actor, ...prior } of s.captureLog || []) {
+            const priorType = ["started", "released", "broken", "moved", "fizzled", "ok"].find((k) => prior[k]);
+            appendCaptureStep(s, actor, priorType || "legacy", prior);
+          }
+        }
+        appendCaptureStep(s, a.id, type, event);
+        const rites = captureActors(s).flatMap((actor) => (actor.rites || []).filter(isCaptureHistory));
+        s.captureLog = [...rites, ...(s.retiredCaptureRites || [])]
+          .flatMap((r) => r.steps.map((step) => ({ order: step.order, entry: { actor: r.bank.actor, ...step.event } })))
+          .sort((a, b) => a.order - b.order)
+          .map((step) => step.entry);
+      },
+      // Transfer the ledger record before a permanent removal. An actor on the Director's
+      // frozen field still owns its record and is included in the projection above.
+      retainCaptureHistory(s, a) {
+        const rec = a?.rites?.find(isCaptureHistory);
+        if (rec) (s.retiredCaptureRites ||= []).push(rec);
+      },
       // The muse2 record: created on the first banked step, or rebuilt from the a.rite mirror.
       muse2(a) {
         let rec = this.of(a);
@@ -202,6 +258,10 @@
         if (!rite.steps.some((x) => x.type === "sacrifice" && x.from === from.id)) rite.steps.push({ type: "sacrifice", from: from.id });
         rite.steady = true; rite.hold = Math.max(rite.hold || 0, 2 * rite.steps.length); a.rite = rite;
         return rite;
+      },
+      spendSteps(a, count) {
+        this.muse2(a).steps.splice(0, count);
+        a.rite?.steps.splice(0, count);
       },
       // Seal, abandon, fizzle, break: the bank empties in both homes. Returns the lost step count.
       clear(s, a) {

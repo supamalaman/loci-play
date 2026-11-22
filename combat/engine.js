@@ -42,7 +42,7 @@
   else root.ConceptCombat = factory(Observation, Tourist, root.ConceptCombatPostures, root.ConceptCombatPresident, Sight, Belief, GraphLive, ClassRuntime, root.ConceptCombatDirector, RandomEvents, Climate, Auras, Parley, Bonds, Vows, MaidSystems, Workflow, UtilityAI, Communion, Traps, Tsukumogami, Imitation, EmergentIdeas, EnemySummons, MindDuel, root.ConceptCombatConversion, root.ConceptCombatCourtroom, root.ConceptCombatDispatch, root.ConceptCombatPresence, root.ConceptCombatDebt, root.ConceptCombatSealing, root.ConceptCombatVisitors, (root.ConceptCombatBuild && root.ConceptCombatBuild.version) || "dev");
 })(typeof self !== "undefined" ? self : this, function (Observation = null, Tourist = null, Postures = null, President = null, Sight = null, Belief = null, GraphLive = null, ClassRuntime = null, Director = null, RandomEvents = null, Climate = null, Auras = null, Parley = null, Bonds = null, Vows = null, MaidSystems = null, Workflow = null, UtilityAI = null, Communion = null, Traps = null, Tsukumogami = null, Imitation = null, EmergentIdeas = null, EnemySummons = null, MindDuel = null, Conversion = null, Courtroom = null, Dispatch = null, Presence = null, Debt = null, Sealing = null, Visitors = null, BUILD = "dev") {
   // The engine's parts, in install order (web/combat/engine/). Node requires them; the pages load them as scripts first.
-  const ENGINE_PARTS = ["charge","ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
+  const ENGINE_PARTS = ["charge","ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","tenancy","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
     ? require("./engine/" + name + ".js") : globalThis.ConceptCombatEngineParts[name.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase())]), Affinity = typeof module === "object" && module.exports ? require("./vows/affinity.js") : globalThis.ConceptCombatAffinity, VK = typeof module === "object" && module.exports ? require("./vows/vowkit.js") : globalThis.CombatVowKit;   // W4.5-6: vow-drive audit + declaration kit
 
 
@@ -266,13 +266,13 @@
       const options=focusedDreamTestOptions();
       return {...options,summonTrueFormTest:true,title:`${key} Reveal Effect · playable test 3`,initialSummons:[{key,owner:"player",at:[3,3]}]};
     }
-    function summonProfile(s, id) {
+    function summonProfile(s, id, key = null) {   // key (Tandem T2c): the summon being called; a passed tandem's first call is free
       const actor = s.actors[id], base = { apCost: summonRules?.data.rules.actionCost ?? 80, phiCost: summonRules?.data.rules.phiCost ?? 8 };
       const field = dreamSpaceRules?.contains(s.dreamSpace, actor?.x, actor?.y) ? s.dreamSpace : null;
       const cost = H.summonPhiAdd(actor, dreamSpaceRules ? dreamSpaceRules.summonCost(field, base) : base);
       const profile = { ...(EmergentIdeas ? EmergentIdeas.summonProfile(actor, cost) : { ...cost, wardProtection: 0 }), maxActive: summonRules?.data.rules.maxActive ?? 1 };
       if (field && actor?.widenedPalace) profile.maxActive += 1;   // Widened Palace dream slot
-      return { ...profile, active: Object.values(s.actors).filter(u => EmergentIdeas?.summonerOf(u) === id && EmergentIdeas.summonPresent(u)).map(u => u.id) };
+      return { ...profile, ...(summonRules?.Trial?.freeCall(s, actor, key) ? { apCost: 0, phiCost: 0, freeCall: true } : {}), active: Object.values(s.actors).filter(u => EmergentIdeas?.summonerOf(u) === id && EmergentIdeas.summonPresent(u)).map(u => u.id) };
     }
     // summonQuestionHints lives in engine/queries.js (moved whole for O2c: engine.js is at its cap).
     function summonReadiness(s, id, summon, unlocked = s.unlockedSummons || []) {
@@ -280,7 +280,7 @@
       if (!actor || actor.defeated || actor.lf <= 0) return { ok: false, reason: "Choose a living summoner." };
       if (actor.form?.golden) return { ok: false, reason: "The Integrated Self has no need to summon." };
       if (!summonRules || !summonQuestions) return { ok: false, reason: "Summoning is unavailable." };
-      return summonRules.canCall(actor, { ...summonProfile(s, id), used: s.summonUsed, ap: actor.tempo, pf: actor.pf }, summon, unlocked);
+      return summonRules.canCall(actor, { ...summonProfile(s, id, summon), used: s.summonUsed, ap: actor.tempo, pf: actor.pf }, summon, unlocked);
     }
     // A practice battle for Contains Multitudes: full Inspiration and a ledger with a few classes already in it, so it
     // can be tried without earning either. Practice: nothing is saved, and nothing is written to the real ledger.
@@ -296,7 +296,7 @@
         ultimateCharge:0,level:owner.level,xp:0,proficiency:owner.proficiency,reserve:[],reserveSlots:0,pendingSwap:null,lens:{},reaction:s.rules.reactionsPerRound,
         moved:false,acted:false,tempo:0,tempoCapacity:0,bankedTempo:0,tempoDebt:0,tempoSpent:0,actionsThisTurn:0,guardUsedThisTurn:false,
         ownerTurns:0,lastRecoverTurn:-99,status:{guard:null,ward:null,parry:null,membrane:null,anchor:null,stun:null,entangled:null},inventory:[],inventoryCapacity:0,
-        passives:{},lanyardUsed:false,bristleconeUsed:false,lastDamageType:null,rite:null,ritual:null,riteAugment:null,beads:null,learned:[],defeated:false};   // fresh hands: rites, rituals, augments, beads and learned techniques stay with the summoner (the Genghis bead-theft; the Mitsuko audition)
+        passives:{},lanyardUsed:false,bristleconeUsed:false,lastDamageType:null,rite:null,rites:null,ritual:null,riteAugment:null,beads:null,learned:[],defeated:false};   // fresh hands: rites, rituals, augments, beads and learned techniques stay with the summoner (the Genghis bead-theft; the Mitsuko audition)
       // A summon's own chance traits (summons-data.js chanceTraits; the Inner Child is usually Imaginative). One seeded roll each.
       summonRules?.freshen?.(summon); { const own = summonRules?.data?.summons?.[raw.character]?.chanceTraits;
         if (own) summon.traits = [...new Set([...(summon.traits || []), ...own.filter(([t, p]) => H.seededChance(`${s.seed}:summon:${raw.character}:${t}`) < p).map(([t]) => t)])]; }
@@ -368,6 +368,7 @@
         throw new Error("Arena height must match the map and use integer levels 0–3.");
       opts = H.withHunter(opts, enc, arena);   // OP1 §6: a posted head draws a hunter (engine/fruit.js)
       const s = {
+        courtPrior: opts.courtPrior ? { ...opts.courtPrior } : null,
         v: 1, build: BUILD, receiptId: opts.receiptId || null, encounter: opts.encounter || "gapCourt", mode: opts.mode || "classic", modeSetup: null, themedBattle: opts.themedBattle || null, sealedFight: opts.sealedFight, vignette: opts.vignette ? { ...clone(opts.vignette), objectiveProgress: opts.vignette.objectiveProgress || 0, lastObjectiveRound: 0 } : null, rules, seed: opts.seed ?? 0, seeds: opts.seeds || 0,   // W5.3 jackpot
         time: { phase: opts.startPhase === "night" ? "night" : "day", startPhase: opts.startPhase === "night" ? "night" : "day" }, nightWildIds: [],
         randomEventSchedule: clone(opts.randomEventSchedule || []), randomEventWildIds: [], randomDreamRift: null, randomTerrainChanges: [],
@@ -428,7 +429,7 @@
         const basePassives = a.id === "player" && !opts.storyKit ? clone(ch.passives || {}) : H.relicPassives(a.id === "player" ? clone(ch.passives || {}) : {}, a.character, a.id === "player" ? opts.equippedGear : null);
         // The player's belief is their own (the account's self traits), so a belief rolled for their class is dropped.
         const authoredTraits = (insightRules?.profileTraitIds?.(a.character, s.seed) || []).filter(t => a.id !== "player" || !(insightRules.data?.beliefTraits || []).includes(t));
-        const characterTraits = a.id === "player" ? s.self.traits : authoredTraits;
+        const characterTraits = a.id === "player" ? s.self.traits : [...new Set([...authoredTraits, ...(a.traits || []).map(t => typeof t === "string" ? t : t?.id).filter(Boolean)])];   // a granted trait (scenario foes.traits, an event) folds like the draw, once (R-20261115-38, -59)
         const runtimeTraits = [...new Set([...(ch.traits || []), ...(a.traits || []), ...authoredTraits, ...(a.id === "player" ? (opts.imitatedTraits || []).filter(t => insightRules?.imitable?.(t)) : []),   // C11: copies carried in from the account
           ...(a.id === "player" ? (s.self.traits || []).map(t => typeof t === "string" ? t : t?.id).filter(Boolean) : [])])];
         const traitMods = insightRules?.combatModsForTraits?.(characterTraits, { seed: s.seed, characterKey: a.character }) || { abilityDamageMul: 1, ultimateChargeMul: 1 };
@@ -535,7 +536,7 @@
         const enemies = Object.values(s.actors).filter((a) => a.side === "enemy" && !a.notArrived);   // reinforcements still to arrive can't be the mark
         const modeArena = moduleArena(s.arena);
         modeArena.spawns = { ...(modeArena.spawns || {}), player: [[s.actors.player.x, s.actors.player.y]], enemy: enemies.map((e) => [e.x, e.y]) };
-        s.modeSetup = modeRules.setupMode(s.mode, { arena: modeArena, hero: "player", enemies, seed: s.seed });
+        s.modeSetup = modeRules.setupMode(s.mode, { arena: modeArena, hero: "player", enemies, seed: s.seed, rules: s.rules });   // rules: a scenario objective decides what is laid (SC19 exit)
       }
       if(opts.focusedDreamTest) { s.focusedDreamTest=true; s.actors.player.ultimateCharge=100; }
       log(s, { kind: "phase", text: `${opts.title || enc.name}. ${s.order.map((id) => s.actors[id].name).join(" → ")} (fixed initiative).` });
@@ -552,7 +553,7 @@
       if (opts.bossRush) s.bossRush = true;
       if (opts.houses !== false) H.spawnHouse(s);   // a contested house near the center, on a roll (engine/houses.js)
       for (const u of Object.values(s.actors)) if (u.boss === "gaia") { H.setGaiaForm(s, u, bossRules?.data?.bosses?.gaia?.startForm || "restored"); H.landState(s).gaia = u.id; }   // she starts as the Living Accord   // the boss rush (docs/boss-rush.md): read by the data center's turn-one roll
-      const carriedOrbs = opts.devPlayground ? bossRules?.publicOrbs?.() : opts.orbs; H.carryLearnedForms?.(s, opts); H.nameRandomFoes?.(s); H.assignEnemyLoci?.(s); H.carryLegacy?.(s, opts); H.carryBeasts?.(s, opts); H.carryFruit?.(s, opts); H.carryOrder?.(s, opts); H.fishRound?.(s, true); if (Array.isArray(opts.wildFriends) && opts.wildFriends.length) s.wildFriends = opts.wildFriends.slice();   // learned forms (docs/learned-forms.md)
+      const carriedOrbs = opts.devPlayground ? bossRules?.publicOrbs?.() : opts.orbs; H.carryLearnedForms?.(s, opts); H.nameRandomFoes?.(s); H.assignEnemyLoci?.(s); H.carryLegacy?.(s, opts); H.carryBeasts?.(s, opts); H.carryFruit?.(s, opts); H.carryTenant?.(s, opts); H.carryOrder?.(s, opts); H.fishRound?.(s, true); if (Array.isArray(opts.wildFriends) && opts.wildFriends.length) s.wildFriends = opts.wildFriends.slice();   // learned forms (docs/learned-forms.md)
       if (Array.isArray(carriedOrbs) && carriedOrbs.length) { const hero = s.actors[s.modeSetup?.hero || "player"]; if (hero) hero.orbs = carriedOrbs.filter((id) => bossRules?.data?.orbs?.[id]); } s.vessels = opts.vessels ? { ...opts.vessels } : null;   // orbs kept on the account (docs/brain-chip.md)   // vessel economy: the packed pouch rides in (null → apprentice shard via pouch())
       if (Array.isArray(opts.beads) && opts.beads.length) { const hero = s.actors[s.modeSetup?.hero || "player"]; if (hero) hero.beads = opts.beads.filter(b => b && (wildRules?.data?.monsters?.[b.kind] || (b.kind === "dream" && typeof b.mind?.key === "string" && b.mind.key && b.name))).map(b => b.kind === "dream"
         ? { kind: "dream", name: b.name, maxLF: b.maxLF || 40, mind: { ...b.mind, dream: { ...(b.mind.dream || {}), key: b.mind.key } } }   // a tamed monster of the mind, kept between battles (2026-10-14)
@@ -571,9 +572,9 @@
     function reserveSlotsFor(level) {
       let n = 1; for (const m of C.progression.reserveSlotsByLevel) if (level >= m.level) n = m.slots; return n;
     }
-    function spendTempo(s, a, points, actionName, overclock = false) {
+    function spendTempo(s, a, points, actionName, overclock = false, wholeTurn = false) {
       if (!Number.isFinite(points) || points < 0) return `${actionName} has an invalid action-point cost.`;
-      const heldMul = H.heldCostMul ? H.heldCostMul(s, a) : 1;   // Contact Reading: a unit in an MMA Fighter's hold pays double for everything
+      const heldMul = !wholeTurn && H.heldCostMul ? H.heldCostMul(s, a) : 1;   // Contact Reading: a unit in an MMA Fighter's hold pays double for everything
       if (heldMul !== 1 && points > 0) { points = Math.round(points * heldMul); actionName = `${actionName} (×${heldMul} in the hold)`; }
       const shortfall = Math.max(0, points - a.tempo);
       if (shortfall && a.awakened) return `${a.name} has spent its turn (${actionName} needs ${points} action points, has ${a.tempo}).`;   // Tsukumogami: one action means one — no overclock debt buys a second
@@ -641,7 +642,7 @@
       }
     }
     function recordBattleMirrorOutcome(s) {
-      if(s.outcome) Tourist?.settle(s,touristH());
+      if (s.outcome) { Vows?.finishTeaVows(s, { log }); Tourist?.settle(s, touristH()); }
       if (!mirrorRules || !s.self || !s.outcome) return;
       recordMirrorEvent(s, { kind: "battleEnd", won: s.outcome.winner === "player", mode: s.mode,
         correctAnswers: s.summonCorrectAnswers || 0, lfLostByRound2: s.mirror.lfLostByRound2 || 0,
@@ -673,7 +674,8 @@
       return Math.max(0, Math.min(3, base + modifier));
     };
     function tileAt(s, x, y) {
-      const base = C.tiles[surfaceAt(s, x, y)] || C.tiles["."];
+      const groundTile = C.tiles[surfaceAt(s, x, y)] || C.tiles["."];
+      const base = H.isFord(s, x, y) ? { ...groundTile, name: "Shallow ford", moveCost: s.rules.fordMoveCost } : groundTile;
       const growth = patchAt(s, x, y);
       const garden=(s.terrainEffects||[]).some(e=>e.kind==="rainGarden"&&e.tiles.includes(key(x,y))&&s.actors[e.owner]?.ownerTurns<e.expiresAt);
       const dam=(s.terrainEffects||[]).some(e=>e.kind==="checkDam"&&e.x===x&&e.y===y&&s.actors[e.owner]?.ownerTurns<e.expiresAt);
@@ -864,7 +866,7 @@
       if (!holds("legitimacy", "strategic_commitment")) { const i=out.indexOf("theAccordHolds"); if(i>=0)out.splice(i,1); }
       if (!holds("strategic_commitment", "pathway")) { const i=out.indexOf("anotherWayHome"); if(i>=0)out.splice(i,1); }
       for (const id of [...(a.learned || []), ...(a.stateOffers || []), ...(a.passives?.soulArtIds || [])]) if (!out.includes(id) && ab(id)) out.push(id);   // genius; Remind; J6 soul arts
-      const formKit = [...(a.form?.techniques || []), ...(H.fruitKitOf?.(a) || [])].filter((id) => ab(id));   // orb form + Sinkerfruit techniques
+      const formKit = [...(a.form?.techniques || []), ...(H.fruitKitOf?.(a) || []), ...(H.tenantKitOf?.(a) || [])].filter((id) => ab(id));   // orb form + Sinkerfruit techniques
       for (const id of formKit) if (!out.includes(id)) out.push(id);
       if(a.status?.verse?.id && a.status.verse.until>=a.ownerTurns && ab(a.status.verse.id))out.push(a.status.verse.id);
       if (ClassRuntime) return [...new Set(out)].filter((id) => (a.learned || []).includes(id) || (a.stateOffers || []).includes(id) || (a.passives?.soulArtIds || []).includes(id) || formKit.includes(id) || ClassRuntime.available(a, ab(id), id));   // ClassRuntime: pair-gated class abilities
@@ -998,7 +1000,7 @@
       if(a.status?.verse?.id===abilityId && a.status.verse.until>=a.ownerTurns){m.cost=0;m.verse=true;if(a.status.verse.freeAp)m.tempoCost=0;m.notes.push("Borrowed verse: original prerequisites and counters; ΦF already paid.");}
       if (a.exposure?.longCut && abilityId === s.rules.exposure?.cut?.ability) { m.range += s.rules.exposure.cut.reach; m.notes.push(`The long cut: reach +${s.rules.exposure.cut.reach}. It leaves you open until your next turn.`); }   // Exposure, sample 9
       if (abilityId === "focus" && H.FocusPlans?.free(s,a)) { m.cost=0; m.tempoCost=0; m.freeFocus=true; m.notes.push("Free Fix Attention: eliminate this opponent to renew the allowance."); } H.adhdPrice?.(s, a, abilityId, m); ClassRuntime?.price?.(s, a, abilityId, m); H.legacyPrice?.(s, a, abilityId, m);
-      { const ra = m.revelation > 1 ? s.rules.revelation?.apAdd?.[m.revelation] || 0 : 0; if (ra) { m.tempoCost += ra; m.notes.push(`${s.rules.revelation.names[m.revelation]}: +${ra} AP to give that much away (Revelation).`); } } H.Contracts?.decorate(s,a,m);return m;   // Revelation AP (Mala, 2026-10-26: depth costs AP until readers exist)
+      { const ra = m.revelation > 1 ? s.rules.revelation?.apAdd?.[m.revelation] || 0 : 0; if (ra) { m.tempoCost += ra; m.notes.push(`${s.rules.revelation.names[m.revelation]}: +${ra} AP to give that much away (Revelation).`); } } H.Contracts?.decorate(s,a,m);if(m.effect==="cure")H.States.cureBill(a,m); if (!options.copySource) Vows?.applyPlainCup(s, a, m); return m;   // Revelation AP (Mala, 2026-10-26: depth costs AP until readers exist)
     }
     const ownerOfConcept = (a, concept) => concept === a.primary ? "primary" : concept === a.secondary ? "secondary" : null;
 
@@ -1087,6 +1089,7 @@
       }
     }
     function addRandomTerrain(s, event) {
+      if (event.effect === "water-surge" && H.queueWaterSurge(s, event.tiles || [], 2, "The ford surge")) return;
       const candidates = [];
       for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) {
         if ((event.effect !== "shallow-flood" && actorAt(s, x, y)) || (s.arena.objects || []).some(o => o.x === x && o.y === y && o.blocksMove)) continue;
@@ -1095,6 +1098,7 @@
       const seed = RandomEvents?.hash(s.seed, `terrain-event:${event.id}`) || 0;
       candidates.sort((a, b) => ((a[0] * 31 + a[1] * 17 + Math.floor(seed * 997)) % 97) - ((b[0] * 31 + b[1] * 17 + Math.floor(seed * 997)) % 97));
       const n = event.effect === "shallow-flood" ? 3 : 2;
+      if (event.effect === "shallow-flood" && H.queueWaterSurge(s, candidates.slice(0, n).map(([x, y]) => [x, y]), 2, "The flash flood")) return;
       for (const [x, y, from] of candidates.slice(0, n)) {
         if (event.effect === "fallen-cover") {
           const id = `event-cover-${event.id}-${x}-${y}`;
@@ -1161,9 +1165,9 @@
       H.scenarioPickup(s, unit, got);
     }
     function updateWildTelegraphs(s) {
-      if (!wildRules) return;
-      const w = wildSnapshot(s); s.wildTelegraphs = wildRules.telegraph(w);
+      s.wildTelegraphs = wildRules ? wildRules.telegraph(wildSnapshot(s)) : [];
       for (const t of s.wildTelegraphs) log(s, { kind: "telegraph", actor: t.id, tiles: t.tiles, text: t.text });
+      s.wildTelegraphs.push(...H.waterTelegraphs(s));
     }
     function runWildEnvironment(s) {
       if (!wildRules || s.outcome) return;
@@ -1173,6 +1177,7 @@
       if (modeRules && s.modeSetup) w.allowAppearances = modeRules.appearancesAllowed(s.modeSetup, { round: s.round, units: w.units, wild: w.wild });
       const result = wildRules.environmentPhase(w); saveWildWorld(s, result.world);
       for (const ev of result.events) {
+        if (ev.kind === "waterSurge" && H.queueWaterSurge(s, ev.tiles, ev.volume, ev.text)) continue;
         if (ev.kind === "wildHit") {
           const wid = ev.id || ev.actor;   // wild/monsters.js damageUnit names the monster as `actor`; reading only `id` logged its hits with no attacker
           const singer=s.wild.find(u=>u.id===wid)?.status?.soothed;
@@ -1419,8 +1424,13 @@
       aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, approach, retreat, lessonsOf, lessonMul, cannotDodge
     } = H;
     return { cards: H.Cards, warfareEventOptions, eventParticipantsFor, create, apply, preview, targeting, moveOptions, jumpOptions, climbOptions, movementBudget: (s, id) => moveBudgetFor(s, s.actors[id]), movementStepCost: (...a) => H.stepCost(...a), maxRoomFor: (...a) => H.maxRoomFor(...a), availableAbilities, actionOptions, randomEncounterOptions, manifest: (s, id, abId) => manifest(s, s.actors[id], abId),
+      conveneOptions: (s, id) => Courtroom?.hasBench(s.actors[id], H) ? {
+        cost: Courtroom.conveneCost(s, H, s.actors[id]),
+        targets: Object.values(s.actors).filter((target) => !Courtroom.canConvene(s, H, id, target.id)).map((target) => target.id),
+      } : null,
       waterState: (s,x,y) => H.waterState(s,x,y), updateWater: s => H.updateWater(s), recoverWater: (s,id) => H.waterRecovery(s,s.actors[id]),
       abilitiesOf: (s, id) => abilitiesOf(s.actors[id]), riteDraws: (def) => H.riteDraws(def), decider, aiAction, inspectAiAction: (s, options) => H.withAiTrace(() => aiAction(s), options), replay, answerTransfer, progress, report, mysteryFoeView: (s, side) => H.mysteryFoeCount(s, side), mysteryOwnView: (s, side) => (s.mystery?.[side] || []).map((c) => ({ ...c })),
+      previewCurrent: (s,at,actor) => H.previewCurrent(s,at,actor),
       // For tests and sims: land a hit or a stun through the real pipeline, and read the monster context.
       testEntry: (s, srcId, unitId, x, y) => { const u = s.actors[unitId]; u.x = x; u.y = y; applyEntryEffects(s, s.actors[srcId], u, x, y, "is forced into"); },
       weatherTileValue, demonstratedTraits,

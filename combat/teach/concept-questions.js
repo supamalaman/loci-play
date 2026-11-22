@@ -259,9 +259,17 @@
     { id: "wat-canopy-1", topic: "Water", prompt: "A tile under a tree canopy stays dry in the early rain. What ends its shelter?", choices: ["Nothing — canopy is permanent", "The rain outlasts what the canopy can hold", "Wind alone"], answer: 1,
       explain: "Canopy holds the rain off only while rainRounds stays within canopyHoldsRainRounds; a long storm soaks through. Same rule the microclimate already used. (Runoff still pools downhill under trees — canopy stops rain, not rivers.)" },
     { id: "wat-flow-1", topic: "Water", prompt: "A stream tile on a slope carries a current vector each round. What does the vector mean?", choices: ["The tile is about to dry", "That edge drains toward its lowest lower neighbor", "Something swims there"], answer: 1,
-      explain: "Flow records a [dx,dy] toward the lowest lower neighbor — the current's direction. W1 only telegraphs it; W2's currents will push units along it." },
-    { id: "wat-tele-1", topic: "Water", prompt: "No water effect ever lands untelegraphed. How does the agenda warn you?", choices: ["A log line naming the tiles it touches", "A popup you must dismiss", "It doesn't — veterans watch the sky"], answer: 0,
-      explain: "'Rain pools in the low ground' and 'Water spreads downhill' log with their tiles every round they act: one telegraph per threat per round, always ahead of the effect." },
+      explain: "Flow points to the lowest open neighbor below the source. If the route stays open, the current can carry a fighter or a loose item one tile that way." },
+    { id: "wat-tele-1", topic: "Water", prompt: "How does the agenda warn you about next round's currents?", choices: ["A log line naming the tiles it touches", "A popup you must dismiss", "It doesn't — veterans watch the sky"], answer: 0,
+      explain: "Look for the current forecast in the battle log. Its tiles and directions mark where a fighter or loose item could be swept next round." },
+    { id: "wat-drift-1", topic: "Water", prompt: "You are standing in the path of a current. What can keep it from carrying you downhill?", choices: ["A nearby loose item", "Anchor or the Swimmer trait", "Ending your turn"], answer: 1,
+      explain: "Anchor cancels the displacement, and Swimmer lets you hold your position in the current. Anyone swept into water still goes through the ordinary immersion rules." },
+    { id: "wat-recede-1", topic: "Water", prompt: "Standing water drains off a tile. How long does its high-water mark keep the ground wet?", choices: ["One round", "Until the end of battle", "It dries out instantly"], answer: 0,
+      explain: "Soil drains and direct sunlight evaporates standing water. Once the surface dries, the mark keeps its footing wet for one round." },
+    { id: "wat-surge-1", topic: "Water", prompt: "What happens when a cistern bursts on a Living Water arena?", choices: ["The water stays on the cistern tile", "The nearby ground becomes permanent water", "A warning marks the release, then water can flow downhill and recede"], answer: 2,
+      explain: "The burst feeds the same water volume as runoff. The agenda warns you before it releases, then moves the water along the terrain." },
+    { id: "wat-ford-1", topic: "Water", prompt: "A shallow ford lets you cross the channel. What does it still cost?", choices: ["Movement to cross the shallow stones", "Your ultimate charge", "A new ability slot"], answer: 0,
+      explain: "A ford stays shallow. Entering its submerged stones costs extra movement, and normal water action-point costs still apply. Check the marked current before ending your turn there." },
   ];
   return { questions };
 });

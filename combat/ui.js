@@ -21,6 +21,7 @@
   const isFieldKind = (m, kind) => !!m && !!m.tiles && m.kind === kind && (!WD || !!(WD.fields || {})[kind]);
   const RO = root.ConceptCombatRoles;   // classes/roles.js: attack, support / defense or specialist, read off a loadout's abilities
   const A = root.ConceptCombatAccount, Loot = root.ConceptCombatLoot, Cook = root.ConceptCombatCooking, CS = root.ConceptCombatCommandSearch; const Board = root.ConceptCombatBoard; const Tracks = root.ConceptCombatTracks; const Ceremony = root.ConceptCombatCeremony; const JStates = root.ConceptCombatJinkiStates;
+  const FamiliarPicker = root.ConceptCombatFamiliarPicker;
   const CardsUI = root.ConceptCombatCardsUI, Cardbook = root.ConceptCombatCardbook;   // Battle Cards: the Field Kit "Battle deck" group (C0) and the battle Cards drawer (C1)
   const SF = root.ConceptCombatSaveFile || null;   // export/import your save (combat/save-file.js)
   const AN = root.ConceptCombatAnte || null;   // W1.5: ante stakes math (account/ante.js)
@@ -98,7 +99,7 @@
       const base = Number.isFinite(it.ap) ? it.ap : tech ? it.x.m.tempoCost : null;
       if (it.opensIfShort && it.off) return { ...it, off: false, dim: true };
       if (it.off || !(base > 0) || it.x?.freeFirst) return it;   // a free first use stays open at any AP
-      const price = Math.round(base * m);
+      const price = Math.round(base * (it.x?.m?.cureWholeTurn ? 1 : m));
       if (price <= tempo) return it;
       const why = `Needs ${price} AP; you have ${tempo}.${m !== 1 ? ` Held: costs ×${m}.` : ""}`;
       return { ...it, off: !it.opensIfShort, dim: !!it.opensIfShort, apShort: price, why, help: `${why} ${it.help || ""}`.trim() };
@@ -146,8 +147,8 @@
     { id: "drawer:move", label: "Move ▸", title: "Move", has: (id) => ["move", "jump", "climb", "disengage", "breakGrapple"].includes(id) || id === "scramble" || id.startsWith("press:") },
     // Rituals (Mala, 2026-10-20): dreams, Palace summons, capture ritual, communes, rites, Contains Multitudes and
     // Become the Integrated Self all ride one tab; the old Dream drawer folded into it.
-    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "summons", "orderSummonUltimate", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteTea", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") || id.startsWith("plantOrgonite") },
-    { id: "drawer:talk", label: "Talk ▸", title: "Talk", has: (id) => id === "insight" || id === "trial" || id === "stakes" || id.startsWith("accept:") || id.startsWith("decline:") || id.startsWith("terms:") || id.startsWith("convert") || id.startsWith("display:") || id.startsWith("borrow:") || id.startsWith("order:") || id === "repayDebt" || id === "settleVisit" || id === "declareBankruptcy" },
+    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "familiars", "summons", "orderSummonUltimate", "stretchLeash", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteTea", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") || id.startsWith("plantOrgonite") },
+    { id: "drawer:talk", label: "Talk ▸", title: "Talk", has: (id) => id === "insight" || id === "trial" || id === "convene" || id === "stakes" || id.startsWith("accept:") || id.startsWith("decline:") || id.startsWith("terms:") || id.startsWith("convert") || id.startsWith("display:") || id.startsWith("borrow:") || id.startsWith("order:") || id === "repayDebt" || id === "settleVisit" || id === "declareBankruptcy" },
     // Observe is its own tab now; studying a plant stays here, but the commune selection moved to Rituals.
     { id: "drawer:observe", label: "Observe ▸", title: "Observe", has: (id) => ["observe", "investigate", "observeSelf"].includes(id) || id?.startsWith("journal:") || id?.startsWith("finding:") },
     { id: "drawer:scout", label: "Scout ▸", title: "Scout", has: (id) => ["placeTrap", "disarm", "overwatch"].includes(id) || id?.startsWith("catchFish:") },
@@ -185,7 +186,7 @@
   const ACCOUNT_KEY = "loci:combat:account:v1";
   const store = {
     get(key, d) { try { return JSON.parse(localStorage.getItem(key)) ?? d; } catch { return d; } },
-    set(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} },
+    set(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch { return false; } },
     remove(key) { try { localStorage.removeItem(key); } catch {} },   // save-file import clears keys the file lacks
     keys(prefix) { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(prefix)) out.push(k); } } catch {} return out; },   // save-file export lists the per-character pins keys
   };
@@ -226,6 +227,7 @@
     "visitor-grey": "visitor-grey", "visitor-ship": "visitor-ship", "visitor-scientist": "visitor-scientist", "warden-symbiote": "warden-symbiote", "kaiju-form": "kaiju-form", "oni-form": "oni-form", "neo-warden-dragon": "neo-warden-dragon", "neo-warden-cyberpunk": "neo-warden-cyberpunk", "neo-warden-purple-neon": "neo-warden-purple-neon",   // learned forms (2026-10-17): both face left (the default)
     "hooded-cyber-rogue": "hooded-cyber-rogue", "child-of-the-future": "child-of-the-future", "futuristic-armored-ninja": "futuristic-armored-ninja",   // Longtermism (2026-10-22): the rogue faces right; the Child faces right; the ninja reads left (default)
     "martial-artist": "martial-artist", "martial-artist-ascended": "martial-artist-ascended",   // Martial Artist (2026-10-22): base + gold ascended form
+    raven: "raven", mosaic: "mosaic",   // Raven K2: faces right in the sheet (cut-build NOTE); dodge and knockback recoil left; Mosaic (T2a summon / Ordeal)
     "goethe": "goethe", "goethe-true-form": "goethe-true-form", "goethe-ascended": "goethe-ascended",   // Goethe hot-build (2026-10-27): Young palace summon + True-Form Dream manifestation + Ascended Scholar max form (art only; no engine wiring yet)
     storm_mage: "storm_mage", tree_spirit: "tree_spirit", disheveled_politician: "disheveled_politician", astral_security: "astral_security", mesoamerican_priestess: "mesoamerican_priestess",
     celestial_astral: "celestial_astral", moonflower: "moonflower", archivist_elf: "archivist_elf", bard_elf: "bard_elf", lying_lawyer: "lying_lawyer",   // hot builds wave 4 (2026-10-23)
@@ -248,8 +250,10 @@
   const CARD_FAMILIARS = ["ember-moth", "hedge-sprite", "gatepost-sentry", "stone-warden", "pair-of-lanterns", "long-memory"];   // Battle Cards C3: the summon cards' familiars (keys match their sprite folders and their card art keys)
   for (const key of CARD_FAMILIARS) SPRITE_DIR[key] = key;
   SPRITE_DIR.control = "control";   // benchmark instrument (docs/control.md); its sheet faces right (eye-checked 2026-11-07, reversing the 2026-10-20 call), so it is in SPRITE_FACES_RIGHT below
-  const SUMMON_SPRITES = ["the_king", "mitsuko", "inner_child", "perimeter_guardian", "napoleon", "kobe", "aristotle", "genghis_khan", "zherm", "little_king"];
+  const SUMMON_SPRITES = ["the_king", "mitsuko", "inner_child", "perimeter_guardian", "napoleon", "kobe", "aristotle", "genghis_khan", "zherm", "little_king", "raven"];
+  SUMMON_SPRITES.push("mosaic");   // Mosaic (T2a summon / Ordeal): faces right
   SPRITE.archivist="#ddad58";SPRITE["archivist-kaiba"]="#ddad58";
+  SPRITE.mosaic = "#7da8c3";
   SPRITE["modern-artist"]="#df93d4"; SPRITE["field-botanist"]="#8fbf6a"; SPRITE.kickboxer="#d9a441"; SPRITE.fighting_coach="#c7584a"; SPRITE["fighting-coach"]="#c7584a";
   SPRITE.dream_customer="#c5a8de";
   SPRITE.customer="#d7b07a";
@@ -267,7 +271,8 @@
     treant: 2.2,   // the shared treant fallback (a communed plant with no art of its own, e.g. Kiawe, and a risen treeant): bigger, between the shrub 1.8 and the tree 3 forms (Mala, 2026-11-03: "make it bigger")
     "commune-hibiscus": 1.8, "commune-plumbago": 1.8, "commune-mockOrange": 1.8, "commune-indianHawthorn": 1.8, "commune-naupaka": 1.8, "commune-ti": 1.8, "commune-ohelo": 1.8, "commune-ukiuki": 1.8, "commune-pitcherPlant": 1.8,
     "commune-monstera": 1.4, "commune-cobraLily": 1.4, "commune-venusFlytrap": 1.4,
-    "commune-akulikuli": 1.1, "commune-sundew": 1.1, "commune-nativeFern": 1.1 };
+    "commune-akulikuli": 1.1, "commune-sundew": 1.1, "commune-nativeFern": 1.1,
+    raven: 0.25 };   // Raven K2: tiny, world height 0.25 of a person (Mala, 2026-10-31); pinned equal to sprites/raven/size.json
   for (const look of C?.characters?.arantxa?.variants || []) { SPRITE_DIR[look] ||= look; SPRITE[look] ||= SPRITE.arantxa; }   // Arantxa's gowns (seeded per battle in the engine)
   const SPRITE_POSES = Object.fromEntries([...new Set(Object.values(SPRITE_DIR))].map((folder) => [folder, PLAYER_POSES]));
   for (const folder of ["dragon-boss", "oni-boss", "kaiju-boss", "sealednext"]) SPRITE_POSES[folder] = ["idle", "walk", "cast", "block", "punch", "enraged", "knocked-out"];
@@ -569,6 +574,15 @@
       else if (e.kind === "ritual" && e.captured) out.push(card("Bead Made", `${e.text} ${(e.why || [])[0] || ""}`.trim()));
       else if (e.kind === "fieldClose" && e.field === "dreamSpace") out.push(card("The Dream Closes", e.text));
       else if (e.kind === "stateScene") out.push(card(e.title, e.line));   // States: a { scene } effect (Hanuman remembers)
+      else if (e.kind === "vow" && e.breach) {
+        const vowName = e.vow || "vow", price = e.price || "";
+        out.push({ kind: "farewell", unit: { ...unit }, name: `${unit.name} broke ${vowName}. ${price}.`, line: `${unit.name} broke ${vowName}. ${price}.`, pose: "idle", timeline: { doubt: 300, turn: 850 }, ms: TEXT_SCENE_MS, breach: true, label: "VOW BROKEN" });
+        for (const w of Object.values(after.actors || {})) {
+          if (!w || w.id === unit.id || w.defeated) continue;
+          const attitude = w.side === unit.side ? "upset" : "stressed";
+          out.push({ kind: "farewell", unit: { ...w }, name: w.name, line: `${w.name} looks away.`, pose: "idle", timeline: { doubt: 300, turn: 850 }, ms: TEXT_SCENE_MS, attitude, witness: true, label: "WITNESS" });
+        }
+      }
     }
     return out;
   }
@@ -579,6 +593,8 @@
   for (const key of ["tofu-yokai", "tofu-archer", "tofu-warden"]) FACE_ART[key] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Tofu trio (claude-bestiary-art-spec B2): the same five portraits a bark shows from heads/
   FACE_ART["brood-mite"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the mite's five portraits were cut as portrait-<x>.png, a name nothing reads; face-<x>.png are the same files (claude-bestiary-art-spec B1-a)
   FACE_ART["feathered-shaman"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Shaman's Feathered look: the cut's portrait-<x>.png land as face-<x>.png (Mala, 2026-11-11)
+  FACE_ART.mosaic = ["neutral", "happy", "angry", "sad", "surprised"];   // Mosaic (T2a summon / Ordeal): five mood portraits
+  for (const key of ["mad-scientist", "smith"]) FACE_ART[key] = ["neutral", "happy", "angry", "sad", "surprised"];   // NPC faces S5 keepers (cursor-npc-faces-s5-cut): registered at merge (Bowsprit IN, 1.3.569); the keepers read them through keepers.js artPath
   // Hot-build cuts F1 (cursor-hotbuilds-cuts-spec): the Forum five (folders in SPRITE_DIR above). A colour for the token fallback; the five
   // faces (the cut's portrait-<x>.png land as face-<x>.png, as the brood mite's did).
   for (const [key, colour] of [["florence-oloo", "#2fb5a8"], ["chitinous-archbishop", "#d8c39a"], ["chitin-bishop", "#b76ad8"], ["creature-combat", "#b8553a"], ["eldritch", "#9a8fa0"]]) {
@@ -593,7 +609,11 @@
       return `combat/sprites/tsukumogami-faces/${pick}.png`;
     }
     const has = FACE_ART[sprite]; if (!has) return null;
-    const pick = has.includes(expression) ? expression : has.includes("neutral") ? "neutral" : null; return pick ? `combat/sprites/${sprite}/face-${pick}.png` : null; };
+    const pick = has.includes(expression) ? expression : has.includes("neutral") ? "neutral" : null;
+    if (!pick) return null;
+    const prefix = sprite === "mosaic" ? "portrait" : "face";
+    return `combat/sprites/${sprite}/${prefix}-${pick}.png`;
+  };
   // One portrait contract for arguments and conversations: never borrow another unit's face.
   function portraitSource(unit, expression="speaking") {
     const key=unit?.form?.golden?"gold-form":unit?.form?.formId==="one_with_nature"?"gaia-form":unit?.sprite || W?.data?.monsters?.[unit?.kind]?.sprite;
@@ -750,7 +770,8 @@
 
   function mount(host, opts = {}) {
     const params = opts.params || {};
-    const fxTiming = { scale: params.fast ? 0 : 1.18, cap: params.fast ? 0 : 880 };
+    const fxTiming = { scale: params.fast ? 0 : 1.18, cap: params.fast ? 0 : 880, rowCaps: true };   // rowCaps: a named ultimate's ULTIMATES row may lengthen the 880 (R-20261115-29); fast mode's 0 stays 0
+    let liveCourt = null, courtFocusOwed = false;
     const U = { s: null, actions: [], setupOpts: null, mode: "setup", sel: null, hover: null, cursor: [1, 2], fx: [], poseUntil: {}, actionCues: {}, facing: {}, transformAnimations: {},
       timer: null, raf: 0, fxPlayer: FX?.createPlayer?.() || null, fxFrame: null, menu: "root", menuIndex: 0, graph: { kind: "opposition", unknown: true, edge: null }, reveal: false, announce: true,
       llmEnabled: !!opts.llmBridge && !!params.socket, llmConnection: null, llmFailed: false, llmReady: true, llmSeq: 0, llmAbort: null, llmPaused: false, llmError: "", llmEpoch: 0, llmActorId: null, agentSessionUsed: false, llmBattleId: `loci-${Date.now().toString(36)}`, destroyed: false,
@@ -815,6 +836,7 @@
         summonVoices: root.ConceptCombatSummonVoices, dreamVoices: root.ConceptCombatDreamVoices }) : null;
     U.sheet = "warden"; U.setupEncounter = null;
     U.fullAnimation = store.get("loci:combat:full-animation", !matchMedia("(prefers-reduced-motion: reduce)").matches); U.closeup=null;
+    U.fx3 = !!store.get("loci:combat:fx3", false);
     U.pace = store.get("loci:combat:pace", "normal") === "slow" ? "slow" : "normal"; setPace(U.pace); U.reading = null; U.logCap = null;
     host.innerHTML = `
       <div class="cc">
@@ -834,7 +856,8 @@
         <aside class="cc-side">
           <div class="cc-side-head"><b>Battle log</b><span class="cc-spacer"></span><button type="button" id="ccBestiaryBattle" title="Open monster bestiary">Bestiary</button>
             <button type="button" id="ccCopy" title="Copy the battle log as text">Copy log</button>
-            <button type="button" id="ccAnimation" title="Full: enlarged attack pop-up. Fast: current map effects only.">Animation: Full</button>
+            <button type="button" id="ccFx3" title="3D effects (Bastion Collapse). Off uses the 2D painter. Also off when Animation is Fast, and in the isometric view.">3D effects: Off</button>
+            <button type="button" id="ccAnimation" title="Full: enlarged attack pop-up. Fast: current map effects only. 3D effects (Bastion Collapse) need Full.">Animation: Full</button>
             <button type="button" id="ccKeysBtn" title="Every battle key on one sheet (?)" aria-haspopup="dialog">? Keys</button>
             <button type="button" id="ccPace" title="Normal: current speed. Slow: scenes last twice as long and each enemy action waits long enough to read. Space or a click on the log skips a wait.">Pace: Normal</button>
             <button type="button" id="ccText" title="Standard: today's size. Large and Largest raise every label outside the map; map labels grow with the map's zoom.">Text: Standard</button>
@@ -872,6 +895,14 @@
     // A Shield Wall looks like the owner's other concept; flat ground effects (berm, swale, mulch, smoke) keep their drawing.
     const WALL_ART = { pair: { elasticity: "bamboo-5", interposition: "gate-royal-blue", inertia: "stone-boulder-wall", boundary: "hedge-wall",
       pruning: "spikes-wood-wide", swale: "water-curtain-block", berm: "sandstone-block" }, barrier: "stone-brick-round", boundary: "roots-wall", fence: "spikes-wood-low", architect: "brick-gray" };
+    function lastFolded(s) {
+      const log = s && s.log || [];
+      for (let i = log.length - 1; i >= 0; i--) {
+        const e = log[i];
+        if (e && e.kind === "act" && Array.isArray(e.folded)) return e.folded;
+      }
+      return [];
+    }
     function wallArt(s, b) {
       if (["berm", "swale", "mulch", "smoke"].includes(b.concept) || b.passiveGround) return null;
       if (b.architectDesign) return WALL_ART.architect;
@@ -1400,7 +1431,9 @@
       const ov = $("ccOverlay"); ov.hidden = false; ov.classList.add("cc-town-host");
       leaveTown(); ov.classList.add("cc-town-host");
       U.town = TOWN.create(ov, { nav: TOWN_NAV, onOpen: openFromTown, startAt: U.townPos, startFacing: U.townFacing });
+      mountKeeper(ov, "townWalk");   // the Mad Scientist (S5): the side nav's reserved slot under its Town heading; the greeting plays once per walk
     }
+    const acceptedPosting = () => { const b = U.account?.board; return b?.accepted ? (b.postings || []).find((m) => m.id === b.accepted) || null : null; };   // the job the chain scenarios fight (modes/scenarios.js chainFor)
     // The Contract Board (W4.2): three postings, one job at a time, proof at finish.
     function showBoard(note = "") {
       U.mode = "setup"; const ov = $("ccOverlay"); ov.hidden = false;
@@ -1409,10 +1442,12 @@
       const b = U.account.board, left = (m) => Math.max(0, m.expiresAt - (U.account.battles || 0));
       ov.innerHTML = `<div class="cc-card cc-town-hall"><h2>The Contract Board</h2><p class="cc-muted">${b.done || 0} jobs done. One at a time — finish or abandon before the next. Stale postings rot. Coming contracts: ${Board.STUBS.join(", ")}.</p>
         ${b.postings.map((m) => `<section class="cc-hall-offer"><div><b>${esc(Board.describe(m))}</b> <small>rots in ${left(m)} battles</small></div>
-          ${b.accepted === m.id ? `<span><b>ACCEPTED</b> <button type="button" data-board-abandon>Abandon (clean)</button></span>` : `<button type="button" data-board-accept="${esc(m.id)}" ${b.accepted ? "disabled" : ""}>Accept</button>`}</section>`).join("")}
+          ${b.accepted === m.id ? `<span><b>ACCEPTED</b> ${SCN?.chainFor?.(m) ? `<button type="button" data-board-work>Work the job</button> ` : ""}<button type="button" data-board-abandon>Abandon (clean)</button></span>` : `<button type="button" data-board-accept="${esc(m.id)}" ${b.accepted ? "disabled" : ""}>Accept</button>`}</section>`).join("")}
         ${note ? `<p class="cc-hall-note" role="status">${esc(note)}</p>` : ""}
         <div class="cc-row"><button type="button" id="ccBoardBack">Back</button></div></div>`;
       ov.querySelectorAll("[data-board-accept]").forEach((x) => x.onclick = () => { const r = Board.accept(U.account, x.dataset.boardAccept); if (r.ok) saveAccount(); showBoard(r.ok ? "Job accepted: fight THEIR fight." : r.error); });
+      const wk = ov.querySelector("[data-board-work]");
+      if (wk) wk.onclick = () => startSafely({ randomEncounter: true, everything: true, opener: "player", workTheJob: true });
       const ab = ov.querySelector("[data-board-abandon]");
       if (ab) ab.onclick = () => { U.account = Board.abandon(U.account); saveAccount(); showBoard("Walked away clean: no penalty, no pay."); };
       $("ccBoardBack").onclick = () => showSetup(); $("ccBoardBack").focus();
@@ -1498,7 +1533,7 @@
       ov.querySelectorAll("[data-copy-parts]").forEach((b) => b.onclick = () => { const r = LB.transcribe(U.account, b.dataset.copyParts, C); if (!r.ok) { showCodex(r.error, true); return; } U.account = r.account; saveAccount(); showCodex(`Copied the parts: ${nameOf(b.dataset.copyParts)} (${r.waived ? "free: study complete" : `${r.price} Seeds`}). The memory copy is kept.`); });   // landing 2 / B1e
       ov.querySelectorAll("[data-recopy]").forEach((b) => b.onclick = () => { if (!W?.recopy) { showCodex("The desk cannot recopy on this page.", true); return; } const r = W.recopy(U.account, b.dataset.recopy); if (!r.ok) { showCodex(r.error, true); return; } U.account = r.account; saveAccount(); showCodex(`Recopied under the new tariff: ${r.technique.name} now costs ${r.technique.ap} AP and ${r.technique.cost} ΦF.`); });   // landing 2 / A7
       $("ccOpenWorkshop").onclick = () => root.ConceptCombatWorkshopUI.mount(ov, { getAccount: () => U.account, save: account => { if (U.saveBroken) saveRefused(); else localStorage.setItem(ACCOUNT_KEY, JSON.stringify(A.serialize(account))); U.account = account; }, C, E, back: () => showCodex(), keeper: mountDeskKeeper });
-      $("ccPracticeTrial")?.addEventListener("click", () => root.ConceptCombatPracticeTrial?.mount(ov, { back: () => showCodex() }));   // M0 practice trial (claude-magistrate-court-spec 1.4): writes nothing
+      $("ccPracticeTrial")?.addEventListener("click", () => root.ConceptCombatPracticeTrial?.mount(ov, { back: () => { showCodex(); $("ccPracticeTrial")?.focus(); } }));   // M0 practice trial (claude-magistrate-court-spec 1.4): writes nothing
       $("ccCodexBack").onclick = () => showSetup(); $("ccCodexBack").focus();
       mountKeeper(ov, "codex", refused ? { event: "refuse" } : {});   // the Magistrate (S4a): the reserved slot in .cc-codex-head, above the dropdown sections
     }
@@ -1513,7 +1548,7 @@
       const tierTag = (t) => `<span class="cc-lab-tier cc-lab-tier-${t}">${esc(SG.TIERS[t].name)}</span>`;
       ov.innerHTML = `<div class="cc-card cc-town-lab cc-lab"><header class="cc-lab-head"><img src="combat/sprites/town/mad-scientist.png" alt="The Mad Scientist" class="cc-town-lab-art">
           <div><h2>The Mad Scientist's Lab</h2><p class="cc-muted">${a.seeds || 0} Seeds · surgery slots ${sl.used}/${sl.max}${a.woozy ? " · <b>Woozy</b> for your next battle" : ""}</p>
-          <p>"Bodies are drafts. Pick a part. Mind, the good ones cost what they're worth, and you'll wake up woozy."</p></div></header>
+          </div></header>
         <section><h3>On the table today <small class="cc-muted">changes after every battle</small></h3>${offers.map((o) => o.sold ? `<div class="cc-lab-offer cc-lab-sold"><div><b>Sold</b><p class="cc-muted">This slot restocks after your next battle.</p></div></div>` : `<div class="cc-lab-offer"><div><b>${esc(o.name)}</b> ${tierTag(o.tier)} <small>${o.price} Seeds</small><p>${esc(o.text)}</p></div>
             ${sl.used >= sl.max ? `<label>Take out <select data-lab-replace="${esc(o.id)}">${grafted.map((g) => `<option value="${esc(g.id)}">${esc(g.name)} (+${SG.removalPrice(g.id)})</option>`).join("")}</select></label>` : ""}
             <button type="button" data-lab-graft="${esc(o.id)}">Graft</button></div>`).join("") || `<p class="cc-muted">Nothing left she can add.</p>`}</section>
@@ -1526,6 +1561,7 @@
       ov.querySelectorAll("[data-lab-graft]").forEach((b) => b.onclick = () => { const id = b.dataset.labGraft, rep = ov.querySelector(`[data-lab-replace="${id}"]`)?.value || null;
         done(SG.graft(U.account, id, { replace: rep }), `Grafted: ${offers.find((o) => o.id === id)?.name || id}. You'll be woozy next battle.`); });
       ov.querySelectorAll("[data-lab-remove]").forEach((b) => b.onclick = () => done(SG.remove(U.account, b.dataset.labRemove), "Removed. You'll be woozy next battle."));
+      mountKeeper(ov, "lab");   // the Mad Scientist (S5): under the Lab's heading; every redraw (a graft or a removal) mounts again and the greeting still plays once
       $("ccLabBack").onclick = () => showSetup(); $("ccLabBack").focus();
     }
     // A stored save that is not valid JSON boots a fresh profile but is never overwritten (loop 1a19dca6b72): this
@@ -1555,17 +1591,17 @@
       const small = new Set(["of", "the", "and", "a", "an", "in", "on"]);
       const cap = (s) => String(s || "").split("-").map((w, i) => (w && (i === 0 || !small.has(w)) ? w[0].toUpperCase() + w.slice(1) : w)).join(" ");
       const concepts = def.standIn ? `${cap(def.standIn.primary)} + ${cap(def.standIn.secondary)}` : "";
-      ov.innerHTML = `<div class="cc-card cc-first-pick" role="dialog" aria-label="Choose your first familiar">
-        <h2>Choose your first familiar</h2>
-        <p class="cc-muted">A familiar keeps you company in the palace and answers when you call it in a fight. Familiars answer any summoner; some summons are Warden-only, and dream monsters answer no orders at all. You will meet more as you level up.</p>
+      ov.innerHTML = `<div class="cc-card cc-first-pick" role="dialog" aria-label="Your first familiars">
+        <h2>Your first familiars</h2>
+        <p class="cc-muted">A familiar keeps you company in the palace and answers when you call it in a fight. Familiars answer you, and anyone who keeps one; some summons are Warden-only, and dream monsters answer no orders at all. You will meet more as you level up.</p>
         <div class="cc-pick-cards">
           <div class="cc-pick sel"><div class="cc-pick-stage"><img src="combat/sprites/mitsuko/idle.png" alt="Mitsuko"></div>
             <h3>${esc(def.name)}</h3><div class="cc-pick-role">${esc(att.label || "")}</div>
             <p>${esc([att.text, why].filter(Boolean).join(" "))}</p>
             <p>${concepts ? `<span class="cc-tag">${esc(concepts)}</span>` : ""}<span class="cc-tag">${esc(cap(def.room))}</span></p></div>
-          <div class="cc-pick locked" aria-disabled="true"><div class="cc-pick-stage"><img class="cc-pick-small" src="combat/sprites/raven/idle.png" alt="The Raven"></div>
+          <div class="cc-pick given"><div class="cc-pick-stage"><img class="cc-pick-small" src="combat/sprites/raven/idle.png" alt="The Raven"></div>
             <h3>The Raven</h3><div class="cc-pick-role">Messenger</div>
-            <p class="cc-pick-reason">Arrives with the Raven kit.</p></div>
+            <p class="cc-pick-reason">Your first familiar. Call it to learn how familiars work.</p></div>
         </div>
         <div class="cc-row"><span class="cc-muted" id="ccFirstPickNote">Not sure? Mitsuko is the gentlest. More familiars join your palace as you level up.</span><span><button type="button" class="cc-gold" id="ccFirstPickGo">Choose Mitsuko</button></span></div>
       </div>`;
@@ -1741,7 +1777,7 @@
         <aside class="cc-natural-allies" aria-label="Natural allies"><h3>Natural allies</h3>${naturalAllies().map(a=>`<span class="cc-ally-icon" tabindex="0" title="${esc(a.reason)}">${spriteImg(a.sprite,a.name,"cc-ally-sprite")}<span>${esc(a.name)}</span></span>`).join("")||`<small>No natural allies recorded</small>`}</aside>
         </div>
         <details class="cc-menu-section" id="ccIndexPanel" ${U.setupPanels.index?"open":""}><summary><span aria-hidden="true">▤</span> The Index</summary><div class="cc-menu-body cc-index-links"><button type="button" id="ccStudioMenu">♙ Character library</button><button type="button" id="ccCrewsMenu">◈ Crews</button><button type="button" id="ccAssetsMenu">▧ Art library</button><button type="button" id="ccBestiaryMenu">♧ Bestiary</button><button type="button" id="ccGraphMenu">◇ Concept map</button><button type="button" id="ccTraitWebMenu">◎ Trait relationships</button><button type="button" id="ccWorkshopMenu">✦ Workshop · three benches</button></div></details>
-        <div class="cc-menu-actions"><label class="cc-test-battles" title="Practice and test battles. Nothing in them is saved."><span class="cc-sr">Test battles</span><select id="ccTestBattle" aria-label="Test battles"><option value="">⚗ Test battles…</option>${testBattles.map(t=>`<option id="${t.id}" value="${t.id}" title="${esc(t.title)}">${esc(t.label)}</option>`).join("")}</select></label><button type="button" class="cc-primary" id="ccRandomEncounter" title="Roll scenario, terrain, opponents and events with your selected main character">⚔ Random Encounter</button><button type="button" id="ccCustomGame" title="Build a scenario: pick your opponent and companion, then play">✎ Custom Game</button><button type="button" id="ccBossRush" title="Every Omega threat in a row on the Warfare Field">☠ Boss Rush</button></div>
+        <div class="cc-menu-actions"><label class="cc-test-battles" title="Practice and test battles. Nothing in them is saved."><span class="cc-sr">Test battles</span><select id="ccTestBattle" aria-label="Test battles"><option value="">⚗ Test battles…</option>${testBattles.map(t=>`<option id="${t.id}" value="${t.id}" title="${esc(t.title)}">${esc(t.label)}</option>`).join("")}</select></label><button type="button" class="cc-primary" id="ccRandomEncounter" title="Roll scenario, terrain, opponents and events with your selected main character">⚔ Random Encounter</button>${SCN?.chainFor?.(acceptedPosting()) ? `<button type="button" class="cc-primary cc-work-job" id="ccWorkJob" title="Fight the accepted contract's own battle">⚔ Work the job</button>` : ""}<button type="button" id="ccCustomGame" title="Build a scenario: pick your opponent and companion, then play">✎ Custom Game</button><button type="button" id="ccBossRush" title="Every Omega threat in a row on the Warfare Field">☠ Boss Rush</button></div>
         <button type="button" id="ccExit" hidden>← Library</button>
         ${U.townOn ? `<button type="button" id="ccBackToTown">← Town</button>` : ""}
       </div>`;
@@ -1769,6 +1805,7 @@
       // Every test battle is one choice in one dropdown (Mala, 2026-10-13). Choosing one starts it.
       $("ccTestBattle").onchange = (ev) => { const t = TEST_BATTLES.find((x) => x.id === ev.target.value); ev.target.value = ""; if (t) startSafely({ encounter: "firstWall", opener: "player", narration: "off", setupOpts: { ...t.options(), testMenu: true } }); };   // testMenu: everything started here is a test battle (1.3.457 audit: themed tests had no "test" in their titles)
       $("ccRandomEncounter").onclick = () => startSafely({ randomEncounter: true, everything: true, opener: "player" });   // Mala, 2026-10-09: randomize everything
+      if ($("ccWorkJob")) $("ccWorkJob").onclick = () => startSafely({ randomEncounter: true, everything: true, opener: "player", workTheJob: true });
       $("ccCustomGame").onclick = () => { const sel = $("ccEncounter"); if (sel) { sel.value = "rosterScrimmage"; sel.onchange?.({ target: sel }); } const p = $("ccScenariosPanel"); if (p) { p.open = true; U.setupPanels.scenarios = true; } flashTip("Custom Game: pick your fighters, then Play scenario."); };
       if ($("ccBossRush")) $("ccBossRush").onclick = () => startSafely({ encounter: "bossRush", opener: "player" });
       $("ccSocketOpponent")?.addEventListener("change", ev => { U.llmEnabled = ev.target.checked; $("ccSocketSettings").hidden = !ev.target.checked; });
@@ -2327,9 +2364,29 @@
       const toAccount = () => { U.sheetReturnMode = null; U.mode = returnMode; showAccount(); };   // the Ledger sees the mode the sheet was opened from, never "sheet": its Close then returns there instead of stranding the player on the sheet
       $("ccSheetBack").onclick = () => { U.sheetReturnMode = null; if (returnMode === "town") return showTown(); if (returnMode === "account") return toAccount(); if (returnMode === "setup") return showSetup(); ov.hidden = true; U.mode = returnMode; render(); };
       $("ccSheetLedger").onclick = toAccount;
+      const trialDoor = { account: () => U.account, begin: (id) => startSafely({ randomEncounter: true, opener: "player", tandemTrial: id }), back: () => showSheet(returnMode) };
+      root.ConceptCombatTandemWing?.attach(ov, trialDoor);
+      const trialReturnMode = returnMode === "account" ? U.accountReturnMode : returnMode;
+      if (["setup", "town", "over"].includes(trialReturnMode)) root.ConceptCombatRoomOfTrials?.attach(ov, trialDoor);
       const sb = $("ccSheetBusk"); if (sb) sb.onclick = () => showBusk("sheet");
       const sl = $("ccSheetLab"); if (sl) sl.onclick = () => showLab();
       wirePerks(ov, () => showSheet(returnMode));
+    }
+    function showFamiliarPicker(trigger, inBattle = false) {
+      const betweenBattles = ["setup", "town", "over"].includes(U.accountReturnMode);
+      const readOnly = inBattle || (!betweenBattles && U.s && !U.s.outcome) ? "Familiar choices are available between battles."
+        : U.saveBroken ? "Your save could not be read." : U.testSnapshot ? "Practice encounters do not save familiar choices." : "";
+      return FamiliarPicker.open({ trigger, getAccount: () => U.account, data: SM.data,
+        portrait: (sprite) => portraitSource({ sprite }).idle,
+        conceptName: (id) => C.concepts[id]?.name || id, readOnly,
+        save: (account) => {
+          if (!store.set(ACCOUNT_KEY, A.serialize(account))) return false;
+          U.account = account;
+          const progress = $("ccFamiliarProgress");
+          if (progress) progress.textContent = FamiliarPicker.summary(account, SM.data);
+          return true;
+        },
+      });
     }
     function showAccount() {
       noteFieldKitMoney();
@@ -2345,6 +2402,7 @@
       const stock = Loot.shopStock(U.account, { seed: U.account.battles + 41, biome: null });
       const closeLabel = returnMode === "setup" ? "Back to setup" : returnMode === "town" ? "Back to town" : returnMode === "over" ? "Back to results" : "Return to quest";
       ov.innerHTML = `<div class="cc-card cc-account"><header><div><h2>Ledger House</h2><p class="cc-muted">${U.account.seeds} Seeds · ${Object.values(U.account.stash || {}).reduce((n, c) => n + (c || 0), 0)} stashed · ${(U.account.gear?.owned || []).length} gear · who you are is on the Character sheet</p></div><button type="button" id="ccAccountClose">${closeLabel}</button><button type="button" id="ccAccountSheet">Character sheet</button>${Tracks ? `<button type="button" id="ccSoundToggle">Sound: ${Tracks.enabled() ? "on" : "off"}</button>` : ""}</header>${beadBoard()}${pactBoard()}${kilnBoard()}${stallBoard()}
+        ${FamiliarPicker ? `<p class="cc-muted"><button type="button" id="ccFieldFamiliars">Familiars</button> <span id="ccFamiliarProgress">${esc(FamiliarPicker.summary(U.account, SM.data))}</span></p>` : ""}
         ${fruitCard()}
         ${sagaCard()}
         ${BOSS && A.orbsOf(U.account).length ? `<section class="cc-gaia-regard"><h3>Orbs · ${A.orbsOf(U.account).length}</h3><p>${[...new Set(A.orbsOf(U.account))].map(id => `${id === "brainChip" ? `<img src="combat/sprites/items/brainChip.png" alt="" style="height:28px;vertical-align:middle;image-rendering:pixelated"> ` : ""}${esc(BOSS.data.orbs[id]?.name || id)}${A.orbsOf(U.account).filter(x => x === id).length > 1 ? ` ×${A.orbsOf(U.account).filter(x => x === id).length}` : ""}`).join(" · ")}</p><p class="cc-muted">Carried into every real battle. Break one from Gear: ${BOSS.data.formBalance.activationAp} AP, a form for ${BOSS.data.formBalance.duration} of your turns and a full ultimate bar. The Brain Chip answers the Warden.</p></section>` : ""}
@@ -2353,6 +2411,7 @@
         <section data-counter="shop"><h3>Field shop</h3>${stock.map(o=>`<article class="cc-account-row"><div class="cc-item-with-icon">${itemIcon(o.id,o.name)}<div><b>${esc(o.kind === "vessel" && SL ? SL.VESSEL_NAME[o.id] : o.name)}</b> <small>${esc(o.rarity)} · ${o.price} Seeds${o.drift && Math.abs(o.drift - 1) > 0.005 ? ` (${Math.round(o.drift * 100)}%)` : ""}</small><p>${esc(o.kind === "vessel" ? "An empty vessel. Packs into battle for sealing." : o.kind === "part" ? "Kiln stock: fires into vessels." : Loot.data[o.kind === "equipment" ? "equipment" : "consumables"][o.id].text)}</p></div></div><button type="button" data-buy="${o.kind}:${o.id}" ${U.account.seeds < o.price ? "disabled" : ""}>Buy</button></article>`).join("")}</section></div>
         <p class="cc-muted">Equipped gear loses 1 durability after each battle. Repair kits restore half; field workshops restore it fully. Worn gear is inactive.</p></div>`;
       if ($("ccSoundToggle")) $("ccSoundToggle").onclick = () => { Tracks.setEnabled(!Tracks.enabled()); showAccount(); };
+      if (FamiliarPicker) $("ccFieldFamiliars").onclick = (event) => showFamiliarPicker(event.currentTarget);
       $("ccAccountSheet").onclick = () => showSheet("account");
       $("ccAccountClose").onclick = () => {
         const resume = U.accountReturnMode || "setup";
@@ -2659,7 +2718,7 @@
       const playable = Object.keys(C.concepts).filter(id => !C.concepts[id].sealed), configs = sheet.configs || [];
       const prev = entries[(idx - 1 + entries.length) % entries.length], next = entries[(idx + 1) % entries.length];
       const pool = isPlayer ? [U.character.primary, U.character.secondary].filter(Boolean) : sheet.conceptPool || [sheet.primary, sheet.secondary].filter(Boolean);
-      const role = isPlayer ? "You · choose your primary and secondary concepts" : summonDef ? (summonDef.identity || "Summon ally from the memory palace") : `${configs.length} seeded configuration${configs.length === 1 ? "" : "s"}`;
+      const role = isPlayer ? "You · choose your primary and secondary concepts" : summonDef ? (summonDef.identity || "Familiar from the memory palace") : `${configs.length} seeded configuration${configs.length === 1 ? "" : "s"}`;
       const roleName = (r) => r?.role ? RO.rules.roles[r.role].name : "";
       const sheetRole = RO ? (isPlayer ? { role: RO.roleFor([U.character.primary, U.character.secondary]) } : RO.roleOf(U.sheet)) : null;
       const configRole = (c) => RO && c.primary ? roleName({ role: RO.roleFor([c.primary, c.secondary]) }) : "";
@@ -2880,13 +2939,14 @@
         const def = W.data.monsters[kind]; return { id: `warfare-wild-${i+1}`, kind, form: def.form, name: def.name, reason: "the three-faction clash", born: 1, x: at[0], y: at[1], lf: def.lf, maxLF: def.lf, status: {} };
       }) : undefined;
       const presetParticipants = encounter === "warfare" ? C.encounters.warfare.actors : escape ? C.encounters.escapeShip.actors : sealed ? sealed.participants : rush ? BR.battleOptions(U.rush).participants : participants;
-      const scnCtx = () => ({ wins: U.account.wins || 0, recent: SCN ? SCN.recentTags(U.account.history) : [], lastArena: (U.account.history || []).slice(-1)[0]?.arena || null, G, V, Climate, rules: C.rules, characters: C.characters, mainCharacter: mainClass(), RandomEvents: root.ConceptCombatRandomEvents, eventParticipantsFor: E.eventParticipantsFor, W, Pickups: root.ConceptCombatPickups, encounters: C.encounters, warfareEventOptions: E.warfareEventOptions, foughtBeside: U.account.foughtBeside || [] });
+      const scnCtx = () => ({ wins: U.account.wins || 0, recent: SCN ? SCN.recentTags(U.account.history) : [], lastArena: (U.account.history || []).slice(-1)[0]?.arena || null, board: acceptedPosting(), forceChain: !!o?.workTheJob, G, V, Climate, rules: C.rules, characters: C.characters, mainCharacter: mainClass(), RandomEvents: root.ConceptCombatRandomEvents, eventParticipantsFor: E.eventParticipantsFor, W, Pickups: root.ConceptCombatPickups, encounters: C.encounters, warfareEventOptions: E.warfareEventOptions, foughtBeside: U.account.foughtBeside || [] });
       const chosen = o && o.randomEncounter ? (SCN ? SCN.choose(seed, scnCtx()) : { kind: THB?.roll(seed) ? "theme" : "plain", id: THB?.roll(seed) || null }) : null;   // one draw per battle: theme (one in five, unchanged), scenario, or plain
       const themeRoll = chosen?.kind === "theme" ? chosen.id : null;   // themed battles: the roll keeps the hero side, terrain and weather
       U.theme = null; U.themeMidShown = false; U.dispatchPlayed = false;
       const rolled = () => { const b = E.randomEncounterOptions(seed, playerLoadout, terrainChoice, { foughtBeside: U.account.foughtBeside || [], everything: !!o.everything, mainCharacter:mainClass() }); return SCN ? SCN.prepare(b, seed, scnCtx()) : b; };   // prepare: the map used last battle is skipped once
-      U.setupOpts = o && o.randomEncounter ? (themeRoll ? THB.apply(rolled(), themeRoll, seed) : chosen?.kind === "scenario" ? SCN.apply(rolled(), chosen.id, seed, { ...scnCtx(), tier: chosen.tier }) : rolled())
+      U.setupOpts = o && o.randomEncounter ? (o.tandemTrial ? SM.Trial.options(o.tandemTrial, seed, { E, Scenarios: SCN, ctx: scnCtx(), loadout: playerLoadout, mainCharacter: mainClass() }) : themeRoll ? THB.apply(rolled(), themeRoll, seed) : chosen?.kind === "scenario" ? SCN.apply(rolled(), chosen.id, seed, { ...scnCtx(), tier: chosen.tier }) : rolled())
         : { encounter, startingActor: opener, seed, randomizeNPCs: rosterMode || encounter === "warfare", participants: presetParticipants || undefined, loadouts: { player: playerLoadout }, ...(warfareWild ? { initialWild: warfareWild } : {}), ...(resolvedArena ? { arenaData: resolvedArena } : {}) };
+      if (o && o.tandemTrial && !U.setupOpts) throw new Error("The Trial could not be set up on this seed. Try again.");   // Tandem T2c: Trial.options found no seed the scenario takes (startSafely restores the account)
       if (encounter === "warfare" && !(o && o.randomEncounter)) Object.assign(U.setupOpts, E.warfareEventOptions(seed, { foughtBeside: U.account.foughtBeside || [], mainCharacter: mainClass() }));   // scaled-up events, aggressive reinforcements
       U.setupOpts.mode = (o && o.randomEncounter && U.setupOpts.mode) || gameMode;
       U.theme = U.setupOpts.theme || null;   // themed battle: Arantxa narrates its open, mid-fight and result beats
@@ -2901,21 +2961,25 @@
       U.llmConnection = null; U.llmFailed = false; U.llmPaused = false; U.llmError = ""; U.llmReady = !U.llmEnabled; U.llmSeq = 0; U.agentSessionUsed = false; U.llmActorId = null;
       U.setupOpts.mainCharacter=mainClass();
       U.setupOpts.spritePackages={...U.spritePackages};
-      U.setupOpts.startingInventory = packed.carried;
+      U.setupOpts.startingInventory = [...packed.carried, ...(U.setupOpts.scenarioGift || [])];   // SC20 Hired Hands: the scenario's gift rides in beside the packed pouch (modes/scenarios.js apply)
       U.setupOpts.equippedGear = Object.values(U.account.gear?.equipped || {}).filter(Boolean);   // relics the player wears are not doubled by the story carry (engine relicPassives)
+      U.setupOpts.tandems = practice || testBattle() ? null : SM?.Trial?.battleOpts(U.account) || null;   // Tandem T2c: a failed Trial's price and a free first call ride into a real battle (summons/tandem-trial.js)
       U.wasTestBattle = testBattle(); U.testSnapshot = U.wasTestBattle ? preBattle : null;   // taken before the pack step, the first change a battle makes to the account
       if (!practice && !U.testSnapshot) saveAccount();   // a real battle saves its packed pouch; a test battle never writes it, even if abandoned mid-fight
       { const esc = U.account.stakeEscrow || U.stakeHeld; if (esc && AN) { const left = !esc.outcome, st = { ...(esc.stakes || {}), state: "agreed", held: { vessels: esc.vessels || [], levels: esc.levels || 0 } }; const r = AN.applyResolution({ ...U.account, stakeEscrow: null }, st, esc.outcome || "enemy", A.stripLevels); U.account = { ...r.account, stakeEscrow: null }; saveAccount(); flashTip(`${left ? "You left a staked fight: your lot is forfeit. " : ""}${r.lines.join(" ")}`.trim()); } U.stakeHeld = null; }   // a stake left unsettled (exit, reload) settles here: by its recorded outcome, else as a loss (Mala 2026-10-27: "by staking im commiting to finishing")
       U.practiceBattle = practice; U.setupOpts.wildFriends = practice ? [] : A.friendsOf(U.account); U.setupOpts.legacy = practice || !LB ? null : LB.carry(U.account.legacy, { battle: `b${Date.now().toString(36)}` }); U.setupOpts.orbs = practice ? [] : [...A.orbsOf(U.account), ...(A.formsOf(U.account).includes("symbiote") ? ["symbiote"] : [])]; U.setupOpts.learnedFormsMap = U.account.learnedForms || {};   // learned forms, per character: kept even in practice (they're known, not spent)   // orbs kept on the account; a practice battle carries none, so it cannot spend one; an unlocked Symbiote rides along free
       U.setupOpts.beads = (U.account.beads || []).map((b) => ({ ...b })); U.setupOpts.beastSummons = (U.account.beastSummons || []).map((b) => ({ ...b })); U.setupOpts.fruit = root.ConceptCombatFruit?.battleOpts(U.account) || null;   // beads kept from earlier battles; fixed at the start so a resumed battle replays the same
+      U.setupOpts.tenant = U.setupOpts.tenant?.borrowed ? U.setupOpts.tenant : practice || U.wasTestBattle ? null : root.ConceptCombatTenancy?.battleOpts(U.account)?.tenant || null;   // Exile tenancy (T0a): the main tenant rides into every real battle
       if (root.ConceptCombatFruit?.RULES.respec) U.setupOpts.fruitWorld = { held: root.ConceptCombatFruit.battleOpts(U.account)?.id || null }; else delete U.setupOpts.fruitWorld;   // respec S4c: the anime orbit knows the feat model is on and which fruit you hold
       { const enc = !practice && root.ConceptCombatFruit ? root.ConceptCombatFruit.encounterFor(U.account, { seed }) : { hunter: null, rival: null }; U.setupOpts.hunter = enc.hunter; if (enc.rival && o && o.randomEncounter && !testBattle()) U.setupOpts.rival = enc.rival; else delete U.setupOpts.rival; }   // a rival eater only in a real random battle (not story, practice, test or autoplay)   // OP1 §6: a posted head draws a hunter, ~1 real battle in 8 (practice draws none)
       U.setupOpts.orderCarry = root.ConceptCombatOrders && !practice ? root.ConceptCombatOrders.carryOpts(U.account) : null;   // talk orders: trust rides whole, respect rides halved
       if (!o?.setupOpts?.vessels && !U.setupOpts.vessels) { U.setupOpts.vessels = practice ? { shard: 3, bead: 2, orb: 1, free: 0 } : SL ? SL.takePack(U.account.vessels || (U.account.vessels = { shard: 0, bead: 0, orb: 0 })) : null; U.packedVessels = !practice && !!SL; if (U.packedVessels) saveAccount(); } else U.packedVessels = false;   // vessel economy: pack the pouch from the stash (practice/playground pouches come from thin air and never return)
       U.teach = { last: null, seen: [], asked: 0, right: 0, wisdom: 0 }; U.teachCard = null;   // Teach mode starts fresh each battle
       if (PC && U.account.contracts?.active) { PC.endCall(U.account.contracts, { how: "abandoned" }); saveAccount(); }   // a call left open by an abandoned battle ends here, with no standing, before the book is snapshotted: the new battle's calls must not trip on it
+      if (!Object.hasOwn(o?.setupOpts || {}, "courtPrior")) U.setupOpts.courtPrior = practice || testBattle() ? null :
+        root.ConceptCombatCourtRecord?.priors(U.account.record)[0] || null;
       resetFollow();
-      U.s = E.create({ ...U.setupOpts, receiptId: `tourist-${Date.now()}-${seed}`, cognitive: U.account.cognitive, seeds: U.account.seeds, orgonite: { player: U.account.orgonite || 0 }, inspiration: U.setupOpts?.inspiration ?? (U.account.inspiration || 0), victories: U.setupOpts?.victories ?? (U.account.victories || {}), emissaryMemory: U.setupOpts?.emissaryMemory ?? (U.account.emissary || {}), self: U.account.self, mirror: U.account.mirror, unlockedSummons: U.account.unlocked, contracts: U.account.contracts, imitatedTraits: IM ? IM.carried(U.account) : [], gaiaBoons: GB && !U.setupOpts?.focusedDreamTest ? GB.battleOptions(GB.of(U.account).standing) : [], perkMods: A.perkMods(U.account) }); U.actions = []; U.report = null; U.answered = null; U.fxPlayer?.skip(); U.fxFrame = null; U.bubbles = []; U.actionCues = {}; U.facing = {};
+      U.s = E.create({ ...U.setupOpts, receiptId: `tourist-${Date.now()}-${seed}`, cognitive: U.account.cognitive, seeds: U.account.seeds, orgonite: { player: U.account.orgonite || 0 }, inspiration: U.setupOpts?.inspiration ?? (U.account.inspiration || 0), victories: U.setupOpts?.victories ?? (U.account.victories || {}), emissaryMemory: U.setupOpts?.emissaryMemory ?? (U.account.emissary || {}), self: U.account.self, mirror: U.account.mirror, unlockedSummons: U.account.unlocked, contracts: U.account.contracts, imitatedTraits: IM ? IM.carried(U.account) : [], gaiaBoons: GB && !U.setupOpts?.focusedDreamTest ? GB.battleOptions(GB.of(U.account).standing) : [], perkMods: A.perkMods(U.account) }); U.actions = []; U.report = null; U.answered = null; U.fxPlayer?.skip(); if (root.FX3) FX3.release(); U.fxFrame = null; U.bubbles = []; U.actionCues = {}; U.facing = {};
       if (!practice && root.ConceptCombatInjury) { const kept = U.setupOpts?.injuries ?? U.account.injuries ?? {}; for (const a of Object.values(U.s.actors)) if (a.side === "player" && kept[a.character]) a.injuries = root.ConceptCombatInjury.begin(a, a, { injuries: kept }); }   // wounds cross battles (practice bodies arrive clean)
       if (!practice && U.s.actors.player) for (const text of Loot?.speakingLines?.(U.account) || []) U.s.log.push({ round: U.s.round, kind: "announce", actor: "player", text });   // Active Jinki (J1): round 1 names each soul that speaks
       U.stakeHeld = null; U.stakeSeen = 0; U.pactSeen = 0;   // W1.5+W5.3: no held vessels, no settled wagers at battle start   // pacts: no drained codes either
@@ -2941,6 +3005,7 @@
         U.s.doseRec = D;
         if (typeof CombatDoping !== "undefined") { const d = CombatDoping.dose(U.account, D.substance, { masked: !!D.masked, depth: D.depth || 0, saga: U.account.sagas?.active?.id || "saga-0" }); U.account = d.account; if (P.inspiration != null && U.account.inspiration != null) P.inspiration = Math.min(P.inspiration, U.account.inspiration); for (const t of d.lines) U.s.log.push({ round: U.s.round, kind: "announce", actor: "player", text: t }); saveAccount(); }   // act() copies the battle's Inspiration back to the account, so the debt is taken in the battle too   // the price is unavoidable: charged when the dose rides in (merge fix: the shelved build gave the effect without the price)
       }
+      if (SM?.Trial && !practice && !testBattle()) { const ta = SM.Trial.started(U.account, U.s); if (ta) { U.account = ta; saveAccount(); } }   // Tandem T2c: the price just taken is no longer owed; a Trial just begun is pending
       if (U.account.burn > 0 && U.s.actors.player && !U.setupOpts?.dose) {   // Red Ink's burn lands on the next bout (LF does not carry between battles, so "burn after" is paid here)
         const P = U.s.actors.player, paid = Math.min(U.account.burn, Math.max(0, P.lf - 1)); P.lf -= paid;
         U.s.log.push({ round: U.s.round, kind: "announce", actor: "player", text: `${P.name} still burns from the Red Ink: −${paid} LF.` });
@@ -3004,6 +3069,7 @@
       return U.surface;
     }
     function startSafely(o) {
+      if (o?.randomEncounter && !o.exileAsked && root.ConceptCombatTenancyUI?.maybe({ ov: $("ccOverlay"), account: U.account, test: !!(params.autoplay || params.steps || o?.setupOpts?.testMenu || o?.setupOpts?.devPlayground), force: params.exileOffer, done: (acct, line) => { U.account = acct; saveAccount(); if (line) flashTip(line); startSafely({ ...o, exileAsked: true }); } })) return;   // Exile tenancy (T0a): door 1, a seeded offer before a random battle (account/tenancy-ui.js)
       if (needsFirstPick()) firstPickDefault(!!(params.autoplay || params.steps || o?.setupOpts?.testMenu || o?.setupOpts?.devPlayground));   // S2: scripted entries and Quick Battle never reach a fight with an empty menu; a test start saves nothing
       const before = U.account;
       try { start(o); }
@@ -3152,7 +3218,7 @@
       host.querySelector(".cc-main").inert=false;host.querySelector(".cc-side").inert=false;$("ccOverlay").inert=false;
       if(c.focus?.isConnected)c.focus.focus();
       const later = U.followAfter; U.followAfter = null; if (later) followAction(later.a, later.before, later.logFrom);   // Follow: frame the action now that the close-up is gone
-      syncCenter(); U.fxPlayer?.skip();pump();
+      syncCenter(); U.fxPlayer?.skip(); if (root.FX3) FX3.release(); pump();
     }
 
     // ── driving the engine ─────────────────────────────────────────────────
@@ -3169,6 +3235,18 @@
       U.s.log.push({ round: U.s.round, kind: "systemNote", actor: a.actor, text: `System note — ${note.title}: ${note.text}`,
         why: ["Kept in the Magistrate's Codex, under Systems studied."] });
       flashTip(`System note — ${note.title}. Kept in the Magistrate's Codex.`, "good");
+    }
+    function hideVowConfirm() {
+      const ov = $("ccOverlay"); if (!ov) return;
+      ov.hidden = true; ov.innerHTML = ""; U.vowPending = null;
+    }
+    function showVowConfirm(line, pending, refuse) {
+      const ov = $("ccOverlay"); if (!ov) return;
+      U.vowPending = { act: pending, refuse };
+      ov.hidden = false;
+      ov.innerHTML = `<div class="cc-card" id="ccVowConfirm"><p>${esc(line)}</p><button type="button" class="cc-item" id="ccVowConfirmYes">Break the vow</button><button type="button" id="ccVowConfirmCancel">Cancel</button></div>`;
+      $("ccVowConfirmYes").onclick = () => { const next = U.vowPending?.act; hideVowConfirm(); if (next) act({ ...next, breakVow: true }); };
+      $("ccVowConfirmCancel").onclick = () => { const why = U.vowPending?.refuse; hideVowConfirm(); if (why) flashTip(why); };
     }
     function act(a) {
       if (a.actor === "player" && U.s) a = { ...a, actor: controlledId(U.s) };   // every human order goes to the controlled fighter: the soul while it is out
@@ -3188,13 +3266,17 @@
         try { decisionInspector?.observe(pendingInspectedDecision, r); } catch (error) { console.warn("Emissary observation failed", error); }
         pendingInspectedDecision = null;
       }
-      if (!r.ok) { if (r.kept) { U.s = r.state; draw(); } recordDiagnostic("Engine action rejected",r.error,a.actor,a); flashTip(r.error); return false; }   // kept: refused, but the state changed (contempt of court)
+      if (!r.ok) {
+        if (r.confirmVow && !a.breakVow && !isAi(a.actor)) { showVowConfirm(r.confirmVow, a, r.error); return false; }
+        if (r.kept) { U.s = r.state; draw(); } recordDiagnostic("Engine action rejected",r.error,a.actor,a); flashTip(r.error); return false;
+      }   // kept: refused, but the state changed (contempt of court)
       U.s = r.state; U.mode = modeAfterEngineAction(U.s); U.actions.push(a);
       if (a.type === "riteComplete" && U.s.actors[a.actor]?.riteAugment?.ultMul > 1 && Ceremony) { const r = Ceremony.rite("tea", {}); if (Tracks) for (const c of r.cues) Tracks.cue(c.slot, c.opts || {}); flashTip(r.beats.join(" ")); }   // Tea T1: the seal beats twice and thumps (respec's eat pattern)
       announceSystemNote(a);   // Observe teaches O3: the first successful observe of a kind notes the system, once per account
       if (U.s.outcome && U.account?.stakeEscrow && !U.account.stakeEscrow.outcome) { U.account = { ...U.account, stakeEscrow: { ...U.account.stakeEscrow, outcome: U.s.outcome.winner || "none" } }; saveAccount(); }   // decided: record it before anything below can throw
       drainStakes();   // W5.3: settled wagers return to the purse after every act
       drainPacts();   // summon pacts: the relationship ledger updates after every act
+      if (SM?.Trial && !U.practiceBattle && !testBattle()) { const ta = SM.Trial.spendNow(U.account, U.s); if (ta) { U.account = ta; saveAccount(); } }   // Tandem T2c: a spent free first call is saved at once, so leaving the battle cannot return it
       // Only the unit acting now keeps the way its action pointed; everyone else turns back to the nearest foe (aggroIsRight).
       // Mala, 2026-10-25: an enemy Memorialist faced away from her after healing an ally behind him; the old facing never reset.
       for (const id of Object.keys(U.facing)) if (id !== a.actor && U.s.actors[id]) delete U.facing[id];
@@ -3290,7 +3372,7 @@
       const eventsOf=eventScenes(U.s,U.s.log.slice(logFrom),factCtx());
       for(const sc of eventsOf)if(sc.factId&&!U.testSnapshot){U.account.plantFacts=PF.markHeard(U.account.plantFacts,sc.plantType,sc.factId);saveAccount();}   // heard when its card opens (a skip counts); a test battle writes nothing
       if(full) openAttackPopup([...dreamScenes(U.s,a,U.s.log.slice(logFrom)),...scenes,...boonScenes(fxBefore,U.s,a),...pepTalkScenes(fxBefore,U.s,U.s.log.slice(logFrom)),...missedCallScenes(fxBefore,U.s,U.s.log.slice(logFrom)),...arrivalScenes(fxBefore,U.s,U.s.log.slice(logFrom)),...eventsOf,...words,...heldBeliefScenes(beliefScenes(U.s,U.s.log.slice(logFrom)))]);
-      else openAttackPopup([...watched,...words.map(sc=>({...sc,ms:1600})),...eventsOf.filter(sc=>sc.fieldNote).map(sc=>({...sc,ms:Infinity}))]);   // reduced motion: a teaching card, held until dismissed
+      else openAttackPopup([...watched,...words.map(sc=>({...sc,ms:1600})),...eventsOf.filter(sc=>sc.fieldNote||sc.breach||sc.witness).map(sc=>({...sc,ms:Infinity}))]);   // reduced motion: a teaching card, held until dismissed; a vow breach holds too
       if(reports.length)openAttackPopup([...(U.closeup?.scenes||[]),...reports]);
       if (paceMul > 1 && isAi(a.actor)) {   // Slow: this AI action's lines appear one at a time once its scenes and effects have played (pump starts the wait)
         const lines = U.s.log.slice(logFrom).map((e, i) => ({ upto: logFrom + i + 1, len: String(e.text || "").length })).filter((l) => l.len > 0);
@@ -3427,6 +3509,8 @@
     }
     function fxDetails(state, ability, actorId, aim, tiles, events = []) {
       const details = {};
+      const bodyCast = U.fullAnimation && !params.fast ? FXS?.bodyCastFor?.(ability, state.actors[actorId]) : null;
+      if (bodyCast) details.bodyCast = bodyCast;
       const line = Array.isArray(tiles) ? tiles : [];
       const covers = line.slice(1, -1).filter(([x, y]) => {
         const tile = E.geometry.tileAt(state, x, y), barrier = E.geometry.barrierAt(state, x, y);
@@ -3597,7 +3681,7 @@
         // A malformed effect duration used to be able to keep an AI turn parked.
         if (!Number.isFinite(fxWait) || fxWait > 2200 * paceMul) {
           console.warn("Combat presentation exceeded its turn-wait limit; skipping queued effects.", fxWait);
-          U.fxPlayer?.skip?.();
+          U.fxPlayer?.skip?.(); if (root.FX3) FX3.release();
         } else {
           U.mode="wait";
           try { render(); } catch (error) { console.error("Combat redraw failed during effect wait.", error); recordDiagnostic("Combat redraw failed during effect wait",error); }
@@ -4108,7 +4192,7 @@
         if (ch === "=") { g.strokeStyle = "#c7bca966"; g.lineWidth = 2; g.beginPath(); g.moveTo(px + 3, py + th * .75); g.lineTo(px + tw - 3, py + th * .75); g.stroke(); }
         const f = o.fill.get(k([x, y])); if (f) { g.fillStyle = f; roundRect(px + 2, py + 2, tw - 4, th - 4, 5); g.fill(); }
         if (o.ring.has(k([x, y]))) { g.strokeStyle = "#ffe08a"; g.lineWidth = 2.5; roundRect(px + 4, py + 4, tw - 8, th - 8, 4); g.stroke(); }
-        if (pillar) drawPillar(px, py, tw, th, palette);
+        if (pillar && !(root.FX3 && FX3.holds(x, y))) drawPillar(px, py, tw, th, palette);
         if (ch === "T") drawTree(px, py, tw, th, 0);
         if (ch === "h") drawHedge(px, py, tw, th, 0);
       }
@@ -4134,7 +4218,25 @@
         onGround(x, y, (px, py) => { g.strokeStyle = "rgba(196, 163, 90, .55)"; g.lineWidth = 2; roundRect(px + 3, py + 3, geo.tw - 6, geo.th - 6, 5); g.stroke(); });
       }
       for (const object of (s.arena.objects || []).slice().sort((a, b) => a.y - b.y || a.x - b.x)) {
+        if (object.wreckId) {
+          if (object.part !== 0) continue;
+          const parts = s.arena.objects.filter((p) => p.wreckId === object.wreckId);
+          if (parts.every((p) => unseen(p.x, p.y))) continue;
+          const mid = parts.find((p) => p.part === 1) || object;
+          const span = isoCam || object.wreckAxis === "x" ? 3 : 1;
+          if (!isoCam) for (const part of parts) if (!unseen(part.x, part.y)) onGround(part.x, part.y, (px, py) => {
+            g.fillStyle = "rgba(28, 39, 38, .7)";
+            roundRect(px + 2, py + 2, tw - 4, th - 4, 4);
+            g.fill();
+          });
+          upright(mid.x, mid.y, () => {
+            const [px, py] = tileXY(mid.x, mid.y);
+            return drawMapObject(object, px - tw * (span - 1) / 2, py, tw * span, th, groundStyle(s.arena.map[mid.y][mid.x]));
+          }, { w: span, up: 3.2, cover: true });
+          continue;
+        }
         if (unseen(object.x, object.y)) continue;
+        if (root.FX3 && FX3.holds(object.x, object.y)) continue;
         // The same species, stage and object art on both boards: the isometric scene models ground and architecture only.
         upright(object.x, object.y, () => { const [px, py] = tileXY(object.x, object.y), ch = s.arena.map[object.y][object.x], palette = groundStyle(ch);
           return drawMapObject(object, px, py, tw, th, palette); }, { w: 1, up: 2.2, cover: true });
@@ -4254,6 +4356,7 @@
       // barriers
       for (const b of s.barriers) {
         if (unseen(b.x, b.y)) continue;
+        if (root.FX3 && FX3.holds(b.x, b.y)) continue;
         upright(b.x, b.y, () => { const [px, py] = tileXY(b.x, b.y); const own = s.actors[b.owner];
         const berm = b.concept === "berm", swale = b.concept === "swale", foldC = b.concept === "foldCrossing", foldP = b.concept === "foldPanel";
         const smk = SMOKE && SMOKE.isSmoke(b) ? SMOKE.pick(b, own, performance.now(), U.fullAnimation && !params.fast) : null, smkImg = smk && smokeImage(smk.strip);
@@ -4329,8 +4432,19 @@
         if (img) { const w = tw * art.widthTiles, h = w * img.naturalHeight / img.naturalWidth; g.save(); g.globalAlpha = art.alpha; g.imageSmoothingEnabled = false;
           for (const [x, y] of weatherTiles(art, w, h, geo.W, geo.H, performance.now() / 1000)) g.drawImage(img, x, y, w, h); g.restore(); } }
       drawSpeechBubbles();
-      // fx
-      if(FX&&U.fxFrame)FX.paint(g,U.fxFrame.ops,(x,y)=>centre(x,y),geo.tw);
+      // fx. FX3 F3: ask the Bastion painter first; a false answer leaves the 2D stroke in charge.
+      const fxNow = performance.now();
+      const fxCur = U.fxPlayer && U.fxPlayer.current ? U.fxPlayer.current(fxNow) : null;
+      const fxActor = fxCur && fxCur.script && fxCur.script.cue && s.actors[fxCur.script.cue.actor];
+      const fx3Drew = !!(root.FX3 && U.fxFrame && FX3.paint({
+        canvas: cv, script: fxCur && fxCur.script, elapsed: fxCur ? fxCur.elapsed : 0,
+        folded: lastFolded(s), caster: fxActor || s.actors.player, centre, tile: geo.tw,
+        iso: !!isoOn(), fullAnimation: !!U.fullAnimation, on: !!U.fx3, playing: !!(fxCur && fxCur.script), now: fxNow
+      }));
+      if (FX && U.fxFrame) {
+        const ops = fx3Drew ? U.fxFrame.ops.filter((op) => op.op === "float") : U.fxFrame.ops;
+        if (ops.length) FX.paint(g, ops, (x, y) => centre(x, y), geo.tw);
+      }
       if(FXS&&U.fxFrame?.groups){   // imported effect sprites over the drawn stroke (fx-sprites.js); additive, since the art is glow
         g.save(); g.globalCompositeOperation="lighter";
         for(const d of FXS.draws(U.fxFrame.groups)){
@@ -4453,6 +4567,9 @@
         const actorSprite = communeArt(a.form?.golden ? "gold-form" : a.form?.formId === "one_with_nature" ? "gaia-form" : a.sprite), actorKey = tsukumogamiArt(actorSprite);
         if ((a.communed || a.beast || a.awakened) && actorKey && !poseSprites[actorKey]) loadSpritePackage(actorKey);   // communed plants: loaded when one first appears
         const poses = poseSprites[actorKey];
+        if (a.character === "warden" && FXS?.WARDEN_FREESTYLE && !transformImages.has("fx/musical/warden-musical-1")) {
+          for (const frame of FXS.WARDEN_FREESTYLE) transformImage("fx/musical", frame.name);
+        }
         const now = performance.now(), recent = U.poseUntil[a.id];
         const pose = a.defeated || a.status?.playingDead ? (a.defeated && a.awakened && !a.settledBack ? "hurt" : "knocked-out") : a.status.guard ? "block"   // a collapse flashes hurt before the rubble; everything else falls as usual
           : U.fxFrame?.poses?.[a.id] || (recent && recent.until > now ? recent.pose : (a.boss && a.conditions?.enraged ? "enraged" : a.status?.kneeling ? "knee" : (POSES ? POSES.idleFor(a, U.s?.rules?.ultimateChargeMax) : "idle")));
@@ -4467,19 +4584,27 @@
           else if (frame.from === "gold-form") img = poseSprites["gold-form"]?.[frame.frame] || img;
           else { const folder = String(animation.sprites || "combat/sprites/gold-transform").replace(/^combat\/sprites\//, ""); img = transformImage(folder, frame.frame) || img; transformScale = BOSS?.data?.integratedSelf?.transformation?.scale || 1; }
         }
-        if (img && img.complete && img.naturalWidth) {
+        const bodyFrame = U.fullAnimation && !params.fast && !animation && !a.defeated && !a.status?.playingDead && FXS?.bodyCastFrame?.(U.fxFrame?.bodyCasts?.[a.id]);
+        const bodyCastImg = bodyFrame ? transformImage("fx/musical", bodyFrame.name) : null;
+        if (bodyCastImg || (img && img.complete && img.naturalWidth)) {
           const baseY = cy + th * .1;
           // Poses share idle's pixel scale (as in the duel scene), so a low pose like knockback stays low instead of being stretched to standing height.
           const idleArt = !animation && poses?.idle?.naturalHeight ? poses.idle : null;
-          const poseRatio = idleArt && pose !== "idle" ? Math.min(1.5, Math.max(.35, img.naturalHeight / idleArt.naturalHeight)) : 1;
+          const poseRatio = !bodyCastImg && idleArt && pose !== "idle" ? Math.min(1.5, Math.max(.35, img.naturalHeight / idleArt.naturalHeight)) : 1;
           const imageH = (pose === "knocked-out" && !a.boss ? tw * .23 : tw * .568 * poseRatio) * (SPRITE_SCALE[actorKey] || ((a.size?.w || 1) > 1 || (a.size?.h || 1) > 1 ? BIG_UNIT_SCALE : 1)) * transformScale;   // a multi-tile unit with no scale of its own is drawn at the boss scale (Mala, 2026-10-27: wounded Gaia "is supposed to be larger")
-          const imageW = imageH * img.naturalWidth / img.naturalHeight;
+          const imageW = bodyCastImg ? 0 : imageH * img.naturalWidth / img.naturalHeight;
           const targetIsRight = U.facing[a.id] ?? aggroIsRight(a);
           const bodyArt = FXS?.bodyAura(a, U.s.rules), bodyImg = bodyArt ? transformImage(`auras/${bodyArt}`, "frame-1") : null;   // fx-sprites.js: power / communing aura behind the unit
           if (bodyImg) { const ah = imageH * 1.55, aw = ah * bodyImg.naturalWidth / bodyImg.naturalHeight; g.save(); g.globalAlpha = .62 + Math.sin(now / 260) * .14; g.drawImage(bodyImg, cx - aw / 2, baseY + ah * .06 - ah, aw, ah); g.restore(); }
           g.save(); g.imageSmoothingEnabled = false; g.globalAlpha = a.defeated ? .78 : 1;
           g.translate(cx, 0); if (shouldFlipSprite(actorKey, targetIsRight)) g.scale(-1, 1);
-          g.drawImage(img, -imageW / 2, baseY - imageH, imageW, imageH); g.restore();
+          if (bodyCastImg) {
+            const scale = imageH / bodyFrame.bodyHeight;
+            g.drawImage(bodyCastImg, -bodyFrame.footX * scale, baseY - bodyFrame.footY * scale,
+              bodyCastImg.naturalWidth * scale, bodyCastImg.naturalHeight * scale);
+            spriteLog("fx", bodyFrame.name, a);
+          } else g.drawImage(img, -imageW / 2, baseY - imageH, imageW, imageH);
+          g.restore();
           drawActorOverlays(a, active, cx, cy, h, tw, th);
           drawFxMarks(a,cx,cy,tw,th);
           return;
@@ -4755,7 +4880,7 @@
       if (art) {
         // Keep the art's own proportions (Mala, 2026-10-27: "size and distortion issues"): a fixed 1.5 x 1.5 box stretched tall
         // statues up to 3x and squashed hedges. Fit the visible art inside the old box's height (1.5 tile heights; trees 1.9) and a tile's width, keeping its shape.
-        const tall = spriteId === "tree", b = artBox(art), maxW = tw * (tall ? 1.6 : 1.1), maxH = th * (tall ? 1.9 : 1.5), k = Math.min(maxW / b.w, maxH / b.h), dw = b.w * k, dh = b.h * k; y -= spriteFoot(th);
+        const tall = spriteId === "tree", b = artBox(art), maxW = tw * (tall ? 1.6 : 1.1), maxH = th * (o.wreckId ? 2.8 : tall ? 1.9 : 1.5), k = Math.min(maxW / b.w, maxH / b.h), dw = b.w * k, dh = b.h * k; y -= spriteFoot(th);
         g.save(); g.imageSmoothingEnabled = false; g.drawImage(art, b.x, b.y, b.w, b.h, x + tw/2 - dw/2, y + th*.88 - dh, dw, dh); g.restore(); spriteLog("objects", spriteId, o);
         return [x + tw/2 - dw/2, y + th*.88 - dh, x + tw/2 + dw/2, y + th*.88];
       }
@@ -4865,8 +4990,9 @@
       renderPanel("arena", () => { syncViewBar(); syncBoardTabs(); syncZoomBar(); layout(); draw(); });
       renderPanel("banner", renderBanner);
       renderPanel("agent connection", renderAgentControls);
-      renderPanel("commands", renderCommands);
+      renderPanel("commands", () => { renderCommands(); if (courtFocusOwed) restoreCourtFocus(); });
       renderPanel("detail", renderDetail);
+      if (liveCourt?.open) renderPanel("courtroom", () => liveCourt.update());
       renderPanel("party", renderParty);
       renderPanel("unit window", renderUnitInfo);
       renderPanel("mind duel", renderMindDuel);
@@ -4962,6 +5088,7 @@
     const menuList = () => heldPrices(apGate(foldRows(U.menu === "root" ? rootRows() : inDrawer() ? drawerItems() : subItems()), controlledFighter(U.s)?.tempo ?? 0, E.heldCostMul(U.s, controlledId(U.s))), E.heldCostMul(U.s, controlledId(U.s)));   // real prices in a Contact Reading hold; rows greyed when the AP is short (1:1, indexes agree)
     function rootItems() {
       const s = U.s, p = controlledFighter(s);
+      const convene = E.conveneOptions(s, p.id);
       const siHolder = (u) => (u.traits || []).some((x) => (x?.id || x) === "survivalInstincts") && !(u.traits || []).some((x) => root.ConceptCombatInsightData?.traits?.[x?.id || x]?.neverFlees);   // Brave and Main Character Energy are never offered either escape
       // A drawn line with no legal target cannot be delivered: say so, and leave Discard (Muse, Mala hit it 2026-10-15).
       if(p.status?.verse?.freeAp){const vt=E.targeting(s,controlledId(s),p.status.verse.id),none=!vt.legal?.length;
@@ -4974,10 +5101,10 @@
         ...Object.values(s.actors).filter(u=>u.side===p.side && u.fullCourtPress && !u.defeated).map(u=>({id:`press:${u.id}`,label:`Press ▸ ${u.name}`,off:!E.fullCourtPressOptions(s,u.id).length,help:"Relocate this ally once to any open map tile for 0 AP, including across the dream boundary. Movement vows and position locks still apply."})),
         ...(p.status?.grappled && p.status.grappled.untilRound >= U.s.round ? [{ id: "breakGrapple", label: `Break the hold · ${U.s.rules.grapple.break.ap} AP`, off: p.tempo < E.breakCost(U.s, controlledId(U.s)),
           why: `You are held: no moving or dodging until the hold lapses at the end of round ${p.status.grappled.untilRound}. Breaking it always works and frees you now; a hold also breaks when either of you is moved by anything but your own Move, Jump or Climb (a shove, pull, throw, dash, swap, teleport or dodge).${E.heldCostMul(U.s, controlledId(U.s)) !== 1 ? ` Contact Reading: everything costs you ×${E.heldCostMul(U.s, controlledId(U.s))} action points while you are held, this included.` : ""}` }] : []),
-        { id: "move", label: `Move (≤${moveBudget(controlledId(U.s))})${root.ConceptCombatVows?.refuses(U.s, p, "move") ? " · Rooted" : ""}`, why: `Up to ${moveBudget(controlledId(U.s))} move points this turn. Terrain and slope change the cost, and water costs extra action points.`, off: p.tempo < U.s.rules.actionCosts.movePerPoint || !!root.ConceptCombatVows?.refuses(U.s, p, "move") },   // Vows: Rooted
-        ...(E.jumpOptions(U.s, controlledId(U.s)).length ? [{ id: "jump", ap: E.jumpCost(U.s, controlledId(U.s)), label: `Jump down (${E.jumpCost(U.s, controlledId(U.s))} AP)`, why: "Drop to a lower tile. Fall damage is halved.", off: !!root.ConceptCombatVows?.refuses(U.s, p, "move") }] : []),
-        ...(E.climbOptions(U.s, controlledId(U.s)).length ? [{ id: "climb", ap: E.climbCost(U.s, controlledId(U.s)), label: `Climb ledge (${E.climbCost(U.s, controlledId(U.s))} AP)`, off: !!root.ConceptCombatVows?.refuses(U.s, p, "move"),
-          why: `Scale a ledge two or more levels up, which a plain step cannot reach. Costs ${E.climbCost(U.s, controlledId(U.s))} AP.` }] : []),
+        { id: "move", label: `Move (≤${moveBudget(controlledId(U.s))})${root.ConceptCombatVows?.refuses(U.s, p, "move") ? " · Rooted" : ""}`, why: `Up to ${moveBudget(controlledId(U.s))} move points this turn. Terrain and slope change the cost, and water costs extra action points.`, off: p.tempo < U.s.rules.actionCosts.movePerPoint },   // Vows: Rooted stays labelled; choose() still sends move so confirmVow can fire
+        ...(E.jumpOptions(U.s, controlledId(U.s)).length ? [{ id: "jump", ap: E.jumpCost(U.s, controlledId(U.s)), label: `Jump down (${E.jumpCost(U.s, controlledId(U.s))} AP)`, why: "Drop to a lower tile. Fall damage is halved.", off: false }] : []),   // Vows: Rooted jump still chooses so confirmVow can fire
+        ...(E.climbOptions(U.s, controlledId(U.s)).length ? [{ id: "climb", ap: E.climbCost(U.s, controlledId(U.s)), label: `Climb ledge (${E.climbCost(U.s, controlledId(U.s))} AP)`, off: false,
+          why: `Scale a ledge two or more levels up, which a plain step cannot reach. Costs ${E.climbCost(U.s, controlledId(U.s))} AP.` }] : []),   // Vows: Rooted climb still chooses so confirmVow can fire
         // Disengage only when it could matter: a live opponent who holds a reaction threatens this tile, and this
         // turn's disengage is not already spent. Listed unconditionally it folded every opening menu into the Move
         // drawer and buried the first command (oculus-battle-ui caught it, 2026-10-22).
@@ -5023,13 +5150,15 @@
         ...(p.birdMountain?.red?[{id:"dismissUlaula",label:"Let the red go out · free",off:!!p.birdMountain.vows?.neverQuench,why:p.birdMountain.vows?.neverQuench?"Sworn: Never-Quench cannot be dismissed.":"Dismiss ʻUlaʻula. Free, on your turn."}]:[]),
         { id: "tech", label: "Techniques ▸", opensIfShort: true, off: !E.availableAbilities(U.s, controlledId(U.s)).some(x => x.affordable||x.contract?.next?.kind==="invoke"||x.contract?.canPrepare),
           why: E.availableAbilities(U.s, controlledId(U.s)).some(x => x.affordable||x.contract?.next?.kind==="invoke"||x.contract?.canPrepare) ? "The techniques your concepts give you, grouped by concept. Each row shows its AP and ΦF cost." : "No technique is affordable right now: check each row's AP and ΦF cost." },
-        ...(SM && (SM.callsPalace(p) || (p.beastSummons || []).length || Object.keys(U.account?.contracts?.pacts || {}).length) ? [{ id: "summons", label: `Summon ally ▸ (${(SM.callsPalace(p) ? SM.familiarSet(p, summonUnlocks()).length : 0) + (p.beastSummons || []).length} unlocked · ${E.summonProfile(s,p.id).apCost} AP)`, off: !summonUnlocks().some(id => E.summonReadiness(s,p.id,id,summonUnlocks()).ok) && !(p.beastSummons || []).some((b) => !s.beastCalled?.[`${p.id}:${b.key}`]) && !pactCallable(s, p) && !s.pactActive,
-          why: `Call an unlocked ally: ${E.summonProfile(s,p.id).apCost} AP and ${E.summonProfile(s,p.id).phiCost} ΦF each, and you answer its question before it arrives.` }] : []),
+        ...(FamiliarPicker ? [{ id: "familiars", label: "Familiars ▸", why: "See the familiars you have met and how to meet more. Make choices between battles." }] : []),
+        ...(SM && (SM.callsPalace(p) || (p.beastSummons || []).length || Object.keys(U.account?.contracts?.pacts || {}).length) ? [{ id: "summons", label: `${SM.callsPalace(p) ? `Call a familiar ▸ (${SM.familiarSet(p, summonUnlocks()).filter(id => SM.data.summons[id]).length} met · ${E.summonProfile(s,p.id).apCost} AP)` : "Call an ally ▸"}`, off: !summonUnlocks().some(id => E.summonReadiness(s,p.id,id,summonUnlocks()).ok) && !(p.beastSummons || []).some((b) => !s.beastCalled?.[`${p.id}:${b.key}`]) && !pactCallable(s, p) && !s.pactActive,
+          why: "Browse ally calls. Each call shows its costs and any conditions." }] : []),
         ...(SM ? Object.values(s.actors).filter(a => a.summon && a.summon.owner === p.id && !a.defeated).map(a => {
           const def = SM.data.summons[a.summon.key], ult = SM.activeUltimate(a), can = SM.canOrderUltimate(p, a, { ultimateChargeMax: s.rules.ultimateChargeMax });
           const blocked = s.dreamSpace?.owner === p.id || DS?.ultimatesBlocked(p, s.dreamSpace, s.rules);
           return { id: "orderSummonUltimate", summonId: a.id, label: `Order ${a.name}: ${ult.name} · 20 AP + full ULT`, off: !can.ok || !!blocked, why: blocked ? "Dream Space is using the ultimate charge." : can.reason };
         }) : []),
+        ...(SM?.Tandem?.menuItems ? SM.Tandem.menuItems(s, p) : []),   // Tandem T2c: stretch your tandem's leash for its price (summons/tandem.js)
         { id: "strike", label: "Strike ▸", off: !!p.status?.soothed || p.tempo < U.s.rules.actionCosts.strikeMin,
           why: p.status?.soothed ? "You are soothed and cannot strike." : "Choose how much AP to commit, then a target. More AP means more potency; AP you do not have becomes tempo debt, repaid from your next turn's budget." },
         ...(() => { const M = E.multitudes(U.s, controlledId(U.s)); if (!M.holder) return [];   // Contains Multitudes (the Warden)
@@ -5038,7 +5167,7 @@
             : [{ id: "multitudes", label: `Contains Multitudes · ${M.cost} Inspiration`, off: !M.options.some((o) => !o.off), why: M.options.length ? (M.options.find((o) => o.off)?.off || "") : "Beat a class in a real battle first: it is recorded in your victories.",
                 help: `Be one class you have beaten as well as the Warden for ${M.turns} of your turns. Your own secondary concept is set aside while it lasts. ${M.options.length} class${M.options.length === 1 ? "" : "es"} beaten so far.` }]; })(),
         ...(p.status?.drowning ? [{id:"recoverWater",label:`${E.recoverWater(s,controlledId(s))?.label} (${E.recoverWater(s,controlledId(s))?.cost} AP)`,off:!E.recoverWater(s,controlledId(s))?.allowed || p.tempo<(E.recoverWater(s,controlledId(s))?.cost||20),why:"Drowning continues until you recover or leave water. This uses your turn's action points."}] : []),
-        { id: "guard", ap: U.s.rules.actionCosts.guard, label: `Guard (${U.s.rules.actionCosts.guard} AP)${root.ConceptCombatVows?.refuses(U.s, p, "guard") ? " · sworn off" : ""}`, off: p.guardUsedThisTurn || p.tempo < U.s.rules.actionCosts.guard || !!root.ConceptCombatVows?.refuses(U.s, p, "guard"),
+        { id: "guard", ap: U.s.rules.actionCosts.guard, label: `Guard (${U.s.rules.actionCosts.guard} AP)${root.ConceptCombatVows?.refuses(U.s, p, "guard") ? " · sworn off" : ""}${p.tenant?.rentDue && p.tenant.hostId === p.id ? " · her keep" : ""}`, off: p.guardUsedThisTurn || p.tempo < U.s.rules.actionCosts.guard,   // Vows: Open Guard stays labelled; choose() still sends guard so confirmVow can fire
           why: `Cuts incoming LF damage by ${Math.round(U.s.rules.guardReduction.min * 100)}% to ${Math.round(U.s.rules.guardReduction.max * 100)}%, more the more AP you still hold when you set it, until your next turn starts.${p.guardUsedThisTurn ? " Already set this turn." : ""}` },   // Vows: Open Guard
         { id: "observe", label: `Observe ▸ (${U.observeInvest} AP)`, off: p.tempo < U.observeInvest,
           why: `Learn a visible character's traits and abilities, or read the place's weather. Each 10 AP of effort adds one insight point. (Investigate goes deeper.)${p.tempo < U.observeInvest ? ` Not enough AP: the effort is ${U.observeInvest}.` : ""}` },
@@ -5113,7 +5242,9 @@
             { id: `vowForm:${formId}`, label: `Borrow ${O.form} (vow) · free`, off: !!vowWhy, why: vowWhy || `${BOSS.data.learnedForms.vowTurns} free turns; you can't hold it again this battle.` }] : []; })) : []),
         ...(U.insightTarget && U.s.actors[U.insightTarget] && !U.s.actors[U.insightTarget].defeated ? [{ id: "insight", label: `Insight ▸ ${U.s.actors[U.insightTarget].name}`, why: `The actions your observations of ${U.s.actors[U.insightTarget].name} unlock. Only observed traits and findings count.` }] : []),
         ...(root.ConceptCombatOrders && p.id === "player" ? Object.values(s.actors).filter((u) => u.side === p.side && u.id !== p.id && !u.defeated).flatMap((u) => ["strike", "screen", "scout", "admin"].map((r) => ({ id: `order:${u.id}:${r}`, label: `Order ▸ ${u.name} · ${r[0].toUpperCase() + r.slice(1)} · ${E.talkCost(s, p.id, "talk", s.rules.orders?.ap ?? 10)} AP`, off: p.tempo < E.talkCost(s, p.id, "talk", s.rules.orders?.ap ?? 10), why: `${u.name} weighs ${r[0].toUpperCase() + r.slice(1)} into their choices for 3 rounds. They may refuse or only half-comply.${E.talkCost(s, p.id, "talk", s.rules.orders?.ap ?? 10) !== (s.rules.orders?.ap ?? 10) ? " Speed-Talker: half price." : ""}` }))).concat(Object.values(s.actors).filter((u) => u.side === p.side && u.id !== p.id && !u.defeated).flatMap((u) => Object.values(s.actors).filter((f) => f.side !== p.side && !f.defeated).map((f) => ({ id: `order:${u.id}:focus:${f.id}`, label: `Order ▸ ${u.name} · Focus ${f.name} · ${E.talkCost(s, p.id, "talk", s.rules.orders?.ap ?? 10)} AP`, off: p.tempo < E.talkCost(s, p.id, "talk", s.rules.orders?.ap ?? 10), why: `${u.name} weighs hitting ${f.name} into their choices for 3 rounds. They may refuse or only half-comply.` })))) : []),
-        ...(U.s.trial && !U.s.trial.over ? [{ id: "trial", label: `Trial ▸ argue the case (favor ${U.s.trial.t.favor >= 0 ? "+" : ""}${U.s.trial.t.favor})`, why: "Pick this round's move in the trial, 10 AP each. Favor moves with each one." }] : []),
+        ...(convene?.targets.length ?
+          [{ id: "convene", label: `Convene the Court · ${convene.cost} AP ▸`, why: "Name a charged opponent within five tiles and sight. They can dodge before the hearing opens." }] : []),
+        ...(typeof courtView === "function" && courtView() ? [{ id: "trial", label: s.trial.over ? "Trial verdict ▸" : "Trial ▸", why: "See the docket and the court’s legal plays." }] : []),
         ...((p.rite?.steps || []).length >= 1 && !U.s.trial && !U.s.trialDone ? [{ id: "mockTrial", label: `Mock trial · 25 AP`, why: "Bring an enemy to trial: it needs 2 observed findings on them, at least one count, and 25 AP. Violence pauses while the court argues." }] : []),
         ...(typeof stakesMenu === "function" ? stakesMenu() : []), ...(typeof hyperMenu === "function" ? hyperMenu() : []),   // guards: command-status slices rootItems into a bare sandbox
         ...(siHolder(p) ? (() => { const R = s.rules.survivalInstincts;   // Survival Instincts: Play dead / Stand up
@@ -5186,9 +5317,9 @@
         return { id: `cook:${rid}`, recipe: rid, label: `${r.name} → ${Loot.data.consumables[r.out]?.name || r.out} · ${ap} AP`, why: r.teach, off: p.tempo < ap }; });
       if (U.menu === "drop") return (p.inventory || []).map((id, i) => ({ id: `drop:${id}:${i}`, drop: id, label: `Drop ${Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id}`, why: `Set ${Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id} down and leave it behind. Costs no AP.` }));
       if (U.menu === "summons") return [...SM.available({ unlocked: SM.familiarSet(p, summonUnlocks()) }).filter(x => x.unlocked && SM.callsPalace(p)).map(x => {   // K1 O2: the caller's own set
-        const cost = E.summonProfile(s, p.id), can = E.summonReadiness(s, p.id, x.id, summonUnlocks());
-        const tax = (p.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === "attentionToDetail") ? 5 : 0;   // sturdier craft costs slightly (engine/actions.js summonTax)
-        return { id: x.id, summon: x.id, label: `${x.name} · ${cost.apCost + tax} AP · ${cost.phiCost} ΦF · ${cost.active.length}/${cost.maxActive} active`,
+        const cost = E.summonProfile(s, p.id, x.id), can = E.summonReadiness(s, p.id, x.id, summonUnlocks());
+        const tax = !cost.freeCall && (p.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === "attentionToDetail") ? 5 : 0;   // sturdier craft costs slightly (engine/actions.js summonTax; none on a free first call)
+        return { id: x.id, summon: x.id, label: `${x.name} · ${cost.apCost + tax} AP · ${cost.phiCost} ΦF${cost.freeCall ? " (first call free)" : ""} · ${cost.active.length}/${cost.maxActive} active`,
           why: can.ok ? `${C.concepts[SM.data.summons[x.id].standIn.primary].name} + ${C.concepts[SM.data.summons[x.id].standIn.secondary].name}${cost.emergentIdea ? ` · Proficient Summoner: ${cost.wardProtection}-point ward refreshed each summon turn` : ""}` : can.reason, off: !can.ok };
       }), ...(p.beastSummons || []).map((b) => {   // creatures learned by swallowing their beads (account/beads.js): called like a released bead, once a battle
         const cost = E.summonProfile(s, p.id), used = !!s.beastCalled?.[`${p.id}:${b.key}`];
@@ -5273,6 +5404,10 @@
             off: p.tempo < price || talkClosed };
         }), ...imitateMenu(target, deck, know)];
       }
+      if (U.menu === "convene") return (E.conveneOptions(s, p.id)?.targets || []).map((id) => ({
+        id: `convene:${id}`, label: s.actors[id].name,
+        help: root.ConceptCombatCourtroom.countsFor(s, id).map((count) => count.label).join(", "),
+      }));
       if (U.menu === "mockTrial") {   // W1.3: pick the accused — needs presented evidence + triable counts
         const TR = root.ConceptCombatTrial;
         return Object.values(s.actors).filter((u) => u.side !== "player" && !u.defeated).map((u) => {
@@ -5283,16 +5418,6 @@
           return { id: `accuse:${u.id}`, label: `Accuse ${u.name} (${counts.length} counts)`, off: !!why, why: why || "1 rite step + presented evidence. Violence pauses; the court argues." };
         });
       }
-      if (U.menu === "trial") {   // W1.3: prosecution moves — queue this round's press (10 AP each)
-        const TR = root.ConceptCombatTrial;
-        if (!s.trial || s.trial.over || !TR) return [];
-        if (s.trial.accusedId === "player") {   // arrest-trial: the accused directs their own defense
-          const dhelps = { argue: "Argue the count: unproven counts get struck, firm ones shift your way.", evidence: "Call the first willing witness for the defense.", appeal: "Appeal to the room: favor swings defense.", end: "Rest: let the count stand as graded.", confess: "Confess: end it, take the sentence.", finalPlea: "One plea from the heart, once per trial." };
-          return TR.legalPlays(s.trial.t, "defense").map((m) => ({ id: `trialDefend:${m}`, move: m, label: `${m} · 10 AP`, off: p.tempo < 10, why: p.tempo < 10 ? "Needs 10 AP" : "", help: `${dhelps[m] || m} Favor ${s.trial.t.favor >= 0 ? "+" : ""}${s.trial.t.favor}; +2 acquits.` }));
-        }
-        const helps = { press: "Press the count: favor swings prosecution.", evidence: "Call the first willing witness: grades firm up, favor swings hard.", end: "Rest: let the count stand as graded." };
-        return TR.legalPlays(s.trial.t, "prosecution").map((m) => ({ id: `trialMove:${m}`, move: m, label: `${m} · 10 AP`, off: p.tempo < 10, why: p.tempo < 10 ? "Needs 10 AP" : "", help: `${helps[m] || m} Favor ${s.trial.t.favor >= 0 ? "+" : ""}${s.trial.t.favor}; −2 calls the Sword.` }));
-      }
       if (U.menu === "lens") {
         const out = [];
         for (const c of [p.primary, p.secondary].filter(Boolean)) for (const [id, pr] of Object.entries(C.concepts[c].lens.profiles))
@@ -5302,11 +5427,41 @@
       if (U.menu === "swap") return p.reserve.map((c) => ({ id: c, label: `Equip ${C.concepts[c].name}`, why: `Costs ${U.s.rules.actionCosts.swap} AP. ${C.concepts[c].name} replaces your secondary from your next turn start.` }));
       return [];
     }
+    function courtView() {
+      const s = U.s, actor = controlledId(s);
+      if (!s.trial || (!s.trial.over && E.decider(s)?.actor !== actor)) return null;
+      return root.ConceptCombatCourtroomUI?.liveView(s, actor, root.ConceptCombatCourtroom.RULES.playTempo, (unit) => {
+        const portrait = portraitSource(unit, "neutral");
+        return portrait.idle || portrait.src;
+      });
+    }
+    function restoreCourtFocus() {
+      const commands = $("ccCmd");
+      const next = commands.querySelector("[data-court-command]:enabled") || commands.querySelector("button:enabled");
+      courtFocusOwed = !next;
+      next?.focus();
+    }
+    function openCourt() {
+      if (liveCourt?.open || !courtView()) return;
+      const from = U.afterActMenu || U.menu;
+      U.afterActMenu = null;
+      liveCourt = root.ConceptCombatCourtroomUI.openLive(host, {
+        view: courtView,
+        play(type, move) {
+          const actor = controlledId(U.s);
+          return type === "trialDefend" ? act({ type: "trialDefend", actor, move }) : act({ type: "trialPlay", actor, move });
+        },
+        restore() {
+          if (U.mode === "menu") { U.menu = from; U.menuIndex = 0; renderCommands(); }
+          restoreCourtFocus();
+        },
+      });
+    }
     function renderCommands() {
       const s = U.s, el = $("ccCmd");
       if (s.outcome) {
-        el.innerHTML = `<div class="cc-title">Battle over</div>${(s.mirror?.resolvable || []).map(trait => `<button type="button" class="cc-item" data-trauma="${esc(trait)}">Work through: ${esc(MIR?.data?.traumas?.[trait]?.becomes?.name || trait)}</button>`).join("")}${rushButtons(s) ?? abductionButtons(s) ?? `<button type="button" class="cc-item" data-cmd="again">Play again</button><button type="button" class="cc-item" data-cmd="exit">← Library</button>`}${abductionButtons(s) ? `<button type="button" class="cc-item" data-cmd="exit">← Library (stay taken)</button>` : ""}`;
-        bindCmd(el); el.querySelectorAll("[data-trauma]").forEach(b => b.onclick = () => act({ type: "resolveTrauma", actor: "player", trait: b.dataset.trauma })); return;
+        el.innerHTML = `<div class="cc-title">Battle over</div>${s.trial?.over && courtView() ? '<button type="button" class="cc-item" data-court-command>Trial verdict ▸</button>' : ""}${(s.mirror?.resolvable || []).map(trait => `<button type="button" class="cc-item" data-trauma="${esc(trait)}">Work through: ${esc(MIR?.data?.traumas?.[trait]?.becomes?.name || trait)}</button>`).join("")}${rushButtons(s) ?? abductionButtons(s) ?? `<button type="button" class="cc-item" data-cmd="again">Play again</button><button type="button" class="cc-item" data-cmd="exit">← Library</button>`}${abductionButtons(s) ? `<button type="button" class="cc-item" data-cmd="exit">← Library (stay taken)</button>` : ""}`;
+        bindCmd(el); el.querySelector("[data-court-command]")?.addEventListener("click", openCourt); el.querySelectorAll("[data-trauma]").forEach(b => b.onclick = () => act({ type: "resolveTrauma", actor: "player", trait: b.dataset.trauma })); return;
       }
       if (U.mode === "wait") { el.innerHTML = `<div class="cc-title">Opponents act…</div><div class="cc-muted">Watch the log for what each edge did.</div>`; return; }
       if (U.mode === "mind") { el.innerHTML = `<div class="cc-title">Battle of minds</div><div class="cc-muted">Argue in the window. Turn order does not exist here — only reads matter.</div>`; return; }
@@ -5314,6 +5469,11 @@
         const d = s.actors[E.decider(s).actor], ro = E.responseOptions(s), safe = ro.filter((r) => r.kind === "reposition" && r.safe).length;
         const throws = ro.filter((r) => r.kind === "dodgeThrow");   // Insane Reflexes: the engine offers throw tiles; the card arms them
         const price = defensiveResponsePrices(s, d, ro);
+        if (s.pending.inst.convene) {
+          el.innerHTML = `<div class="cc-title">Answer the summons</div><p>${safe ? `Click a green tile to dodge beyond the court’s reach · ${price.dodge} AP${price.debt && price.dodge ? " owed next turn" : ""} · ${price.reaction}.` : "Appear to begin the hearing."}</p><button type="button" class="cc-item" data-resp="none">Appear in court · keep reaction</button>`;
+          el.querySelector("[data-resp]").onclick = () => act({ type: "respond", actor: d.id, response: "none" });
+          return;
+        }
         if (s.pending.inst.submissionFinish) {   // Submission finish: break the hold, or tap out
           const R = s.rules.submission, can = ro.some((r) => r.kind === "breakHold");
           el.innerHTML = `<div class="cc-title cc-alarm">Submission!</div><div class="cc-muted">${esc(s.actors[s.pending.attacker].name)} goes for the finish. Break the hold now, or you submit: spared, but out of the fight.</div>
@@ -5335,7 +5495,7 @@
           <div class="cc-muted">${esc(s.actors[s.pending.attacker].name)} ${s.pending.reactive ? "launched" : s.pending.resume ? "committed" : "announced"} ${esc(s.pending.inst.name)}${s.pending.resume ? " and it is landing now" : ""}${s.pending.inst.deception ? `, claiming a reach of ${s.pending.inst.claimedRange} tiles` : ""}. Spend ${esc(d.name)}'s reaction?</div>
           <button type="button" class="cc-item" data-resp="guard">Guard · ${price.guard} AP · ${price.reaction} (×${s.rules.guardMultiplier} damage)</button>
           ${s.pending.inst.ability === "arrest" && ro.some((r) => r.kind === "kneel") ? `<button type="button" class="cc-item" data-resp="kneel">Kneel · ${price.reaction} · claim trial (the court hears it; the cuffs stay on)</button>` : ""}
-          <div class="cc-muted"><b>Dodge · ${price.dodge} AP · ${price.reaction}</b>${price.debt ? " · owed next turn" : " · spent now"}. ${price.dodgeAvailable ? `Click a highlighted tile (${safe} safe tile${safe === 1 ? "" : "s"} within ${price.reach}).` : "Unavailable: no legal dodge within your movement and AP/debt limits."}</div>
+          <div class="cc-muted"><b>Dodge · ${price.dodge ? `${price.dodge} AP` : "free"} · ${price.reaction}</b>${!price.dodge ? "" : price.debt ? " · owed next turn" : " · spent now"}. ${price.dodgeAvailable ? `Click a highlighted tile (${safe} safe tile${safe === 1 ? "" : "s"} within ${price.reach}).` : "Unavailable: no legal dodge within your movement and AP/debt limits."}</div>
           ${throws.length ? `<button type="button" class="cc-item" data-throwarm>${U.throwArmed ? `Throw armed: click a red tile (land within 6 of the attacker)` : `Insane Reflexes: arm the dodge-throw · ${throws[0].apCost} AP`}</button>` : ""}
           ${techButtons}<button type="button" class="cc-item" data-resp="none">Take it · ${price.take} AP · keep reaction</button>`;
         el.querySelectorAll("[data-resp]").forEach((b) => b.onclick = () => { U.throwArmed = false; act({ type: "respond", actor: d.id, response: b.dataset.resp }); }); bindTech();
@@ -5344,13 +5504,14 @@
       }
       const items = menuList();
       U.menuIndex = Math.min(U.menuIndex, Math.max(0, items.length - 1));
-      el.innerHTML = `<div class="cc-title">${U.menu === "root" ? "Command" : `<button type="button" class="cc-back" data-cmd="back">◂</button> ${{ tech: "Techniques", strike: "Strike · choose tempo", observe: "Observe", investigate: "Investigate", insight: "Insight", trial: "Trial", mockTrial: "Mock trial", lens: "Lens", swap: "Swap secondary", items: "Use item", drop: "Drop item", cook: "Cook", attend: "Call a spirit", summons: "Summon an ally", ...Object.fromEntries(MENU_DRAWERS.map((d) => [d.id, d.title])) }[U.menu]}`}${U.menu === "root" && typeof apHead === "function" ? apHead(controlledFighter(s), E.heldCostMul(s, controlledId(s))) : ""}</div>` +
+      el.innerHTML = `<div class="cc-title">${U.menu === "root" ? "Command" : `<button type="button" class="cc-back" data-cmd="back">◂</button> ${{ tech: "Techniques", strike: "Strike · choose tempo", observe: "Observe", investigate: "Investigate", insight: "Insight", trial: "Trial", convene: "Convene the Court", mockTrial: "Mock trial", lens: "Lens", swap: "Swap secondary", items: "Use item", drop: "Drop item", cook: "Cook", attend: "Call a spirit", summons: SM?.callsPalace(controlledFighter(s)) ? "Call a familiar" : "Call an ally", ...Object.fromEntries(MENU_DRAWERS.map((d) => [d.id, d.title])) }[U.menu]}`}${U.menu === "root" && typeof apHead === "function" ? apHead(controlledFighter(s), E.heldCostMul(s, controlledId(s))) : ""}</div>` +
         (U.menu === "root" && U.mode === "menu" && CS ? `<div class="cc-search"><input id="ccSearch" type="search" placeholder="Search commands  /" autocomplete="off" spellcheck="false" aria-label="Search commands" value="${esc(U.search || "")}"></div>${quickBarMarkup()}<div id="ccSearchResults" ${U.search ? "" : "hidden"}>${U.search ? searchResultsMarkup() : ""}</div>` : "") +
         `<div id="ccMenuRows" ${U.menu === "root" && U.search ? "hidden" : ""}>` +
         items.map((it, i) => it.fold ? foldMarkup(it, i) : `${it.group && it.group !== items[i - 1]?.group ? `<div class="cc-group">${esc(it.group)}</div>` : ""}<div class="cc-command-row${it.inFold ? " cc-in-fold" : ""}" data-help-i="${i}"><button type="button" title="${esc(menuHelp(it))}" class="cc-item ${i === U.menuIndex ? "on" : ""} ${it.cur ? "cur" : ""}${it.dim ? " cc-dim" : ""}" data-i="${i}" ${it.off ? "disabled" : ""}${it.dim ? " aria-disabled=\"true\"" : ""}>
           ${it.x ? `<span class="cc-tier t-${it.x.m.tier}">${TIER[it.x.m.tier]}</span>` : ""}${esc(it.label)}${it.x ? `<span class="cc-cost">${freeFirstTag(it.x) ? `${freeFirstTag(it.x)}${lfLabel(it.x.m)}` : `${it.x.m.tempoCost} AP · ${it.x.m.tier === "ultimate" && it.x.affordable && (controlledFighter(U.s)?.pf || 0) < it.x.m.cost ? "1 Inspiration for the ΦF" : `${it.x.m.cost} ΦF`}${lfLabel(it.x.m)}${it.x.m.tier === "ultimate" ? ` · ${U.s.rules.ultimateChargeMax} ULT` : ""}`}</span>` : ""}</button>${(() => { const key = U.mode === "menu" ? rowKey(it) : null; if (!key) return ""; const on = pins().includes(key); return `<button type="button" class="cc-pin ${on ? "on" : ""}" data-pin="${esc(key)}" title="${on ? "Unpin from" : "Pin to"} the quick bar" aria-label="${on ? "Unpin" : "Pin"} ${esc(cleanLabel(it.label))}">${on ? "★" : "☆"}</button>`; })()}</div>`).join("") + `</div>` +
         (["move", "press", "jump", "climb", "target"].includes(U.mode) ? `<div class="cc-muted cc-hint">${U.mode === "move" ? "Click a blue tile; terrain and slope change the move cost." : U.mode === "jump" ? "Choose an amber landing tile; fall damage is halved." : U.mode === "climb" ? "Choose a purple ledge; climbing uses the main action." : U.sel && U.sel.self ? "Enter / click yourself to commit." : "Click a ringed tile to commit."} Esc cancels.</div>` : "");
       el.querySelectorAll(".cc-item[data-i]").forEach((b) => {
+        if (items[+b.dataset.i]?.id === "trial") b.dataset.courtCommand = "";
         b.onfocus = () => { U.menuIndex = +b.dataset.i; if (U.mode === "menu") { renderDetail(); draw(); } };
         b.onclick = () => {   // a double click on a self-cast technique casts it at once (Mala, 2026-10-14)
           const it = items[+b.dataset.i];
@@ -5358,7 +5519,7 @@
           const now = Date.now(), again = U.lastPick?.id === it?.id && now - U.lastPick.t < 450;
           U.lastPick = { id: it?.id, t: now };
           if (again && U.mode === "target" && U.sel?.self && U.sel.ability === it.id) { U.lastPick = null; return commitAt([controlledFighter(U.s).x, controlledFighter(U.s).y]); }
-          choose(it);
+          choose(it, b);
         };
       });
       el.querySelectorAll("[data-help-i]").forEach(row => {
@@ -5394,7 +5555,7 @@
         why: it.why || "", cost: it.x ? `${it.x.m.tempoCost} AP · ${it.x.m.cost} ΦF${lfLabel(it.x.m)}` : "" });
       for (const it of flat) if (!it.drawer && !SUBMENUS.includes(it.id)) out.push(entry("root", it, drawerOf(it)?.title || ""));
       try {
-        for (const sub of [...SUBMENUS, "insight", "trial", "mockTrial"]) {   // search covers every submenu, not just the drawer nine (Grok Keystone, 2026-10-27)
+        for (const sub of [...SUBMENUS, "insight", "trial", "mockTrial", "convene"]) {   // search covers every submenu, not just the drawer nine (Grok Keystone, 2026-10-27)
           const opener = flat.find((it) => it.id === sub); if (!opener) continue;
           U.menu = sub; let kids = []; try { kids = gate(subItems() || []); } catch { kids = []; }
           const path = [drawerOf(opener)?.title, cleanLabel(opener.label)].filter(Boolean).join(" ▸ ");
@@ -5412,6 +5573,10 @@
       U.search = ""; U.searchFocus = false; U.menuFrom = null; U.menu = e.ctx; U.menuIndex = 0;   // a search jump starts fresh: ◂ goes home, not to a stale parent
       const it = (e.ctx === "root" ? rootItems() : subItems()).find((x) => x.id === e.id);
       if (!it) { U.menu = "root"; return flashTip("Not available right now."); }
+      if (it.id === "familiars") {
+        U.menuIndex = menuList().findIndex((row) => row.id === it.id);
+        render();
+      }
       choose(it);
     }
     const runPin = (i) => { const k = pins()[i]; if (k) runCommand(k); };
@@ -5457,7 +5622,7 @@
     function ritualGroup(it) {   // Rituals holds dreams through wards: headers keep it navigable (Grok Keystone, 2026-10-27)
       const id = String(it?.id || "");
       if (["dreamSpace", "wakeDream", "aura", "nameDream", "plantOrgonite"].includes(id) || id.startsWith("focusDream:")) return [0, "Dreams"];
-      if (["summons", "orderSummonUltimate", "bead"].includes(id)) return [1, "Summons"];
+      if (["familiars", "summons", "orderSummonUltimate", "stretchLeash", "bead"].includes(id)) return [1, "Familiars"];
       if (["ritual", "ritualHold", "tameBeast", "markVessel", "callPack"].includes(id)) return [2, "Capture"];
       if (id === "commune" || id === "communeIngredient" || id === "communeStructure" || id.startsWith("treeant") || id.startsWith("maxChannel")) return [3, "Communion"];
       if (id.startsWith("rite") || id === "mockTrial") return id === "mockTrial" ? [6, "Trials"] : [4, "Rites"];
@@ -5536,12 +5701,14 @@
       ov.querySelectorAll("[data-vow]").forEach((b) => b.onclick = () => act({ type: "mindVow", actor: "player", vow: b.dataset.vow }));
       ov.querySelectorAll("[data-concede]").forEach((b) => b.onclick = () => act({ type: "mindConcede", actor: "player", choice: b.dataset.concede }));
     }
-    function choose(it) {
+    function choose(it, trigger) {
       if (!it || it.off) return;
+      if (it.id === "familiars") return showFamiliarPicker(trigger || $("ccCmd").querySelector(".cc-item.on"), true);
       const s = U.s, p = controlledFighter(s);
       if (it.drawer) { U.menuFrom = U.menu; U.menu = it.id; U.menuIndex = 0; return render(); }
       if (it.fold) { toggleFold(it); render(); return $("ccCmd").querySelector(".cc-fold.on")?.focus({ preventScroll: true }); }   // a group header opens or closes; nothing is issued
       U.afterActMenu = inDrawer() ? U.menu : null; if (inDrawer()) U.menu = "root";
+      if (it.id === "trial") return openCourt();
       if (U.menu === "root") {
         if(it.id?.startsWith("verse:"))return act({type:"chooseVerse",actor:"player",ability:it.id.slice(6)});
         if(it.id==="discardVerse")return act({type:"discardVerse",actor:"player"});
@@ -5561,10 +5728,8 @@
         if (["tech", "strike", "observe", "investigate", "lens", "swap", "items", "cook", "drop", "summons", "attend"].includes(it.id)) { U.menuFrom = U.afterActMenu || U.menu; U.menu = it.id; U.menuIndex = 0; return render(); }   // afterActMenu still holds the drawer: the reset above already flattened U.menu
         if (it.id === "insight") { U.menuFrom = U.afterActMenu || U.menu; U.menu = "insight"; U.menuIndex = 0; return render(); }
         if (it.id.startsWith("order:")) { const [, to, role, focus] = it.id.split(":"); U.afterActMenu = inDrawer() ? U.menu : null; if (inDrawer()) U.menu = "root"; act({ type: "order", actor: "player", target: to, role, focus: focus || null }); return render(); }
-        if (it.id === "trial") { U.menuFrom = U.afterActMenu || U.menu; U.menu = "trial"; U.menuIndex = 0; return render(); }
+        if (it.id === "convene") { U.menuFrom = U.afterActMenu || U.menu; U.menu = "convene"; U.menuIndex = 0; return render(); }
         if (it.id === "mockTrial") { U.menuFrom = U.afterActMenu || U.menu; U.menu = "mockTrial"; U.menuIndex = 0; return render(); }
-        if (U.menu === "mockTrial" && it.id.startsWith("accuse:")) { const ok = act({ type: "invokeTrial", actor: "player", target: it.id.slice(7) }); if (ok) U.menu = "root"; return; }
-        if (U.menu === "trial") { const defending = (s.trial && s.trial.accusedId === "player"); const ok = defending ? act({ type: "trialDefend", actor: "player", move: it.move }) : act({ type: "trialPlay", actor: "player", move: it.move }); if (ok) U.menu = "root"; return; }
         if (it.id === "stakes") return showStakesCard();
         if (it.id === "myol") {
           U.afterActMenu = inDrawer() ? U.menu : null; if (inDrawer()) U.menu = "root";
@@ -5597,6 +5762,7 @@
         if (it.id?.startsWith("tally-accept:") || it.id?.startsWith("tally-decline:")) return act({ type: "tallyTerms", actor: "player", target: it.id.split(":")[1], accept: it.id.startsWith("tally-accept:") });   // engine/tally.js
         if (it.id === "tallySettle") return act({ type: "tallySettle", actor: "player" });
         if (it.id?.startsWith("accept:") || it.id?.startsWith("decline:")) return act({ type: "answerTerms", actor: "player", target: it.id.split(":")[1], accept: it.id.startsWith("accept:") });
+        if (it.id === "stretchLeash") return act({ type: "stretchLeash", actor: p.id, summon: it.summonId });   // Tandem T2c
         if (it.id === "orderSummonUltimate") {
           const summon = s.actors[it.summonId], play = SM.activeUltimate(summon).play;
           if (play.centre === "playerTarget" || play.status?.lockTarget) {
@@ -5667,6 +5833,8 @@
         if (it.id === "disarm") return act({ type: "disarm", actor: "player", at: it.at });
         if (it.id.startsWith("openGate:")) return act({ type: "openGate", actor: "player", gate: it.id.slice(9) });
       }
+      if (U.menu === "convene") return act({ type: "convene", actor: controlledId(s), target: it.id.slice(8) });
+      if (U.menu === "mockTrial" && it.id.startsWith("accuse:")) return act({ type: "invokeTrial", actor: "player", target: it.id.slice(7) });
       if (U.menu === "strike" && it.throwPick) { U.menu = "root"; U.mode = "target"; U.sel = { strike: true, throwPick: true, tg: throwPickTargeting() }; U.cursor = [p.x, p.y]; return render(); }
       if (U.menu === "strike" && it.submitOn) { const t = U.s.actors[it.submitOn]; U.menu = "root"; return act({ type: "pressSubmission", actor: "player", target: [t.x, t.y], pay: it.pay === "inspiration" ? "inspiration" : null, commit: !!it.finish }); }
       if (U.menu === "strike" && it.grapple) { U.menu = "root"; U.mode = "target"; U.sel = { strike: true, grapple: true, tg: strikeTargeting(U.s.rules.grapple.range) }; U.cursor = [p.x, p.y]; return render(); }
@@ -5724,7 +5892,8 @@
         if (it.id === "audition" && !U.audRole) return showAuditionCard(null);
         U.prototypeSource = ""; U.recombineParts = ["", "", ""]; U.whatIfAs = "";
         const opts = { sectionAxis:U.sectionAxis, projectionProperty:U.projectionProperty, projectionAxis:U.projectionAxis, fragment:U.fragmentKind, fragmentId:U.fragmentId, montageParts:U.montageParts.filter(Boolean), prototypeSource:U.prototypeSource, recombineParts:U.recombineParts.filter(Boolean), whatIfAs:U.whatIfAs };
-        const tg = E.targeting(s, controlledId(s), it.id, opts);
+        U.cureChoice = Object.keys(C.abilities[it.id]?.cureChoices || {})[0];
+        const tg = E.targeting(s, controlledId(s), it.id, { ...opts, cureChoice: U.cureChoice });
         U.mode = "target"; U.sel = { ability: it.id, m: tg.m, tg, self: !!tg.selfCast }; U.cursor = [p.x, p.y];
         // Announce defaults on for an ultimate, but a choice the player made for this technique sticks this battle: picking
         // it again, or looking at another technique and coming back, used to re-check the box (Muse, Mala hit it, 2026-10-15).
@@ -5760,8 +5929,10 @@
     function oathRow(s, p) {   // technique stances: the oath row in the middle of Techniques shows what binds you
       const V = root.ConceptCombatVows, live = V.live(s, p).filter((v) => v.on === "technique");
       const names = live.map((v) => V.BOONS[v.boon]?.name || v.boon).join(" + "), short = live.length > 2 ? `${live.length} live` : names;
+      const battleOath = live.find((v) => V.BOONS[v.boon]?.binding);
+      const clock = battleOath ? "Bound for the battle or until broken." : "Bound until the end of your next turn.";
       return { id: "vow", label: live.length ? `Oath: ${short} · another ▸` : "Swear an oath ▸ (free)", off: false,
-        why: live.length ? "Bound until the end of your next turn. One soul, one promise: no new oath until this one ends." : "Swear a restriction and your techniques carry the boon until the end of your next turn. Free to swear; the restrictions are the price." };
+        why: live.length ? `${clock} One soul, one promise.` : "Swear a technique stance or a battle-long rite vow. Each boon lists its duration and restriction. Free to swear." };
     }
     function drainStakes() {   // W5.3: staking settles mid-battle in the engine; the purse updates here
       const evs = U.s.stakeEvents || [], seen = U.stakeSeen || 0;
@@ -5891,8 +6062,9 @@
       const me = controlledFighter(U.s), IR = U.s.rules.inspiration || null, have = me?.inspiration || 0;   // Inspiration can pay a vow's price
       const canWord = kind === "technique" && C.characters[me?.character]?.swearsWord && !me.wordGiven;   // Rama's word: once a battle
       const opt = (list, cost) => `<option value="">None</option>` + list.map((x) => `<option value="${x.id}">${esc(x.name)} · ${cost(x)}</option>`).join("");
+      const standardPolicy = `A vow buys one boon with up to two restrictions. The restrictions must be worth at least the boon's price. Restrictions hold while it lasts, and being forced to break one breaks the vow (the boon ends, −${V.BREACH_AP} AP).${IR ? ` Inspiration can pay instead: each point covers ${IR.vowPoint} of the price. You have ${have}.` : ""}${U.s.dreamSpace ? " Dreams ease oaths: every price drops 1, never below 1." : ""}`;
       ov.innerHTML = `<div class="cc-card cc-vow"><h2>${title}: swear a vow?</h2>
-        <p class="cc-muted">A vow buys one boon with up to two restrictions. The restrictions must be worth at least the boon's price. Restrictions hold while it lasts, and being forced to break one breaks the vow (the boon ends, −${V.BREACH_AP} AP).${IR ? ` Inspiration can pay instead: each point covers ${IR.vowPoint} of the price. You have ${have}.` : ""}${U.s.dreamSpace ? " Dreams ease oaths: every price drops 1, never below 1." : ""}</p>
+        <p class="cc-muted" id="ccVowPolicy">${standardPolicy}</p>
         ${canWord ? `<label>Swear on <select id="ccVowOn"><option value="technique">A technique</option><option value="word">Rama's word (once a battle)</option></select></label>` : ""}
         <label>Boon <select id="ccVowBoon">${opt(o.boons, (b) => `price ${b.price}`)}</select></label>
         <label>Restriction <select id="ccVowR1">${opt(o.restrictions, (r) => `worth ${r.worth}`)}</select></label>
@@ -5903,11 +6075,25 @@
         ${kind === "technique" ? "" : `<button type="button" class="cc-item" id="ccVowPlain">${title} without a vow</button>`}
         <button type="button" id="ccVowCancel">Cancel</button></div>`;
       const vowOn = () => ov.querySelector("#ccVowOn")?.value || kind;
-      const read = () => ({ boon: ov.querySelector("#ccVowBoon").value || null, restrictions: [ov.querySelector("#ccVowR1").value, ov.querySelector("#ccVowR2").value].filter(Boolean), inspiration: Number(ov.querySelector("#ccVowInsp")?.value || 0) });
+      const read = () => {
+        const boon = ov.querySelector("#ccVowBoon").value || null;
+        if (V.BOONS[boon]?.binding) return { boon };
+        return { boon, restrictions: [ov.querySelector("#ccVowR1").value, ov.querySelector("#ccVowR2").value].filter(Boolean), inspiration: Number(ov.querySelector("#ccVowInsp")?.value || 0) };
+      };
       const update = () => {
         const v = read(), b = v.boon && V.BOONS[v.boon], no = v.boon ? (vowOn() === "word" ? V.validate("word", v, me, IR, U.s) : V.validate(kind, v, me, IR, U.s)) : "Pick a boon to swear a vow.";
-        ov.querySelector("#ccVowText").innerHTML = [b ? `<b>${esc(b.name)}</b>: ${esc(b.text)}` : "", ...v.restrictions.map((id) => `<b>${esc(V.RESTRICTIONS[id].name)}</b>: ${esc(V.RESTRICTIONS[id].text)}`)].filter(Boolean).join("<br>");
-        ov.querySelector("#ccVowBalance").textContent = b ? `Price ${U.s.dreamSpace ? Math.max(1, b.price - 1) : b.price} · restrictions worth ${V.worth(v.restrictions)}${v.inspiration ? ` · Inspiration pays ${v.inspiration * IR.vowPoint}` : ""}${no ? ` · ${no}` : " · balanced"}` : "";
+        const restrictions = V.restrictionsOf(v);
+        for (const id of ["ccVowR1", "ccVowR2", "ccVowInsp"]) {
+          const control = ov.querySelector(`#${id}`);
+          if (!control) continue;
+          control.disabled = !!b?.binding;
+          control.closest("label").style.display = b?.binding ? "none" : "";
+        }
+        ov.querySelector("#ccVowPolicy").textContent = b?.binding
+          ? `This oath has a fixed restriction and lasts for the battle. Breaking it ends the boon and costs ${V.BREACH_AP} AP.`
+          : standardPolicy;
+        ov.querySelector("#ccVowText").innerHTML = [b ? `<b>${esc(b.name)}</b>: ${esc(b.text)}` : "", ...restrictions.map((id) => `<b>${esc(V.RESTRICTIONS[id].name)}</b>: ${esc(V.RESTRICTIONS[id].text)}`)].filter(Boolean).join("<br>");
+        ov.querySelector("#ccVowBalance").textContent = b ? `Price ${U.s.dreamSpace ? Math.max(1, b.price - 1) : b.price} · restrictions worth ${V.worth(restrictions)}${v.inspiration ? ` · Inspiration pays ${v.inspiration * IR.vowPoint}` : ""}${no ? ` · ${no}` : " · balanced"}` : "";
         ov.querySelector("#ccVowSwear").disabled = !!no;
       };
       ov.querySelectorAll("select").forEach((el) => el.onchange = update);
@@ -5979,11 +6165,12 @@
       if (!(p.traits || []).some((t) => (t.id || t) === "animist")) return null;
       let preview = false; try { preview = localStorage.getItem("ccTsukumogami") === "1"; } catch {}
       if (!TK.rules.released && !preview) return null;
-      const d = (o) => E.geometry.dist(s, p.x, p.y, o.x, o.y), fam = (o) => s.tsukumogami.familiarity[o.id] || 0;
+      const d = (o) => E.geometry.dist(s, p.x, p.y, o.x, o.y), fam = (o) => s.tsukumogami.familiarity[o.wreckId || o.id] || 0;
       const spend = Math.max(TK.rules.observeStep, Math.min(TK.rules.observeMax, Math.floor((U.observeInvest || 0) / TK.rules.observeStep) * TK.rules.observeStep));
       const active = Object.values(s.actors).filter((x) => x.awakened && x.awakened.owner === "player" && !x.defeated).length;
-      const list = (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && TK.profile(o.type) && d(o) <= TK.rules.observeRange)
-        .sort((a, b) => d(a) - d(b)).slice(0, 6);
+      const ordered = (s.arena.objects || []).filter((o) => o.kind === "object" && o.hp > 0 && TK.profile(o.type) && d(o) <= TK.rules.observeRange)
+        .sort((a, b) => d(a) - d(b));
+      const list = ordered.filter((o, i) => !o.wreckId || ordered.findIndex((p) => p.wreckId === o.wreckId) === i).slice(0, 6);
       return { s, p, d, fam, spend, active, list };
     }
     function awakenMenu() {   // known structures, woken from the Rituals tab
@@ -5999,7 +6186,7 @@
     function showAwakenQuestion(objectId) {
       const s = U.s, obj = s.arena.objects.find((o) => o.id === objectId), pr = obj && TK.profile(obj.type); if (!pr) return;
       const q = TK.questionFor(obj, s.seed); if (!q) return flashTip("That structure has nothing to ask.");   // Observe teaches: the pinned question
-      const studied = !!(q.clue && s.tsukumogami?.clues?.[obj.id]);
+      const studied = !!(q.clue && s.tsukumogami?.clues?.[obj.wreckId || obj.id]);
       const ov = $("ccOverlay"); ov.hidden = false;
       ov.innerHTML = `<div class="cc-card"><h2>Wake the ${esc(pr.common)}</h2>${studied ? `<p class="cc-study-note"><b>Your study note:</b> ${esc(q.clue)}</p>` : ""}<p>${esc(q.prompt)}</p>${q.choices.map((c, i) => `<button type="button" class="cc-item" data-answer="${i}">${esc(c)}</button>`).join("")}<p class="cc-muted">Right: it stands as ${esc(pr.name)} (${Math.max(1, obj.hp * 2)} LF) and fights for 4 rounds. Wrong: the cost is spent and it stays asleep.</p><button type="button" class="cc-item" id="ccCommuneCancel">Cancel</button></div>`;
       const close = () => { ov.hidden = true; U.mode = "menu"; U.menu = "root"; render(); };
@@ -6150,7 +6337,7 @@
       return act(a);
     }
     function miseTile(at) { const M = U.mise; if (!M) return; M.slots[M.active].at = at; const next = M.slots.findIndex((sl) => !sl.at); if (next >= 0) M.active = next; render(); }
-    function abilityAction(){return {type:"ability",actor:"player",ability:U.sel.ability,part:U.prunePart,gap:U.gap,sectionAxis:U.sectionAxis,projectionProperty:U.projectionProperty,projectionAxis:U.projectionAxis,fragment:U.fragmentKind,fragmentId:U.fragmentId,montageParts:U.montageParts.filter(Boolean),prototypeSource:U.prototypeSource,recombineParts:U.recombineParts.filter(Boolean),whatIfAs:U.whatIfAs,overclock:U.overclock,reveal:U.reveal,announce:!U.quickened&&(U.sel.m.tier==="ultimate"||U.sel.m.effect==="damage")&&U.announce,revelation:U.revelation||1,deception:!U.quickened&&U.sel.m.tier==="ultimate"&&U.announce&&U.deception,quickened:U.quickened||null,role:U.sel.ability==="audition"?U.audRole||null:null,vow:U.sel.ability==="audition"?U.audVow||null:null,gear:U.sel.ability==="ulaula"?U.gearPick||2:null,surrender:U.sel.ability==="publicPromise"?U.promiseSurrender||"retreat":null};}
+    function abilityAction(){return {type:"ability",actor:"player",ability:U.sel.ability,cureChoice:C.abilities[U.sel.ability]?.cureChoices ? U.cureChoice : undefined,part:U.prunePart,gap:U.gap,sectionAxis:U.sectionAxis,projectionProperty:U.projectionProperty,projectionAxis:U.projectionAxis,fragment:U.fragmentKind,fragmentId:U.fragmentId,montageParts:U.montageParts.filter(Boolean),prototypeSource:U.prototypeSource,recombineParts:U.recombineParts.filter(Boolean),whatIfAs:U.whatIfAs,overclock:U.overclock,reveal:U.reveal,announce:!U.quickened&&(U.sel.m.tier==="ultimate"||U.sel.m.effect==="damage")&&U.announce,revelation:U.revelation||1,deception:!U.quickened&&U.sel.m.tier==="ultimate"&&U.announce&&U.deception,quickened:U.quickened||null,role:U.sel.ability==="audition"?U.audRole||null:null,vow:U.sel.ability==="audition"?U.audVow||null:null,gear:U.sel.ability==="ulaula"?U.gearPick||2:null,surrender:U.sel.ability==="publicPromise"?U.promiseSurrender||"retreat":null};}
     function renderDetail() {
       const s = U.s, el = $("ccDetail"), p = controlledFighter(s);
       if (s.outcome) { el.innerHTML = reportHtml(); bindReport(el); mountKeeper(el, "battleOver", { entryKey: U.s.receiptId || U.s.seed }); return; }   // Arantxa (S4b): the report keeps its keeper
@@ -6158,6 +6345,10 @@
         el.innerHTML = `<div class="cc-title">🎬 On set · Take ${f.turn}</div><p>${esc(mark?.name || "The star")} vs ${esc(star2?.name || "the co-star")}${f.cameoId && s.actors[f.cameoId] ? ` + ${esc(s.actors[f.cameoId].name)}` : ""}. The star falls: CUT and a premiere. The cast falls: ruin, a dud with no premiere.</p>${f.owner === "player" ? `<p class="cc-muted">Your film. Wrap it early from the banner above (counts as a dud).</p>` : `<p class="cc-muted">Someone else's film. The battle resumes when the scene ends.</p>`}`; return; }
       if (U.mode === "response" && s.pending) {
         const inst = s.pending.inst;
+        if (inst.convene) {
+          el.innerHTML = `<div class="cc-title">Convene the Court</div><p>“The court is in session.” The hearing opens after your response if you are still within the caller’s sight and reach.</p>`;
+          return;
+        }
         el.innerHTML = `<div class="cc-title">${esc(inst.name)}${TIER[inst.tier] ? ` <span class="cc-tier t-${inst.tier}">${TIER[inst.tier]}</span>` : ""}</div>
           <p>${inst.deception ? `Claimed reach: ${inst.claimedRange} tiles. The committed target is hidden until resolution.` : s.pending.resume ? `A delayed effect committed last round lands at the start of ${esc(d0(s).name)}'s turn, before Guard and other effects expire.` : esc(C.abilities[inst.ability]?.announce || inst.announce || (inst.submissionFinish ? ((s.actors[s.pending.defenders?.[0]]?.reaction || 0) > 0 ? `The finishing hold: break it (${s.rules.submission?.finishBreakAp ?? 40} AP owed and your reaction) or submit.` : "The finishing hold: no reaction left to break it." ) : ""))}</p>
           <div class="cc-muted">${inst.deception ? "Amber tiles show the declared threat envelope; the actual committed area may extend farther. No announcement potency bonus applies." : `Committed tiles are red${inst.mult != null && inst.mult !== 1 ? `; damage ×${+(inst.mult).toFixed(2)} from disclosure` : ""}.`} Reposition up to ${E.dodgeReach(s, E.decider(s).actor)} tiles (green = outside the declared area), or Guard. Either spends your one reaction this round, so a Rebound can't fire after.</div>`;
@@ -6175,13 +6366,13 @@
       if (U.mode === "target" && U.sel?.card != null) { const row = E.cards.options(s, controlledId(s))[U.sel.card]; el.innerHTML = `<div class="cc-title">${esc(row?.name || "Card")}</div><p>${esc(row?.text || "")}</p><p class="cc-muted">Choose a ringed target. A card costs no AP and no ΦF; one card a turn, each card once a battle. Escape cancels.</p>`; return; }   // Battle Cards (C1)
       if (U.mode === "target" && U.sel?.item) { el.innerHTML = `<div class="cc-title">${esc(Loot.data.consumables[U.sel.item]?.name || W?.data.items[U.sel.item]?.name || U.sel.item)}</div><p>${esc(itemHelpFor(U.sel.item, p.tempo).effect)}</p><p class="cc-muted">${esc(itemHelpFor(U.sel.item, p.tempo).detail)}</p><p>Carrying: ${(p.inventory || []).length}/${p.inventoryCapacity || 2}</p>`; return; }
       if (!id) {
-        if(U.setupOpts?.proficientSummonerTest && U.menu==="root") { const cost=E.summonProfile(s,p.id); el.innerHTML=`<div class="cc-title">Proficient Summoner · ${cost.emergentIdea ? "active" : "inactive"}</div><p>${cost.emergentIdea ? `Imagination + Full Believer. Each call costs ${cost.apCost} AP and ${cost.phiCost} ΦF; you can keep ${cost.maxActive} summons active. Each gets a ${cost.wardProtection}-point ward on arrival and at the start of its own turn. Protection replaces itself rather than stacking.` : `The synergy is inactive. Imagination must be equipped and Full Believer must be present on this character. Normal calls cost ${cost.apCost} AP and ${cost.phiCost} ΦF, with ${cost.maxActive} active summon and no renewing summoner ward.`}</p><p>${cost.emergentIdea ? "Open Summon ally and call two different creatures. Swap Imagination out to remove the synergy." : "Re-equip Imagination to restore the synergy; a pending secondary becomes usable at your next turn start."} These practice summons leave saved unlocks and progression unchanged.</p>`;return; }
+        if(U.setupOpts?.proficientSummonerTest && U.menu==="root") { const cost=E.summonProfile(s,p.id); el.innerHTML=`<div class="cc-title">Proficient Summoner · ${cost.emergentIdea ? "active" : "inactive"}</div><p>${cost.emergentIdea ? `Imagination + Full Believer. Each call costs ${cost.apCost} AP and ${cost.phiCost} ΦF; you can keep ${cost.maxActive} summons active. Each gets a ${cost.wardProtection}-point ward on arrival and at the start of its own turn. Protection replaces itself rather than stacking.` : `The synergy is inactive. Imagination must be equipped and Full Believer must be present on this character. Normal calls cost ${cost.apCost} AP and ${cost.phiCost} ΦF, with ${cost.maxActive} active summon and no renewing summoner ward.`}</p><p>${cost.emergentIdea ? "Open Call a familiar and call two different creatures. Swap Imagination out to remove the synergy." : "Re-equip Imagination to restore the synergy; a pending secondary becomes usable at your next turn start."} These practice summons leave saved unlocks and progression unchanged.</p>`;return; }
         if(U.s.summonTrueFormTest && U.menu==="root" && !U.s.dreamSpace) { el.innerHTML=`<div class="cc-title">Mitsuko Dazzle · test 3</div><p>Mitsuko starts beside you in her ordinary form. Open Dream Space to reveal her armored true form: maximum LF 45 → 68, ×1.25 technique potency and +2 ΦF regeneration per turn (provisional).</p><p>On reveal, each enemy has a 40% chance of Dazzle: 25% less AP on their next turn. Check the battle log, then end your turn to see the AP loss. Her true form remains until she disappears. You can compress or imbue this dream too. This practice leaves saved progression unchanged.</p>`;return; }
         if(U.setupOpts?.performerTest && U.menu==="root") { el.innerHTML=`<div class="cc-title">Performers · test 1</div><p>You are the Musician, with a Rapper ally and the Bard nearby. Use Consonance to tune your allies, then end your turn and watch their next techniques. Lullaby is strongest on wild creatures; the Bard’s charm is strongest on dream creatures.</p><p>Written Verse gives three lines and a choice. Borrowed techniques keep their original targets and counters. This practice leaves saved progression unchanged.</p>`;return; }
         if(U.setupOpts?.trueFormSpriteTest && U.menu==="root") { el.innerHTML=`<div class="cc-title">Aristotle · true-form test</div><p>Open Dream Space to reveal Aristotle’s new form. End your turn to watch First Principles reveal an enemy trait and reduce its AP. His new appearance and Golden Mean resistance last until he disappears.</p><p>Attack close-ups enlarge the new sprites. This practice leaves saved progression unchanged.</p>`;return; }
         if(U.setupOpts?.attackCloseupTest && U.menu==="root") { el.innerHTML=`<div class="cc-title">Attack close-up · test</div><p>Strike the adjacent Student to see the melee pop-up. End your turn to watch ranged attacks from the Surveyor. Use Animation: Full / Fast above the battle log to compare; Escape skips a pop-up.</p><p class="cc-muted">Practice battle · saved progression unchanged.</p>`;return; }
         if(U.s.focusedDreamTest && U.menu==="root" && !U.s.dreamSpace) { el.innerHTML=`<div class="cc-title">Focused Dream · test 1</div><p>Full ULT is ready. Open Dream Space, then Compress Dream to radius 2. The Student stays inside; Sieve and Gardener remain outside. Try moving across the glowing edge, then cast Bastion Collapse at full ULT, or imbue your Barrier aura. Bastion still costs 50 AP: bank AP before opening, or use Overclock if you are short. Diffusion can still attack inward from outside; move near the lower edge to meet the Gardener's wave.</p><p class="cc-muted">The normal ULT clock still closes the dream. Play again resets this practice battle.</p>`;return; }
-        if (["root", "insight", "items", "cook", "drop", "summons", "strike", "mockTrial", "trial"].includes(U.menu) || inDrawer()) {
+        if (["root", "insight", "items", "cook", "drop", "summons", "strike", "mockTrial", "trial", "convene"].includes(U.menu) || inDrawer()) {
           const selected = (menuList())[U.menuIndex], text = selected && (U.menu === "insight" ? selected.help : menuHelp(selected));
           // an item row splits its text: what it does, then cost / target / refusals
           if (text) { el.innerHTML = `<div class="cc-title">${esc(selected.heading || selected.label || selected.group)}</div><p>${esc(selected.helpEffect || text)}</p>${selected.helpDetail ? `<p class="cc-muted">${esc(selected.helpDetail)}</p>` : ""}`; return; }
@@ -6229,6 +6420,9 @@
       const shownTempo = feintBait ? 5 : m.tempoCost;
       const maxOverclock = m.effect === "damage" ? Math.max(0, Math.min(s.rules.maxOverclockPerAction, p.tempo + s.rules.maxTempoDebt - shownTempo)) : 0;
       const observed = E.geometry.observedAbilities(s,"player"), abilities = E.availableAbilities(s,controlledId(s)).map(q=>q.id);
+      const cureSelect = U.mode === "target" && C.abilities[id]?.cureChoices;
+      const cureChoice = cureSelect ? Object.hasOwn(cureSelect, U.cureChoice) ? U.cureChoice : Object.keys(cureSelect)[0] : null;
+      const cureControl = cureSelect ? `<label>${id === "quietInstruction" ? "Cue" : "Suggestion"} <select id="ccCureChoice">${Object.entries(cureSelect).map(([key, label]) => `<option value="${esc(key)}"${key === cureChoice ? " selected" : ""}>${esc(label)}</option>`).join("")}</select></label>` : "";
       const special = U.mode !== "target" ? "" : m.effect==="sectionCut" ? `<label>Cut axis <select data-special="sectionAxis"><option value="row" ${U.sectionAxis==="row"?"selected":""}>Row</option><option value="column" ${U.sectionAxis==="column"?"selected":""}>Column</option></select></label>` : m.effect==="project" ? `<label>Copy <select data-special="projectionProperty"><option value="height" ${U.projectionProperty==="height"?"selected":""}>Height</option><option value="surface" ${U.projectionProperty==="surface"?"selected":""}>Surface</option></select></label><label>Axis <select data-special="projectionAxis">${["north","east","south","west"].map(q=>`<option value="${q}" ${U.projectionAxis===q?"selected":""}>${q}</option>`).join("")}</select></label>${m.projectFragment?`<label>Held fragment <select data-special="fragmentId">${(p.heldFragments||[]).map(f=>`<option value="${esc(f.id)}" ${U.fragmentId===f.id?"selected":""}>${esc(f.kind)} · (${f.at?.join(",")||"held"})</option>`).join("")}</select></label>`:""}` : m.effect==="clip" ? `<label>Clip <select data-special="fragmentKind">${["cover","water","mulch","thorns","absorbOneLine","wallProtection10","membrane","growthStage"].map(q=>`<option value="${q}" ${U.fragmentKind===q?"selected":""}>${q}</option>`).join("")}</select></label>` : m.effect==="paste" ? `<label>Paste held <select data-special="fragmentId">${(p.heldFragments||[]).map(f=>`<option value="${esc(f.id)}" ${U.fragmentId===f.id?"selected":""}>${esc(f.kind)} · (${f.at?.join(",")||"held"})</option>`).join("")}</select></label>` : m.effect==="montage" ? `<div class="cc-edge-note">Photomontage records three techniques you have seen: delivery, area, and harm channel. Select each observed non-ultimate technique.</div>${[0,1,2].map(i=>`<label>Part ${i+1} <select data-montage="${i}"><option value="">Choose observed technique</option>${observed.map(q=>`<option value="${q.id}" ${U.montageParts[i]===q.id?"selected":""}>${esc(C.abilities[q.id].name)}</option>`).join("")}</select></label>`).join("")}` : "";
       const copyable = (bid) => { const dd = C.abilities[bid]; return dd && dd.tier === "basic" && (!dd.timing || dd.timing === "immediate") && !dd.announce && dd.effect === "damage" && dd.target === "enemy" && dd.area?.shape === "single" && Number.isFinite(dd.potency); };
       const innoSpecial = U.mode !== "target" ? "" : m.effect === "prototype" ? `<div class="cc-edge-note">Prototype copies one witnessed damaging basic at ×0.7, otherwise unmodified.</div><label>Copy <select data-inno="prototypeSource"><option value="">Choose witnessed basic</option>${observed.filter(q=>copyable(q.id)).map(q=>`<option value="${q.id}" ${U.prototypeSource===q.id?"selected":""}>${esc(C.abilities[q.id].name)}</option>`).join("")}</select></label>`
@@ -6239,7 +6433,7 @@
       el.innerHTML = `<div class="cc-title"><span class="cc-tier t-${m.tier}">${TIER[m.tier]}</span>${esc(m.name)} <span class="cc-muted">${esc(C.concepts[m.concept].name)} · ${x.source}</span></div>
         ${earthHint}
         ${m.tier === "ultimate" && s.dreamSpace?.owner === p.id ? `<p class="cc-edge-note">${DS?.canFinishUltimate(p, s.dreamSpace, s.rules) ? "Dream finisher: full ULT is ready. The barrier and dream bonus hold through announcement and responses; this technique closes the dream after resolving. No extra aura pulse." : "Dream finisher needs a full ULT bar inside your own unburned dream."}${m.timing === "delayed" ? " This delayed move closes the dream when scheduled; its later trigger uses the ordinary field." : ""}</p>` : ""}
-        ${special}
+        ${cureControl}${special}
         ${innoSpecial}
         ${U.mode === "target" && m.effect === "damage" ? `<label>Quickened <select id="ccQuickened"><option value="" ${!U.quickened?"selected":""}>Normal · response window applies</option><option value="snap" ${U.quickened==="snap"?"selected":""}>Snap · no reaction · ×0.6 potency</option>${m.tier === "ultimate" ? `<option value="lastWord" ${U.quickened==="lastWord"?"selected":""} ${p.quickenedSpent?.[id]?"disabled":""}>Last Word · full power · spend ultimate for battle</option>` : ""}</select></label>` : ""}
         ${U.mode === "target" && m.effect === "damage" && !E.mindset(U.s, controlledId(U.s))?.noOverclock ? `<label>Overclock · extra AP <select id="ccOverclock"><option value="0">No overclock</option>${Array.from({length:Math.floor(maxOverclock/5)},(_,i)=>(i+1)*5).map(n=>`<option value="${n}" ${U.overclock===n?"selected":""}>+${n} AP · ×${((shownTempo+n)/shownTempo).toFixed(2)} potency${Math.max(0,shownTempo+n-p.tempo)?` · ${shownTempo+n-p.tempo} debt`:""}</option>`).join("")}</select></label>` : ""}
@@ -6270,6 +6464,13 @@
       if(d.contract){const c=d.contract,st=x.contract,D=root.ConceptCombatContracts;el.insertAdjacentHTML("beforeend",`<section class="cc-contract-sheet"><h4>Written contract · ${esc(st?.reason||"Ready")}</h4><ol>${c.unlock.map((step,i)=>`<li>${i<(st?.index||0)?"✓ ":i===st?.index?"→ ":""}${esc(D.stepLabel(step,i===st?.index?st.count:0))}</li>`).join("")||"<li>No unlock prerequisites.</li>"}</ol><p>Cast: ${[c.cast.lf?c.cast.lf+" LF":"",c.cast.reaction?"reaction":"",c.cast.prepare?"20 AP preparation and one owner-turn wait":"",c.cast.ultimate?"full ultimate bar":"",c.cast.onlyType&&c.cast.onlyType!=="none"?"only "+D.specialties[c.cast.onlyType].name:""].filter(Boolean).map(esc).join(" · ")||"no additional sacrifices"}.</p><p>While active: ${[c.active.anchored?"remain on casting tile":"",c.active.concentration?"concentrate; another technique ends it":"",c.active.upkeep?c.active.upkeep+" extra ΦF upkeep":""].filter(Boolean).map(esc).join(" · ")||"no ongoing vow"}.</p><p>${c.reset==="once"?"Once per battle.":"After release, repeat the unlock chain."} Specialization: ${esc(D.specialties[c.specialization].name)}. Ongoing strength is earned after holding one owner turn.</p></section>`);}
       const rv = el.querySelector("#ccReveal"); if (rv && !rv.disabled) rv.onchange = () => { U.reveal = rv.checked; renderDetail(); };
       el.querySelectorAll("[data-special],[data-montage],[data-inno],[data-inno-recombine]").forEach(q=>q.onchange=()=>{if(q.dataset.special)U[q.dataset.special]=q.value;if(q.dataset.montage!=null)U.montageParts[+q.dataset.montage]=q.value;if(q.dataset.inno)U[q.dataset.inno]=q.value;if(q.dataset.innoRecombine!=null)U.recombineParts[+q.dataset.innoRecombine]=q.value;const opts={sectionAxis:U.sectionAxis,projectionProperty:U.projectionProperty,projectionAxis:U.projectionAxis,fragment:U.fragmentKind,fragmentId:U.fragmentId,montageParts:U.montageParts.filter(Boolean),prototypeSource:U.prototypeSource,recombineParts:U.recombineParts.filter(Boolean),whatIfAs:U.whatIfAs};U.sel.tg=E.targeting(s,"player",id,opts);U.sel.m=U.sel.tg.m;render();});
+      const cue = el.querySelector("#ccCureChoice");
+      if (cue) cue.onchange = () => {
+        U.cureChoice = cue.value;
+        U.sel.tg = E.targeting(s, controlledId(s), id, { cureChoice: U.cureChoice });
+        U.sel.m = U.sel.tg.m;
+        render();
+      };
       const pp = el.querySelector("#ccPrunePart"); if(pp) pp.onchange=()=>{U.prunePart=pp.value;renderDetail();};
       const gp = el.querySelector("#ccGap"); if(gp) gp.onchange=()=>{U.gap=gp.value;renderDetail();};
       const qc = el.querySelector("#ccQuickened"); if (qc) qc.onchange = () => { U.quickened = qc.value; if (qc.value) { U.announce = false; U.deception = false; } renderDetail(); };
@@ -6313,7 +6514,7 @@
           ${a.notArrived ? `<div class="cc-muted">Arrives round ${a.arrivesRound}</div>` : ""}
           ${(() => { const line = CardsUI && E.cards ? CardsUI.unitLine(E.cards.viewFor(s, controlledId(s), a.id)) : ""; return line ? `<div class="cc-muted cc-cards-line">${esc(line)}</div>` : ""; })()}
           ${a.companion ? `<div class="cc-muted">In ${esc(s.actors[a.companion.owner]?.name || "their fighter")}'s corner · leaves in ${a.companion.turnsLeft} turn${a.companion.turnsLeft === 1 ? "" : "s"}</div>` : ""}
-          ${a.summon ? `<div class="cc-muted">Ally · returns in ${a.summon.turnsLeft} turns${a.summon.trueForm ? ` · True Form: ×${a.summon.trueFormPotencyMul} technique potency · +${SM?.data.summons[a.summon.key]?.trueForm?.pfRegenAdd || 0} ΦF regen` : ""}</div>${a.summon.trueForm ? trueFormSummary(a) : ""}${a.summon.tandem && SM?.Tandem ? SM.Tandem.cardHtml(a.summon.tandem, esc) + (SM.Tandem.strained(a) ? `<div class="cc-bad">Strained: move and guard only this turn.</div>` : "") : ""}` : ""}
+          ${a.summon ? `<div class="cc-muted">${a.summon.unbound ? "Unbound · the Trial's tandem" : `Ally · returns in ${a.summon.turnsLeft} turns`}${a.summon.trueForm ? ` · True Form: ×${a.summon.trueFormPotencyMul} technique potency · +${SM?.data.summons[a.summon.key]?.trueForm?.pfRegenAdd || 0} ΦF regen` : ""}</div>${a.summon.trueForm ? trueFormSummary(a) : ""}${a.summon.tandem && SM?.Tandem ? SM.Tandem.cardFor(s, a, esc) + (SM.Tandem.strained(a) ? `<div class="cc-bad">Strained: move and guard only this turn.</div>` : "") : ""}` : ""}
           ${a.id === "player" ? `<div class="cc-charge-help">ULT: +${s.rules.ultimateChargePerConcept} per ability · +${s.rules.ultimateChargePairBonus} when alternating primary/secondary · +${s.rules.ultimateChargePairBonus} when their composition changes the move. Damage adds none.</div><div class="cc-muted">Items ${a.inventory?.length || 0}/${a.inventoryCapacity || 2}: ${(a.inventory || []).map(id => esc(Loot.data.consumables[id]?.name || W?.data.items[id]?.name || id)).join(", ") || "none"}</div>${typeof gearLine === "function" ? gearLine() : ""}` : ""}
           ${enemy ? `<div class="cc-muted cc-known">Known: ${known.length ? esc(known.join(", ")) : "nothing yet (Observe, or wait for them to act)"}</div>` : ""}
         </div>`;
@@ -6358,7 +6559,7 @@
         else {
         if (root.ConceptCombatInjury) U.account.injuries = root.ConceptCombatInjury.settle(U.s, U.account.injuries);   // wounds rest and persist (practice never settles: see the branch above)
         if (CM?.settleKitchen && (U.s.kitchenLearned || []).includes("player")) U.account = CM.settleKitchen(U.account, true, root.ConceptCombatInsightData?.traits?.kitchenAnimism);   // a cook who watched food wake keeps Kitchen Animism
-        const defeated = Object.values(U.s.actors).filter(a => a.side === "enemy" && a.defeated && !a.noXp && !a.settledBack);   // a settled structure was not killed
+        const defeated = Object.values(U.s.actors).filter(a => a.side === "enemy" && a.defeated && !a.noXp && !a.settledBack && (!a.defeatCreditBy || a.defeatCreditSide === "player"));   // a settled structure was not killed
         const monstersDefeated = U.s.log.filter(e => e.kind === "wildEnd" && /defeat/i.test(e.text || "")).length;
         const foughtBeside = Object.values(U.s.actors).filter(a => a.id !== "player" && a.side === "player" && !a.summon && a.character && !a.notArrived && C.characters[a.character]).map(a => a.character);   // real characters only: communed plants (plant-*) and boss bodies are not valid ally-event draws
         // Kept vows (one list for every payout): swept-kept on the player's side, plus live unbroken vows of living fighters.
@@ -6436,10 +6637,12 @@
         if (U.packedVessels && SL && U.s.vessels) { SL.returnPouch(U.account.vessels || (U.account.vessels = { shard: 0, bead: 0, orb: 0 }), U.s.vessels); U.packedVessels = false; }   // vessel economy: unspent pouch vessels go home (packed battles only; thin-air pouches dissolve)
         if (root.ConceptCombatFruit && !testBattle() && !U.practiceBattle) { const hp = U.s.actors[U.s.modeSetup?.hero || "player"], ff = root.ConceptCombatFruit.settleFeats(U.account, { feats: U.s.fruitFeats || [], shapes: U.s.fruitShapes || [], won: U.s.outcome.winner === "player", shaped: !!(hp?.status?.hideShape && hp.status.hideShape.expiresAt > hp.ownerTurns), drained: !!U.s.fruitDrained, struck: !!U.s.fruitStruck }); U.account = ff.account; U.reward.lines.push(...ff.lines); }   // Sinkerfruit respec S1a: feats count in real battles only (off unless FR.RULES.respec)
         if (root.ConceptCombatFruit && !testBattle()) { const fs = root.ConceptCombatFruit.settleFruit(U.account, { hunterDown: !!(U.s.actors.hunter && U.s.actors.hunter.defeated), hunterName: U.s.actors.hunter?.name || "a hunter", lost: U.s.outcome.winner !== "player", submitted: !!U.s.actors.player?.submitted, bossesDown: !U.practiceBattle && U.s.outcome.winner === "player" ? Object.values(U.s.actors).filter((u) => u.boss && u.defeated && u.side !== "player").length : 0, studyNotes: U.s.fruitStudyNotes || null }); U.account = fs.account; U.reward.lines.push(...fs.lines); }   // OP1 §6-8: installments share today's tally (stall first), then the purse, the claim, the raise; Perfect Recall S6c: battle study notes land on the account
+        if (root.ConceptCombatTenancy && U.s.tenancy && !U.s.actors[U.s.tenancy.host]?.tenant?.borrowed && !testBattle() && !U.practiceBattle) { const hp = U.s.actors[U.s.tenancy.host], t = hp?.tenant, ts = root.ConceptCombatTenancy.settle(U.account, { won: U.s.outcome.winner === "player", heldBack: !!t?.heldBack, uses: t?.uses, usesMax: t?.usesMax }); U.account = ts.account; U.reward.lines.push(...ts.lines); }   // Exile tenancy (T0a): +4 a battle housed, +3 restraint
         if (MK && !testBattle()) { const mt = MK.tickMarket(U.account, { won: U.s.outcome.winner === "player" }); U.account = mt.account; U.reward.lines.push(...mt.lines); }   // vessel economy: the market-day turns on real battles (parts inflow, floods reset, campaign ticks, orders refresh)
         if (root.ConceptCombatFruit && U.s.actors.rival?.fruit && !testBattle() && !U.practiceBattle) { const rs = root.ConceptCombatFruit.settleRival(U.account, { fruit: U.s.actors.rival.fruit.id, defeated: root.ConceptCombatFruit.rivalBeaten(U.s.actors.rival, U.s.actors), won: U.s.outcome.winner === "player", seed: U.s.seed }); U.account = rs.account; U.reward.lines.push(...rs.lines); }   // Sinkerfruit respec S4b: beat the rival, maybe win its fruit (account/fruit.js)
         if (root.ConceptCombatFruit) { const fd = root.ConceptCombatFruit.afterBattle(U.account, { won: U.s.outcome.winner === "player", test: testBattle(), seed: U.s.seed, abroad: U.s.actors.rival?.fruit?.id || null }); if (fd.dropped) { U.account = fd.account; U.reward.lines.push(fd.line); } }   // Sinkerfruit: a won battle can surface a pooled fruit (account/fruit.js)
         if (root.ConceptCombatOrders && !testBattle() && !U.practiceBattle) { const so = root.ConceptCombatOrders.settleOrders(U.account, U.s); U.account = so.account; U.reward.lines.push(...so.lines); }   // talk orders: trust + respect write home (practice saves nothing)
+        if (SM?.Trial && !testBattle() && !U.practiceBattle) { const ts = SM.Trial.settle(U.account, U.s); U.account = ts.account; U.reward.lines.push(...ts.lines); }   // Tandem T2c: a Trial's pass or fail, the retry count, a spent free call
         if (sageLines.length) U.reward.lines.push(...sageLines);
         if (U.account.burn) U.reward.lines.push(`Red Ink's blowback: ${U.account.burn} LF burns at the start of your next battle, win or lose.`);   // W9.4: paid at the next battle's start (see the battle-start hook)
         if (typeof CombatSagas !== "undefined") {   // W9.6: sagas read the account and write the spine (close is declared in the Field Kit: sagaCard)
@@ -6448,6 +6651,8 @@
         }
         // Victory ledger (account.js): a real win records the classes beaten. Practice and test setups never reach here
         // (focusedDreamTest above); a battle the AI played for you, or a labelled test or playground, does not count either.
+        const court = A.settleCourt(U.account, U.s, { test: testBattle(), practice: U.practiceBattle });
+        U.account = court.account; U.reward.lines.push(...court.lines);
         if (!testBattle()) {   // one definition of a test battle (1.3.458 audit)
           const won = A.recordVictories(U.account, A.beatenIn(U.s, C.characters), { mode: U.s.mode, encounter: U.s.encounter, round: U.s.round, seed: U.s.seed });
           U.account = won.account; U.reward.lines.push(...won.lines);
@@ -6744,7 +6949,7 @@
       clearTimeout(flashTip.t); flashTip.t = setTimeout(() => { tip.hidden = true; }, 2200);
     }
     function onKey(e) {
-      if (!host.isConnected || host.closest("[hidden]")) return;
+      if (!host.isConnected || host.closest("[hidden]") || liveCourt?.open) return;
       if (e.target.closest(".cc-agent-controls")) return;
       if (decisionInspectorPanel && !decisionInspectorPanel.hidden) {
         if (e.key === "Escape") { e.preventDefault(); decisionInspectorPanel.hidden = true; decisionInspectorButton?.focus(); }
@@ -6797,6 +7002,8 @@
     document.addEventListener("keydown", onKey);
     $("ccGraphBtn").onclick = () => ($("ccGraph").hidden ? openGraph() : ($("ccGraph").hidden = true));
     if (keySheet) $("ccKeysBtn").onclick = () => { if (!U.surface && !U.narrationHold && !U.closeup) keySheet.toggle(); }; else $("ccKeysBtn").hidden = true;   // Access AC5; shut over the Forum surface (T14), a narration or an attack scene, the same states in which onKey ignores ?
+    $("ccFx3").textContent = `3D effects: ${U.fx3?"On":"Off"}`;
+    $("ccFx3").onclick = () => { U.fx3 = !U.fx3; store.set("loci:combat:fx3", U.fx3); $("ccFx3").textContent = `3D effects: ${U.fx3?"On":"Off"}`; if (U.s) draw(); };
     $("ccAnimation").textContent = `Animation: ${U.fullAnimation?"Full":"Fast"}`;
     $("ccAnimation").onclick = () => { U.fullAnimation=!U.fullAnimation;store.set("loci:combat:full-animation",U.fullAnimation);$("ccAnimation").textContent=`Animation: ${U.fullAnimation?"Full":"Fast"}`;if(!U.fullAnimation&&U.closeup)closeAttackPopup(); if(U.fullAnimation&&U.s)animate(); };   // switching back to Full restarts the redraw loop, so standing fog and smoke breathe again
     $("ccPace").textContent = `Pace: ${U.pace === "slow" ? "Slow" : "Normal"}`;
@@ -6841,6 +7048,7 @@
       openFieldKit() { showAccount(); },   // the home page's Field Kit
       fightSecretWarrior() { if (!SN) return false; startSafely({ encounter: "secretWarriorNext", opener: "player" }); return true; },   // the home page's Fight Secret Warrior (Mala, 2026-10-28)
       backOut() {
+        if (liveCourt?.open) { liveCourt.close(); return true; }
         if (U.mode === "town") return false;   // the town is Concept Combat's main menu: from here the app goes home
         if (closeCard()) return true;   // a battle card is open: close it, stay in the fight
         if (U.mode === "setup") { if (U.townOn && U.menuView !== "town") { U.menuView = "town"; showSetup(); return true; } return false; }

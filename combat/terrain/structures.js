@@ -6,6 +6,9 @@
 //
 //   Ground-targeting = placed damage, or damage with an area shape (radius / plus / line area).
 //   Solid ground (paving, turf, mulch, water, ramps, rubble) never breaks.
+//   Breakable floors (ice sheet `i`, thin crust `c`, wooden deck `d`) opt in via `breakable` on the tile def;
+//     they crack on the cliff ledger, then become the plain rubble tile `r` (no tag, hazard 0).
+//     A `structure`-tagged floor (the deck) takes double integrity damage from a destructive blow.
 //   Cliff tiles = the high side of a drop ≥ 2. Integrity accumulates across hits; on failure the
 //     face collapses into a rockslide that runs `drop` tiles downhill, hurting everything there,
 //     and leaves a rubble scramble (the cliff erodes into a walkable slope).
@@ -135,8 +138,29 @@
     return { ...a, terrainDamage: td };
   }
 
-  // groundImpact(arena, tiles, potency, { channel, from }): a ground-targeting attack lands on `tiles`.
+  function hitBreakableFloor(a, x, y, potency, ctx, events) {
+    const t = D.terrain[Tch(a, x, y)];
+    const b = t && t.breakable;
+    if (!b) return null;
+    const mul = (ctx.channel && b.materials && b.materials[ctx.channel]) || 1;
+    const dmg = Math.round(potency * mul) * (ctx.destructive && (t.tags || []).includes("structure") ? 2 : 1);
+    const k = key(x, y);
+    const total = ((a.terrainDamage || {})[k] || 0) + dmg;
+    if (total < b.integrity) {
+      events.push({ kind: "note", at: [x, y], amount: dmg, text: `The ${t.name} at (${x},${y}) cracks (${Math.min(total, b.integrity)}/${b.integrity}).` });
+      return { ...a, terrainDamage: { ...a.terrainDamage, [k]: total } };
+    }
+    a = setTile(a, x, y, b.under, null);
+    const td = { ...(a.terrainDamage || {}) };
+    delete td[k];
+    a = { ...a, terrainDamage: td };
+    events.push({ kind: "bridgeFall", at: [x, y], damage: b.collapseDamage, stagger: true, text: `The floor gives way at (${x},${y}).` });
+    return damageObjectsAt(a, x, y, b.collapseDamage, ctx.from, events);
+  }
+
+  // groundImpact(arena, tiles, potency, { channel, from, destructive }): a ground-targeting attack lands on `tiles`.
   // Each bridge is hit once per attack; each cliff tile takes damage and may slide.
+  // Breakable floors run after the bridge and cliff branches and before the solid count.
   function groundImpact(arena, tiles, potency, ctx = {}) {
     let a = { ...arena, structures: arena.structures || [], terrainDamage: arena.terrainDamage || {} };
     const events = [], bridgesHit = new Set();
@@ -146,12 +170,17 @@
       const st = bridgeAt(a, x, y);
       if (st) { if (!bridgesHit.has(st.id)) { bridgesHit.add(st.id); a = damageBridge(a, st, potency, ctx, events); } continue; }
       const c = cliffInfo(a, x, y, ctx.from);
-      if (!c) { solid++; continue; }
-      const mul = (ctx.channel && R.cliff.materials[ctx.channel]) || 1;
-      const dmg = Math.round(potency * mul), total = c.damage + dmg;
-      events.push({ kind: "cliffDamage", at: [x, y], amount: dmg, text: `The ${c.masonry ? "retaining wall" : "cliff face"} at (${x},${y}) cracks (${Math.min(total, c.integrity)}/${c.integrity}).` });
-      if (total >= c.integrity) a = rockslide(a, c, events);
-      else a = { ...a, terrainDamage: { ...a.terrainDamage, [key(x, y)]: total } };
+      if (c) {
+        const mul = (ctx.channel && R.cliff.materials[ctx.channel]) || 1;
+        const dmg = Math.round(potency * mul), total = c.damage + dmg;
+        events.push({ kind: "cliffDamage", at: [x, y], amount: dmg, text: `The ${c.masonry ? "retaining wall" : "cliff face"} at (${x},${y}) cracks (${Math.min(total, c.integrity)}/${c.integrity}).` });
+        if (total >= c.integrity) a = rockslide(a, c, events);
+        else a = { ...a, terrainDamage: { ...a.terrainDamage, [key(x, y)]: total } };
+        continue;
+      }
+      const floor = hitBreakableFloor(a, x, y, potency, ctx, events);
+      if (floor) { a = floor; continue; }
+      solid++;
     }
     if (solid) events.push({ kind: "note", solid, text: `Solid ground absorbs the strike on ${solid} tile${solid === 1 ? "" : "s"}.` });
     return { arena: a, events };

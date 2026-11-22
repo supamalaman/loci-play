@@ -32,12 +32,14 @@
         const songError=Performers?.beforeAbility(s,a,{...ab(act.ability),ability:act.ability});if(songError)return songError;
         if (Courtroom) { const no = Courtroom.violenceGate(s, H, a); if (no) return no; }   // W1.3: no brawling in court
         if ((a.sealedTechs || []).includes(act.ability)) return `${ab(act.ability)?.name || act.ability} is sealed by the court: cast nothing sealed.`
-        if (a.status?.offTempo && act.ability === a.status.offTempo.banned && (a.status.offTempo.expiresAt ?? 99) > (a.ownerTurns ?? 0)) return `${ab(act.ability)?.name || act.ability} is off-tempo: Fixed Gaze forbids the last technique for a round.`;   // hotbuilds W1b: the primed answer's price
+        if (a.status?.offTempo && act.ability === a.status.offTempo.banned && (a.status.offTempo.expiresAt ?? 99) > (a.ownerTurns ?? 0)) return `${ab(act.ability)?.name || act.ability} is off-tempo: the last technique is forbidden for a round.`;   // hotbuilds W1b / Bishop F4: the primed answer's price (Fixed Gaze or Purple Litany)
+        if (a.status?.crownEntranced && (a.status.crownEntranced.until == null || a.status.crownEntranced.until >= a.ownerTurns) && ((ab(act.ability)?.potency || 0) > 0 || ab(act.ability)?.effect === "damage")) return "Entranced: you cannot attack until the hold ends.";   // Crown of Plates: cannot attack; move, Guard and support stay open
+        if (act.ability === "crownOfPlates") { const live = (f) => { const t = f && s.actors?.[f.target]; return t && !t.defeated && (f.expiresAt ?? 99) > (a.ownerTurns ?? 0); }; if (!live(a.focus) && !live(a.focusSecond)) return "Crown of Plates needs a foe you have Fixed."; }   // preview-visible (repeats #8): beforeAbility is skipped when s.preview
         if (a.status?.sealed && ab(act.ability)?.tier !== "basic") return `${ab(act.ability)?.name || act.ability} is sealed (${a.status.sealed.by || "debt"}): techniques and ults are closed; basics remain.`;   // W1.3: confiscation binds
         if (!abilitiesOf(a).includes(act.ability)) return "That ability isn't available with this loadout.";
-        { const sea = H.fruitBlocked?.(s, a, act.ability, act); if (sea) return sea; }   // Sinkerfruit: damped by water, soaking or cuffs
+        { const sea = H.fruitBlocked?.(s, a, act.ability, act) || H.tenantBlocked?.(s, a, act.ability, act); if (sea) return sea; }   // Sinkerfruit: damped by water, soaking or cuffs
         { const held = H.Tally?.heldReason(s, a, act.ability); if (held) return held; }   // collateral (engine/tally.js)
-        if (Vows) { const no = Vows.refuses(s, a, "ability", ab(act.ability)); if (no) return no; }   // Vows: Single Mind, Burned Bridge
+        if (Vows) { const no = Vows.gate(s, a, "ability", ab(act.ability), act, { log }); if (no) return no; }   // Vows: Single Mind, Burned Bridge; breakVow elects the breach
         if (Vows && act.ability === "audition") { const no = Vows.validate("role", act.vow, a, s.rules.inspiration, s); if (no) return no; }   // role vows ride the audition
         const m = manifest(s, a, act.ability, act);
         { const no = holdFireRefusal(s, a, m.target === "enemy"); if (no) return no; }
@@ -46,6 +48,7 @@
         { const no = H.Inspiration.crescendoRefuses(s, a, m); if (no) return no; }   // a Crescendo technique needs its Inspiration and only one is in force (ledgers.js)
         const crescendoFree = H.Inspiration.crescendoFree(s, a, act.ability, m); if (crescendoFree) Object.assign(m, { tempoCost: 0, cost: 0, lfPrice: 0 });   // the bend: this cast is free (stamped at commit)
         { const off = ClassRuntime?.ma?.discount(a) || 0; if (off && m.cost > 0) { m.cost = Math.max(0, m.cost - off); m.maDiscounted = true; } }   // Ma: The Space Between's discount on the next technique
+        if (m.effect === "cure" && (act.from || internal?.prepaid)) return "This technique must be delivered in person.";
         const sigFrom = act.from ? H.validSignalOrigin(s, a, m, act.from) : null;
         if (act.from && !sigFrom.ok) return sigFrom.error;
         const src = sigFrom?.ok ? { ...a, x: act.from[0], y: act.from[1] } : a;   // signal origin (machine P3): geometry reads the marker tile; costs stay on the caster
@@ -120,9 +123,11 @@
         if(presidentRules){for(const h of Object.values(s.actors)){if(!h.law||h.law.until<s.round)continue;const hu=presidentUnits(s).find(u=>u.id===h.id),au=presidentUnits(s).find(u=>u.id===a.id),r=presidentRules.breaksLaw(hu,au,{delivery:m.delivery},{...presidentContext(s),round:s.round});if(r.broke){syncPresidentUnit(s,r.actor);log(s,{kind:"law",actor:a.id,target:h.id,text:`${a.name} breaks ${h.name}'s Due Process rule (${m.delivery}) and becomes an outlaw.`,why:["The rule applies to its maker and units in jurisdiction."]});}}}
         // committed: pay once, snapshot (spec §7)
         const starTax = ClassRuntime?.actor ? ClassRuntime.actor.taxFor(s, a, t.targets || []) : 1;   // GDP: the star's tax lands once per technique, overclock unmultiplied
-        const taxedBase = (tempoBillOf() + detailTax) * starTax;
+        const wholeCureTurn = m.cureWholeTurn;
+        const hush = m.ability === "quietInstruction" && a.side !== "player" && !act.reveal;
+        const taxedBase = wholeCureTurn ? m.tempoCost : (tempoBillOf() + detailTax) * starTax;
         if (!internal?.prepaid && !freeFirst && a.tempo < taxedBase && !extraTempo) return `${m.name} needs ${taxedBase} action points (have ${a.tempo}): ×${starTax} to target the star; choose overclock to borrow against a future turn.`;
-        if (!internal?.prepaid && !freeFirst) { const tempoError = spendTempo(s, a, taxedBase + extraTempo, m.name, true); if (tempoError) return tempoError; H.adhdPaid?.(s, a, act.ability); }   // prepaid set intents (Muse W2.5, MY-02 internal): paid at set time
+        if (!internal?.prepaid && !freeFirst) { const tempoError = spendTempo(s, a, taxedBase + extraTempo, hush ? "a quiet word" : m.name, !wholeCureTurn, wholeCureTurn); if (tempoError) return tempoError; H.adhdPaid?.(s, a, act.ability); }   // prepaid set intents (Muse W2.5, MY-02 internal): paid at set time
         else if (!internal?.prepaid && freeFirst && extraTempo) { const tempoError = spendTempo(s, a, extraTempo, m.name, true); if (tempoError) return tempoError; }   // free-first covers the ability's own cost, never an overclock chosen on top: the debt still lands (triage 2026-11-04)
         if (Vows && act.ability === "audition" && act.vow?.boon) Vows.swear(s, a, "role", act.vow, { log });   // sworn before the part is taken, read at play
         if (barsTooFast(s, a, act.ability)) { log(s, { kind: "act", actor: a.id, fizzled: true, text: `${a.name} spits ${m.name} too fast and it goes past everyone.`, why: ["Speed-Talker: his attacks are talk, at half the action points, and they land 85% as often."] }); return; }
@@ -146,6 +151,8 @@
         if (m.oncePerBattle) (a.onceBattle ||= {})[act.ability] = true;   // J6: once-per-battle stamp at commit
         if (freeFirst === "turn") (a.freeTurns ||= {})[act.ability] = a.ownerTurns;   // free-first stamp at commit (previews run on a clone, so this never leaks)
         if (freeFirst === "battle") (a.freeBattle ||= {})[act.ability] = true;
+        if (freeFirst === "substrate") delete a.substrate;   // Florence (F2): the substrate stamp is spent by the Innovation copy it fed
+        if (!s.preview && a.character === "florence_oloo" && ["diffuseWave", "concentrationGradient"].includes(act.ability)) a.substrate = true;   // Florence (F2): a Diffusion field she placed is the substrate her next Innovation reads
         if (CRAFT) {   // practice and care bookkeeping (the manifest above already read the stacks this use benefits from)
           if (a.status?.care && !CRAFT_OWN.has(act.ability)) a.status.care = null;                       // the care is spent on this technique
           if (act.ability === "masterwork") { if (a.practice) a.practice.stacks = 0; }
@@ -189,12 +196,14 @@
           }
           mult *= s.rules.revealMultiplier; why.push(`Revealed ×${s.rules.revealMultiplier}.`);
         }
-        if (!deception) for (const o of Object.keys(s.knowledge)) if (s.knowledge[o][a.id]) s.knowledge[o][a.id].abilities[act.ability] = true;   // ordinary use exposes the technique before any response window
+        if (!deception && !hush) for (const o of Object.keys(s.knowledge)) if (s.knowledge[o][a.id]) s.knowledge[o][a.id].abilities[act.ability] = true;   // ordinary use exposes the technique before any response window
         const claimedRange = deception ? Math.max(1, trueRange - 1 - (m.falseTellRangeAdd || 0)) : null;
         const announcedTiles = deception ? rangeEnvelope(s, a, claimedRange) : t.tiles;
+        const aimed = t.aim || act.target;
+        const civilianTarget = a.id === "player" && Array.isArray(aimed) ? actorAt(s, ...aimed) : null;
         const inst = { ...m, gap:act.gap||"north", ignoreCover:act.ability==="longView", owner: a.id, origin:[src.x,src.y], sourceHeight: heightAt(s, src.x, src.y), mult, tiles: t.tiles, announcedTiles, deception, claimedRange, part: act.part || "foliage",
           section: t.section || null, sourceTile: t.source || null, projectionProperty: t.property || null, projectionAxis: t.axis || null, projectionStoppedAt: t.stoppedAt || null, fragment: t.fragment || null, fragmentId: act.fragmentId || null,
-          route: t.route || null, targets: t.targets || [], aim: t.aim || act.target || null, maidFilth: !!t.maidFilth, objective:act.objective||t.objective||null, surrender:act.surrender||null, stake:act.stake||null, method:act.method||null, force:act.force||null, gear:act.gear||null,
+          route: t.route || null, cureChoice: t.cureChoice, targets: t.targets || [], ...(civilianTarget?.side === "civilian" ? { courtTarget: civilianTarget.id } : {}), aim: t.aim || act.target || null, maidFilth: !!t.maidFilth, objective:act.objective||t.objective||null, surrender:act.surrender||null, stake:act.stake||null, method:act.method||null, force:act.force||null, gear:act.gear||null,
           misePlan: act.stations || null, miseOrder: act.order || null, rule:act.rule||null, participants:act.participants||null, restriction:act.restriction||null, orderAbility:act.orderAbility||null, orderTarget:act.orderTarget||null,
           announced: !!act.announce, revelation: act.announce ? Math.max(1, Math.min(3, Math.round(+act.revelation || 1))) : 0, quickened, role: act.role || null, directHit: !!(hasTrait(a, "drunkenMonkey") || m.directHit) };   // direct-hit: the style grants it to every attack; techniques may carry it; role: the Actor's audition pick
         if (dreamUltimate) {
@@ -242,7 +251,8 @@
         H.fruitCast?.(s, a, act, inst);   // Sinkerfruit (Locusfruit): a recall costs 2 more PhiF and empties its room; a palace taxes or refunds
         if (coopOff) ClassRuntime.coopMark(s, a);
         ClassRuntime?.purposeWatch?.(s, a, act);
-        log(s, { kind: "act", actor: a.id, ability: act.ability, tiles: deception ? announcedTiles : t.tiles, route: deception ? null : (t.route || null),
+        if (hush) log(s, { kind: "act", actor: a.id, text: `${a.name} speaks quietly.` });
+        else log(s, { kind: "act", actor: a.id, ability: act.ability, tiles: deception ? announcedTiles : t.tiles, route: deception ? null : (t.route || null),
           text: `${a.name} uses ${m.name} (${d.tier}, ${conceptName(m.concept)}, ${m.delivery}${m.area.shape !== "single" ? ", " + m.area.shape : ""}) for ${m.cost} ΦF.`, why });
         // AGI Takeoff witness rule: the third deception technique an AGI sees (anyone's but its
         // own) closes the window — deception immune immediately, Feint learned.
@@ -269,7 +279,7 @@
           const audience=Postures?.resolve({character:a.character,concept:"deception",ability:act.ability,event:"techniqueResolved",eligible:extras,manyFaces:a.lens.deception==="manyFaces"});
           if(audience){inst.audienceOnly=true;inst.audienceIds=audience.recipients;inst.audienceTempo=audience.tempo;log(s,{kind:"posture",actor:a.id,target:inst.targets[0],text:audience.log,why:["The named target alone receives the actual technique; the audience receives a response window to look away."]});return openResponseWindow(s,a,inst,d);}
         }
-        if (!inst.audienceOnly && H.openReactionWindow(s, a, inst, d)) return;   // reactive defense: a seen ranged attack can be answered (window.js)
+        if (m.effect !== "cure" && !inst.audienceOnly && H.openReactionWindow(s, a, inst, d)) return;   // reactive defense: a seen ranged attack can be answered (window.js)
         ClassRuntime?.referentFollow?.(s, a, inst, { hasSight, log });
         resolveAbility(s, src, inst);
         ClassRuntime?.turnStep?.(s, a, inst, { dist, inside, tileAt, actorAt, barrierAt, DIRS, log, moveRefusal, applyEntryEffects });

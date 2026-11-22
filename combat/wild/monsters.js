@@ -360,7 +360,8 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     let leapt = false, amb = 1;
     if (def.leap && t) {   // W3: the pounce. From up to `leap` tiles it lands beside its target instead of walking
       const tgt = t.wild ? w.wild.find((x) => x.id === t.wild && !x.done && x.lf > 0) : living(w).find((u) => u.id === t.unit);
-      const land = tgt && man(tgt.x, tgt.y, m.x, m.y) > 1 ? leapTo(w, m, [tgt.x, tgt.y]) : null;
+      const distance = tgt && man(tgt.x, tgt.y, m.x, m.y);
+      const land = distance > 1 && distance <= def.leap ? leapTo(w, m, [tgt.x, tgt.y]) : null;
       if (land) {
         const from = [m.x, m.y]; m.x = land[0]; m.y = land[1]; leapt = true;
         if (fromCover && !m.ambushed) { amb = def.ambushMul || 1; m.ambushed = true; }
@@ -476,12 +477,14 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   function actFlood(w, m, events) {
     const def = W.monsters.flashFlood, path = floodPath(w, m);
     if (!path.length) { m.done = "nowhere lower to run"; return; }
+    const surge = w.arena.waterAgenda ? [] : null;
     let prev = [m.x, m.y];
     for (const [x, y] of path) {
-      const u = unitAt(w, x, y);
+      if (surge) surge.push([x, y]);
+      const u = !surge && unitAt(w, x, y);
       if (u) damageUnit(w, u, def.damage, def.channel, prev, events, def.shove, "The flood surges:", m.kind, m.id);
       const f = active(w, "brushfire"); if (f && K(x, y) in f.tiles) { delete f.tiles[K(x, y)]; events.push({ kind: "fireOut", at: [x, y], text: `The flood puts out fire at (${x},${y}).` }); }
-      w.wet[K(x, y)] = w.round + 3;
+      if (!surge) w.wet[K(x, y)] = w.round + 3;
       if ((w.dams || []).includes(K(x,y))) { m.strength -= 1; events.push({kind:"wildTerrain",id:m.id,at:[x,y],text:`Check Dam at (${x},${y}) reduces flood strength by 1.`}); }
       if ((w.gardens || []).includes(K(x,y))) { m.done="absorbed by a Rain Garden"; events.push({kind:"wildTerrain",id:m.id,at:[x,y],text:`Rain Garden at (${x},${y}) absorbs the flood front.`}); }
       if ((w.drains || []).includes(K(x,y))) { m.done="routed away by graded drainage"; events.push({kind:"wildTerrain",id:m.id,at:[x,y],text:`Graded drainage at (${x},${y}) routes the flood front away.`}); }
@@ -489,6 +492,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       m.x = x; m.y = y; prev = [x, y];
       if (m.strength <= 0 || m.done) break;
     }
+    if (surge) events.push({ kind: "waterSurge", tiles: surge, volume: 2, text: "The wild flash flood" });
     events.push({ kind: "wildMove", id: m.id, to: [m.x, m.y], text: `The flash flood runs to (${m.x},${m.y}) (strength ${Math.max(0, m.strength)}).` });
     if (m.strength <= 0) m.done = "soaked into permeable ground";
   }

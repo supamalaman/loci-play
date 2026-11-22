@@ -50,7 +50,7 @@
     // effect — the step is the side effect, not the price — and the log says why nothing banked.
     function bankRiteSideStep(s, a, type) {
       const R = s.rules.rite ?? {}, max = R.maxSteps ?? 3, rite = a.rite || { steps: [], hold: 0 };
-      const no = a.ritual ? "chanting a capture" : rite.steps.length >= max ? "three steps banked already" : rite.stepTurn === a.ownerTurns || a.riteStepTurn === a.ownerTurns ? "one rite step per turn" : "";
+      const no = H.Rites.capture(a) ? "chanting a capture" : rite.steps.length >= max ? "three steps banked already" : rite.stepTurn === a.ownerTurns || a.riteStepTurn === a.ownerTurns ? "one rite step per turn" : "";
       if (no) { log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite takes no step from it (${no}).` }); return; }
       H.Rites.step(s, a, type);   // L1: the step banks through the ledger; the mirror keeps the gates' shape
       log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite holds ${a.rite.steps.length} step${a.rite.steps.length === 1 ? "" : "s"} (bank keeps ${a.rite.hold} turns).` });
@@ -133,6 +133,7 @@
         if (!dx && !dy) continue;   // the anchor passed the standard checks
         const tx = nx + dx, ty = ny + dy;
         if (!inside(s, tx, ty) || !dreamSame(s, nx, ny, tx, ty)) return false;
+        if (mover.awakened?.parts && heightAt(s, nx, ny) !== heightAt(s, tx, ty)) return false;
         if (kind === "move" ? tileAt(s, tx, ty).blocksMove : tileAt(s, tx, ty).blocksRoute) return false;
         const ob = barrierAt(s, tx, ty);
         if (kind !== "route-open" && ob && !ob.passable) return false;
@@ -145,10 +146,12 @@
     const isKraken = (m) => !!m && (m.kind === "kraken" || m.beast?.kind === "kraken");   // tamed krakens keep kind under beast (tamer.js)
     // Pathing entry: the mover reaches stepCost only when awakened, kraken or a Trailcraft holder — everyone else's pathing is untouched (engine.js paths calls this).
     const hasTrailcraft = (m) => !!ClassRuntime?.builds?.[m?.character]?.passives?.trailcraft;   // Trailcraft prices her reach too, not only her AP (Fathom AD batch 5)
-    const moveCost = (s, x, y, nx, ny, mover, flyer) => stepCost(s, x, y, nx, ny, flyer || (mover?.awakened || isKraken(mover) || hasTrailcraft(mover) ? mover : null));
+    const onRelicPath = (s, m, nx, ny) => !!m && !!s.terrainEffects?.length && !!H.States?.relicPathAt?.(s, m, nx, ny);   // Relic Path (Treasure Hunter TH1b): a tile of the mover's own live path (engine/states.js)
+    const moveCost = (s, x, y, nx, ny, mover, flyer) => stepCost(s, x, y, nx, ny, flyer || (mover?.awakened || isKraken(mover) || hasTrailcraft(mover) || onRelicPath(s, mover, nx, ny) ? mover : null));
     function stepCost(s, x, y, nx, ny, mover = null) {
       if (mover && ClassRuntime && ClassRuntime.flies(mover)) return 1;   // ClassRuntime: Flight ignores terrain movement costs
       const dh = heightAt(s, nx, ny) - heightAt(s, x, y), terrain = tileAt(s, nx, ny);
+      if (dh > -2 && onRelicPath(s, mover, nx, ny)) return 1;   // Relic Path (Treasure Hunter TH1b): his own path costs him 1 move point a tile whatever the ground, a climb of any height included (a drop of 2+ stays a Jump, below)
       if (dh >= 2 && !terrain.ramp && !tileAt(s, x, y).ramp) return Infinity;
       if (dh <= -2) return Infinity; // drops of 2+ are explicit Jump actions
       if (isKraken(mover)) return waterAt(s, nx, ny) ? 0.5 : Infinity;   // Kraken (Mala, 2026-11-05): never leaves the water; a water step costs half a move point, so it swims twice as far per action and per AP as anything walking
@@ -174,7 +177,7 @@
       return H.adjustMoveCost(s, a, route, Math.max(wood ? route.length - 1 : 1, Math.round(effective * s.rules.actionCosts.movePerPoint * (a.passives?.moveCostMul || 1) * (ClassRuntime ? ClassRuntime.moveMods(a).costMul : 1) * (blur ? s.rules.trueSpeed.stepApMul : 1)) - wood) + waterSteps * (s.rules.waterMoveApSurcharge ?? 20) + (ClassRuntime?.turnCost ? ClassRuntime.turnCost(s, a, route) : 0));   // movement money (machine P1): discounts/surcharges; ClassRuntime: Flight halves movement AP; Aerodynamic pays to turn
     }
     function usableRamp(s, x, y, nx, ny) { return tileAt(s, x, y).ramp || tileAt(s, nx, ny).ramp; }
-    function moveRefusal(s, a) {
+    function moveRefusal(s, a, act) {
       if (a.awakened && a.moved) return `${a.name} has already moved this turn.`;
       if (a.soulless) return "The body lies soulless while its soul is out.";
       if (a.summon?.holdPosition) return `${a.name} is holding position for its committed ultimate.`;
@@ -182,7 +185,7 @@
       if (grappled(s, a)) return `${a.name} is held and cannot move.`;
       { const lock = a.status.lockMove; if (lock?.expiresAt > a.ownerTurns) return `${lock.label || "Long View"} locks your position until your next turn.`; }
       if (ClassRuntime) { const ce = ClassRuntime.beforeMove(s, a, classH()); if (ce) return ce; }   // ClassRuntime: Binding Term
-      if (Vows) { const no = Vows.refuses(s, a, "move"); if (no) return no; }   // Vows: Rooted
+      if (Vows) { const no = Vows.gate(s, a, "move", null, act, { log }); if (no) return no; }   // Vows: Rooted; breakVow elects the breach
       return null;
     }
     function apply(state, action, opt = {}) {
@@ -233,13 +236,13 @@
         // Distributed Intelligence: an attack he can only make from one of his towers is made from that tower; he does not move.
         const relay = ["strike", "ability"].includes(action.type) ? ClassRuntime?.relayFor?.(s, a, action, H.relayH()) : null;
         { const leash = H.summonRules?.Tandem?.actionRefusal(s, a, action, dist); if (leash) return err(leash); }   // Tandem T1: strained, only move and guard; a named destination answers to the leash
-        let r;
+        let r; const reasonFrom = s.log.length;   // AI Sight I2: the reason line joins this act's own entry (its "act" line, else its first that is not the AP spend or the charge)
         if (relay) { const home = [a.x, a.y]; a.x = relay[0]; a.y = relay[1];
           log(s, { kind: "effect", actor: a.id, tiles: [relay], relay: true, text: `${a.name} acts through the drone tower at (${relay[0]},${relay[1]}).`, why: ["Distributed Intelligence: his range and sight run from every tower. Nothing reaches him back through one."] });
           try { r = (handlers[action.type] || (() => "Unknown action."))(s, a, action); } finally { a.x = home[0]; a.y = home[1]; } }
         else r = (handlers[action.type] || (() => "Unknown action."))(s, a, action);
         if (r && s.keepRefusal && !opt.preview) { delete s.keepRefusal; return { ok: false, error: r, state: s, kept: true }; }   // contempt of court: refused, but the favor shift and log stand
-        if (r) return err(r);
+        if (r) return s.vowConfirm ? { ok: false, error: r, state, confirmVow: s.vowConfirm } : err(r);
         if (s.actors[action.actor]) { const pa = s.actors[action.actor]; delete pa.aiPlan; if (action.plan) pa.aiPlan = { act: action.plan, round: s.round, turnOf: pa.ownerTurns, side: pa.side }; }   // AI Sight I1: a plan is single-use: any successful act consumes the unit's stored plan first, then a walk that carries its paired act stores the new one (replay never runs aiDecide, so only apply-time lifecycle keeps live and replay identical)
         if (!s.preview && a.status?.kneeling && ["move", "strike", "ability"].includes(action.type)) { delete a.status.kneeling; log(s, { kind: "dispatch", actor: a.id, text: `${a.name} rises: the kneeling is over.` }); }
         H.States?.afterAction(s, a, action);   // States: an ability's grants, and the abilities that break a state
@@ -249,6 +252,7 @@
         { const ca = s.rules.conceptActions?.[action.type]; if (ca && a && !a.defeated && !(s.rules.embodiedConcepts?.enabled && action.type === "tameBeast")) H.chargeUltimate(s, a, ca.concept, ca.why); }
         if (ClassRuntime?.sampleCircuits && s.cls?.circuits) ClassRuntime.sampleCircuits(s, classH());   // Cybernetic Ecology: every action is a reading
         if (action.shows && !s.preview) recordShown(s, a, action);   // C10
+        if (action.reason?.text && !s.preview) { const mine = s.log.slice(reasonFrom).filter((x) => x.actor === a.id && !x.relay), e = mine.find((x) => x.kind === "act") || mine.find((x) => x.kind !== "tempo" && x.kind !== "charge"); if (e) e.why = [...(Array.isArray(e.why) ? e.why : []), action.reason.text]; }   // AI Sight I2: one sentence, chosen and screened by the decider (ai.js reasonLine)
         // Any successful action can expose or move water (bridge collapse, flooding,
         // projection, pasted terrain). Check occupied tiles after the complete mutation.
         for (const unit of Object.values(s.actors)) refreshDrowning(s, unit, "water opens beneath them");
@@ -282,6 +286,7 @@
       markConversation(state,s,action,start);
       if (!opt.preview) delete s.preview;
       if (!opt.preview) Spirit()?.acted(s, action, H);
+      if (s.outcome) Vows?.finishTeaVows(s, H);
       return { ok: true, state: s, events: s.log.slice(start) };
     }
 
@@ -354,7 +359,20 @@
     // What the scout was shown is shared as it stands, true or not: feeding a scout lies is the counter.
     // Stand-down (Mala's no-crew rule, Muse's fix): if nobody is left to tell when the last needed observation lands, the
     // scout gives up the report for the battle, even if allies arrive later. Set here, where state is written.
+    const messengerNoted = (s, a, subject) => {   // R2 Messenger: each reading shared at once with the crew in radius (Verify excluded; depth looks pass null and share nothing). Numbers read the trait share spec; true form reaches 5 and helps 2.
+      if (!hasTrait(a, "messenger") || !subject || String(subject).startsWith("verified:")) return;
+      const R = insightRules?.data?.traits?.messenger?.share; if (!R) return;
+      const big = !!(a.summon && a.summon.trueForm);
+      const crew = shareCrew(s, a, big ? R.trueRadius : R.radius);
+      if (!crew.length) return;
+      const transmitted = H.Observation.share(s, a, crew, H);
+      for (const u of crew) { const book = ((s.scoutShare ||= {})[u.id] ||= {}); book[subject] = Math.max(book[subject] || 0, big ? R.trueHelp : R.help); }
+      const about = s.actors[subject]?.name || "the place";
+      log(s, { kind: "report", actor: a.id, targets: crew.map((u) => u.id), subjects: [subject], transmitted, text: `${a.name} brings word at once: ${crew.map((u) => u.name).join(" and ")} will read ${about} more easily now.` });
+    };
+    const shareCrew = (s, a, radius) => Object.values(s.actors).filter((u) => u.side === a.side && u.id !== a.id && !u.defeated && !u.notArrived && u.category !== "bystander" && dist(s, a.x, a.y, u.x, u.y) <= radius);   // R2: Scout's crew rule, shared with Messenger
     const scoutNoted = (s, a, subject) => {
+      messengerNoted(s, a, subject);
       if (!hasTrait(a, "scout")) return;
       a.scoutObserves = (a.scoutObserves || 0) + 1; if (subject && !(a.scoutSubjects ||= []).includes(subject)) a.scoutSubjects.push(subject);
       const need = insightRules?.data?.actions?.report?.effect?.requiresObserves ?? 3;
@@ -367,7 +385,7 @@
       if (a.scoutReported) return { error: `${a.name} has already reported this battle.` };
       if (a.scoutStoodDown) return { error: `${a.name} stood down from scouting: there was nobody to report to.` };
       if ((a.scoutObserves || 0) < R.requiresObserves) return { error: `Report needs ${R.requiresObserves} observations first (${a.scoutObserves || 0} so far).` };
-      const crew = Object.values(s.actors).filter((u) => u.side === a.side && u.id !== a.id && !u.defeated && !u.notArrived && u.category !== "bystander" && dist(s, a.x, a.y, u.x, u.y) <= R.radius);
+      const crew = shareCrew(s, a, R.radius);
       if (!crew.length) return { error: `Report needs an ally within ${R.radius} tiles.` };
       if (a.tempo < def.cost) return { error: `Report needs ${def.cost} action points.` };
       return { def, R, crew };
@@ -523,6 +541,6 @@
       stallPreview, strikeRange, strongGrip, talkCost, talkedTooFast, talksToAttack, targeting, waterAt };
     for (const fam of ACTION_FAMILIES) (typeof module === "object" && module.exports ? require("./actions-" + fam + ".js") : globalThis.ConceptCombatEngineParts["actions" + fam[0].toUpperCase() + fam.slice(1)])(H, K);
 
-    return { scoutNoted, talksToAttack, talkCost, reportCheck, strongGrip, climbCost, jumpCost, squeeze, aiFailure, aiSnapshot, aiLearnResult, apply, stallPreview, handlers, resolvePrune, imitateComplete, moveRefusal, footOpen, sized, maxRoomFor, stepCost, moveCost, movementTempoCost, usableRamp, waterAt };
+    return { scoutNoted, messengerNoted, talksToAttack, talkCost, reportCheck, strongGrip, climbCost, jumpCost, squeeze, aiFailure, aiSnapshot, aiLearnResult, apply, stallPreview, handlers, resolvePrune, imitateComplete, moveRefusal, footOpen, sized, maxRoomFor, stepCost, moveCost, movementTempoCost, usableRamp, waterAt };
   })();
 });

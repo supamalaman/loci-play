@@ -1,0 +1,189 @@
+{
+  "size_class": "person",
+  "world_height": 1.0,
+  "minimum_pixel_size_px": 96,
+  "runtime_consumed": false,
+  "source": "source/The Goddess of Hospitality Sprite Sheet.png",
+  "poses": {
+    "idle": {
+      "canvas": [
+        185,
+        285
+      ],
+      "content_w": 177,
+      "content_h": 277,
+      "foot": [
+        92.5,
+        281
+      ]
+    },
+    "walk": {
+      "canvas": [
+        200,
+        286
+      ],
+      "content_w": 192,
+      "content_h": 278,
+      "foot": [
+        100.0,
+        282
+      ]
+    },
+    "dodge": {
+      "canvas": [
+        236,
+        263
+      ],
+      "content_w": 228,
+      "content_h": 255,
+      "foot": [
+        118.0,
+        259
+      ]
+    },
+    "knockback": {
+      "canvas": [
+        222,
+        271
+      ],
+      "content_w": 214,
+      "content_h": 263,
+      "foot": [
+        111.0,
+        267
+      ]
+    },
+    "punch": {
+      "canvas": [
+        295,
+        270
+      ],
+      "content_w": 287,
+      "content_h": 262,
+      "foot": [
+        147.5,
+        266
+      ]
+    },
+    "cast-off": {
+      "canvas": [
+        285,
+        271
+      ],
+      "content_w": 277,
+      "content_h": 263,
+      "foot": [
+        142.5,
+        267
+      ]
+    },
+    "cast": {
+      "canvas": [
+        263,
+        277
+      ],
+      "content_w": 255,
+      "content_h": 269,
+      "foot": [
+        131.5,
+        273
+      ]
+    },
+    "block": {
+      "canvas": [
+        256,
+        271
+      ],
+      "content_w": 248,
+      "content_h": 263,
+      "foot": [
+        128.0,
+        267
+      ]
+    },
+    "knocked-out": {
+      "canvas": [
+        276,
+        178
+      ],
+      "content_w": 268,
+      "content_h": 170,
+      "foot": [
+        138.0,
+        174
+      ]
+    },
+    "ultimate": {
+      "canvas": [
+        308,
+        281
+      ],
+      "content_w": 300,
+      "content_h": 273,
+      "foot": [
+        154.0,
+        277
+      ]
+    },
+    "portrait-neutral": {
+      "canvas": [
+        234,
+        309
+      ],
+      "content_w": 226,
+      "content_h": 301,
+      "foot": [
+        117.0,
+        305
+      ]
+    },
+    "portrait-happy": {
+      "canvas": [
+        249,
+        309
+      ],
+      "content_w": 241,
+      "content_h": 301,
+      "foot": [
+        124.5,
+        305
+      ]
+    },
+    "portrait-angry": {
+      "canvas": [
+        247,
+        310
+      ],
+      "content_w": 239,
+      "content_h": 302,
+      "foot": [
+        123.5,
+        306
+      ]
+    },
+    "portrait-sad": {
+      "canvas": [
+        259,
+        309
+      ],
+      "content_w": 251,
+      "content_h": 301,
+      "foot": [
+        129.5,
+        305
+      ]
+    },
+    "portrait-surprised": {
+      "canvas": [
+        249,
+        309
+      ],
+      "content_w": 241,
+      "content_h": 301,
+      "foot": [
+        124.5,
+        305
+      ]
+    }
+  }
+}

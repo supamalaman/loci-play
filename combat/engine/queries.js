@@ -76,7 +76,7 @@
       if (m.effect === "prototype") {
         const tax = lens.copyTax || C.concepts.innovation.copy.tax, src = options.prototypeSource, seen = s.observedAbilities?.[a.id] || [];
         if (src && seen.includes(src) && innoCopyable(src)) {
-          const sm = manifest(s, a, src);   // no options: the source resolves clean, never re-enters What If or a copy
+          const sm = manifest(s, a, src, { copySource: true });
           m.prototypeOf = src; m.delivery = sm.delivery; m.target = sm.target; m.area = clone(sm.area);
           m.effect = "damage"; m.damageType = sm.damageType; m.potency = Math.max(1, Math.round(sm.potency * tax));
           m.range = sm.range; m.routeBudget = sm.routeBudget || 0;
@@ -85,7 +85,7 @@
       }
       if (m.effect === "recombine") {
         const tax = lens.copyTax || C.concepts.innovation.copy.tax, need = lens.fuseNeed || 2, parts = options.recombineParts || [], known = [...abilitiesOf(a), ...(s.observedAbilities?.[a.id] || [])];   // own or witnessed basics (Lantern, 2026-10-18: the Mangaka holds no damaging basic of her own)
-        const pms = parts.map((id) => (known.includes(id) && innoCopyable(id) ? manifest(s, a, id) : null));
+        const pms = parts.map((id) => (known.includes(id) && innoCopyable(id) ? manifest(s, a, id, { copySource: true }) : null));
         if (parts.length >= need && parts.length <= 3 && new Set(parts).size === parts.length && pms.every(Boolean) && pms.every((p) => p.delivery === pms[0].delivery)) {
           m.recombineParts = parts.slice(); m.recombineTax = tax; m.delivery = pms[0].delivery; m.target = pms[0].target; m.area = clone(pms[0].area);
           m.range = pms[0].range; m.routeBudget = pms[0].routeBudget || 0;
@@ -97,7 +97,7 @@
       if (options.whatIfAs && d.tier === "basic" && options.whatIfAs !== abilityId && a.status?.whatIf?.untilRound >= s.round) {
         const td = ab(options.whatIfAs);
         if (td && td.tier === "basic" && abilitiesOf(a).includes(options.whatIfAs)) {
-          const tm = manifest(s, a, options.whatIfAs);
+          const tm = manifest(s, a, options.whatIfAs, { copySource: true });
           m.whatIfVia = abilityId; m.delivery = tm.delivery; m.target = tm.target; m.area = clone(tm.area);
           m.effect = tm.effect; m.damageType = tm.damageType; m.potency = tm.potency; m.range = tm.range;
           m.routeBudget = tm.routeBudget || 0; m.cost = tm.cost; m.announce = tm.announce || m.announce;   // the energy follows the effect produced, not the slot spent
@@ -118,7 +118,7 @@
     }
     function moveOptions(s, id) {
       if (ClassRuntime && ClassRuntime.beforeMove(s, s.actors[id], classH())) return [];   // ClassRuntime: a vowed unit has no moves
-      if (Vows && Vows.refuses(s, s.actors[id], "move")) return [];   // Vows: Rooted
+      if (Vows && Vows.refuses(s, s.actors[id], "move") && s.actors[id]?.side !== "player") return [];   // Vows: AI Rooted stays dark; player tiles light so confirmVow can fire
       if (H.States?.refusesKind(s, s.actors[id], "move")) return [];   // States: a gate holds movement
       const a = s.actors[id];
       if (grappled(s, a) || a.status?.wrapped?.forTurn === a.ownerTurns) return [];   // Grapple: held; Binding Wraps: wrapped
@@ -197,6 +197,7 @@
     // The flag reads off the def (engine.js is at its char cap, so no manifest carry).
     function freeFirstFree(a, m) {
       if (!a || !m || m.tier === "ultimate") return false;
+      if (a.substrate && ["prototype", "recombine"].includes(m.ability)) return "substrate";   // Florence (F2): the substrate stamp makes her next Innovation copy free
       const def = ab(m.ability), flag = def?.freeFirst;
       // freeFirstFor: a shared def (focus is Bastet's too) names the characters the free use belongs to (HOTBUILDS.md section 2: the Hypnotist's). Merge fix, 1.3.546.
       if (Array.isArray(def?.freeFirstTraits) && !def.freeFirstTraits.some(t=>(a.traits||[]).some(x=>(typeof x==="string"?x:x.id)===t))) return false;
@@ -214,7 +215,7 @@
         const ultimateReady = m.tier !== "ultimate" || (!dreamSpaceRules?.ultimatesBlocked(a, s.dreamSpace, s.rules) && (a.ultimateCharge >= s.rules.ultimateChargeMax || mastered));
         const contract=H.Contracts?.status(s,a,abId);
         const collateral = !!H.Tally && H.Tally.held(s, a) === abId;   // the ledger boss holds it (engine/tally.js)
-        const blocked = H.fruitBlocked?.(s, a, abId) || null;   // Sinkerfruit: the sea takes it (engine/fruit.js)
+        const blocked = H.fruitBlocked?.(s, a, abId) || H.tenantBlocked?.(s, a, abId) || null;   // Sinkerfruit: the sea takes it (engine/fruit.js)
         const ff = freeFirstFree(a, m), ffOn = !!ff;
         return { id: abId, m, contract, source: ownerOfConcept(a, m.concept), ...(collateral ? { collateral: true } : {}), ...(blocked ? { blocked } : {}), ...(ff ? { freeFirst: ff } : {}), affordable: !blocked && (!contract||contract.ready) && !collateral && !a.quickenedSpent?.[abId] && !(m.lfPrice && a.lf <= m.lfPrice) && !((ab(abId)?.inspirationPrice || 0) > (a.inspiration || 0)) && (a.pf >= m.cost || inspiredPay(s, a, m) || ffOn) && (a.tempo >= m.tempoCost || ["damage", "field"].includes(m.effect) || ffOn) && ultimateReady, revealed: !!s.disclosures[id][abId] };
       }).filter((x) => opts.answers || !ab(x.id)?.answerOnly);   // answer-only techniques (Fixed Gaze) are not own-turn casts: the menu never offers them, the window asks with { answers: true } (triage 2026-11-04)
@@ -296,7 +297,7 @@
       const a = H.clone(s?.spawnBase && base?.id === "player" ? s.spawnBase : base);   // start from the battle-start player: nothing gained mid-battle carries over
       if (H.summonRules?.freshen) H.summonRules.freshen(a);
       else { a.form = null; a.formCooldownUntil = 0; for (const k of ["priorSprite", "priorSide", "priorName", "aura", "vows", "focus", "contractActive", "formsEntered", "formVowSpent", "heartScroll", "learnedForms", "embodied"]) delete a[k]; }
-      Object.assign(a, { summon: null, beads: [], ritual: null, dream: null, rite: null, riteAugment: null, inspiration: 0, audition: null, husk: false, pendingSwap: null, knockedOut: false, escaped: false, hunterQuarry: null });   // H2: a fresh body starts with no Quarry (lifecycle table)
+      Object.assign(a, { summon: null, beads: [], ritual: null, dream: null, rite: null, rites: null, riteAugment: null, inspiration: 0, audition: null, husk: false, pendingSwap: null, knockedOut: false, escaped: false, hunterQuarry: null });   // H2: a fresh body starts with no Quarry (lifecycle table)
       for (const k of ["soul", "maxSoul", "soulKind", "fruit", "beastSummons", "stateOffers", "orbitKit", "styleConcept"]) delete a[k];   // setup carries too: the Sinkerfruit kit and carried creatures are the player's
       delete a.aiPlan;   // AI Sight I1: a clone or summon never inherits the plan (lifecycle: not copied)
       Object.assign(a, { beliefStrength: 0, level: 1, xp: 0, proficiency: 1, status: Object.fromEntries(Object.keys(a.status || {}).map((k) => [k, null])) });   // sites set their own after   // ensureSoul (damage.js) rebuilds the soul from the body's own character   // not in the summon reset; a spawned body starts without them

@@ -23,7 +23,7 @@
       });
     }
     for (const list of Object.values(byCrew)) list.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-    return Object.entries(subfactions || {}).map(([id, meta]) => ({
+    return Object.entries(subfactions || {}).filter(([, meta]) => meta.wall !== false).map(([id, meta]) => ({
       id, name: meta.name, blurb: meta.blurb || "", members: byCrew[id] || [],
     }));
   }

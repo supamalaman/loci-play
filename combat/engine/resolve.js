@@ -26,23 +26,40 @@
       const barriers = (s.barriers || []).filter((b) => near(b.x, b.y));
       const warded = Object.values(s.actors).filter((u) => !u.defeated && u.status?.ward && near(u.x, u.y));
       let walls = 0;
+      const wallTiles = [], edgeTiles = [];   // FX3 F2: where each counted boundary stands, for the cast's event (data only)
       for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) if (near(x, y) && !(x === a.x && y === a.y)
-        && ((tileAt(s, x, y).blocksMove && (tileAt(s, x, y).tags || []).includes("hard")) || (s.arena.objects || []).some((o) => o.x === x && o.y === y && o.blocksMove && o.kind !== "plant" && !(o.hp <= 0)))) walls++;   // walls, not trees or water
+        && ((tileAt(s, x, y).blocksMove && (tileAt(s, x, y).tags || []).includes("hard")) || (s.arena.objects || []).some((o) => o.x === x && o.y === y && o.blocksMove && o.kind !== "plant" && !(o.hp <= 0)))) { walls++; wallTiles.push({ x, y, kind: (s.arena.objects || []).some((o) => o.x === x && o.y === y && o.blocksMove && o.kind !== "plant" && !(o.hp <= 0)) ? "object" : "wall" }); }   // walls, not trees or water
       const region = s.dreamSpace?.region;
       let edges = 0;
-      if (region) for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) if (near(x, y) && Math.abs(x - region.x) + Math.abs(y - region.y) === region.radius) edges++;
+      if (region) for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) if (near(x, y) && Math.abs(x - region.x) + Math.abs(y - region.y) === region.radius) { edges++; edgeTiles.push({ x, y, kind: "dreamEdge" }); }
       const counted = Math.min(F.cap, barriers.length + warded.length + walls + edges);
+      // FX3 F2 (claude-fx3-bastion-spec 2.3): the boundaries this cast folded, each with its tile and kind, on the act event
+      // the cast already logged. As many entries as were counted for the damage: barriers and wards first (they are the
+      // ones consumed), then walls and objects, then the dream's edge. A painter reads it; no rule does. The event is
+      // replaced by a copy, never written in place: a state's log shares its older events with the state it came from
+      // (and with previews), so writing in place would put the list on their history too. An act event that already
+      // has a list belongs to an earlier cast and is left alone (a copied fold has no act event of its own).
+      { const folded = [...barriers.map((b) => ({ x: b.x, y: b.y, kind: "barrier" })), ...warded.map((u) => ({ x: u.x, y: u.y, kind: "ward" })), ...wallTiles, ...edgeTiles].slice(0, counted);
+        for (let i = s.log.length - 1; i >= 0; i--) { const e = s.log[i]; if (e.kind === "act" && e.actor === a.id && e.ability === inst.ability) { if (!e.folded) s.log[i] = { ...e, folded }; break; } } }
       s.barriers = (s.barriers || []).filter((b) => !barriers.includes(b));
       for (const u of warded) u.status.ward = null;
       if (region && edges) { const most = s.arena.w + s.arena.h; if (region.radius < most) { region.radius += 1;
         log(s, { kind: "dreamSpace", actor: a.id, text: "The dream eats its walls and grows a step.", why: ["Bastion Collapse folded the dream's edge inward; the edge re-forms one step out."] }); } }
       why.push(`Folds ${counted} boundar${counted === 1 ? "y" : "ies"} (${barriers.length} barrier${barriers.length === 1 ? "" : "s"}, ${warded.length} ward${warded.length === 1 ? "" : "s"}, ${walls} wall tile${walls === 1 ? "" : "s"}${region ? `, ${edges} dream edge` : ""}; at most ${F.cap}): ${F.base} + ${F.per} x ${counted}.`);
-      return { ...inst, potency: F.base + F.per * counted };
+      return { ...inst, potency: F.base + F.per * counted + (inst.plainCup || 0) };
     }
     function resolveAbility(s, a, inst) {
       if(H.Contracts&&!H.Contracts.allowed(s,a,inst)){log(s,{kind:"contract",actor:a.id,text:"The copied effect cannot bypass its written contract."});inst.refused=true;return;}
       if (!s.preview) H.fruitSoak?.(s, inst);   // Sinkerfruit: a technique that moves water soaks the eaters it reaches
-      if (a.riteAugment?.checked?.[inst.ability] && a.riteAugment.charges > 0 && !s.preview) {   // Rites (Muse-2): the augment spends on commit, hit or miss
+      const ink = a.riteAugment?.checked?.[inst.ability] && a.riteAugment.charges > 0;
+      if (inst.plainCup) {
+        if (!ink || !H.Vows?.plainCupReady(s, a)) {
+          const bonus = inst.plainCup;
+          inst.potency -= bonus;
+          delete inst.plainCup;
+        } else if (!s.preview) (s.plainCupSpent ||= {})[a.id] = true;
+      }
+      if (ink && !s.preview) {   // Rites (Muse-2): the augment spends on commit, hit or miss
         const mend = a.riteAugment.plantMend || 0;
         if (mend > 0 && !a.defeated) {
           const before = a.lf;
@@ -97,6 +114,7 @@
     }
     function resolveDreamAbility(s, a, inst) {
       ClassRuntime?.noMoreTrim?.(s, a, inst, { dist, log, actorAt });
+      if (inst.effect === "cure") return H.States.cureResolve(s, a, inst);
       if(inst.scribedEffects){resolveScribedEffects(s,a,inst);return;}
       const why = [];
       if (inst.mult !== 1) why.push(`Combined committed potency multiplier ×${+inst.mult.toFixed(3)}.`);
@@ -390,11 +408,32 @@
         log(s,{kind:"focus",actor:a.id,target:targetId,tiles:[[targetActor.x,targetActor.y]],text:`${a.name} focuses on ${targetActor.name} for ${inst.duration||1} owner turn${(inst.duration||1)===1?"":"s"}.`,why:["If the next Sightline shot has an adjacent partial-cover source, one source can be ignored. Focus is your latest technique, so reactions against other enemies are unavailable until you use a different concept."]});
         return;
       }
+      if (inst.effect === "treasureHunt") { H.States?.huntResolve?.(s, a, inst); return; }   // Treasure Hunter (TH1b): Idol Claim, Relic Path, Second Claim (engine/states.js)
       if(inst.effect==="secondGaze"){
         const targetId=inst.targets[0],targetActor=s.actors[targetId];
         if(!targetActor){log(s,{kind:"miss",actor:a.id,text:`${inst.name} has no living target.`});return;}
         a.focusSecond={target:targetId,expiresAt:a.ownerTurns+(inst.duration||1)};
-        log(s,{kind:"focus",actor:a.id,target:targetId,tiles:[[targetActor.x,targetActor.y]],text:`${a.name} fixes a second foe: ${targetActor.name} is marked through the turn.`,why:["Second Gaze holds two marks at once; either primes Fixed Gaze."]});
+        log(s,{kind:"focus",actor:a.id,target:targetId,tiles:[[targetActor.x,targetActor.y]],text:`${a.name} fixes a second foe: ${targetActor.name} is marked through the turn.`,why:["Second Gaze holds two marks at once; either primes Fixed Gaze or Purple Litany."]});
+        return;
+      }
+      if(inst.effect==="naniteBloom"){
+        const dose=a.dose||0; a.dose=0;
+        const near=(u)=>!u.defeated&&dist(s,a.x,a.y,u.x,u.y)<=2;
+        let healed=0,hitN=0;
+        for(const u of Object.values(s.actors).filter(near)){
+          if(u.side===a.side){ const add=Math.min(dose,u.maxLF-u.lf); if(add>0){u.lf+=add;healed+=add;} }
+          else if(dose>=2){ if(hit(s,a,u,inst,Math.floor(dose/2),["Nanite Bloom: half the spent Dose, as citrinitas."],{damageType:"citrinitas"})>0) hitN++; }
+        }
+        log(s,{kind:"effect",actor:a.id,text:`${a.name} blooms: ${dose} Dose spent (${healed} LF returned to her side${hitN?`, ${hitN} foe${hitN===1?"":"s"} burned`:""}).`,why:["Nanite Bloom spends every banked point of Dose at once."]});
+        return;
+      }
+      if(inst.effect==="caseNotes"){
+        const targetId=inst.targets[0],targetActor=s.actors[targetId];
+        if(!targetActor){log(s,{kind:"miss",actor:a.id,text:`${inst.name} has no living target.`});return;}
+        a.caseMark={target:targetId,expiresAt:a.ownerTurns+(inst.duration||2)};
+        let revealed=0;
+        for(const u of Object.values(s.actors)) if(!u.defeated&&u.side!==a.side&&u.status?.concealed&&dist(s,a.x,a.y,u.x,u.y)<=4){ delete u.status.concealed; revealed++; log(s,{kind:"reveal",actor:a.id,target:u.id,tiles:[[u.x,u.y]],text:`${u.name} is written into the case notes: revealed.`,why:["Case Notes reads every hidden foe within 4."]}); }
+        log(s,{kind:"focus",actor:a.id,target:targetId,tiles:[[targetActor.x,targetActor.y]],text:`${a.name} writes up ${targetActor.name}: marked for ${inst.duration||2} of her turns${revealed?`; ${revealed} hidden foe${revealed===1?"":"s"} revealed`:""}.`,why:["The marked foe's next caught shot banks at the primed rate, and the mark is spent."]});
         return;
       }
       if(inst.effect==="annotate"||inst.effect==="redact"||inst.effect==="plaintext"){
@@ -669,8 +708,9 @@
             else log(s, { kind: "effect", actor: a.id, text: `${a.name}'s gaze finds no held image to fire.` });
             return;
           }
-          a.status.ward = { label: "Fortress ward", owner: a.id, protection: Math.round(inst.protection * detailMul), expiresAt: a.ownerTurns + dur };
-          log(s, { kind: "effect", actor: a.id, text: `${a.name} is warded: absorbs ${a.status.ward.protection} LF damage for ${dur} owner turns.`, why: [`Fortress lens: +protection, no placement range.${detailMul > 1 ? " Attention to Detail ×1.25." : ""}`] });
+          const wardLabel = ab(inst.ability)?.wardLabel;   // a self ward with its own name (Sun Ward, Treasure Hunter TH1b); the Fortress lens otherwise
+          a.status.ward = { label: wardLabel || "Fortress ward", owner: a.id, protection: Math.round(inst.protection * detailMul), expiresAt: a.ownerTurns + dur };
+          log(s, { kind: "effect", actor: a.id, text: `${a.name} is warded: absorbs ${a.status.ward.protection} LF damage for ${dur} owner turns.`, why: [`${wardLabel ? `${wardLabel}: a ward on yourself.` : "Fortress lens: +protection, no placement range."}${detailMul > 1 ? " Attention to Detail ×1.25." : ""}`] });
         } else {
           const [x, y] = inst.tiles[0];
           const wall={ id: "b" + (++s.seq), owner: a.id, x, y, protection: Math.round(inst.protection * detailMul), duration: dur, expiresAt: a.ownerTurns + dur, concept: "barrier", counterFraction: inst.counterFraction };
@@ -764,12 +804,13 @@
         const learnTrap = (t) => { H.Observation.recordFact(s,a,{id:`trap:${s.traps.indexOf(t)}:${t.owner}:${t.x},${t.y}`,kind:"trap",index:s.traps.indexOf(t),owner:t.owner,at:[t.x,t.y],text:`Verified trap at (${t.x},${t.y}).`},inst.effect); for (const u of Object.values(s.actors).filter((u) => !u.defeated && u.side === a.side)) { (u.trapSeen ||= {})[trapKey(t)] = true; } };
         const unveil = (u, why) => { H.Observation.recordFact(s,a,{id:`location:${u.id}:${u.x},${u.y}:${s.round}`,kind:"location",subject:u.id,at:[u.x,u.y],text:`${u.name} revealed at (${u.x},${u.y}).`},why); delete u.status.concealed; log(s, { kind: "reveal", actor: a.id, target: u.id, tiles: [[u.x, u.y]], text: `${u.name} is revealed: ${why}.` }); };
         if (inst.effect === "survey") {
+          const loot = !!H.States?.huntSurvey?.(s, a);   // Treasure Hunter (TH1b): his Survey also marks the nearest unsurveyed pickup (engine/states.js); everyone else's is unchanged
           const cands = [];
           for (const t of (s.traps || []).filter((t) => !t.spent && t.ownerSide !== a.side && !trapKnown(a, t) && dist(s, a.x, a.y, t.x, t.y) <= F.surveyRange))
             cands.push({ tile: [t.x, t.y], claimed: "trap", d: dist(s, a.x, a.y, t.x, t.y) });
           for (const u of Object.values(s.actors).filter((u) => veiled(u) && dist(s, a.x, a.y, u.x, u.y) <= F.surveyRange))
             cands.push({ tile: [u.x, u.y], claimed: "movement", d: dist(s, a.x, a.y, u.x, u.y) });
-          if (!cands.length) { log(s, { kind: "effect", actor: a.id, text: `${a.name} surveys: nothing stirs within ${F.surveyRange}.`, why: ["No hidden traps or concealed enemies in range; the survey fizzles."] }); return; }
+          if (!cands.length) { if (!loot) log(s, { kind: "effect", actor: a.id, text: `${a.name} surveys: nothing stirs within ${F.surveyRange}.`, why: ["No hidden traps or concealed enemies in range; the survey fizzles."] }); return; }
           cands.sort((p, q) => p.d - q.d);
           const n = (s.rumors || []).length, truth = seededChance(`${s.seed}:rumor:${a.id}:${s.round}:${n}`) >= F.rumorFalse;
           let tile = cands[0].tile, claimed = cands[0].claimed;
@@ -867,6 +908,7 @@
       }
       if (inst.ability === "restoreTheWorkingOrder" && inst.aim && MaidSystems)
         MaidSystems.invalidateMaintenance(s, inst.aim[0], inst.aim[1]);
+      if (inst.effect === "tenant") { H.tenantResolve?.(s, a, inst); return; }   // Exile tenancy: a lent power (engine/tenancy.js)
       if (inst.effect === "fruit") { H.fruitResolve?.(s, a, inst); return; }   // Sinkerfruit techniques (engine/fruit.js)
       if (ClassRuntime && inst.effect === "classEffect") { ClassRuntime.resolve(s, a, inst, {...classH(),Factions:H.Factions,Parley:H.Parley}); return; }   // ClassRuntime
       if (inst.effect === "hexScreen") {   // the Cyborg form's ward (docs/brain-chip.md): replaced, never added to
@@ -960,7 +1002,7 @@
           if(inst.ability==="surveyShot"&&dealt>0&&insightRules&&s.insight.decks[t.id]){
             const bySubject=s.insight.knowledge.player||(s.insight.knowledge.player={});const know=bySubject[t.id]||insightRules.spawnKnowledge(s.insight.decks[t.id]);
             const result=insightRules.observe({deck:s.insight.decks[t.id],know,cognitive:s.insight.cognitive,subjectKey:t.id,invest:10,inDreamSpace:!!s.dreamSpace,seed:s.seed+s.round,seesSpirits:insightRules.seesSpirits(a)});
-            if(!result.error){bySubject[t.id]=result.know;s.insight.cognitive=result.cognitive;log(s,{kind:"observe",actor:a.id,target:t.id,text:`Survey Shot observation (free 10 AP): ${result.lines.join(" ")}`,why:["A successful measured hit grants one 10-AP observation investment without spending tempo."]});}
+            if(!result.error){bySubject[t.id]=result.know;s.insight.cognitive=result.cognitive;log(s,{kind:"observe",actor:a.id,target:t.id,text:`Survey Shot observation (free 10 AP): ${result.lines.join(" ")}`,why:["A successful measured hit grants one 10-AP observation investment without spending tempo."]});if(hasTrait(a,"messenger"))H.messengerNoted(s,a,t.id);}
           }
           if(inst.ability==="sympatheticChord"&&dealt>0){for(const echo of Object.values(s.actors).filter(v=>!v.defeated&&v.side!==a.side&&v.id!==t.id&&dist(s,t.x,t.y,v.x,v.y)<=4&&C.conceptDamageTypes[v.primary]===inst.damageType)){hit(s,a,echo,inst,inst.potency*inst.mult*0.5,[`Sympathetic Chord echoes from ${t.name}; ${echo.name}'s primary channel matches ${C.damageTypes[inst.damageType]?.name||inst.damageType}.`],{label:"Sympathetic Chord"});}}
           if (inst.knockback && !t.defeated && !s.outcome) knock(s, a, t, inst.knockback, inst, "push");
@@ -1068,6 +1110,7 @@
     const PLANT_TYPES = ["tree", "hedge", "shrub", "groundcover"];
     function applyTerrainEvents(s, source, events = []) {
       for (const ev of events) {
+        if (ev.kind === "waterSurge" && H.queueWaterSurge(s, ev.tiles, ev.volume, ev.text)) continue;
         if (s.heartCourt && (ev.kind === "damage" || ev.kind === "destroyed")) {
           const heartId = s.heartCourt.heart?.id;
           const live = ev.kind === "damage" ? (s.arena.objects || []).find((q) => q.id === ev.id) : null;
@@ -1117,7 +1160,7 @@
         if (ev.kind === "destroyed" && ev.type === "dataCenter") ClassRuntime?.centerFell(s, ev, classH());   // his AGI reroutes (docs/data-center.md)
         if (ev.kind === "destroyed" && ev.type === "cistern") (s.dreamRecent ||= {}).cisternBurst = true;   // ambient dreams hear the burst cistern
         if (wildRules && (ev.kind === "destroyed" || ev.kind === "shaken")) {   // shaken: damaged but standing (loosePanels, a data center)
-          if (ev.type === "cistern") s.wildRecent.cisternBursts = [...(s.wildRecent.cisternBursts || []), ev.at];
+          if (ev.type === "cistern" && !s.arena.waterAgenda) s.wildRecent.cisternBursts = [...(s.wildRecent.cisternBursts || []), ev.at];
           if (pickupRules) {
             const dropped = pickupRules.dropsFrom(s.arena, [ev], { seed: s.seed }); s.arena = dropped.arena;
             for (const d of dropped.events) log(s, { kind: "drop", actor: source.id, tiles: [d.at], text: d.text });
@@ -1164,7 +1207,7 @@
         const control = H.groundControl(s, source);
         if (control >= 1) log(s, { kind: "terrain", actor: source.id, tiles: inst.tiles, text: `${source.name} knows this ground: a controlled strike, and the dirt is left whole.` });
         else {
-          const r = structures.groundImpact(moduleArena(s.arena), inst.tiles, inst.potency * inst.mult * (source.passives?.groundDamageMul || 1) * (1 - control), { from: [source.x,source.y], channel: inst.damageType });
+          const r = structures.groundImpact(moduleArena(s.arena), inst.tiles, inst.potency * inst.mult * (source.passives?.groundDamageMul || 1) * (1 - control), { from: [source.x,source.y], channel: inst.damageType, destructive: !!inst.destructive });
           s.arena = engineArena(r.arena); applyTerrainEvents(s, source, r.events);
           const solid = r.events.find(ev => ev.solid)?.solid || 0;
           if (solid) H.landWound(s, source, "groundTile", solid * (1 - control), inst.tiles);
@@ -1256,18 +1299,19 @@
       log(s, { kind: "grapple", actor: a.id, target: t.id, held: true, tiles: [[t.x, t.y]], text: `${a.name}'s ${inst.name || "clinch"} takes hold of ${t.name}: no movement or dodging until the end of round ${s.round + G.rounds}, and the submission struggle begins.` });
     }
     function knock(s, a, t, n, inst, direction = "push") {
-      n = H.fruitPushBonus?.(s, a, t, n, direction) ?? n;   // Sinkerfruit (respec S2b1): Mainspring
+      const current = direction === "current";
+      if (!current) n = H.fruitPushBonus?.(s, a, t, n, direction) ?? n;   // Sinkerfruit (respec S2b1): Mainspring
       if (H.hasTrait?.(t, "packStrong") && (t.states?.relicGold || t.relicBrokeRound === s.round)) { n = Math.max(0, n - 1); if (n === 0) return; }   // Treasure Hunter (TH1), Pack Strong: carrying treasure (or the blow that just cracked the gold, this round) shortens a knock by 1; the gold breaks inside the hit, before this runs
       if (bossRules?.formImmovable?.(t)) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name}'s exoskeleton doesn't budge.` }); return; }   // learned forms: Exoskeleton
       if (t.boss && bossRules?.displacementBlocked(t)) { log(s, { kind:"resist", actor:a.id, target:t.id, tiles:footprint(t), text:`${t.name} holds its ground against the ${direction}.`, why:["The boss rules make this massive body immune to displacement."] }); return; }
       if (t.form?.golden) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x,t.y]], text: `${t.name} hovers beyond the ${direction}.`, why: ["The Integrated Self ignores forced movement."] }); return; }
       if (ClassRuntime && !t.wild && ClassRuntime.resistKnock(s, a, t, classH(), n, inst)) { H.Support.grant(s, t, "resistShove", "holding against forced movement"); return; }   // ClassRuntime: tethers, growth, support networks, heavy frames (tiles + inst for threshold resists)
-      if (!t.wild && (H.Injury?.gradeOf(t, "legs") || 0) === 2) { n += 1; log(s, { kind: "injury", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name} has nowhere to brace (maimed legs): the ${direction} carries +1 tile.` }); }
+      if (!current && !t.wild && (H.Injury?.gradeOf(t, "legs") || 0) === 2) { n += 1; log(s, { kind: "injury", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name} has nowhere to brace (maimed legs): the ${direction} carries +1 tile.` }); }
       const place = (x, y) => {
         const shifted = t.x !== x || t.y !== y;
         t.x = x; t.y = y;
         if (shifted) H.breakHoldsApart?.(s, t);   // forced apart, the hold breaks at once (Mala, 2026-10-26)
-        if (shifted) ClassRuntime?.hunterForcedMove?.(s, a, t, classH());   // Big Game Hunter: an enemy's shove knocks Charged loose (merge spec H3a)
+        if (shifted && !current) ClassRuntime?.hunterForcedMove?.(s, a, t, classH());   // Big Game Hunter: an enemy's shove knocks Charged loose (merge spec H3a)
         if (t.wild) { const live = s.wild.find(m => m.id === t.id); if (live) { live.x = x; live.y = y; } }
         // Established Guard's counter is a shove that actually moves him. A slam into a wall never calls place.
         if (shifted && t.status?.establishedGuard) {
@@ -1277,7 +1321,7 @@
       };
       const forceType = inst?.displacementType || inst?.damageType || (inst?.concept && C.conceptDamageTypes[inst.concept]) || "nigredo";
       const rebound = (amount) => {   // interactions (Muse-2): a braced fighter meets collision with collision — half rebounds to the shover
-        if (!t.status.guard?.damageType || a.defeated || t.defeated) return;
+        if (current || !t.status.guard?.damageType || a.defeated || t.defeated) return;
         hit(s, t, a, null, Math.max(1, Math.ceil(amount / 2)), ["Braced against the impact: half the collision rebounds to the source of the shove."], { label: "Rebound", damageType: t.status.guard.damageType });
       };
       const checkOw = (fx, fy) => {   // Overwatch (Muse-2): forced movement into a watched ring fires the snapshot (no LOS check — a shove is violent and visible)
@@ -1305,7 +1349,7 @@
         H.Support.grant(s, t, "resistShove", "anchoring against a shove");
         if (edge) edgeUsed(s, edge.id);
         log(s, { kind: "note", actor: t.id, text: `${t.name}'s Anchor cancels the forced displacement; LF damage is unchanged.`, why: [`Inertia resists this one change in position${edge ? ` [${edge.id}]` : ""}.`], edge: edge?.id });
-        if (anchor.counterforce > 0 && !a.defeated) hit(s, t, a, null, anchor.counterforce, ["Counterweight redirects a small 4 LF impulse to the source of the resisted shove."], { label: "Counterweight" });
+        if (!current && anchor.counterforce > 0 && !a.defeated) hit(s, t, a, null, anchor.counterforce, ["Counterweight redirects a small 4 LF impulse to the source of the resisted shove."], { label: "Counterweight" });
         return;
       }
       if (t.status.rooted?.expiresAt > t.ownerTurns) {   // interactions (Muse-2): roots hold against the shove, but the force topples the fighter — the attempt alone does it
@@ -1320,6 +1364,15 @@
       if (t.passives?.knockbackResist && !t.lanyardUsed) {
         t.lanyardUsed = true;
         log(s, { kind: "resist", actor: t.id, target: t.id, text: `${t.name}'s climbing lanyard catches the ${direction}; no displacement this battle.`, why: ["The tool prevents the first forced movement; later shoves resolve normally."] });
+        return;
+      }
+      if (current) {
+        const [nx, ny] = inst.to, [x, y] = inst.from;
+        place(nx, ny);
+        log(s, { kind: "move", actor: t.id, forced: true, direction, path: [inst.from, inst.to], text: `The current drags ${t.name} downstream to (${nx},${ny}).` });
+        applyFall(s, null, t, heightAt(s, x, y), heightAt(s, nx, ny), false, "carried by the current");
+        if (!t.defeated) applyEntryEffects(s, null, t, nx, ny, "is carried into");
+        checkOw(x, y);
         return;
       }
       const waterPull = direction === "pull" && (inst?.pullTowardWater || ab(inst?.ability)?.pullTowardWater);   // kraken S2 (Riptide): the card flag, since the manifest allowlist does not carry it

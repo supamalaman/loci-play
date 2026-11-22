@@ -193,6 +193,7 @@
     magistrate: B(["statute", "warrant", "departureClause", "arrivalGate", "exilesGate"], { primaryBasic: "statute", primaryRefined: "warrant", secondaryBasic: "departureClause", secondaryRefined: "arrivalGate" }, {
       jurisdiction: { trigger: "an enemy casts its first technique of the round inside her Statute", effect: { pfAdd: 3 }, bound: "once per enemy per round; her own Statute only", counter: "Step out of the zone before casting, or wait it out." },
       contempt: { trigger: "an Outlaw damages the Magistrate", effect: { slow: 1 }, bound: "once per round", counter: "Outlast the mark before you strike her." },
+      bench: { trigger: "she Convenes the Court against a standing opponent with a count, within 5 tiles and sight", effect: { convene: true, apCost: 20 }, bound: "one docket per battle, shared with the rite and the arrest trial; the charged opponent must have a count", counter: "Dodge the summons out of sight or range, or give her no count to try." },   // M2a: rules in engine/actions-parley.js convene + law/courtroom.js
     }, "magistrate"),
     // Thief (Mala, 2026-10-14): the stealing half of Stealth. Ninja kills from cover; Thief robs from cover — loot and time. Rules: class-runtime.js (STEALTH wire) + stealth/stealth.js.
     thief: B(["vanish", "smokeVeil", "pickpocket", "skim", "emptyPockets"], { primaryBasic: "vanish", primaryRefined: "smokeVeil", secondaryBasic: "pickpocket", secondaryRefined: "skim" }, {
@@ -259,17 +260,35 @@
     }, "hypnotist", "brief"),
     // Hot-build cuts F1 (cursor-hotbuilds-cuts-spec; Gunwale BD, 2026-11-14): the Forum five. Roster rows only: each kit is the two
     // concepts' own live basic and refined techniques, and no passive is declared until its hot build (F2 to F6) makes it true.
-    florence_oloo: B(["diffuseWave", "concentrationGradient", "prototype", "recombine"], { primaryBasic: "diffuseWave", primaryRefined: "concentrationGradient", secondaryBasic: "prototype", secondaryRefined: "recombine" }, {}, "florence-oloo", "brief"),
-    chitinous_archbishop: B(["statute", "warrant", "markTheVessel", "effigy"], { primaryBasic: "statute", primaryRefined: "warrant", secondaryBasic: "markTheVessel", secondaryRefined: "effigy" }, {}, "chitinous-archbishop", "brief"),
-    chitin_bishop: B(["shimmer", "allure", "focus", "deepFocus"], { primaryBasic: "shimmer", primaryRefined: "allure", secondaryBasic: "focus", secondaryRefined: "deepFocus" }, {}, "chitin-bishop", "brief"),
+    florence_oloo: B(["diffuseWave", "concentrationGradient", "prototype", "recombine", "naniteBloom", "caseNotes"], { primaryBasic: "diffuseWave", primaryRefined: "concentrationGradient", secondaryBasic: "prototype", secondaryRefined: "recombine" }, {
+      steady_hands: { trigger: "she hits a foe that moved this turn with a field technique", effect: { fieldMult: 1.1 }, bound: "field deliveries only; the foe must have moved this turn", counter: "Stand still, or stay out of the field: it only catches movers harder." },
+      clinician: { trigger: "she chooses a technique (her AI table)", effect: { traitDrive: "clinician" }, bound: "Diffusion while no substrate is down, Innovation while it is", counter: "Strip the field and she has nothing to innovate on." },
+      do_no_harm: { trigger: "her hit would reduce a foe from above 1 LF to 0", effect: { sparedAt: 1 }, bound: "once per foe per battle", counter: "Hit the spared foe again: the vow holds only once." },
+      latch_dose: { trigger: "a ranged hit from 2 or more tiles on her or an ally within 2", effect: { doseBankHalf: true, doseCap: 12, cashAt: 4 }, bound: "a quarter banks from outside her field; melee and close hits bank nothing; a bank of 4+ pays 1 Inspiration", counter: "Close to inside 2 tiles, or burst her before the vials fill." },
+    }, "florence-oloo"),
+    chitinous_archbishop: B(["statute", "warrant", "markTheVessel", "effigy", "chitinLiturgy"], { primaryBasic: "statute", primaryRefined: "warrant", secondaryBasic: "markTheVessel", secondaryRefined: "effigy" }, {
+      carapace: { trigger: "a foe's hit lands on her, the first this round", effect: { potencyLess: 3 }, bound: "once per round; foes only", counter: "Open with a cheap hit, then the real one." },
+      liturgist: { trigger: "she chooses a technique (her AI table)", effect: { traitDrive: "liturgist" }, bound: "Statute while none of hers is live; Mark the Vessel while a foe stands in it", counter: "Stay out of the Statute and she has no one to mark." },
+      cites_precedent: { trigger: "she answers an attacker repeating a technique she witnessed", effect: { answerAp: 0 }, bound: "ΦF and the reaction are still paid", counter: "Vary your techniques." },
+      plate_choir: { trigger: "a ranged hit from 2 or more tiles on her, with no Choir stored", effect: { choir: 1, choirTax: 15 }, bound: "one Choir; the tax only on an attacker in her Statute or her Vessel, up to 15 AP", counter: "Close inside 2 tiles, or stay out of the law." },
+      faithful_vessel: { trigger: "she falls while a believer she marked lives", effect: { wakesIn: "faithful" }, bound: "a believing ally, or a believing foe while it bears her Vessel mark", counter: "Kill the believer first, or let the mark lapse." },
+    }, "chitinous-archbishop"),
+    chitin_bishop: B(["shimmer", "allure", "focus", "deepFocus", "crownOfPlates"], { primaryBasic: "shimmer", primaryRefined: "allure", secondaryBasic: "focus", secondaryRefined: "deepFocus" }, {
+      the_look: { trigger: "a damaging move of hers lands", effect: { staggerChance: 0.10 }, bound: "once per enemy per turn", counter: "Spend the reaction before she hits, or stay out of her gaze." },
+      entrainer: { trigger: "she fixes a foe", effect: { subject: "focus mark" }, bound: "one subject at a time (Second Gaze holds two)", counter: "Break line of sight and the hold slips." },
+      gentle_hand: { trigger: "the first lethal blow she lands on a foe", effect: { sparedAt: 1 }, bound: "once per foe per battle; the win stays non-lethal", counter: "Hit the spared foe again: the hand stays itself only once." },
+      purple_litany: { trigger: "a ranged hit from 2 or more tiles on her, or an unwarded ally within 2", effect: { dome: 8, offTempo: true }, bound: "one reaction a round; primed only against a Fixed foe", counter: "Swap who shoots, or close inside 2 tiles." },
+    }, "chitin-bishop"),
     shardback: B(["regrade", "drainagePlan", "lash", "brierRing"], { primaryBasic: "regrade", primaryRefined: "drainagePlan", secondaryBasic: "lash", secondaryRefined: "brierRing" }, {}, "creature-combat", "brief"),
     eldritch: B(["annotate", "redact", "survey", "verify"], { primaryBasic: "annotate", primaryRefined: "redact", secondaryBasic: "survey", secondaryRefined: "verify" }, {}, "eldritch", "brief"),
-    // The Treasure Hunter (TH1; Discovery + Extraction, crew street): the four live techniques; status brief until his merges (TH1b) make the roster-ready gate apply.
-    treasure_hunter: B(["survey", "verify", "chandrahasa", "seize"], { primaryBasic: "survey", primaryRefined: "verify", secondaryBasic: "chandrahasa", secondaryRefined: "seize" }, {
+    // The Treasure Hunter (TH1; Discovery + Extraction, crew street): the four live techniques and, since TH1b, his two merges: Idol Claim (the pair's merge ultimate)
+    // and Relic Path (the merge technique of his wheelhouse blend, Discovery + Alternate Pathway: a reserve merge, as the Auditor Goblin's Ledger of Debts is). Live:
+    // the roster-ready gate (tests/class-build.test.mjs) applies. Sun Ward (answer-only) and Second Claim (his Crescendo) are pair-gated in content.js, outside the kit of six.
+    treasure_hunter: B(["survey", "verify", "chandrahasa", "seize", "idolClaim", "relicPath"], { primaryBasic: "survey", primaryRefined: "verify", secondaryBasic: "chandrahasa", secondaryRefined: "seize" }, {
       pack_strong: { trigger: "a shove or knock while he carries treasure (the relicGold state), or later in the round its gold cracked", effect: { knockbackLess: 1 }, bound: "minimum 0; only while gold or in the round the gold cracks", counter: "Crack the gold first: the first blow that lands ends the form." },
       gold_fever: { trigger: "he chooses where to step", effect: { moveBias: "toward unclaimed pickups" }, bound: "not while a foe at 6 LF or less is within 2 tiles; not toward an item id he already used", counter: "Put loot where you want him; he walks to it." },
       finders_keepers: { trigger: "someone on the other side picks up the treasure he dropped", effect: { inspiration: 1 }, bound: "once per battle", counter: "Leave the drop on the ground." },
-    }, "treasure-hunter", "brief"),
+    }, "treasure-hunter"),
     // Lakshmana (Mala, 2026-10-24; docs/lakshmana-build.md): Boundary + Interposition, crew ayodhya. The line, the guard, and the
     // brother who is felled but not slain. Rule 6: every technique works on anyone, stronger on Sita (the line) and Rama (the guard).
     lakshmana: B(["boundaryLine", "lakshmanaRekhaDraw", "brothersGuard", "coveringShot", "lineNotCrossed"], { primaryBasic: "boundaryLine", primaryRefined: "lakshmanaRekhaDraw", secondaryBasic: "brothersGuard", secondaryRefined: "coveringShot" }, {

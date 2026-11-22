@@ -727,7 +727,7 @@
     // Hot-build cuts F1, the Forum five (1.3.567): minimal voices added at merge (Gangway IN) so every roster enemy speaks; each hot build (F2 to F6) brings the full voice.
     florence_oloo: { name: "Florence Oloo", voice: "Field scientist; calm, exact, already testing the next version.", rules: {}, events: { encounter: ["Stand still. I am measuring."], defeat: ["Noted. Next trial."] } },
     chitinous_archbishop: { name: "Chitinous Archbishop", voice: "Plated cleric; reads out the law, then chooses the body that will keep it.", rules: {}, events: { encounter: ["You are bound by a law you have not read."], defeat: ["This shell was never the last one."] } },
-    chitin_bishop: { name: "Chitin Bishop", voice: "Domed and patient; her gaze settles on one of you and does not move.", rules: {}, events: { encounter: ["Look at me. Only at me."], defeat: ["The dome dims."] } },
+    chitin_bishop: { name: "Chitin Bishop", voice: "Domed and patient; her gaze settles on one of you and does not move.", rules: {}, events: { encounter: ["Look at me. Only at me.", "The Archbishop writes names. I hold the one she names."], defeat: ["The dome dims."] } },
     shardback: { name: "Shardback", voice: "A grinding, thorned creature from somewhere else; she reshapes the ground before she fights on it.", rules: {}, events: { encounter: ["This ground is wrong. I will fix it."], defeat: ["Back into the soil."] } },
     eldritch: { name: "Eldritch Intruder", voice: "An unreadable visitor; it studies you like a page and strikes out what it dislikes.", rules: {}, events: { encounter: ["It reads you. Line by line."], defeat: ["The page closes."] } },
     hedge_witch: { name: "Hedge Witch", voice: "Hedge-keeper; fusses over candles and company with equal suspicion.",

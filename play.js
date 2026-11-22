@@ -13,7 +13,7 @@
     ["rogue", "Thief", "Cuts, steals and slips away.", "night"],
     ["wizard", "Caster", "Spells written in code.", "astral"],
     ["samurai", "Duelist", "Waits for the perfect moment.", "storm"],
-    ["ranger", "Tracker", "Tracks prey and finds the path.", "day"],
+    ["treasure_hunter", "Relic Hunter", "Finds the gold and keeps it.", "day"],   // the Ranger's seat (Mala, 2026-11-15, R-20261115-57); the Ranger stays in the full game's setup
     ["cleric", "Vowkeeper", "Vows and favours between allies.", "astral"],
     ["ninja", "Shadow", "Strikes from hiding.", "night"],
     ["monkey_king", "Trickster", "Trickster with a staff.", "astral"],
@@ -42,6 +42,30 @@
     try { saveBroken = false; return Loot.withBags(Account.deserialize(raw)); } catch (e) { console.warn("Could not read the save", e); saveBroken = true; return null; }
   }
   const saveAccount = (a) => write(ACCOUNT_KEY, Account.serialize(a));
+  function openFamiliars() {
+    const picker = window.ConceptCombatFamiliarPicker, data = window.ConceptCombatSummonData;
+    const preview = () => {
+      const account = Account.fromLegacyProfile(read(PROFILE_KEY, null), { name: "Warden", choose: true });
+      if (account.familiars?.done !== false) return account;
+      // Quick Battle seats Mitsuko before the first fight. Preview the same roster without creating a save.
+      return Account.buyFamiliar(account, "mitsuko").account || account;
+    };
+    return picker.open({
+      trigger: $("familiarOpen"),
+      getAccount: () => {
+        const account = loadAccount();
+        return account || (saveBroken ? null : preview());
+      },
+      data, portrait: (sprite) => UI.portraitSource({ sprite }).idle,
+      conceptName: (id) => Content.concepts[id]?.name || id,
+      save: (account) => {
+        try {
+          localStorage.setItem(ACCOUNT_KEY, JSON.stringify(Account.serialize(account)));
+          return true;
+        } catch { return false; }
+      },
+    });
+  }
 
   // ── start screen ──
   const skyUrl = (sky) => `url('combat/sprites/sky/${sky}.png')`;   // single quotes: it goes inside a style="" attribute
@@ -173,6 +197,7 @@
   $("fight").onclick = () => fight("quickBattle");
   $("forum").onclick = () => fight("surfaceBattle");
   $("invOpen").onclick = openInventory;
+  if (window.ConceptCombatFamiliarPicker) $("familiarOpen").onclick = openFamiliars;
   $("invClose").onclick = closeInventory;
   $("inventory").addEventListener("click", (ev) => { if (ev.target === $("inventory")) closeInventory(); });
   $("leave").onclick = home;

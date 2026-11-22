@@ -103,7 +103,7 @@
             else if (after > 0) add(e.target, "hurt");
           } else if (e.actor && canSpeak(A(e.actor)) && A(e.actor).side !== t.side) add(e.actor, "hit");
           // a summon reacts when someone on its own side (not a summon) is hurt by the other side
-          if (t.side === "player" && !t.summon && e.actor && A(e.actor)?.side !== "player") for (const id of summonsAlive()) add(id, "ally_hurt");
+          if (t.side === "player" && !t.summon && e.actor && A(e.actor)?.side !== "player") for (const id of summonsAlive().filter((sid) => A(sid).side === t.side)) add(id, "ally_hurt");   // its own side only (Tandem T2c: an unbound tandem is a foe)
           break;
         }
         case "parry": if (ctx.lastActor) add(ctx.lastActor, "parried"); break;
@@ -156,7 +156,7 @@
       // encounter: the first enemy in turn order greets once, at the start of the battle;
       // a cutscene-capable ally (the Magistrate on your side) greets too
       if (from === 0) {
-        const first = (s.order || []).map((id) => s.actors[id]).find((a) => a && a.side === "enemy" && canSpeak(a));
+        const first = (s.order || []).map((id) => s.actors[id]).find((a) => a && a.side === "enemy" && canSpeak(a) && !(isSummon(a) && !summonVoices.events.includes("encounter")) && !(isDream(a) && !dreamVoices.events.includes("encounter")));   // a summon or dream on the enemy side (Tandem T2c: a Trial's unbound tandem) greets only if its voice has the line
         if (first) found.push({ actor: first.id, event: "encounter", logIndex: 0 });
         const ally = (s.order || []).map((id) => s.actors[id]).find((a) => a && a.side === "player" && !a.defeated && isCutsceneCapable(speakerId(a)) && ownLines(speakerId(a), "encounter").length);
         if (ally) found.push({ actor: ally.id, event: "encounter", logIndex: 0 });

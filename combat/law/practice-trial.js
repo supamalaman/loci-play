@@ -5,9 +5,9 @@
 // no record, Fame, Board, standing or Seeds. It teaches only what the live courtroom does (its legal plays, favor and
 // sentences); later slices add their own steps (the record, the plea, accept or fight).
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./trial.js"));
-  else root.ConceptCombatPracticeTrial = factory(root.ConceptCombatTrial);
-})(typeof self !== "undefined" ? self : this, function (TR) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./trial.js"), require("./courtroom-ui.js"));
+  else root.ConceptCombatPracticeTrial = factory(root.ConceptCombatTrial, root.ConceptCombatCourtroomUI);
+})(typeof self !== "undefined" ? self : this, function (TR, CourtUI) {
   const YOU = "you", PROSECUTOR = "prosecutor";
   const unit = (id, name, side, honest = false) => ({ id, name, side, honest, lf: 10, maxLF: 10, alive: true, arrivalRound: 0 });
 
@@ -24,11 +24,11 @@
         { id: "brawl-stall", label: "testimony: a broken stall", grade: "unproven", severity: 1, ledgerAct: false }],
       units: [unit("cousin", "Your cousin", "ally"), unit("fishmonger", "The fishmonger (honest)", "neutral", true)],
       coach: "You cannot argue with an act you announced: a sworn count argues itself. Spend your turns where they work. An honest witness tells the truth, even when you call them." },
-    { id: "coin", title: "The Ferryman's Coin", teaches: "Alleged charges, and death on the table",
+    { id: "coin", title: "The Ferryman's Coin", teaches: "Alleged charges in a Magistrate’s court",
       blurb: "Someone says you stole the ferryman's coin. Nobody saw it, but the charge is grave.",
       counts: [{ id: "coin-theft", label: "testimony: the ferryman's coin", grade: "unproven", severity: 3, ledgerAct: false }],
       units: [unit("friend", "A friend", "ally"), unit("ferryman", "The ferryman (honest)", "neutral", true)],
-      coach: "An unproven count is thin: argue it and it can be struck from the record. When the Magistrate presides, the worst verdict is death." },
+      coach: "An unproven count is thin: argue it and it can be struck from the record." },
   ];
   const byId = (id) => CASES.find((c) => c.id === id) || null;
 
@@ -68,7 +68,7 @@
   function start(caseId, opts = {}) {
     const k = byId(caseId); if (!k) return { ok: false, error: `No practice case ${caseId}.` };
     const side = opts.side === "prosecution" ? "prosecution" : "defense";
-    const t = TR.openTrial({ form: "courtroom", accusedId: YOU, prosecutorId: PROSECUTOR, seed: 7, units: k.units, counts: k.counts });
+    const t = TR.openTrial({ form: "courtroom", accusedId: YOU, prosecutorId: PROSECUTOR, seed: 7, units: k.units, counts: k.counts, magistrate: k.counts.some((c) => c.severity >= TR.SEV.serious) });
     const session = { caseId: k.id, side, t, turns: 0 };
     if (side === "defense") TR.play(t, "prosecution", policy(t, "prosecution"));   // the prosecution opens each round
     return { ok: true, session };
@@ -118,10 +118,6 @@
   function mount(ov, opts = {}) {
     const back = opts.back || (() => {});
     let session = null, side = "defense", note = "";
-    const favorBar = (f) => {
-      const pct = ((f + 12) / 24) * 100;
-      return `<div class="cc-pt-favor" role="img" aria-label="Favor ${f >= 0 ? "+" : ""}${f}"><div class="cc-pt-zones"><span class="z-sword">Sword</span><span class="z-conf">Confiscate</span><span class="z-acq">Acquit</span></div><div class="cc-pt-track"><i style="left:${pct}%"></i></div><small>Favor ${f >= 0 ? "+" : ""}${f} · −2 or lower: the Sword (if the Magistrate presides) · −1 to +1: confiscate · +2 or higher: acquit</small></div>`;
-    };
     const picker = () => `<div class="cc-card cc-town-hall cc-codex cc-practice"><h2>Practice a trial</h2>
       <p class="cc-muted">A made-up case, tried by the real court rules. Nothing you do here counts: no record, no Fame, no cost.</p>
       <div class="cc-row" role="group" aria-label="Your bench"><button type="button" data-pt-side="defense" aria-pressed="${side === "defense"}">Defend</button><button type="button" data-pt-side="prosecution" aria-pressed="${side === "prosecution"}">Prosecute instead</button></div>
@@ -129,18 +125,12 @@
       <div class="cc-row"><button type="button" id="ccPtBack">← Back to the Codex</button></div></div>`;
     const trialView = () => {
       const t = session.t, k = byId(session.caseId), res = result(session);
-      const lines = t.log.slice(-8).map((e) => `<li>${esc(e.text)}${e.lesson ? `<small class="cc-pt-lesson">${esc(e.lesson)}</small>` : ""}</li>`).join("");
-      const counts = t.counts.map((c) => `<li class="cc-pt-count ${c.status}"><b>${esc(c.label)}</b> <small>${esc(c.grade)} · severity ${c.severity} · ${esc(c.status)}</small></li>`).join("");
-      const opts2 = options(session).map((o, i) => `<button type="button" data-pt-move="${i}" title="${esc(o.help)}">${esc(o.label)}</button>`).join("");
-      return `<div class="cc-card cc-town-hall cc-codex cc-practice"><h2>${esc(k.title)} <small>· you ${session.side === "defense" ? "defend" : "prosecute"}</small></h2>
-        <p class="cc-muted">${esc(k.blurb)} ${t.magistrate ? "The Magistrate presides: death is on the table." : "A local judge sits: no death power."}</p>
-        <p class="cc-pt-coach">“${esc(k.coach)}”</p>
-        <ul class="cc-pt-counts">${counts}</ul>${favorBar(t.favor)}
-        <ol class="cc-pt-log" aria-live="polite">${lines}</ol>
-        ${note ? `<p class="cc-hall-note" role="status">${esc(note)}</p>` : ""}
-        ${res ? `<div class="cc-pt-verdict"><h3>${res.guilty ? "Guilty" : "Innocent"}</h3><ul>${res.counts.map((c) => `<li>${esc(c.count)}: ${esc(c.verdict)}</li>`).join("")}</ul>${res.real.map((x) => `<p>${esc(x)}</p>`).join("")}<p class="cc-muted">This was practice. Nothing changed.</p></div>
-          <div class="cc-row"><button type="button" class="cc-primary" id="ccPtAgain">Practice again</button><button type="button" id="ccPtCases">Choose another case</button><button type="button" id="ccPtBack">← Back to the Codex</button></div>`
-          : `<div class="cc-row cc-pt-moves">${opts2}</div><div class="cc-row"><button type="button" id="ccPtCases">Leave this case</button><button type="button" id="ccPtBack">← Back to the Codex</button></div>`}</div>`;
+      const docket = CourtUI.render({ t, practice: true, playerSide: session.side, actingSide: session.side, actions: options(session), note,
+        verdict: res && { counts: res.counts, sentences: session.side === "defense" ? [...res.real, "In a real battle, the record would show the court’s decision on each charge."] : res.real } });
+      return `<div class="cc-card cc-town-hall cc-codex cc-practice cc-court-practice"><p class="cc-court-mode">Practice trial</p><h2>${esc(k.title)}</h2>
+        <p class="cc-muted">${esc(k.blurb)}</p><p class="cc-pt-coach">“${esc(k.coach)}”</p>${docket}
+        <div class="cc-row">${res ? '<button type="button" class="cc-primary" id="ccPtAgain">Practice again</button>' : ""}
+          <button type="button" id="ccPtCases">${res ? "Choose another case" : "Leave this case"}</button><button type="button" id="ccPtBack">← Back to the Codex</button></div></div>`;
     };
     const draw = () => {
       ov.innerHTML = session ? trialView() : picker();
@@ -150,7 +140,7 @@
       ov.querySelectorAll("[data-pt-move]").forEach((b) => b.onclick = () => { const o = options(session)[+b.dataset.ptMove]; const r = o ? step(session, o.move) : { ok: false, error: "That play is gone." }; note = r.ok ? "" : r.error; draw(); });
       ov.querySelector("#ccPtAgain")?.addEventListener("click", () => { const r = start(session.caseId, { side: session.side }); session = r.session; note = ""; draw(); });
       ov.querySelector("#ccPtCases")?.addEventListener("click", () => { session = null; note = ""; draw(); });
-      (ov.querySelector("[data-pt-move]") || ov.querySelector("[data-pt-case]") || ov.querySelector("#ccPtAgain"))?.focus();
+      (ov.querySelector("[data-pt-move]") || ov.querySelector("[data-pt-case]") || ov.querySelector("#ccPtAgain"))?.focus({ preventScroll: true });
     };
     draw();
     return { get session() { return session; } };

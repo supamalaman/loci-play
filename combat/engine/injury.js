@@ -102,7 +102,7 @@
       function bleedTick(s, a) {
         const n = bleedOf(s, a);
         if (!n || !a || a.defeated) return false;
-        a.lf = Math.max(0, a.lf - n);
+        a.lf = Math.max(H.summonRules?.Tandem?.unbound(a) ? 1 : 0, a.lf - n);   // Tandem T2c: a Trial's unbound tandem bleeds but is never finished
         H.log(s, { kind: "bleed", actor: a.id, amount: n, tiles: [[a.x, a.y]], text: `${a.name} bleeds from their wounds (−${n} LF).` });
         H.concentrationCheck?.(s, a, n);
         if (a.lf <= 0) {

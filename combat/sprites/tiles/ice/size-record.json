@@ -1,0 +1,35 @@
+{
+  "size_class": "terrain",
+  "footprint": "1x1 tile",
+  "note": "ice rubble: a broken ice sheet; the broken-floor rubble tile of cursor-destructive-map-tiles-spec (R-20261115-60, R-20261115-62); flat = top-down board, iso = isometric block",
+  "views": {
+    "flat": {
+      "source": "ChatGPT Image Nov 15, 2026, 09_26_44 PM.png",
+      "pixel_size": [
+        893,
+        897
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        889,
+        893
+      ],
+      "sha256": "811a884d9abcef96f60953bab98068e0f2208d1dc4d0ae5f20e044039a8973a6"
+    },
+    "iso": {
+      "source": "ChatGPT Image Nov 15, 2026, 09_28_03 PM-2.png",
+      "pixel_size": [
+        1108,
+        808
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        1104,
+        804
+      ],
+      "sha256": "c7d729d4f73337067bb7a81f47558e43d9e14d44c97ab78ca245be42502c8f0a"
+    }
+  }
+}

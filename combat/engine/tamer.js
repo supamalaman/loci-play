@@ -22,7 +22,10 @@
     const holds = (a, c) => a.primary === c || a.secondary === c;   // Transmigration in his loadout: the technique marks, the crossing bursts
     // A vessel is one of his tamed beasts (an actor) or his effigy (an object, Transmigration's Effigy).
     const effigyOf = (s, id) => (s.arena.objects || []).find((o) => o.id === id && o.effigy && (o.hp ?? 0) > 0) || null;
-    const vesselOf = (s, a) => { if (!a.vessel) return null; const v = s.actors[a.vessel]; if (v) return !v.defeated && v.beast?.owner === a.id ? v : null; return effigyOf(s, a.vessel); };
+    // A faithful host (hot-build F3, R-20261116-06): a believing person on her side, or a believing foe while it bears her Vessel mark.
+    const Law = () => (typeof module === "object" && module.exports ? require("../law/law.js") : globalThis.ConceptCombatLaw);
+    const hostOk = (s, a, v) => !v.defeated && !!Law()?.faithful(v) && (v.side === a.side || !!Law()?.vesselBy(s, v, a.id));
+    const vesselOf = (s, a) => { if (!a.vessel) return null; const v = s.actors[a.vessel]; if (v) return !v.defeated && (v.beast?.owner === a.id || hostOk(s, a, v)) ? v : null; return effigyOf(s, a.vessel); };
     // The Long Migration: any of his beasts or his effigy will take him, nearest first.
     const anyVessel = (s, a) => [...Object.values(s.actors).filter((u) => u.beast?.owner === a.id && u.beast.tamed && !u.defeated), ...(s.arena.objects || []).filter((o) => o.effigy?.owner === a.id && (o.hp ?? 0) > 0)]
       .sort((p, q) => Math.max(Math.abs(p.x - a.x), Math.abs(p.y - a.y)) - Math.max(Math.abs(q.x - a.x), Math.abs(q.y - a.y)) || (p.id < q.id ? -1 : 1));
@@ -94,7 +97,7 @@
 
     // Defeat hook (damage.js): returns true when he does not die because he moved.
     function transmigrate(s, a) {
-      const r = R(s); if (!isTamer(s, a)) return false;
+      const r = R(s); if (!r || !a || (!isTamer(s, a) && !holds(a, "transmigration"))) return false;   // R-20261116-03: any Transmigration holder crosses, as Mark the Vessel says
       const v = vesselOf(s, a) || (longOn(s, a) ? anyVessel(s, a)[0] : null); if (!v) return false;
       const from = [a.x, a.y], effigy = !!v.effigy, burst = longOn(s, a) ? r.burst * 2 : r.burst;
       // The crossing (Transmigration): 8 Nigredo against the enemies beside the body he leaves (class build crossing_burst).
@@ -105,19 +108,22 @@
         a.x = v.x; a.y = v.y; a.lf = Math.min(a.maxLF, 20); a.possessing = { kind: "effigy", name: "the effigy", round: s.round };
         a.status.entangled = { lostMove: 99, expiresAt: a.ownerTurns + 1 }; a.vessel = null;
       } else {
-      a.x = v.x; a.y = v.y; a.lf = Math.max(1, v.lf); a.maxLF = v.maxLF; a.possessing = { kind: v.beast.kind, name: v.name, sprite: v.sprite, round: s.round };
+      a.x = v.x; a.y = v.y; a.lf = Math.max(1, v.lf); a.maxLF = v.maxLF; a.possessing = { kind: v.beast ? v.beast.kind : "faithful", name: v.name, sprite: v.sprite, round: s.round };
       a.sprite = v.sprite; a.vessel = null;
       }
       const attuned = !effigy && a.primary === "resonance" && holds(a, "transmigration") && v.beast?.tamed;   // comp-resonance-transmigration: a tamed vessel takes him in tune
-      a.status.ward = { label: attuned ? "Animal vigor, in tune" : "Animal vigor", owner: a.id, protection: r.vigor.ward * (attuned ? 2 : 1) };
+      const host = !effigy && !v.beast;   // F3: a faithful person, not an animal
+      a.status.ward = { label: host ? "Borrowed faith" : attuned ? "Animal vigor, in tune" : "Animal vigor", owner: a.id, protection: r.vigor.ward * (attuned ? 2 : 1) };
       a.bankedTempo = Math.min(s.rules.maxBankedActionPoints ?? 100, (a.bankedTempo || 0) + r.vigor.ap);
       if (!effigy) { v.defeated = true; v.escaped = true; v.leaveReason = "taken as a vessel"; v.tempo = 0; spiritGone(s, v);
-        const at = s.order.indexOf(v.id); s.order = s.order.filter((id) => id !== v.id);
-        if (at >= 0 && at < s.turnIndex) s.turnIndex -= 1;   // the vessel's slot is gone: keep the pointer on the same actor (seed 50005 crashed past the end)
+        const before = s.order.slice(0, s.turnIndex).filter((id) => id === v.id).length; s.order = s.order.filter((id) => id !== v.id);
+        s.turnIndex -= before;   // every copy before the pointer (a speedster's second beat is a second slot, True Super Speed SS4): keep the pointer on the same actor (seed 50005 crashed past the end)
         s.turnIndex = Math.min(s.turnIndex, s.order.length - 1); }
       if (longOn(s, a)) { const next = anyVessel(s, a)[0]; if (next) a.vessel = next.id; }   // the long migration re-marks at once
-      H.log(s, { kind: "transmigrate", actor: a.id, target: v.id, tiles: [from, [a.x, a.y]], text: `${a.name} falls, and wakes in ${effigy ? "his effigy" : `the ${v.name.toLowerCase()}`}: ${a.lf} LF, every technique still his.`,
-        why: [`Animal vigor: ward ${r.vigor.ward} and ${r.vigor.ap} action points on his next turn.`, "Unmarked again: tame and mark another, or the next fall is the last."] });
+      if (host) H.log(s, { kind: "transmigrate", actor: a.id, target: v.id, tiles: [from, [a.x, a.y]], text: `${a.name} falls, and wakes in ${v.name}, who believed: ${a.lf} LF, every technique still hers.`,
+        why: [`Borrowed faith: ward ${r.vigor.ward} and ${r.vigor.ap} action points on the next turn.`, "Unmarked again: mark another believer or an effigy, or the next fall is the last."] });
+      else { const lit = H.hasTrait(a, "liturgist"); H.log(s, { kind: "transmigrate", actor: a.id, target: v.id, tiles: [from, [a.x, a.y]], text: `${a.name} falls, and wakes in ${effigy ? (lit ? "her effigy" : "his effigy") : `the ${v.name.toLowerCase()}`}: ${a.lf} LF, every technique still ${lit ? "hers" : "his"}.`,
+        why: [`Animal vigor: ward ${r.vigor.ward} and ${r.vigor.ap} action points on ${lit ? "her" : "his"} next turn.`, lit ? "Unmarked again: mark another believer or an effigy, or the next fall is the last." : "Unmarked again: tame and mark another, or the next fall is the last."] }); }
       return true;
     }
 
@@ -161,6 +167,46 @@
     function stateTraits(s, a) {
       if (!isTamer(s, a)) return [];
       return vesselOf(s, a) ? ["immortalDelusion"] : ["fearOfDeath"];
+    }
+
+    // A tamed tiger takes actor turns. Use the wild diet to pick prey and the actor's usual Move and Strike to hunt it.
+    function tamedTigerHunt(s, a, mayMove) {
+      if (a.beast?.kind !== "tiger" || !a.beast.tamed || a.controller !== "ai" || a.status?.soothed) return null;
+      const tiger = H.wildRules?.data?.monsters?.tiger;
+      if (!tiger?.eats) return null;
+      const cost = s.rules.actionCosts;
+      const effort = Math.floor(Math.min(cost.strike, cost.strikeMax, a.tempo) / 5) * 5;
+      if (effort < cost.strikeMin) return null;
+
+      const distance = (x, y, m) => H.dist(s, x, y, m.x, m.y);
+      const reach = H.strikeRange(s, a);
+      const prey = (s.wild || []).filter((m) => m.form === "unit" && m.lf > 0 && Object.hasOwn(tiger.eats, m.kind)
+        && m.summonerId !== a.beast.owner && !H.chanted(s, m.id) && !H.actorAt(s, m.x, m.y) && H.dreamSame(s, a.x, a.y, m.x, m.y)
+        && H.astralSameRegion(s, a.x, a.y, m.x, m.y) && H.hasSight(s, a.x, a.y, m.x, m.y))
+        .map((m) => ({ m, distance: distance(a.x, a.y, m) }))
+        .filter((p) => p.distance > 0 && p.distance <= (tiger.seekPrey ?? tiger.seekUnits))
+        .sort((a, b) => tiger.eats[b.m.kind] / b.distance - tiger.eats[a.m.kind] / a.distance || a.m.id.localeCompare(b.m.id));
+
+      let moves;
+      for (const { m, distance: start } of prey) {
+        if (start <= reach) {
+          const strike = { type: "strike", actor: a.id, target: [m.x, m.y], effort };
+          const check = H.apply(s, strike, { preview: true });
+          if (check.ok && (check.state.wild.find((w) => w.id === m.id)?.lf ?? 0) < m.lf) return strike;
+          continue;
+        }
+        moves ||= H.moveOptions(s, a.id);
+        const closer = moves.filter(({ to }) => distance(...to, m) < start).sort((a, b) =>
+          Math.max(0, distance(...a.to, m) - reach) - Math.max(0, distance(...b.to, m) - reach) || a.tempoCost - b.tempoCost);
+        for (const { to } of closer) {
+          const move = { type: "move", actor: a.id, to };
+          if (!mayMove(to)) continue;
+          const check = H.apply(s, move, { preview: true });
+          const tigerAfter = check.ok && check.state.actors[a.id];
+          if (tigerAfter && !tigerAfter.defeated && tigerAfter.lf > 0 && tigerAfter.x === to[0] && tigerAfter.y === to[1]) return move;
+        }
+      }
+      return null;
     }
 
     function tamerOptions(s, a) {
@@ -212,6 +258,6 @@
       }
     }
 
-    return { friendRound, tameBeast, markVessel, callPack, summonPack, transmigrate, stateTraits, tamerOptions, tamerValue, tameChance, isTamer, vesselOf, tameComplete };
+    return { friendRound, tameBeast, markVessel, callPack, summonPack, transmigrate, stateTraits, tamerOptions, tamerValue, tamedTigerHunt, tameChance, isTamer, vesselOf, tameComplete };
   })();
 });

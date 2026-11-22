@@ -66,7 +66,7 @@
   // Derived from battle seed and object id, never stored; no round, no observer, so observing round 1 and waking round 9 agree.
   function questionFor(obj, battleSeed = 0) {
     if (!obj) return null;
-    const q = pickQuestion(obj.type, `${battleSeed}:pin:${obj.id}`);
+    const q = pickQuestion(obj.type, `${battleSeed}:pin:${obj.wreckId || obj.id}`);
     return q && { ...q, clue: D.questions.find((x) => x.id === q.id)?.clue || null };
   }
   function scoreAnswer(questionId, choice) {

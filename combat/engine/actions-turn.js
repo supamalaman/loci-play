@@ -30,8 +30,10 @@
         if(nap.healed){a.lf+=nap.healed;log(s,{kind:"catNap",actor:a.id,amount:nap.healed,text:`${a.name} takes a Cat Nap: spends ${nap.spent} AP to restore ${nap.healed} LF (${a.lf}/${a.maxLF}); ${banked} AP remain to bank.`,why:["5 bankable AP per LF; at most 8 LF per nap. Spent AP cannot also be banked."]});}
         { const M = s.rules.mastery, heal = M && (a.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === M.trait) ? Math.min(M.stallHeal, a.maxLF - a.lf) : 0;   // Mastery: rest is recovery
           if (heal > 0) { a.lf += heal; log(s, { kind: "effect", actor: a.id, amount: heal, text: `${a.name} stalls with a master's ease: +${heal} LF (${a.lf}/${a.maxLF}).`, why: [`Mastery: Stall also restores ${M.stallHeal} Life Force.`] }); } }
-        a.bankedTempo = banked; a._heldAtEnd = banked; a.lastStallRound = s.round;   // W5.3: heat reads what the gambler held
-        log(s, { kind: "stall", actor: a.id, text: `${a.name} stalls, banking ${banked} action points for a later turn${nap.overflow ? ` (the ${nap.overflow} point overflow is lost)` : ""}.`, why: [`Bank cap: ${s.rules.maxBankedActionPoints} points; unused tempo is carried only by choosing Stall.`] });
+        // True Super Speed SS4: beat 2 is not an owner turn, so beat 1's bank has not been spent yet: ending beat 2 with points left adds to it (to the bank cap) instead of replacing it.
+        const prior = a.beatNo === 1 ? (a.bankedTempo || 0) : 0, total = Math.min(s.rules.maxBankedActionPoints ?? 100, prior + banked), lost = prior + banked - total;
+        a.bankedTempo = total; a._heldAtEnd = total; a.lastStallRound = s.round;   // W5.3: heat reads what the gambler held
+        log(s, { kind: "stall", actor: a.id, text: `${a.name} stalls, banking ${banked} action points for a later turn${prior ? `, on top of the ${prior} the first beat banked` : ""}${nap.overflow + lost ? ` (the ${nap.overflow + lost} point overflow is lost)` : ""}.`, why: [`Bank cap: ${s.rules.maxBankedActionPoints} points; unused tempo is carried only by choosing Stall.`] });
         a.tempo = 0; endTurn(s);
       },
       kneel(s, a) {
@@ -60,15 +62,16 @@
         a.status.drowning=null;a.waterContact=H.key(a.x,a.y);a.waterSafeAt=a.waterContact;
         H.log(s,{kind:"drowning",actor:a.id,target:a.id,text:`${a.name}: ${option.label.toLowerCase()}; drowning stops.`,why:[`${option.cost} AP paid on their own turn.`]});
       },
-      guard(s, a) {
+      guard(s, a, act) {
         if (a.guardUsedThisTurn) return "Guard is already set for this turn.";
         if (a.meditateNoGuard === a.ownerTurns) return "You cannot Guard in a turn spent meditating.";
-        if (Vows) { const no = Vows.refuses(s, a, "guard"); if (no) return no; }   // Vows: Open Guard
+        if (Vows) { const no = Vows.gate(s, a, "guard", null, act, { log }); if (no) return no; }   // Vows: Open Guard; breakVow elects the breach
         const cost = s.rules.actionCosts.guard, before = a.tempo;
         const spendError = spendTempo(s, a, cost, "Guard"); if (spendError) return spendError;
         const fraction = before / Math.max(1, a.tempoCapacity);
         const reduction = Math.max(s.rules.guardReduction.min, Math.min(s.rules.guardReduction.max, s.rules.guardReduction.min + (s.rules.guardReduction.max - s.rules.guardReduction.min) * fraction));
         const multiplier = 1 - reduction; a.guardUsedThisTurn = true;
+        if (H.tenantRent?.(s, a)) return;   // Exile tenancy: the first Guard of the battle is her keep: paid, and no guard forms (engine/tenancy.js)
         a.status.guard = { label: "Guard", owner: a.id, expiresAt: a.ownerTurns + 1, multiplier };
         if (a.status.overwatch) { a.status.overwatch = null; log(s, { kind: "effect", actor: a.id, text: `${a.name} drops the watch to guard.` }); }   // Overwatch (Muse-2): guarding ends the watch
         log(s, { kind: "act", actor: a.id, text: `${a.name} guards: ${Math.round(reduction * 100)}% incoming LF reduction (×${multiplier.toFixed(2)}), scaling with tempo remaining, until their next turn start.` });

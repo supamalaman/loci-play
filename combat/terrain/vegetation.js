@@ -55,6 +55,41 @@
     return a.parts[1].archetype;
   }
 
+  // The wreck uses a dedicated stream and an ordinary validation pass. A failed invitation leaves the arena untouched.
+  function placeCruiseWreck(arena, { seed = 0, force = false, participants = [] } = {}) {
+    if (!arena.height || !arena.spawns || arena.objects?.some((o) => o.wreckId)) return arena;
+    const rand = mulberry32((seed ^ 0xca17e109) >>> 0);
+    if (!force && (!arena.generated || !arena.map.some((row) => /[~w]/.test(row)) || rand() >= 0.1)) return arena;
+    const spawns = [...arena.spawns.player, ...arena.spawns.enemy, ...participants.flatMap((p) => p.at ? [p.at] : [])];
+    const taken = new Set([...(arena.objects || []), ...(arena.pickups || [])].map((p) => `${p.x},${p.y}`));
+    const candidates = [];
+    const length = V.objects.cruiseShipWreck.footprint[0];
+    const near = force ? participants.find((p) => p.id === "player")?.at : null;
+    for (let y = 0; y < arena.map.length; y++) for (let x = 0; x < arena.map[y].length; x++) {
+      for (const axis of ["x", "y"]) {
+        const tiles = Array.from({ length }, (_, n) => [x + (axis === "x" ? n : 0), y + (axis === "y" ? n : 0)]);
+        if (tiles.every(([tx, ty]) => {
+          const ch = arena.map[ty]?.[tx], terrain = D.terrain[ch];
+          return terrain && ch !== "~" && !terrain.blocksMove && !terrain.hazard && arena.height[ty][tx] === arena.height[y][x]
+            && !taken.has(`${tx},${ty}`) && spawns.every(([sx, sy]) => Math.abs(sx - tx) + Math.abs(sy - ty) > 2);
+        })) {
+          const distance = near ? Math.min(...tiles.map(([tx, ty]) => Math.abs(near[0] - tx) + Math.abs(near[1] - ty))) : 0;
+          candidates.push({ axis, tiles, rank: distance + rand() });
+        }
+      }
+    }
+    candidates.sort((a, b) => a.rank - b.rank);
+    for (const { axis, tiles } of candidates) {
+      const wreckId = `wreck-${tiles[0].join("-")}`;
+      const parts = tiles.map(([x, y], part) => ({
+        ...makeObject("cruiseShipWreck", x, y, 0), id: part ? `${wreckId}-${part}` : wreckId, wreckId, wreckAxis: axis, part,
+      }));
+      const trial = { ...arena, objects: [...(arena.objects || []), ...parts] };
+      if (G.validate(trial, { skipFairness: force }).ok) return trial;
+    }
+    return arena;
+  }
+
   // populate(arena, { seed }) → arena with `objects`, slot terrain converted, and `vegetation` summary.
   function populate(arena, opts = {}) {
     if (!V.biomes[biomeAt(arena, 0)] && !V.biomes[arena.archetype]) return { ...arena, map: arena.map.slice(), objects: [] };   // interiors (the ship) grow nothing
@@ -98,6 +133,7 @@
       if (!G.validate(trial).ok) continue;
       out = trial; placed++;
     }
+    out = placeCruiseWreck(out, { seed: opts.seed ?? arena.seed ?? 0 });
     const counts = {};
     for (const o of out.objects) counts[o.type] = (counts[o.type] || 0) + 1;
     return { ...out, vegetation: { biomes: [...new Set([0, Math.floor(w / 2), w - 1].map((x) => biomeAt(arena, x)))], counts, scatterPairs: placed } };
@@ -129,8 +165,10 @@
   // events are for the engine to apply/log: crush (unit damage at a tile), limbDrop, shaken, regrow, destroyed, note.
   function damageObject(arena, id, amount, ctx = {}) {
     const events = [];
-    const o0 = arena.objects.find((o) => o.id === id);
+    const struck = arena.objects.find((o) => o.id === id);
+    const o0 = struck?.wreckId ? arena.objects.find((o) => o.wreckId === struck.wreckId && o.part === 0) : struck;
     if (!o0) return { arena, events: [{ kind: "note", text: "No such object." }] };
+    id = o0.id;
     if (o0.protected) return { arena, events: [{ kind: "note", id, text: `${label(o0)} is protected and takes no damage.` }] };
     const o = { ...o0, status: { ...o0.status } };
     if (o.status.ward > 0) {   // a ward on an object (a data center carrying a drone tower) takes one whole hit
@@ -162,10 +200,17 @@
       o.hp = 1; o.status.stripUsed = true;
       events.push({ kind: "note", id, text: "Strip-bark: a living strip keeps the bristlecone standing at 1 HP." });
     }
-    let objects = arena.objects.map((p) => (p.id === id ? o : p));
+    let objects = arena.objects.map((p) => p.id === id ? o : o.wreckId && p.wreckId === o.wreckId ? { ...p, hp: o.hp } : p);
     let map = arena.map;
     if (o.hp > 0) return { arena: { ...arena, objects, map }, events };
 
+    // A wreck leaves rubble at every tile when its one pool reaches zero.
+    if (o.wreckId) {
+      const parts = objects.filter((p) => p.wreckId === o.wreckId);
+      for (const p of parts) map = setChar(map, p.x, p.y, V.objects[o.type].becomes);
+      events.push({ kind: "destroyed", id, type: o.type, at: [o.x, o.y], text: `${label(o)} is destroyed.` });
+      return { arena: { ...arena, objects: objects.filter((p) => p.wreckId !== o.wreckId), map }, events };
+    }
     // destroyed
     objects = objects.filter((p) => p.id !== id);
     let n = Math.max(0, ...arena.objects.map((p) => +p.id.slice(1) || 0));
@@ -196,8 +241,11 @@
       if (o.trait === "pioneer") events.push({ kind: "regrow", at: [o.x, o.y], type: o.type, afterRounds: 3, text: "ʻAʻaliʻi will regrow in 3 rounds." });
     } else {
       const def = V.objects[o.type] || {};
-      if (def.becomes) map = setChar(map, o.x, o.y, def.becomes);
-      if (def.flood) {
+      if (def.becomes === "w" && arena.waterAgenda) {
+        const wet = [[o.x, o.y], ...(def.flood ? DIRS.map(([dx, dy]) => [o.x + dx, o.y + dy]) : [])];
+        events.push({ kind: "waterSurge", tiles: wet, volume: 2, text: "The burst " + label(o).toLowerCase() });
+      } else if (def.becomes) map = setChar(map, o.x, o.y, def.becomes);
+      if (def.flood && !arena.waterAgenda) {
         for (const [dx, dy] of DIRS) {
           const x = o.x + dx, y = o.y + dy;
           if (y < 0 || y >= map.length || x < 0 || x >= map[0].length) continue;
@@ -262,10 +310,14 @@
 
   // areaImpact: a field/radius effect damages every object in its tiles at reduced potency.
   function areaImpact(arena, tiles, potency, ctx = {}) {
-    let a = arena; const events = [];
+    let a = arena; const events = [], wrecksHit = new Set();
     const keys = new Set(tiles.map(([x, y]) => x + "," + y));
     for (const o of arena.objects.filter((q) => keys.has(q.x + "," + q.y))) {
       if (!a.objects.some((q) => q.id === o.id) || o.protected || o.maxHp === 0) continue;
+      if (o.wreckId) {
+        if (wrecksHit.has(o.wreckId)) continue;
+        wrecksHit.add(o.wreckId);
+      }
       const r = damageObject(a, o.id, potency, { ...ctx, area: true });
       a = r.arena; events.push(...r.events);
     }
@@ -316,5 +368,5 @@
       && Math.abs(x - o.x) + Math.abs(y - o.y) <= (o.canopy || 0));
   }
 
-  return { isStructure, populate, damageObject, attackObject, lineImpact, areaImpact, collide, bresenham, fellPath, fellTiles, fallDirection, shadeTiles, shadesDiffusion, makeObject, label, biomeAt, data: V };
+  return { isStructure, populate, placeCruiseWreck, damageObject, attackObject, lineImpact, areaImpact, collide, bresenham, fellPath, fellTiles, fallDirection, shadeTiles, shadesDiffusion, makeObject, label, biomeAt, data: V };
 });

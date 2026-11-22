@@ -204,5 +204,19 @@
     ["angry", "err", "Something broke, and it was not you. Try that again."],
     ["neutral", "leave", "Go on. I will keep the lamps lit."],
   ]);
-  return { LINES: { rama, sita, jatayu, tallyman, jambavan, hermes, ravana, lakshmana, gambler, pioneer, talisman, kaikeyi, magistrate, starfarer, freemason, arantxa } };
+  // S5 (spec NPC_LINES.md sections 7 and 15): the Smith speaks at the Ledger House Gear counter and the Mad Scientist at the Lab and the town walk. Only
+  // the lines the windows actually fire are here: a greeting on entry (first, return), the one idle line, and the Smith's counter fold line. The repair, graft
+  // and refusal lines of the spec wait for those moves to say their events (they are not wired in S5), and so does each keeper's hook chip (H07, H15).
+  const smith = bank("smith", [
+    ["neutral", "first", "Bring me what is cracked. I fix things that are meant to last."],
+    ["neutral", "return", "Let me see that edge again."],
+    ["neutral", "idle", "Good gear forgives a lot. Not everything."],
+    ["neutral", "fold:gear", "Sell what you do not use. Tend what you do."],
+  ]);
+  const madScientist = bank("madScientist", [
+    ["neutral", "first", "Ah, the Warden. Bodies are drafts: pick a part."],
+    ["neutral", "return", "Back for another revision? I kept your file."],
+    ["neutral", "idle", "Do not fidget. The table is not warm yet."],
+  ]);
+  return { LINES: { rama, sita, jatayu, tallyman, jambavan, hermes, ravana, lakshmana, gambler, pioneer, talisman, kaikeyi, magistrate, starfarer, freemason, arantxa, smith, madScientist } };
 });

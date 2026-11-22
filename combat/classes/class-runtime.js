@@ -224,6 +224,7 @@
     // Mangaka: Final Chapter runs on the engine's montage path (engine.js manifest), allowed one ultimate source at ×0.7.
     // Glamour (playable 2026-10-19 with Jiang Qing): Shimmer veils a unit, Allure draws foes in, Masquerade misleads a crowd.
     shimmer: X("shimmer", { target: "unit", range: 5 }), allure: X("allure", { target: "self", range: 0, radius: 2 }),
+    crownOfPlates: X("crownOfPlates", { target: "self", range: 0 }), domeHarmonic: X("domeHarmonic", { target: "self", range: 0 }),   // Chitin Bishop F4: Crown of Plates (merge A), Dome Harmonic (Glamour + Resonance)
     masquerade: D({ target: "self", delivery: "field", range: 0, area: { shape: "radius", radius: 3 } }),   // 6 rubedo + misperceive (afterHit)
     modelOpera: X("law", { target: "self", range: 0, radius: 3, terms: "noUltimate", penalty: 15, turns: 2, ownerMul: 1.25 }),   // Jiang Qing's merge
     // Laws of Gods of Men (playable 2026-10-19 with the Magistrate): rules in law/law.js.
@@ -415,6 +416,7 @@
   const caseOdds = (t, speaker = null) => Math.max(0.05, Math.min(0.95, ROBOT.convert + (ROBOT.swayed.some((k) => hasT(t, k)) ? ROBOT.sway : 0) - (ROBOT.unmoved.some((k) => hasT(t, k)) ? ROBOT.sway : 0) + (hasT(speaker, "persuasive") ? ROBOT.persuasiveAdd : 0)));   // the same formula as insight.js ideaOdds("machineSympathy"); kept for tests and help
   const S = (s) => (s.cls ||= { visited: {}, stored: {}, lastHit: {}, took: {}, low: {}, committed: {}, spares: {}, strain: {} });
   const live = (s) => Object.values(s.actors).filter((u) => !u.defeated);
+  const vocational = (s, a) => !!s.rules.vocational && (a?.traits || []).some((t) => (t?.id || t) === s.rules.vocational.trait);   // the maid's Vocational form: her foes count as waste (R-20261115-65)
   const near = (s, a, r, H, side) => live(s).filter((u) => H.dist(s, a.x, a.y, u.x, u.y) <= r && (!side || (side === "ally" ? u.side === a.side : u.side !== a.side)));
 
   // ── Ranger (content.js rules.ranger; docs/ranger.md) ──
@@ -1174,6 +1176,10 @@
     H.log(s, { kind: "observe", actor: observer.id, target: target.id, text: q ? `She is hunting ${q.name}; she knows ${n} thing${n === 1 ? "" : "s"} about it.` : "She is hunting no one yet." });
   };
   const active = (x, a) => x && (x.until == null || x.until >= a.ownerTurns);
+  const liveFixed = (s, a) => {   // the Focus mark and Second Gaze's second; either primes Purple Litany / Crown of Plates
+    const live = (f) => { const t = f && s.actors?.[f.target]; return t && !t.defeated && (f.expiresAt ?? 99) > (a.ownerTurns ?? 0) ? t : null; };
+    return [live(a?.focus), live(a?.focusSecond)].filter(Boolean);
+  };
   const artistTool = (s,a,H) => (s.arena.objects||[]).find(o=>o.role==="artist-workstation" && o.owner===a.id && o.hp>0 && a.ownerTurns<o.expiresAt && H.dist(s,a.x,a.y,o.x,o.y)<=2 && (!H.actorAt(s,o.x,o.y) || H.actorAt(s,o.x,o.y).side===a.side));
   const recovering = (s, t) => S(s).committed[t.id] != null && s.round - S(s).committed[t.id] <= 1;
   const free = (s, x, y, H) => H.inside(s, x, y) && !H.tileAt(s, x, y).blocksMove && !H.actorAt(s, x, y) && !(H.barrierAt(s, x, y) && !H.barrierAt(s, x, y).passable);
@@ -1419,6 +1425,8 @@
     const actorError=Actor.beforeAbility(s,a,m,H); if(actorError)return actorError;
     Law.beforeAbility(s,a,m,H);   // Laws of Gods of Men: taxed acts go on the ledger
     if (active(st(a).detained, a)) return "Detained: no actions until the hold ends.";
+    if (active(st(a).crownEntranced, a) && ((m.potency || 0) > 0 || m.effect === "damage")) return "Entranced: you cannot attack until the hold ends.";   // Bishop Crown of Plates: cannot attack, may still move, Guard and support
+    if ((m.id === "crownOfPlates" || m.ability === "crownOfPlates") && !liveFixed(s, a).length) return "Crown of Plates needs a foe you have Fixed.";
     if (active(st(a).petrified, a)) return "Petrified: stone cannot act.";
     if (m.id === "heist" || m.id === "descent") { const trail = Stealth.bloodTrailRefusal?.(s, a); if (trail) return trail; }   // Blood Trail bars the self-vanishes outside the stealth kit too (H2; ability ids: the cases are rogueHeist/diveDescend)
     const w = wire[m.id || m.ability];
@@ -1782,6 +1790,12 @@
     if (w.kind === "abduct" && occ && occ.side !== a.side && occ.massive) return fail(`${occ.name} is too large to carry off.`);   // Ravana (after occ is known)
     if (w.kind === "abduct" && occ && occ.side !== a.side && !abductTo(s, a, occ, w, H)) return fail("The chariot has nowhere to land.");
     if (w.kind === "tmMark") {   // one of his own tamed beasts, or his own effigy, with no living vessel already marked
+      if (occ && hasTr(a, "liturgist") && occ.id !== a.id) {   // Chitinous Archbishop (F3; R-20261116-01, -06): a foe in her Statute, or a believing ally as a host
+        if (occ.side !== a.side) return Law.named(s, a, occ) ? { ok: true, tiles: [[tx, ty]], targets: [occ.id] } : fail("Only a foe standing in your Statute can be marked as your Vessel.");
+        if (!Law.faithful(occ)) return fail("Only a believer will carry you: mark a believing ally, your effigy, or a foe in your Statute.");
+        if (H.vesselOf?.(s, a)) return fail("You already have a living vessel.");
+        return { ok: true, tiles: [[tx, ty]], targets: [occ.id] };
+      }
       const eff = !occ && (s.arena.objects || []).find((o) => o.x === tx && o.y === ty && o.effigy?.owner === a.id && (o.hp ?? 0) > 0);
       if (!eff && (!occ || occ.beast?.owner !== a.id || !occ.beast.tamed)) return fail("Mark one of your own tamed beasts, or your effigy.");
       if (H.vesselOf?.(s, a)) return fail("You already have a living vessel.");
@@ -1975,8 +1989,9 @@
       }
       if (w.kind === "maidSweep") {
         const receptacle = receptacleFor(s, a, false);
-        if (!receptacle || receptacle.hp <= 0) return fail("Empty the Room needs an intact service receptacle.");
         if (!H.hasSight(s, a.x, a.y, tx, ty)) return fail("The announced area is out of sight.");
+        if (vocational(s, a) && live(s).some((u) => u.side !== a.side && H.dist(s, tx, ty, u.x, u.y) <= w.radius)) return { ok: true, tiles: [[tx, ty]], targets: [] };   // Vocational: foes are waste, and need no cart room
+        if (!receptacle || receptacle.hp <= 0) return fail("Empty the Room needs an intact service receptacle.");
         const count = (s.arena.objects || []).filter(o => o !== receptacle && !o.protected && H.dist(s, tx, ty, o.x, o.y) <= w.radius).length
           + (s.traps || []).filter(t => !t.spent && H.dist(s, tx, ty, t.x, t.y) <= w.radius && H.Traps?.known(a, t)).length + (s.arena.pickups || []).filter(p => H.dist(s, tx, ty, p.x, p.y) <= w.radius).length;
         return count && count <= 3 - (receptacle.stored || []).length ? { ok: true, tiles: [[tx, ty]], targets: [] } : fail("Choose a visible area with enough free receptacle slots (up to three objects). ");
@@ -2010,6 +2025,24 @@
     { const t0 = inst.targets?.[0] ? H.actor(s, inst.targets[0]) : null; if (w.thematic && t0 && w.thematic[t0.character]) w = { ...w, ...w.thematic[t0.character] }; }   // rule 6: stronger for the story partner
     if (w.kind === "forces") { forcesResolve(s, a, inst, H); return true; }   // the Aviator's Four Forces
     if (glamourResolve(s, a, inst, w, H)) return true;   // Glamour: Shimmer, Allure
+    if (w.kind === "crownOfPlates") {   // Chitin Bishop F4 merge A: the Fixed foe cannot attack next turn; allies within 3 gain a 6-point ward
+      const marked = liveFixed(s, a);
+      if (!marked.length) { H.log(s, { kind: "effect", actor: a.id, text: `${a.name}'s Crown of Plates finds no Fixed foe.` }); return true; }
+      for (const t of marked) {
+        st(t).crownEntranced = { until: t.ownerTurns + 1, by: a.id };
+        H.log(s, { kind: "effect", actor: a.id, target: t.id, text: `${a.name}'s Crown of Plates Entrances ${t.name}: they cannot attack on their next turn.`, why: ["Crown of Plates: cannot Strike or fire a damaging technique; moving, Guard and support stay open. A new status, not Genjutsu's side-swap."] });
+      }
+      for (const u of live(s).filter((u) => u.side === a.side && u.id !== a.id && H.dist(s, a.x, a.y, u.x, u.y) <= 3)) {
+        u.status.ward = { label: "Crown ward", owner: a.id, protection: 6, expiresAt: u.ownerTurns + 1 };
+        H.log(s, { kind: "effect", actor: a.id, target: u.id, text: `${u.name} is warded by the crown: 6 protection.` });
+      }
+      return true;
+    }
+    if (w.kind === "domeHarmonic") {   // Chitin Bishop F4 merge B: two of her turns (`until >= ownerTurns`, so +1); each foe's first attack on her each round misses
+      st(a).domeHarmonic = { until: a.ownerTurns + 1, echoed: {} };
+      H.log(s, { kind: "effect", actor: a.id, text: `${a.name} raises a Dome Harmonic: for two of her turns, each foe's first attack on her each round lands on an echo.`, why: ["Area and field attacks still find her. A second shot in the same round from the same foe lands. No echo tile is placed."] });
+      return true;
+    }
     const say = (text, why = []) => H.log(s, { kind: "effect", actor: a.id, text, why });
     const until = (n = 1) => a.ownerTurns + n;
     const [tx, ty] = inst.tiles?.[0] || [a.x, a.y];
@@ -2119,7 +2152,7 @@
           const offsets = dx ? [[0,1],[0,-1]] : [[1,0],[-1,0]];
           const freeSide = (nx, ny, original) => H.inside(s,nx,ny) && !H.tileAt(s,nx,ny).blocksMove && !H.actorAt(s,nx,ny) && !H.barrierAt(s,nx,ny) && !(s.arena.objects || []).some(o => o !== original && o.x === nx && o.y === ny);
           const u = H.actorAt(s, x, y);
-          if (u && u.id !== a.id && u.side !== a.side) { const spot = offsets.map(([ox,oy]) => [x+ox,y+oy]).find(([nx,ny]) => freeSide(nx,ny,null)); if (spot) { u.x=spot[0];u.y=spot[1];moved++; } else { H.hit(s,a,u,inst,6,["Sort sends the obstruction into a hard stop."],{label:"Sort collision",damageType:"nigredo"});moved++; } }
+          if (u && u.id !== a.id && u.side !== a.side) { const spot = offsets.map(([ox,oy]) => [x+ox,y+oy]).find(([nx,ny]) => freeSide(nx,ny,null)); if (vocational(s, a)) { if (spot) { u.x=spot[0];u.y=spot[1];moved++; } H.hit(s,a,u,inst,spot?s.rules.vocational.sort:s.rules.vocational.sortBoxed,["Vocational: a foe in the line is waste, sorted out."],{ label: "Sort" }); } else if (spot) { u.x=spot[0];u.y=spot[1];moved++; } else { H.hit(s,a,u,inst,6,["Sort sends the obstruction into a hard stop."],{label:"Sort collision",damageType:"nigredo"});moved++; } }
           const object = s.arena.objects?.find(o => o.x === x && o.y === y && !o.protected);
           if (object) { const spot = offsets.map(([ox,oy]) => [x+ox,y+oy]).find(([nx,ny]) => freeSide(nx,ny,object)); if (spot) { object.x=spot[0];object.y=spot[1];moved++; } else if (object.evidenceId || object.role?.startsWith("evidence:")) { s.arena.objects=s.arena.objects.filter(o=>o!==object);say(`${object.name || "Proof"} breaks when Sort pushes it into a hard stop.`);moved++; } }
         }
@@ -2132,6 +2165,11 @@
         break;
       }
       case "maidExtract": {
+        if (vocational(s, a) && tgt && tgt.id !== a.id && tgt.side !== a.side) {   // Vocational: the foe is the obstruction
+          H.hit(s, a, tgt, inst, s.rules.vocational.clear, ["Vocational: the foe is the obstruction, cleared as waste."], { label: "Clear the Obstruction", damageType: "citrinitas" });
+          if (!tgt.defeated && tgt.lf > 0) H.knock(s, a, tgt, s.rules.vocational.clearPush, inst, "push");
+          say(`${a.name} clears ${tgt.name} out of the way.`); break;
+        }
         const receptacle = receptacleFor(s, a);
         if (!receptacle || receptacle.hp <= 0) { say(`${a.name} cannot extract anything: the service receptacle is broken.`); break; }
         receptacle.stored ||= [];
@@ -2153,6 +2191,12 @@
         break;
       }
       case "maidSweep": {
+        if (vocational(s, a)) {   // Vocational: every foe in the area is swept as waste first; the objects follow if her cart can take them
+          const swept = live(s).filter((u) => u.side !== a.side && H.dist(s, tx, ty, u.x, u.y) <= w.radius);
+          for (const u of swept) H.hit(s, a, u, inst, s.rules.vocational.sweep, ["Vocational: every foe in the room is waste."], { label: "Empty the Room" });
+          say(`${a.name} empties the room of ${swept.length} foe${swept.length === 1 ? "" : "s"}.`);
+          const cart = receptacleFor(s, a, false); if (!cart || cart.hp <= 0) break;
+        }
         const receptacle = receptacleFor(s, a);
         receptacle.stored ||= [];
         const room = 3 - receptacle.stored.length, near = (q) => H.dist(s, tx, ty, q.x, q.y) <= w.radius;
@@ -2170,7 +2214,9 @@
         if (tgt.longtermismBequest) { tgt.longtermismBequest = null; say(`${a.name} strips ${tgt.name}'s unpaid bequest from the books.`, ["The future's bill is void when the patron is stripped."]); break; }   // stripThePatron
         const removable = Object.entries(tgt.status || {}).find(([key, value]) => value && !["guard", "anchor", "parry", "drowning", "maidProtected"].includes(key));
         if (removable) { tgt.status[removable[0]] = null; say(`${a.name} removes ${removable[0]} from ${tgt.name}.`); }
+        else if (vocational(s, a) && tgt.side !== a.side) say(`${a.name} finds nothing to strip from ${tgt.name}, so removes ${tgt.name}.`);
         else { tgt.nextActionCostAdd = (tgt.nextActionCostAdd || 0) + 25; say(`${a.name} removes 25 AP from ${tgt.name}'s next turn; no Life Force damage.`); }
+        if (vocational(s, a) && tgt.side !== a.side && tgt.lf > 0) H.hit(s, a, tgt, inst, s.rules.vocational.removal, ["Vocational: the foe is removed along with the interference."], { label: "Controlled Removal" });
         break;
       }
       case "maidRestore": {
@@ -2362,12 +2408,16 @@
           say(`${a.name} continues ${tgt.name}'s treatment to stage ${r.stage}: ${what}.${done ? " The recovery is complete." : " It will hold through one disturbance."}`); if (done) tgt.status.recovery = null; } break;
       case "tmEffigy": { const at = [tx, ty]; const id = `effigy-${a.id}-${(s.effigyN = (s.effigyN || 0) + 1)}`;
           s.arena.objects.push({ id, type: "effigy", name: "Effigy", x: at[0], y: at[1], hp: 12, maxHp: 12, blocksMove: true, moveCost: 0, material: "wood", status: {}, effigy: { owner: a.id }, owner: a.id });
-          say(`${a.name} raises an effigy at (${at[0]},${at[1]}): a body waiting to be filled.`, ["Mark it as his vessel; anyone can break it (12 HP)."]); } break;
+          say(`${a.name} raises an effigy at (${at[0]},${at[1]}): a body waiting to be filled.`, [`Mark it as ${hasTr(a, "liturgist") ? "her" : "his"} vessel; anyone can break it (12 HP).`]); } break;
       case "tmLong": a.longMigration = { until: s.round + 3 };
           say(`${a.name} begins the long migration: for three rounds every death is a doorway.`, ["Any of his tamed beasts or his effigy will take him, wherever it stands; the crossing bursts for 16."]); break;
       case "tmPack": H.summonPack?.(s, a); break;
       case "tmMark": if (!tgt) { const eff = (inst?.tiles || []).map(([x, y]) => (s.arena.objects || []).find((o) => o.x === x && o.y === y && o.effigy?.owner === a.id)).find(Boolean);
-          if (eff) { a.vessel = eff.id; say(`${a.name} marks his effigy as his vessel.`, ["If he falls while it stands, he wakes in it: 20 LF, rooted for a turn."]); } } else { a.vessel = tgt.id;
+          if (eff) { a.vessel = eff.id; say(`${a.name} marks ${hasTr(a, "liturgist") ? "her effigy as her" : "his effigy as his"} vessel.`, [`If ${hasTr(a, "liturgist") ? "she falls while it stands, she wakes" : "he falls while it stands, he wakes"} in it: 20 LF, rooted for a turn.`]); } }
+        else if (hasTr(a, "liturgist") && !tgt.beast) {   // F3: a foe in her Statute takes the Vessel mark; a believer (either side) becomes her host if she has none
+          if (tgt.side !== a.side) Law.markVessel(s, H, a, tgt);
+          if (Law.faithful(tgt) && !H.vesselOf?.(s, a)) { a.vessel = tgt.id; say(`${a.name} chooses ${tgt.name}, who believes, as the body she will wake in.`, [`If she falls while ${tgt.name} lives${tgt.side !== a.side ? " and bears her Vessel mark" : ""}, she wakes in that body; ${tgt.name} is gone.`, "Kill the believer first, or let the mark lapse."]); }
+        } else { a.vessel = tgt.id;
           say(`${a.name} marks the ${tgt.name.toLowerCase()} as his vessel. He believes he cannot die now.`, ["If he falls while it lives, he wakes in its body, every technique still his, and the crossing bursts against whoever stands beside the body he left.", "Kill the beast first, then let him be brave."]); } break;
       case "docDiagnose": if (tgt) { const k = ailment(tgt); st(tgt).diagnosed = { by: a.id, cause: k, confirmed: false };
           say(k ? `${a.name} diagnoses ${tgt.name}: ${k}.` : `${a.name} examines ${tgt.name}: hurt, with no lingering condition.`, ["A diagnosis is a claim until a second opinion confirms it."]); } break;
@@ -2810,6 +2860,15 @@
   // ── during a hit ──
   function redirect(s, src, tgt, inst, H) {
     if (!src || !tgt?.status) return tgt;
+    { const dome = tgt.status.domeHarmonic, blast = inst?.delivery === "field" || ["radius", "plus", "board", "cone"].includes(inst?.area?.shape);   // Chitin Bishop F4: first single-target attack on her each round per foe lands on an echo
+      if (dome && active(dome, tgt) && src.side !== tgt.side && inst && !blast && (!inst.area || inst.area.shape === "single")) {
+        const echoed = dome.echoed || (dome.echoed = {});
+        if (echoed[src.id] !== s.round) {
+          echoed[src.id] = s.round;
+          H.log(s, { kind: "effect", actor: tgt.id, target: src.id, text: `${src.name}'s attack lands on an echo of ${tgt.name}: it pops.`, why: ["Dome Harmonic: each foe's first attack on her each round misses (an echo pops; no tile is placed)."] });
+          return null;
+        }
+      } }
     { const h = tgt.status.holoSwarm, blast = inst?.delivery === "field" || ["radius", "plus", "board", "cone"].includes(inst?.area?.shape), n = h && !blast && h.until >= tgt.ownerTurns && src.side !== tgt.side ? towersOf(s, tgt).length : 0;   // Holographic Swarm: n holograms and him
       if (n > 0) { s.holoN = (s.holoN || 0) + 1; if ((H.seededChance?.(`${s.seed}:holo:${tgt.id}:${s.holoN}`) ?? 1) < n / (n + 1)) {
         H.log(s, { kind: "effect", actor: tgt.id, target: src.id, text: `${src.name}'s attack goes through a hologram of ${tgt.name}.`, why: [`Holographic Swarm: ${n} hologram${n === 1 ? "" : "s"} and one of him.`] }); return null; } } }
@@ -2930,6 +2989,8 @@
     if (id === "productiveFailure" && S(s).strain[src.id]) m(1 + S(s).strain[src.id] * 6 / 18, `Each strained part feeds it (+${S(s).strain[src.id] * 6}).`);
     if (id === "growingMomentum" && A.growth?.stacks) m(1 + A.growth.stacks * 6 / 20, `Growth adds momentum (+${A.growth.stacks * 6}).`);
     if (id === "smite") { const k = Math.min(PALADIN.smiteMaxSteps, keptTurns(src)); if (k > 0) m((PALADIN.smiteBase + PALADIN.smiteStep * k) / PALADIN.smiteBase, `Your oath has held ${k} turn${k === 1 ? "" : "s"}: Smite +${PALADIN.smiteStep * k}.`); }
+    { const sh = src && tgt && hasT(src, "steadyHands") && ["diffuseWave", "concentrationGradient"].includes(inst?.ability) && tgt.moved;   // Florence (F2): her two field techniques catch a mover harder, once per technique per turn
+      if (sh) { const key = `${inst.ability}:${src.ownerTurns}`; if (!(src.steadyUsed || {})[key]) { (src.steadyUsed ||= {})[key] = true; m(1.1, "Steady Hands: her field catches the foe that moved (x1.1)."); } } }
     if (hasT(src, "zealous")) {   // Zealous: a true believer's edge against dream creatures and inside a dream (Mala, 2026-10-31; builder's numbers)
       if (tgt?.dream) m(PALADIN.zealDream, `Zealous: ${tgt.name} is a dream creature ×${PALADIN.zealDream}.`);
       if (s.dreamSpace) m(PALADIN.zealInDream, `Zealous: a Dream Space is open ×${PALADIN.zealInDream}.`); }
@@ -2954,7 +3015,7 @@
     }
     if (w.kind === "allure") {
       ((S(s).allure ||= {})[a.id] = { x: a.x, y: a.y, radius: GLAM.allureRadius, until: a.ownerTurns + 1, side: a.side });
-      H.log(s, { kind: "effect", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} turns on the allure: foes who start a turn within ${GLAM.allureRadius} drift a tile toward the centre.` });
+      H.log(s, { kind: "effect", actor: a.id, tiles: [[a.x, a.y]], text: a.character === "chitin_bishop" ? `${a.name} turns on the allure: only the Fixed foe who starts a turn within ${GLAM.allureRadius} drifts a tile toward the centre.` : `${a.name} turns on the allure: foes who start a turn within ${GLAM.allureRadius} drift a tile toward the centre.` });
       return true;
     }
     return false;
@@ -2963,6 +3024,7 @@
     for (const [owner, f] of Object.entries(S(s).allure || {})) {
       const o = s.actors[owner]; if (!o || o.defeated || o.ownerTurns >= f.until) { delete S(s).allure[owner]; continue; }
       if (a.side === f.side || a.defeated || H.dist(s, a.x, a.y, f.x, f.y) > f.radius || (a.x === f.x && a.y === f.y)) continue;
+      if (o.character === "chitin_bishop" && !liveFixed(s, o).some((t) => t.id === a.id)) continue;   // Bishop link: only the Fixed foe drifts; Jiang Qing still pulls all
       const nx = a.x + Math.sign(f.x - a.x), ny = a.y + Math.sign(f.y - a.y);
       if (H.actorAt(s, nx, ny) || H.tileAt?.(s, nx, ny)?.blocksMove) continue;
       a.x = nx; a.y = ny; H.log(s, { kind: "move", actor: a.id, tiles: [[nx, ny]], text: `${a.name} drifts toward ${o.name}'s allure.` });
@@ -3654,7 +3716,7 @@
       case "pounce": return tgt ? 14 + Math.min(4, Math.max(0, H.dist(s, a.x, a.y, tgt.x, tgt.y) - 1)) : 0;
       // The Maid (Mala's Survive log, 2026-10-14: Protect the Essential 13 times on benches and plants, Sort three times down
       // empty lines, then meditating on 80 banked AP). Each value is what the technique would do from here, on that target.
-      case "maidSort": {   // only the foes actually in the chosen line count; one with nowhere to go takes 6
+      case "maidSort": {   // only the foes actually in the chosen line count; one with nowhere to go takes sortBoxed (own pass)
         if (!cand.target) return 0;
         const dx = Math.sign(cand.target[0] - a.x), dy = Math.sign(cand.target[1] - a.y); if (!!dx === !!dy) return 0;
         let v = 0;
@@ -3663,7 +3725,8 @@
           const u = H.actorAt(s, x, y);
           if (u && u.side !== a.side && foes.includes(u)) {
             const side = dx ? [[x, y + 1], [x, y - 1]] : [[x + 1, y], [x - 1, y]];
-            v += side.some(([nx, ny]) => free(s, nx, ny, H) && !(s.arena.objects || []).some(o => o.x === nx && o.y === ny)) ? 2.5 : 5;
+            const room = side.some(([nx, ny]) => free(s, nx, ny, H) && !(s.arena.objects || []).some(o => o.x === nx && o.y === ny));
+            v += vocational(s, a) ? (room ? s.rules.vocational.sort : s.rules.vocational.sortBoxed) : room ? 2.5 : 5;
           }
           if (x === cand.target[0] && y === cand.target[1]) break;
         }
@@ -3681,7 +3744,7 @@
       }
       case "maidExtract": {   // an adjacent foe takes 8; a hazard on the ground is cleared into the cart; clutter is barely worth it
         if (!cand.target) return 0;
-        if (tgt && tgt.side !== a.side && foes.includes(tgt)) return 6;
+        if (tgt && tgt.side !== a.side && foes.includes(tgt)) return vocational(s, a) ? s.rules.vocational.clear : 6;
         if (tgt && tgt.id !== a.id) return 0;
         const full = (receptacleFor(s, a, false).stored || []).length >= 3 ? 0.5 : 1;
         const trap = knownTrapAt(s, a, cand.target[0], cand.target[1], H);
@@ -3690,7 +3753,8 @@
         if ((s.terrainEffects || []).some(e => (e.tiles || []).some(q => q[0] === cand.target[0] && q[1] === cand.target[1]))) return 3;
         return (s.arena.objects || []).some(o => o.x === cand.target[0] && o.y === cand.target[1] && o.evidenceId !== "receptacle" && o.role !== "service-receptacle") ? 0.5 : 0;
       }
-      case "maidRemove": return tgt && Object.values(tgt.status || {}).some(Boolean) ? 4 : tgt ? 2 : 0;
+      case "maidRemove": return (tgt && Object.values(tgt.status || {}).some(Boolean) ? 4 : tgt ? 2 : 0) + (tgt && vocational(s, a) && tgt.side !== a.side ? s.rules.vocational.removal : 0);
+      case "maidSweep": return vocational(s, a) && cand.target ? foes.filter((u) => H.dist(s, cand.target[0], cand.target[1], u.x, u.y) <= w.radius).length * s.rules.vocational.sweep : 1;   // the plain maid's sweep keeps the default 1
       case "maidRestore": return tgt && Object.values(tgt.status || {}).some(Boolean) ? 4.5 : receptacleHasContents(s, a) ? 3 : 0;
       case "foldPanel": {   // panel placement vs approaches: one panel at a time, facing a live approach
         if (origamistPanels(s, a).length) return 0;

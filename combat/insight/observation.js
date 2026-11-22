@@ -100,7 +100,7 @@
     [(x) => x.kind === "unit" && x.imitable, () => ({ text: "Next: you can Imitate it from this menu.", path: "Observe ▸ Imitate" })],
     [(x) => x.kind === "place", (x) => ({ text: `Next: Gaia warns at ${x.warnAt} wounds. Commune with plants here, or keep wounds under ${x.warnAt}.`, path: null })],
     [(x) => x.kind === "dream", (x) => ({ text: `Next: name it from Rituals ▸ Dreams${x.cost != null ? ` · ${x.cost} AP` : ""}.`, path: "Rituals ▸ Dreams" })],
-    [(x) => x.kind === "summon", () => ({ text: "Next: call it from Rituals ▸ Summon ally — one wrong choice is struck.", path: "Rituals ▸ Summon ally" })],
+    [(x) => x.kind === "summon", () => ({ text: "Next: call it from Rituals ▸ Call a familiar — one wrong choice is struck.", path: "Rituals ▸ Call a familiar" })],
     [(x) => (x.kind === "plant" || x.kind === "structure") && x.closed, () => ({ text: "It will not answer you again this battle.", path: null })],
     [(x) => (x.kind === "plant" || x.kind === "structure") && x.ready, (x) => ({ text: `Next: approach and ${x.deed}. ${x.dist <= x.range ? "You are beside it" : `Stand beside the ${x.common} (${x.dist} tiles away)`}, then Rituals ▸ ${x.ritual} · ${x.ap} AP + ${x.phi} ΦF. It will ask what you just learned.`, path: `Rituals ▸ ${x.ritual}` })],
     [(x) => x.kind === "plant" || x.kind === "structure", (x) => ({ text: `Next: observe again. ${x.need - x.fam} more familiarity (about ${Math.max(x.step, (x.need - x.fam - (x.bonus || 0)) * x.step)} AP).`, path: "Observe" })],
@@ -178,7 +178,7 @@
       const adjacent=[[o.x+1,o.y],[o.x-1,o.y],[o.x,o.y+1],[o.x,o.y-1]].map(at=>({at,path:reachable.pathTo(...at)})).filter(v=>v.path);
       adjacent.sort((x,y)=>x.path.length-y.path.length);
       if(!adjacent.length)continue;
-      const goal=adjacent[0],d=h.dist(s,a.x,a.y,o.x,o.y),f=book.familiarity[o.id]||0;
+      const goal=adjacent[0],d=h.dist(s,a.x,a.y,o.x,o.y),f=book.familiarity[o.wreckId || o.id]||0;
       if(f>=p.need&&d<=h.Tsukumogami.rules.range&&a.tempo>=h.Tsukumogami.rules.communeAp){
         const q=h.Tsukumogami.questionFor(o,s.seed);   // Observe teaches: the same pinned question the engine asks
         if(q)out.push({action:{type:"communeStructure",actor:a.id,object:o.id,questionId:q.id,answer:q.answer},value:30+h.Tsukumogami.rules.strikeBySize[p.size]*h.Tsukumogami.rules.rounds-p.phi*2});
@@ -199,7 +199,7 @@
   // points to. Until it has felt something is off it has no reason to check; a curious unit may look anyway.
   const hyped=(s,a,t)=>!!s.rules.hype&&a.status?.hypeFelt===t.id&&t.primary==="diffusion"&&t.secondary==="deception"&&!(t.hype?.seenBy||[]).includes(a.id)&&!s.rules.hype.mindless.some(k=>a[k]);
   function options(s,a,h){
-    if(!eligible(a)||s.rules.observationAi===false)return [];
+    if((!eligible(a)&&!(a.summon&&has(a,"messenger")))||s.rules.observationAi===false)return [];   // R2: a Messenger summon observes (unit + place; plant/structure plans self-gate on eligible, so they stay shut)
     const out=plantPlan(s,a,h);
     out.push(...structurePlan(s,a,h));
     const studied=s.observationTurns?.[a.id]===a.ownerTurns;
@@ -233,7 +233,7 @@
     dream:{title:"Dream lessons",text:"Dream monsters are lessons wearing teeth: observing one reveals what it teaches. They fade when the dream closes, or when someone names them."},
     unit:{title:"Studying foes",text:"Observing a fighter reveals how it fights: each study can expose a trait you may imitate, or a weakness to exploit. Spend AP on Observe against a foe to learn its tells before you commit."},
     place:{title:"Reading the ground",text:"Observing the place reads the ground itself: site temper, shelter, and what Gaia tolerates here. Wound the land past her patience and Gaia warns you; commune with plants to stay in her good graces."},
-    summon:{title:"Summon questions",text:"Each palace room holds one of your summons' questions: observing a room earns a hint for that summon this battle. Call it from Rituals ▸ Summon ally — one wrong choice is struck."}};
+    summon:{title:"Summon questions",text:"Each palace room holds one of your summons' questions: observing a room earns a hint for that summon this battle. Call it from Rituals ▸ Call a familiar — one wrong choice is struck."}};
   const SYSTEM_NOTE_KINDS=Object.keys(SYSTEM_NOTES);
   function systemNoteFor(kind){return SYSTEM_NOTES[kind]||null;}
   // O3 kind mapping (MED-1: Investigate looks are first looks too). `look` carries the battle slices the mapping

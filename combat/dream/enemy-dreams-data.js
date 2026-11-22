@@ -50,7 +50,7 @@
       passive: { id: "relentless", name: "Relentless", text: "It can't be taunted, frightened or talked down. It always takes the shortest route to the nearest living unit." },
       ability: { id: "infectiousBite", name: "Infectious Bite", delivery: "contact", range: 1, channel: "citrinitas", potency: 8,
         text: "8, and the target is infected: −3 LF at the end of each of its turns for 3 turns. Any heal cures it." },
-      drawback: { id: "mindless", name: "Mindless", text: "It can't tell sides: it goes for the NEAREST living unit, its summoner's allies included." },
+      drawback: { id: "mindless", name: "Mindless", text: "It goes for the nearest living unit and skips its own summoner. It can still bite allied units." },
       teaches: "Pathway: the shortest route is predictable, and predictable routes can be used against it.",
       counter: "Stand so an enemy is closer to it than you are. Heal off the infection." }),
 

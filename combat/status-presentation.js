@@ -43,6 +43,8 @@
     cushion: { name: "Cushioned", help: "Someone is ready to catch you: Nigredo hits softened while uses last." },
     cyphPocket: { name: "Pocketed bar", help: "A pocketed bar: perform it at full strength with no second fee." },
     detained: { name: "Detained", help: "Detained: no actions until the hold ends." },
+    crownEntranced: { name: "Entranced", help: "Entranced: you cannot attack until the hold ends. Moving, Guard and support stay open." },
+    domeHarmonic: { name: "Dome Harmonic", help: "Each foe's first attack on her each round misses (an echo pops; no tile is placed). Area and field still find her." },
     dread: { name: "Dread-marked", help: "The visage marked you: a strike while fleeing lands ×2 (coup de grace), consuming the mark." },
     soaked: { name: "Soaked", text: "≈", color: "#5fa8d3", help: "Sinkerfruit: water damps the fruit's power for a turn: no fruit technique, no ΦF regen, damage taken ×1.25." },
     drowning: { name: "Drowning", help: "A non-swimmer in water: −8 LF at each turn start. Reach dry ground." },
@@ -127,8 +129,16 @@
       }
       out.push(row);
     }
+    // Exile tenancy (T0a): her row on the host's card. The line reads the same constants as account/tenancy.js trackerLine.
+    if (a?.tenant && a.tenant.hostId === a.id) {
+      const t = a.tenant, ex = content?.rules?.tenancy?.exiles?.[t.id]?.name || t.id, pw = content?.abilities?.[t.power]?.name || t.power;
+      out.push({ key: "tenant", name: `Coherence ${t.coherence} (${t.label})`, text: null, color: null, icon: null, count: null,
+        detail: t.lent ? `${ex} · ${pw} ${t.uses}/${t.usesMax}` : `${ex} · lends nothing yet`,
+        help: `${t.lent ? `${ex} lodges with you and lends ${pw}${t.rentDue ? "; her keep is your first Guard this battle" : ""}.` : `${ex} lodges with you. She lends her power from Coherence 20 (Guest).`}${t.last ? ` Last movement: ${t.last.delta >= 0 ? "+" : ""}${t.last.delta} (${t.last.reason}).` : ""}` });
+    }
     // True Super Speed (rules.trueSpeed): the engine keeps a.speedState in step with the rule (engine/conditions.js speedSync).
-    if (a?.speedState === "blur") out.push({ key: "blur", name: "Blur", text: null, color: null, icon: null, count: null, detail: "", help: "Half-price steps, and water does not slow them." });
+    if (a?.speedState === "blur") out.push({ key: "blur", name: "Blur", text: null, color: null, icon: null, count: null, detail: a.secondBeat?.ap > 0 ? "second beat to come" : a.beatNo === 1 ? "second beat" : "",   // SS4 (engine/turns.js splitBeat, beatTurn)
+      help: `Half-price steps, and water does not slow them.${a.secondBeat?.ap > 0 ? ` ${a.secondBeat.ap} action points wait in the second beat, before their next turn.` : a.beatNo === 1 ? " This is the second beat: half a turn, no turn-start upkeep." : ""}` });
     if (a?.speedState === "friction") out.push({ key: "friction", name: "Friction", text: null, color: null, icon: null, count: null, detail: "", help: "Slowed: no blur until it ends." });
     // Ritual feedback (Muse-2's RITUAL_FEEDBACK.md, built by Lantern 2026-10-19): the chant rides the marker rail with its
     // turns left, and a creature held by someone's chant says so. Capture rituals keep a.ritual, not a status.

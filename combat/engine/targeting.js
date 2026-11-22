@@ -90,6 +90,7 @@
         for (const [x,y] of tiles) if (actorAt(s,x,y) || barrierAt(s,x,y) || tileAt(s,x,y).blocksMove || s.arena.objects?.some(o => o.x === x && o.y === y && o.blocksMove)) return fail(`The design line is blocked at (${x},${y}).`);
         return { ok: true, tiles };
       }
+      if (m.effect === "cure") return H.States.cureTarget(s, a, m, actorAt(s, tx, ty), [tx, ty], action.cureChoice);
       const songError=Performers?.beforeAbility(s,a,m);if(songError)return fail(songError);
       if (ClassRuntime && m.effect === "classEffect") {
         if (m.ability === "clearTheObstruction" && MaidSystems?.canClean(s, a, tx, ty) && dist(s, a.x, a.y, tx, ty) <= 1 && hasSight(s, a.x, a.y, tx, ty))
@@ -220,6 +221,7 @@
       if (m.effect === "recombine" && (!m.recombineParts || m.recombineInvalid)) return fail("Recombine needs two readied damaging basics that share a delivery (three on Skunkworks).");
       if (m.effect === "oldGrowth" && !(s.successionPatches || []).some(p => p.owner === a.id)) return fail("Old Growth needs at least one living patch you own.");
       if (m.effect === "oldGrowth") return { ok: true, tiles: s.successionPatches.filter(p => p.owner === a.id).map(p => [p.x, p.y]), targets: [] };
+      if (m.effect === "treasureHunt") { const r = H.States?.huntTarget?.(s, a, m, tx, ty); if (r) return r; }   // Treasure Hunter (TH1b): Relic Path's route and Second Claim's refusals (engine/states.js); Idol Claim is an ordinary self-cast
       if (m.target === "self" && m.effect !== "barrier") return { ok: true, tiles: areaTiles(s, a, m, a.x, a.y), targets: [] };
       if (tx == null || !inside(s, tx, ty)) return fail("Choose a tile.");
       const occ = actorAt(s, tx, ty) || (s.wild.find((m) => m.form === "unit" && m.x === tx && m.y === ty) ? { ...s.wild.find((m) => m.form === "unit" && m.x === tx && m.y === ty), wild: true, side: "wild", status: {} } : null);

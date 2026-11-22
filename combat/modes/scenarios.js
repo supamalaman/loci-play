@@ -53,7 +53,16 @@
     return open.map((S) => ({ id: S.id, w: S.weight * coolFactor(S.id, ctx.recent, blocked) })).filter((c) => c.w > 0);
   }
 
+  // The notice-board chain (spec section 6, D2, D3): an accepted posting whose condition has a chain scenario. Work the job builds it
+  // every time (ctx.forceChain); the ordinary Random Encounter button builds it on CHAIN_ODDS. The survive chain (SC02/06/08) is not
+  // built (R-20261121-03): the Work the job button shows only for a posting chainFor answers.
+  const CHAIN_MAP = { assassinate: "bountyHunt", escape: "backDoor" };
+  const CHAIN_ODDS = 0.35;                 // PROVISIONAL, D3
+  const chainFor = (posting) => (posting && CHAIN_MAP[posting.condition]) || null;
+
   function choose(seed, ctx = {}) {
+    const chainTarget = chainFor(ctx.board);
+    if (chainTarget && (ctx.forceChain || hash(seed, "chain:roll") < CHAIN_ODDS)) return { kind: "scenario", id: chainTarget, tier: tierOf(ctx.wins) };
     const themed = THB ? THB.roll(seed) : null;   // the existing roll, untouched (GUARD test)
     if (themed) return { kind: "theme", id: themed };
     if (hash(seed, "scenario:roll") >= SHARE) return { kind: "plain", id: null };
@@ -224,6 +233,24 @@
       scenario: { ...(base.scenario || {}), ally: null, theyOpen: false, terrain: arenaName(arena, WF.arena, ctx) } };
   }
 
+  function prepareFord(arena, ford) {
+    const map = arena.map.slice(), fordTiles = {}, basin = {};
+    const columns = new Set(ford.crossing.map(([x]) => x));
+    for (let y = 0; y < map.length; y++) {
+      if (y === ford.bypassRow) continue;   // keep Canal Garden's other route dry
+      for (const x of columns) basin[K(x, y)] = true;
+    }
+    for (const [x, y] of ford.crossing) {
+      map[y] = map[y].slice(0, x) + "w" + map[y].slice(x + 1);
+      fordTiles[K(x, y)] = true;
+    }
+    const stones = new Set(Object.keys(fordTiles));
+    const channels = new Set(ford.spill.map(at => K(...at)));
+    const objects = (arena.objects || []).filter(o => !o.blocksMove || (!stones.has(K(o.x, o.y)) && !channels.has(K(o.x, o.y))));
+    const structures = (arena.structures || []).filter(o => o.kind !== "bridge" || !o.tiles.some(t => stones.has(K(t.x, t.y))));
+    return { ...arena, map, objects, structures, fordTiles, waterAgenda: { basin, maxDepth: 3, rainDepth: 1 } };
+  }
+
   // Authored events (SCENARIOS.md 3.4; slice 2). `force` swaps the rolled event at a checkpoint for an authored one (random-events.js create
   // with force/checkpoints) and drops the arrivals the rolled event had brought; `wild` lays a field wild form on the map at the start.
   // The authored event's arrivals are placed by the engine's own eventParticipantsFor (ctx.eventParticipantsFor), so they stand where a rolled one would.
@@ -237,12 +264,14 @@
       for (const [cid, spec] of Object.entries(S.force)) {
         if (!AUTHORABLE.includes(spec.type)) continue;   // ally and reinforcements need the roster and the hero (engine.js randomEncounterOptions); an authored one would arrive empty
         // A checkpoint can be missing: a forced sky (S.weather) already dropped every rolled weather event. Then the authored one is added at its place in round order.
-        const custom = (S.checkpoints || []).find((c) => c.id === cid);   // an authored round of its own (SC02: rounds 1, 4 and 7)
+        const custom = (S.checkpoints || []).findLast((c) => c.id === cid);   // an authored round of its own (SC02: rounds 1, 4 and 7)
         const i = schedule.findIndex((e) => e.id === cid), old = i >= 0 ? schedule[i] : custom || RE.checkpoints.find((c) => c.id === cid);
         if (!old) continue;
         const gone = new Set((i >= 0 && old.actorIds) || []);
         parts = parts.filter((p) => !gone.has(p.id));
-        const ev = RE.create(seed, { force: { [cid]: spec }, checkpoints: [{ id: old.id, round: old.round, label: old.label }] })[0];
+        const ford = S.ford?.[out.arenaData?.id];
+        const forced = spec.effect === "water-surge" && ford ? { ...spec, tiles: ford.spill } : spec;
+        const ev = RE.create(seed, { force: { [cid]: forced }, checkpoints: [{ id: old.id, round: old.round, label: old.label }] })[0];
         if (i >= 0) schedule[i] = ev; else schedule.splice(schedule.findIndex((e) => e.round > ev.round) < 0 ? schedule.length : schedule.findIndex((e) => e.round > ev.round), 0, ev);
         fresh.push(ev);
       }
@@ -300,6 +329,7 @@
 
   function apply(base, id, seed, ctx = {}) {
     const S = SCENARIOS[id]; if (!S || !base) return base;
+    if (S.wreckLesson && (!ctx.G || !ctx.V?.placeCruiseWreck)) return base;
     if ((base.participants || []).some((p) => p.boss === "tallyman")) return base;   // the Tallyman walks the roads on his own roll (engine.js:161, Mala 2026-10-19): a seed that rolled him stays a plain battle
     const tier = ctx.tier || tierOf(ctx.wins);
     // foes: "roll" keeps the foes the engine rolled (SC07, SC09: the premise is the sky or the visitors, not the crew); the tier trim does not apply.
@@ -310,10 +340,11 @@
     if (groups && groups.length < S.foes.groups) return base;   // too few crews that can stand apart: the roll stays as it was
     const fixedList = !rolled && !warfare && !S.foes.groups && Array.isArray(S.foes.fixed) ? S.foes.fixed.filter((id) => typeof id === "string" && id) : [];   // teaching (SC22+): exact characters, no draw; loadouts and tiles ride E.create defaults and spawns
     const fixed = fixedList.length ? fixedList : null;
+    const unbound = !rolled && !warfare && !groups && !fixed && typeof S.foes.unbound === "string" ? S.foes.unbound : null;   // Tandem T2c: the only foe is that tandem, unbound; the engine stands it on the field (summons/tandem-trial.js place)
     const sideOf = (character) => (groups ? groups.find((g) => g.ids.includes(character)).crew : "enemy");
-    const ids = warfare ? [] : groups ? groups.flatMap((g) => g.ids) : fixed ? fixed.slice() : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : pickFoes(S, base, seed, tier, ctx).ids;
-    const n = warfare ? (base.participants || []).filter((p) => p.side === "enemy").length : ids.length, maxLF = LF_BY_COUNT[n];
-    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF, ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF, ...(S.foes?.traits?.[character] ? { traits: S.foes.traits[character].slice() } : {}), ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) }));   // foes.traits: a scenario grants a class a trait (Spilled Pot); foes.aggressive: Hostage Hall
+    const ids = warfare ? [] : groups ? groups.flatMap((g) => g.ids) : fixed ? fixed.slice() : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : unbound ? [] : pickFoes(S, base, seed, tier, ctx).ids;
+    let n = warfare ? (base.participants || []).filter((p) => p.side === "enemy").length : ids.length, maxLF = LF_BY_COUNT[n];
+    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF, ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF, ...(S.foes?.traits?.[character] ? { traits: S.foes.traits[character].slice() } : {}), ...(S.foes?.look?.[character]?.name ? { name: S.foes.look[character].name } : {}), ...(S.foes?.look?.[character]?.sprite ? { sprite: S.foes.look[character].sprite } : {}), ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) }));   // foes.traits: a scenario grants a class a trait (Spilled Pot); foes.aggressive: Hostage Hall
     const others = warfare ? base.participants : (base.participants || []).filter((p) => !/^random-foe-/.test(p.id));
     let out = warfare ? { ...base } : { ...base, participants: [others[0], ...foes, ...others.slice(1)] };   // the player first, the foes, then the ally and event arrivals (the engine's order)
     if (S.quiet && !warfare) out = { ...out, participants: (out.participants || []).filter((p) => !p.eventActor && p.id !== "random-ally-1"), randomEventSchedule: (out.randomEventSchedule || []).filter((e) => e.type === "weather"), scenario: { ...(out.scenario || {}), ally: null } };   // teaching: a quiet duel — no ally, no event arrivals; weather stands
@@ -327,6 +358,13 @@
       out = reArena(out, list[Math.floor(hash(seed, "scenario:arena") * list.length)], seed, ctx);
     }
     else { const placed = place(out.participants, out.arenaData, ctx, true); out = { ...out, participants: out.participants.map((p, i) => (/^random-foe-/.test(p.id) ? placed[i] : p)) }; }   // same map: only the foes move
+    if (!S.wreckLesson && out.arenaData?.objects?.some((o) => o.wreckId)) {
+      const arena = out.arenaData;
+      const counts = { ...arena.vegetation?.counts };
+      delete counts.cruiseShipWreck;
+      out.arenaData = { ...arena, objects: arena.objects.filter((o) => !o.wreckId),
+        ...(arena.vegetation ? { vegetation: { ...arena.vegetation, counts } } : {}) };
+    }
     if (fixed && (Array.isArray(S.foes.at) || S.foes.holdTurns > 0)) {   // teaching (SC22, SC23): a fixed foe on its authored tile, holding it for its first turns (the lesson needs a setter with no shot)
       const taken = new Set(out.participants.filter((p) => !/^random-foe-/.test(p.id) && p.at).map((p) => K(...p.at)));
       out = { ...out, participants: out.participants.map((p) => {
@@ -337,6 +375,8 @@
         return q;
       }) };
     }
+    const ford = S.ford?.[out.arenaData?.id];
+    if (ford) out = { ...out, arenaData: prepareFord(out.arenaData, ford) };
     if (S.phase) out.startPhase = S.phase;
     if (S.weather) out.randomEventSchedule = (out.randomEventSchedule || []).filter((e) => e.type !== "weather");   // a rolled weather event would re-roll the forced sky at round 1
     if (S.weather && ctx.Climate) out.weatherState = { ...ctx.Climate.rollWeather(out.arenaData, { seed: out.seed ?? seed, archetype: out.arenaData?.archetype }), id: S.weather };
@@ -345,10 +385,23 @@
     // Tier 3 adds the scenario's one extra hazard (spec 3.3; Mala approved the list 2026-11-02): authored events, checkpoints and wild forms merged over the base ones.
     const T = tier >= 3 && S.hazard ? { ...S, force: { ...(S.force || {}), ...(S.hazard.force || {}) }, checkpoints: [...(S.checkpoints || []), ...(S.hazard.checkpoints || [])], wild: [...(pickedWild || []), ...(S.hazard.wild || [])] } : { ...S, ...(pickedWild ? { wild: pickedWild } : {}) };
     if (T.force || T.wild) out = authorEvents(out, T, seed, ctx);
+    if (S.wreckLesson) {
+      const ally = { id: "random-ally-1", character: "archivist", side: "player", traits: ["animist"] };
+      const participants = place([...out.participants, ally], out.arenaData, ctx);
+      const arena = ctx.V.placeCruiseWreck(out.arenaData, { seed, force: true, participants });
+      if (arena === out.arenaData) return base;
+      out.arenaData = arena;
+      out.participants = participants.map((p) => p.id === "player" ? { ...p, traits: [...(p.traits || []), "animist"] } : p);
+      out.startingActor = "player";
+      out.scenario = { ...out.scenario, ally: "archivist", theyOpen: false };
+    }
     if (S.object && out.arenaData) out = { ...out, arenaData: placeScenarioObject(out.arenaData, S.object, out.participants) };   // SC16 sluice
     if (S.salvage?.minPickups && out.arenaData) out = { ...out, arenaData: ensureSalvagePickups(out.arenaData, seed, S.salvage.minPickups, ctx) };   // SC17 contested scrap
     // Ward slice (SC11–SC14): Tourist via the engine's opts.tourist spawn; civilians via opts.civilians placed after create (engine afterCreate).
     if (S.tourist) out = { ...out, tourist: true };
+    if (unbound) { const taken = new Set((out.participants || []).filter((p) => p.at).map((p) => K(...p.at)));
+      out = { ...out, startingActor: "player", tandemTrial: { summon: unbound, at: S.foes.at?.[0] ? foeSpot(out.arenaData, ctx, taken, S.foes.at[0]) : null, rounds: S.objective.deadline } }; }
+    if (S.lendTenant) out = { ...out, tenant: { id: S.lendTenant, coherence: ctx?.rules?.tenancy?.rungs?.[1]?.from ?? 20, borrowed: true } };   // Exile T0a: the exile lodges for this battle only (engine/tenancy.js; ui.js keeps it and settles nothing)
     if (Array.isArray(S.lend) && S.lend.length) out = { ...out, lendSummons: S.lend.slice() };   // Tandem T2b: summons lent to the player for this battle (engine/factions.js)
     if (Array.isArray(S.civilians) && S.civilians.length) {
       const taken = new Set((out.participants || []).filter((p) => p.at).map((p) => K(...p.at)));
@@ -362,13 +415,32 @@
       out = { ...out, civilians };
     }
     const objective = { ...S.objective };
+    if (S.id === "bountyHunt") {   // SC18: the posting's target stands among the foes (first foe slot), and no foe who feuds with them stays on their side (engine.js feudOnOneSide)
+      const target = ctx.board?.target || "student";
+      objective.targetClass = target;
+      const mine = (out.participants || []).filter((p) => p.side === "player").map((p) => p.character).concat(ctx.mainCharacter || []);
+      const feuds = ctx.rules?.factions?.feuds || [], crew = (id) => ctx.characters?.[id]?.subfaction;
+      const feud = (a, b) => !!crew(a) && !!crew(b) && feuds.some(([x, y]) => (x === crew(a) && y === crew(b)) || (x === crew(b) && y === crew(a)));
+      const foeList = (out.participants || []).filter(isFoe);
+      if (foeList.length && ctx.characters?.[target] && !mine.includes(target)) {   // a target already on the player's side is not forced; the bounty then wins when no enemy stands
+        const first = foeList.find((f) => f.character === target) || foeList[0];
+        const kept = new Set([first.id, ...foeList.filter((f) => f !== first && f.character !== target && !feud(f.character, target)).map((f) => f.id)]);
+        n = kept.size;
+        out = { ...out, participants: out.participants.filter((p) => !isFoe(p) || kept.has(p.id)).map((p) => (!isFoe(p) ? p : { ...p, ...(p === first ? { character: target } : {}), maxLF: LF_BY_COUNT[n] })) };
+      }
+      // an arrival on the enemy side (reinforcements) whose crew feuds with the mark is dropped with its event, as the melee drops events (above)
+      const gone = new Set((out.participants || []).filter((p) => !isFoe(p) && p.side === "enemy" && feud(p.character, target)).map((p) => p.id));
+      if (gone.size) out = { ...out, participants: out.participants.filter((p) => !gone.has(p.id)), randomEventSchedule: (out.randomEventSchedule || []).filter((e) => !(e.actorIds || []).some((id) => gone.has(id))) };
+    }
+    if (S.id === "backDoor" && (out.arenaData?.interior || out.arenaData?.setPiece) && ctx.G) out = reArena(out, "gardenCourt", seed, ctx);   // SC19: never the ship's interior (spec section 4)
+    if (Array.isArray(S.gift) && S.gift.length) out = { ...out, scenarioGift: S.gift.slice() };   // SC20: ui.js adds it to the packed pouch after packing (the pouch overwrites startingInventory); the cooldown keeps it to one in five battles (D5)
     // Spec 3.3: tier 1 gets two more rounds, tier 3 one fewer (floor 5); never past the 14-round ceiling objectives.js enforces.
-    if (objective.deadline != null) objective.deadline = Math.min(14, tier <= 1 ? objective.deadline + 2 : tier >= 3 ? Math.max(5, objective.deadline - 1) : objective.deadline);
+    if (objective.deadline != null && !objective.exact) objective.deadline = Math.min(14, tier <= 1 ? objective.deadline + 2 : tier >= 3 ? Math.max(5, objective.deadline - 1) : objective.deadline);
     const spec = { id: S.id, name: S.name, tier, objective };
     const rules = { ...(out.rules || {}), scenario: spec };
     if (S.houses === "always" && ctx.rules?.houses) rules.houses = { ...ctx.rules.houses, chance: { default: 1 } };
     const sc = out.scenario, terrain = sc?.terrain || arenaName(out.arenaData, out.arenaData?.id, ctx);
-    const title = `Random scenario: ${S.name} · ${terrain} · ${n} opponent${n === 1 ? "" : "s"}${sc?.ally ? ` · with ${ctx.characters?.[sc.ally]?.name || sc.ally}` : ""} · ${sc?.theyOpen ? "they move first" : "you move first"}`;
+    const title = unbound ? `The Trial: ${S.name} · ${terrain} · you move first` : `Random scenario: ${S.name} · ${terrain} · ${n} opponent${n === 1 ? "" : "s"}${sc?.ally ? ` · with ${ctx.characters?.[sc.ally]?.name || sc.ally}` : ""} · ${sc?.theyOpen ? "they move first" : "you move first"}`;
     const done = { ...out, title, mode: objective.kind === "classic" ? (S.mode || "classic") : "scenario", scenarioBattle: S.id, rules,
       theme: { id: `scenario-${S.id}`, title: S.name, text: S.text.open, mid: S.text.mid.text, result: { ...S.text.result } } };
     return done;
@@ -409,5 +481,5 @@
   const isRandomBattle = (state) => tagOf(state) !== null;
   const arenaOf = (state) => state?.arena?.id || (state?.arena?.generated ? "generated" : null);
 
-  return { SHARE, TIER_WINS, COOLDOWN, SCENARIOS, hash, tierOf, coolFactor, candidates, choose, prepare, apply, midDue, tagOf, arenaOf, recentTags, isRandomBattle, bonusFor };
+  return { SHARE, TIER_WINS, COOLDOWN, SCENARIOS, hash, tierOf, coolFactor, candidates, CHAIN_MAP, CHAIN_ODDS, chainFor, choose, prepare, apply, midDue, tagOf, arenaOf, recentTags, isRandomBattle, bonusFor };
 });

@@ -15,9 +15,9 @@
 //     perkMods(account) → { maxLFAdd, maxAPAdd, maxPFAdd } for battle setup; titlesOf(account) lists earned titles.
 //   serialize(account) / deserialize(json)   (versioned; storage is the host's job: native file via the Swift bridge)
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.ConceptCombatAccount = factory();
-})(typeof self !== "undefined" ? self : this, function () {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./record.js"));
+  else root.ConceptCombatAccount = factory(root.ConceptCombatCourtRecord);
+})(typeof self !== "undefined" ? self : this, function (CourtRecord) {
   const VERSION = 1;
 
   const rules = {
@@ -43,7 +43,7 @@
       focus:    { name: "Focus",    per: 2, stat: "maxPF", cap: 5, text: "+2 max ΦF per point." },
       soulChoir: { name: "Soul Choir", cap: 1, cost: 50, text: "Hold your strongest soul of every kind at once. Without it, only your single strongest soul speaks." },   // J5 rework (D55); priced 50 (Mala, 2026-10-31: "Soul Choir should be 50 perks. It is one of the most powerful things in the game.")
       quickStudy: { name: "Quick Study", per: 1, cap: 5, text: "+1 learning XP per right answer, per point." },
-      widenedPalace: { name: "Widened Palace", cap: 1, cost: 20, text: "Call one additional palace summon while you stand in a Dream Space." },   // costs 20 (Mala, 2026-10-31: "20 is fine for widened")
+      widenedPalace: { name: "Widened Palace", cap: 1, cost: 20, text: "Call one additional familiar while you stand in a Dream Space." },   // costs 20 (Mala, 2026-10-31: "20 is fine for widened")
       musedUpon: { name: "Mused Upon", per: 1, cap: 3, text: "+1 Inspiration each level, per point." },
       groundskeeper: { name: "Groundskeeper", cap: 3, text: "Gain 1 affinity chit on purchase, per point. Spent chits stay spent." },
       goodLoser: { name: "Good Loser", per: 0.05, cap: 4, text: "Keep +5% of combat XP on losses, per point." },
@@ -76,6 +76,7 @@
     { id: "little_king",        why: "Control that enemies can resist by guarding." },
     { id: "inner_child",        why: "Changes the rules for everyone, enemies included: an expert's tool." },
     { id: "goethe",             why: "The complete striving: roots, a nova, and three ascending forms." },   // Goethe hot-build (Muse Berry BD, 2026-10-29): capstone unlock, existing levels untouched
+    { id: "raven",              starter: true, why: "Flies ahead and sees what you cannot." },   // Raven K2 (FAMILIARS.md 13, O3): the shared starter, in every palace from the first call; no gate, no token, never positional
   ];
 
   // Gates by id (FAMILIARS.md 12.1): nothing reads a position in `order` for a familiar's gate under the token model, so a twelfth id appended
@@ -97,10 +98,11 @@
 
   function createAccount({ name = "Warden", unlockOrder = "benefit", seed = 0, created = null, choose = false } = {}) {
     let order = benefitOrder.map((b) => b.id);
-    if (unlockOrder === "random") order = [...order].sort((a, b) => hash(`${seed}:${a}`) - hash(`${seed}:${b}`));
-const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder, order, unlocked: [], battles: 0, wins: 0, history: [], foughtBeside: [], forms: [], perks: {}, perkPoints: 0, perkStack: [], titles: [], perkLog: [], discoveries: 0, beadSwallows: {}, stakeEscrow: null, beastSummons: [], ownedNodes: [], affinityChits: 0, namedMerges: {}, mergeLedger: [], tutorCycle: { cycle: -1, drills: 0, paid: 0 }, fame: 0, fameXp: 0, fameBy: {}, fameSeen: {}, fameIntro: false, buskCycle: { cycle: -1, busked: 0 }, marks: [], nodeStyles: {}, rewriteLog: [], schoolKeys: [], deaths: [], graduations: [], teachRights: [], declines: {}, gaps: [], rematch: {}, stillSeals: 0, sealed: null, stars: [], heirloom: null, gatelessCount: 0, doses: [], burn: 0, dopedBouts: [], headlineOwned: false, inspiration: 0, sagas: { active: null, past: [] } , tolls: [], debts: [], parts: { common: 0, uncommon: 0, rare: 0 }, orgonite: 0, vessels: { shard: 0, bead: 0, orb: 0 }, pens: [], market: null, deeds: {}, deedMemory: {}, contracts: { pacts: {}, active: null, blacklist: {}, standing: {}, log: [] } , seenSystems: {}, fruitStudyNotes: { plant: {}, structure: {} } };   // W6.1: Workshop wallet + tree   // Observe teaches O3: first-look system notes, one per kind   // Perfect Recall S6c: Locusfruit study notes by type   // vessel economy: kiln/stall ledgers (market normalizes on read)
+    if (unlockOrder === "random") order = [...order.filter((id) => !benefitOrder.find((b) => b.id === id)?.starter).sort((a, b) => hash(`${seed}:${a}`) - hash(`${seed}:${b}`)), ...order.filter((id) => benefitOrder.find((b) => b.id === id)?.starter)];   // a starter has no level slot: it stays last, outside the shuffle (Raven K2)
+const account = { version: VERSION, name, created, record: CourtRecord.normalize(), xp: 0, level: 1, unlockOrder, order, unlocked: [], tandems: {}, battles: 0, wins: 0, history: [], foughtBeside: [], forms: [], perks: {}, perkPoints: 0, perkStack: [], titles: [], perkLog: [], discoveries: 0, beadSwallows: {}, stakeEscrow: null, beastSummons: [], ownedNodes: [], affinityChits: 0, namedMerges: {}, mergeLedger: [], tutorCycle: { cycle: -1, drills: 0, paid: 0 }, fame: 0, fameXp: 0, fameBy: {}, fameSeen: {}, fameIntro: false, buskCycle: { cycle: -1, busked: 0 }, marks: [], nodeStyles: {}, rewriteLog: [], schoolKeys: [], deaths: [], graduations: [], teachRights: [], declines: {}, gaps: [], rematch: {}, stillSeals: 0, sealed: null, stars: [], heirloom: null, gatelessCount: 0, doses: [], burn: 0, dopedBouts: [], headlineOwned: false, inspiration: 0, sagas: { active: null, past: [] } , tolls: [], debts: [], parts: { common: 0, uncommon: 0, rare: 0 }, orgonite: 0, vessels: { shard: 0, bead: 0, orb: 0 }, pens: [], market: null, deeds: {}, deedMemory: {}, contracts: { pacts: {}, active: null, blacklist: {}, standing: {}, log: [] } , seenSystems: {}, fruitStudyNotes: { plant: {}, structure: {} } };   // W6.1: Workshop wallet + tree   // Observe teaches O3: first-look system notes, one per kind   // Perfect Recall S6c: Locusfruit study notes by type   // vessel economy: kiln/stall ledgers (market normalizes on read)
     account.stakesLedger = []; account.stakeCooldowns = {}; account.justWon = {};   // W1.5: ante ledger + cooldowns, beside the account core
     account.sageDream = { battles: 0, pvWins: 0 };   // W5.3: the Sage's dream ladder persists across demonstrations
+    account.exiles = {}; account.crewRep = {};   // Exile T0a: housed exiles by id, and the per-subfaction standing (empty until T1 moves it)
     if (choose || rules.familiarTokens) account.familiars = { tokens: tokensEarnedAt(1), picks: [], lastPick: null, done: false };   // a new account chooses its first familiar (S2 draws the scene)
     return { ...account, unlocked: unlocksUpTo(account, 1) };
   }
@@ -109,13 +111,32 @@ const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder,
   const tokensEarnedAt = (level) => rules.tokenLevels.filter((l) => l <= level).length;
   function unlocksUpTo(account, level) {
     // Token model: what you picked, not where the level falls in `order` (FAMILIARS.md 12.1).
+    // The Raven comes first and always (O3, O8): a starter has no gate, so no pick, token or level can add or remove it.
     const base = account.familiars ? [...account.familiars.picks] : account.order.filter((_, i) => rules.unlockLevels[i] <= level);
     const seat = account.seatPick && account.order.includes(account.seatPick) && !base.includes(account.seatPick) ? [account.seatPick] : [];
-    return [...base, ...seat];
+    return ["raven", ...[...base, ...seat].filter((id) => id !== "raven"), ...tandemsPassed(account).filter((id) => id !== "raven" && !base.includes(id) && !seat.includes(id))];
   }
+  // Tandem T2c (muse-tandem-spirit-spec section 3; R-20261115-03, R-20261115-15, R-20261115-42): one record per tandem, keyed by its
+  // summon id. status "none" | "passed" | "failed"; owed = LF the failed Trial still takes at the next battle's start; since = battles
+  // finished since the fail (the retry gate); free = the first call after a pass is still unspent; pending = a Trial was begun and has
+  // not been settled (summons/tandem-trial.js reads a pending record as a fail: leaving the ordeal is not a refusal). A passed tandem
+  // is in the palace list (`unlocked`) by its record alone, never through `order` or a level. An old save has no `tandems` key: {}.
+  const TANDEM_STATUS = ["none", "passed", "failed"];
+  function cleanTandems(raw) {
+    const out = {};
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+    for (const [id, r] of Object.entries(raw)) {
+      if (!r || typeof r !== "object") continue;
+      const status = TANDEM_STATUS.includes(r.status) ? r.status : "none";
+      out[id] = { status, owed: status === "failed" ? Math.max(0, Math.floor(Number(r.owed) || 0)) : 0, since: status === "failed" ? Math.max(0, Math.floor(Number(r.since) || 0)) : 0,
+        free: status === "passed" && r.free === true, pending: status !== "passed" && r.pending === true };
+    }
+    return out;
+  }
+  const tandemsPassed = (account) => Object.entries((account && account.tandems) || {}).filter(([, r]) => r && r.status === "passed").map(([id]) => id);
   function nextUnlock(account) {
     if (account.familiars) { const l = rules.tokenLevels.find((x) => x > (account.level || 1)); return l == null ? null : { token: true, level: l }; }
-    const i = account.order.findIndex((id) => !account.unlocked.includes(id));
+    const i = account.order.findIndex((id, at) => !account.unlocked.includes(id) && rules.unlockLevels[at] != null);   // a starter has no positional level (the Raven is in `unlocked` already, this keeps a damaged list from naming it next)
     return i < 0 ? null : { id: account.order[i], level: rules.unlockLevels[i] };
   }
 
@@ -161,11 +182,11 @@ const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder,
     if (muse > 0) lines.push(`+${muse} Inspiration`);
     for (const t of newTitles) lines.push(`Title earned: ${t.name}.`);
     if (before < rules.neonWardenLevel && level >= rules.neonWardenLevel) lines.push(`New look unlocked: Purple Neon Warden.`);
-    for (const id of unlockedNow) lines.push(`New summon in your palace: ${id}`);
+    for (const id of unlockedNow) lines.push(`New familiar: ${id}`);
     const gotTokens = next.familiars ? next.familiars.tokens - account.familiars.tokens : 0;
     if (gotTokens > 0) lines.push(`+${gotTokens} familiar token${gotTokens === 1 ? "" : "s"}`);
     const n = nextUnlock(next);
-    if (n) lines.push(n.token ? `Next familiar token at level ${n.level}` : `Next summon at level ${n.level}`);
+    if (n) lines.push(n.token ? `Next familiar token at level ${n.level}` : `Next familiar at level ${n.level}`);
     return { account: next, xp, levelsGained: gained, unlocked: unlockedNow, lines };
   }
 
@@ -180,7 +201,7 @@ const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder,
       ...(account.familiars ? { familiars: { ...account.familiars, tokens: account.familiars.tokens + Math.max(0, tokensEarnedAt(level) - tokensEarnedAt(before)) } } : {}),
       perkPoints: (account.perkPoints || 0) + Math.max(0, gained), titles: [...(account.titles || []), ...newTitles],
       inspiration: (account.inspiration || 0) + muse };
-    return { account: next, xp, levelsGained: gained, unlocked, lines: [`+${xp} learning XP`, ...(level > before ? [`Level ${level}!`] : []), ...(gained > 0 ? [`+${gained} perk point${gained === 1 ? "" : "s"}`] : []), ...(next.familiars && next.familiars.tokens > account.familiars.tokens ? [`+${next.familiars.tokens - account.familiars.tokens} familiar token${next.familiars.tokens - account.familiars.tokens === 1 ? "" : "s"}`] : []), ...(muse > 0 ? [`+${muse} Inspiration`] : []), ...newTitles.map((t) => `Title earned: ${t.name}.`), ...(before < rules.neonWardenLevel && level >= rules.neonWardenLevel ? [`New look unlocked: Purple Neon Warden.`] : []), ...unlocked.map((id) => `New summon in your palace: ${id}`)] };
+    return { account: next, xp, levelsGained: gained, unlocked, lines: [`+${xp} learning XP`, ...(level > before ? [`Level ${level}!`] : []), ...(gained > 0 ? [`+${gained} perk point${gained === 1 ? "" : "s"}`] : []), ...(next.familiars && next.familiars.tokens > account.familiars.tokens ? [`+${next.familiars.tokens - account.familiars.tokens} familiar token${next.familiars.tokens - account.familiars.tokens === 1 ? "" : "s"}`] : []), ...(muse > 0 ? [`+${muse} Inspiration`] : []), ...newTitles.map((t) => `Title earned: ${t.name}.`), ...(before < rules.neonWardenLevel && level >= rules.neonWardenLevel ? [`New look unlocked: Purple Neon Warden.`] : []), ...unlocked.map((id) => `New familiar: ${id}`)] };
   }
 
   // ── Levels value: spend, strip, read (W3.6) ──
@@ -434,6 +455,10 @@ const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder,
   // Paladin re-spec (2026-10-31): the old Paladin pair (interposition + strategic_commitment) is now Solfeggio + Strategic Commitment. Any saved loadout, character or
   // victory entry that still names the old pair is re-slotted by this one function (the account's victory ledger, ui.js's saved characters, the campaign loadout use it or its twin).
   const migratePaladinPair = (c) => (c && c.primary === "interposition" && c.secondary === "strategic_commitment" ? { ...c, primary: "solfeggio" } : c);
+  function settleCourt(account, state, options) {
+    return CourtRecord.settle(account, state, { stripLevels, unlocksUpTo, perkMenu: rules.perkMenu }, options);
+  }
+
   function serialize(account) { return JSON.stringify(account); }
   // Tri-state save read (loop 1a19dca6b72): a missing key and valid JSON with no save in it (null, 0, false) both
   // read as a new player; only present-but-unparseable bytes are broken. The store's get() cannot tell the last
@@ -465,17 +490,19 @@ const account = { version: VERSION, name, created, xp: 0, level: 1, unlockOrder,
     const order = reconcileOrder(a.order);
     // A save with a `familiars` block keeps its picks (the derivation reads them, so a lowered level cannot shrink the palace); a legacy save
     // gets its block once, and only when the token model is on (rules.familiarTokens). Otherwise nothing here changes.
-    const legacy = { order, perks: a.perks || {}, seatPick: a.seatPick };
+    const tandems = cleanTandems(a.tandems);   // Tandem T2c: an old save has none
+    const legacy = { order, perks: a.perks || {}, seatPick: a.seatPick, tandems };
     const familiars = a.familiars && typeof a.familiars === "object" ? cleanFamiliars(a.familiars)
       : rules.familiarTokens ? migrateFamiliars(legacy, levelFor(a.xp)) : null;
-    const d = { ...a, order, level: levelFor(a.xp), unlocked: unlocksUpTo({ ...legacy, ...(familiars ? { familiars } : {}) }, levelFor(a.xp)), ...(familiars ? { familiars } : {}), foughtBeside: Array.isArray(a.foughtBeside) ? a.foughtBeside : [], forms: formsOf(a),
-      perks: a.perks || {}, perkPoints: a.perkPoints || 0, perkStack: Array.isArray(a.perkStack) ? a.perkStack : [], titles: Array.isArray(a.titles) ? a.titles : [], perkLog: Array.isArray(a.perkLog) ? a.perkLog : [],
+    const d = { ...a, order, tandems, level: levelFor(a.xp), unlocked: unlocksUpTo({ ...legacy, ...(familiars ? { familiars } : {}) }, levelFor(a.xp)), ...(familiars ? { familiars } : {}), foughtBeside: Array.isArray(a.foughtBeside) ? a.foughtBeside : [], forms: formsOf(a),
+      record: CourtRecord.normalize(a.record), perks: a.perks || {}, perkPoints: a.perkPoints || 0, perkStack: Array.isArray(a.perkStack) ? a.perkStack : [], titles: Array.isArray(a.titles) ? a.titles : [], perkLog: Array.isArray(a.perkLog) ? a.perkLog : [],
 stakesLedger: Array.isArray(a.stakesLedger) ? a.stakesLedger : [], stakeCooldowns: a.stakeCooldowns || {}, justWon: a.justWon || {}, discoveries: a.discoveries || 0, beadSwallows: a.beadSwallows && typeof a.beadSwallows === "object" ? a.beadSwallows : {}, stakeEscrow: a.stakeEscrow && Array.isArray(a.stakeEscrow.vessels) ? a.stakeEscrow : null, beastSummons: Array.isArray(a.beastSummons) ? a.beastSummons : [], ownedNodes: Array.isArray(a.ownedNodes) ? a.ownedNodes : [], affinityChits: a.affinityChits || 0, namedMerges: a.namedMerges || {}, mergeLedger: Array.isArray(a.mergeLedger) ? a.mergeLedger : [], tutorCycle: a.tutorCycle || { cycle: -1, drills: 0, paid: 0 }, ...fameKeys(a), buskCycle: a.buskCycle || { cycle: -1, busked: 0 }, marks: Array.isArray(a.marks) ? a.marks : [], nodeStyles: a.nodeStyles || {}, rewriteLog: Array.isArray(a.rewriteLog) ? a.rewriteLog : [], schoolKeys: Array.isArray(a.schoolKeys) ? a.schoolKeys : [], deaths: Array.isArray(a.deaths) ? a.deaths : [], graduations: Array.isArray(a.graduations) ? a.graduations : [], teachRights: Array.isArray(a.teachRights) ? a.teachRights : [], declines: a.declines || {}, gaps: Array.isArray(a.gaps) ? a.gaps : [], rematch: a.rematch || {}, stillSeals: a.stillSeals || 0, sealed: a.sealed || null, stars: Array.isArray(a.stars) ? a.stars : [], heirloom: a.heirloom ?? null, gatelessCount: a.gatelessCount || 0, doses: Array.isArray(a.doses) ? a.doses : [], burn: a.burn || 0, dopedBouts: Array.isArray(a.dopedBouts) ? a.dopedBouts : [], headlineOwned: !!a.headlineOwned, inspiration: a.inspiration || 0, sagas: a.sagas && Array.isArray(a.sagas.past) ? a.sagas : { active: null, past: [] }, tolls: Array.isArray(a.tolls) ? a.tolls : [], debts: Array.isArray(a.debts) ? a.debts : [], parts: { common: 0, uncommon: 0, rare: 0, ...(a.parts || {}) }, orgonite: Math.max(0, Math.floor(a.orgonite) || 0), vessels: a.vessels && typeof a.vessels === "object" ? { shard: 0, bead: 0, orb: 0, ...a.vessels } : { shard: 2, bead: 2, orb: 1 }, pens: Array.isArray(a.pens) ? a.pens : [], market: a.market && typeof a.market === "object" ? a.market : null, deeds: a.deeds && typeof a.deeds === "object" ? a.deeds : {}, deedMemory: a.deedMemory && typeof a.deedMemory === "object" ? a.deedMemory : {}, contracts: a.contracts && typeof a.contracts === "object" ? { pacts: a.contracts.pacts || {}, active: a.contracts.active || null, blacklist: a.contracts.blacklist || {}, standing: a.contracts.standing || {}, log: Array.isArray(a.contracts.log) ? a.contracts.log : [] } : { pacts: {}, active: null, blacklist: {}, standing: {}, log: [] }, seenSystems: a.seenSystems && typeof a.seenSystems === "object" && !Array.isArray(a.seenSystems) ? a.seenSystems : {}, fruitStudyNotes: (() => { const n = a.fruitStudyNotes; if (!n || typeof n !== "object" || Array.isArray(n)) return { plant: {}, structure: {} }; const side = (k) => { const s = n[k]; if (!s || typeof s !== "object" || Array.isArray(s)) return {}; return Object.fromEntries(Object.entries(s).filter(([, c]) => typeof c === "string" && c)); }; return { plant: side("plant"), structure: side("structure") }; })() };   // W6.1: old saves start the journey empty   // O3: old saves normalize to {}   // Perfect Recall S6c: old saves normalize to empty plant/structure maps
     // vessel economy ruling 1: a save with no vessels key predates the economy and gets one 2/2/1 deposit, once.
     // Paladin re-spec (2026-10-31, PALADIN.md): a saved victory over the Paladin carries the old pair; its kit now lives on Solfeggio + Strategic Commitment,
     // so the Warden's echo of it would lose every new card. Re-slot the saved pair; nothing else in the entry changes.
     { const v = d.victories?.paladin; if (v && migratePaladinPair(v) !== v) d.victories = { ...d.victories, paladin: migratePaladinPair(v) }; }
     d.sageDream = a.sageDream && typeof a.sageDream.battles === "number" ? { battles: a.sageDream.battles, pvWins: a.sageDream.pvWins || 0 } : { battles: 0, pvWins: 0 };   // W5.3: the Sage's dream ladder
+    { const obj = (v) => v && typeof v === "object" && !Array.isArray(v) ? v : {}; d.exiles = obj(a.exiles); d.crewRep = obj(a.crewRep); }   // Exile T0a: an old save has neither; both default to empty
     return d;
   }
   // Fold the UI's earlier localStorage profile ({ xp, level, ... }) into a new account.
@@ -492,5 +519,5 @@ stakesLedger: Array.isArray(a.stakesLedger) ? a.stakesLedger : [], stakeCooldown
     return out;
   }
 
-  return { migratePaladinPair, friendsOf, friendsMadeIn, addFriends, learnedFormsOf, learnForms, formsTaughtIn, orbsOf, addOrbs, spendOrb, orbsWonIn, secretsOf, addSecret, formsOf, addForms, beatenIn, recordVictories, emissaryMet, recordEmissary, victoriesOf, VERSION, rules, benefitOrder, createAccount, awardBattle, awardLearning, battleXp, unlockedSummons, nextUnlock, unlocksUpTo, familiarGates, tokensEarnedAt, migrateFamiliars, buyFamiliar, returnLastPick, serialize, deserialize, readSave, fromLegacyProfile, levelFor, spendPerk, stripLevels, perkMods, titlesOf, deedsFrom, noteDeeds, noteDeed, deedGate };
+  return { migratePaladinPair, friendsOf, friendsMadeIn, addFriends, learnedFormsOf, learnForms, formsTaughtIn, orbsOf, addOrbs, spendOrb, orbsWonIn, secretsOf, addSecret, formsOf, addForms, beatenIn, recordVictories, emissaryMet, recordEmissary, victoriesOf, cleanTandems, tandemsPassed, VERSION, rules, settleCourt, benefitOrder, createAccount, awardBattle, awardLearning, battleXp, unlockedSummons, nextUnlock, unlocksUpTo, familiarGates, dreamGates, tokensEarnedAt, migrateFamiliars, buyFamiliar, returnLastPick, serialize, deserialize, readSave, fromLegacyProfile, levelFor, spendPerk, stripLevels, perkMods, titlesOf, deedsFrom, noteDeeds, noteDeed, deedGate };
 });

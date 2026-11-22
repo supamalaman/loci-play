@@ -887,6 +887,13 @@
      "h": 344,
      "sha": "87256887d054",
      "baked": true
+    },
+    "olive-branch": {
+     "src": "art/olive/01-olive-branch.png",
+     "w": 884,
+     "h": 1489,
+     "sha": "1368a556d851",
+     "baked": true
     }
    }
   };

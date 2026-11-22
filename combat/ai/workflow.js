@@ -7,6 +7,7 @@
 })(typeof self !== "undefined" ? self : this, function () {
   const TRAITS = {
     scout: { understand: 1.6, position: 0.8, support: 0.4 },
+    messenger: { understand: 1.6, position: 0.8, support: 0.4 },   // Raven R2: an observing Raven is its own trait doing it, not a dial (same line as Scout)
     discernment:{understand:2,exploit:1},botanist:{understand:1.2,summon:2.4},horticultureExpertise:{summon:1.8,support:1},hiker:{understand:.6},plantKin:{understand:1,summon:1},
     fearful: { survive: 2.2, protect: 0.7 }, skittish: { survive: 2.5, position: 0.8 },
     proud: { pressure: 1.8 }, impatient: { pressure: 1.6, prepare: -0.5 },
@@ -23,7 +24,7 @@
     contemplative: { prepare: 1.2, understand: 0.4 }, restless: { position: 0.8, prepare: -0.6 },   // C15: the meditate gates themselves are in engine.js
     // T1 traits (insight-data.js registry). Biology that moves the AI, then values.
     keenSenses: { understand: 1.0 }, hardy: { position: 0.6 }, fleetFooted: { position: 0.8 }, frail: { survive: 0.8, position: 0.5 },
-    courageous: { protect: 1.2, pressure: 0.6, survive: -1.0 }, brave: { persistence: 1.4, protect: 0.8, survive: -0.8 }, merciful: { pressure: -0.8, support: 0.8 }, gentleHand: { protect: 0.6, support: 0.6 }, honorable: { pressure: 0.8, exploit: -1.2 },
+    courageous: { protect: 1.2, pressure: 0.6, survive: -1.0 }, brave: { persistence: 1.4, protect: 0.8, survive: -0.8 }, merciful: { pressure: -0.8, support: 0.8 }, gentleHand: { protect: 0.6, support: 0.6 }, honorable: { pressure: 0.8, exploit: -1.2 }, doNoHarm: { protect: 0.6, support: 0.6 },   /* 1.3.570 merge (Northlight IN): mirrors gentleHand, the same spare-at-1-LF mechanic (traits.test) */
     dutiful: { persistence: 1.6, protect: 0.8 }, zealous: { persistence: 1.4, pressure: 0.4 }, byTheBook: { persistence: 1.2, protect: 0.6 }, citesPrecedent: { understand: 1.2, protect: 0.6 }, findersKeepers: { hoard: 1.0, position: 0.4 },   /* 1.3.568 merge (Gangway IN): goal weights the W2 and TH1 values traits lacked (traits.test) */ thrifty: { prepare: 1.2, hoard: 0.6, pressure: -0.3 }, pacifist: { support: 1.6, protect: 1.2, pressure: -2.0 },
     steward: { protect: 1.0, prepare: 0.6 }, dreamer: { summon: 1.2, prepare: 0.8 }, truthSeeker: { understand: 1.8, exploit: 0.6 }, charitable: { support: 1.8, hoard: -1.5 },
     traditionalist: { persistence: 1.0, prepare: 0.5, understand: -0.5 }, craftsmansMindset: { prepare: 1.4, persistence: 1.2, pressure: -0.3 }, robotSympathizer: { understand: 0.8, pressure: -0.2 }, robotHater: { pressure: 0.8, understand: -0.4 }, ambitious: { pressure: 1.2, exploit: 0.8, support: -0.5 },

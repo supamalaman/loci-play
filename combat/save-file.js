@@ -15,7 +15,7 @@
   const ACCOUNT_KEY = "loci:combat:account:v1";
   const ALLOW = [ACCOUNT_KEY, "loci:combat:profile", "loci:combat:character", "loci:combat:saved-characters",
     "loci:combat:sprite-packages", "loci:combat:neon-warden-offered", "loci:combat:pace", "loci:combat:text-size", "loci:combat:follow",
-    "loci:combat:zoom", "loci:combat:dialogue", "loci:combat:narration", "loci:combat:full-animation",
+    "loci:combat:zoom", "loci:combat:dialogue", "loci:combat:narration", "loci:combat:full-animation", "loci:combat:fx3",
     "loci:combat:iso-view", "loci:combat:iso-cutaway", "loci:combat:teach-mode", "loci:combat:hints:v1",
     "loci:vignettes:phase-one", "loci:hall:v1", "loci:combat:math:graph-theory:v1", "loci:npc:keepers", "loci-mute"];
   // Command pins are one key per character (ui.js pinKey): `loci:combat:pins:<character>`. They travel as a
@@ -45,6 +45,7 @@
     "loci:combat:dialogue": [isBool, "dialogue"],
     "loci:combat:narration": [isStr, "narration"],
     "loci:combat:full-animation": [isBool, "animation"],
+    "loci:combat:fx3": [isBool, "3D effects"],
     "loci:combat:iso-view": [isBool, "iso view"],
     "loci:combat:iso-cutaway": [isBool, "iso cutaway"],
     "loci:combat:teach-mode": [isBool, "teach mode"],

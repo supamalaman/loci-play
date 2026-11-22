@@ -22,14 +22,16 @@
     // hit it and it does not act (stasis: Muse's addition, without it the target dies in the crossfire). The
     // channeler must hold still and not be hurt. Done, the monster becomes a bead; a bead releases a fragile allied
     // beast (half the monster's LF) for three turns.
-    const chanted = (s, monsterId) => Object.values(s.actors).some(u => u.ritual && u.ritual.monsterId === monsterId && !u.defeated);
+    const chanted = (s, monsterId) => Object.values(s.actors).some(u => !u.defeated && H.Rites.capture(u)?.monsterId === monsterId);
     // Standing water is distinct from rain/flash-flood wetness. This query is read-only.
-    function waterState(s,x,y) {
+    function waterState(s,x,y,readClimate=true) {
       const tile=H.tileAt(s,x,y), standing=!!tile.tags?.includes("water"), ch=H.surfaceAt(s,x,y);
-      const flood=s.waterField?.[H.key(x,y)];
-      const micro=H.Climate && s.weatherState ? H.Climate.microclimate(H.moduleArena(s.arena),s.weatherState,{wetTiles:Object.keys(s.wildWet||{}).map(k=>k.split(",").map(Number))}).at(x,y) : null;
-      return {standing,depth:standing ? (ch==="~" ? "deep" : "shallow") : "dry",wet:standing || !!micro?.wet || !!s.wildWet?.[H.key(x,y)],
-        flow:standing ? flood?.flow || 0 : 0,level:flood?.level ?? null};
+      const k=H.key(x,y), flood=s.waterField?.[k], highWater=!!s.water?.highwater?.[k];
+      const micro=readClimate && H.Climate && s.weatherState ? H.Climate.microclimate(H.moduleArena(s.arena),s.weatherState,{wetTiles:Object.keys(s.wildWet||{}).map(k=>k.split(",").map(Number))}).at(x,y) : null;
+      return {standing,depth:standing ? (ch==="~" ? "deep" : "shallow") : "dry",wet:standing || highWater || !!micro?.wet || !!s.wildWet?.[k],
+        flow:standing ? flood?.flow || 0 : 0,level:flood?.level ?? null,
+        volume:standing ? (s.water?.depth?.[k] ?? (ch==="~" ? 3 : 1)) : 0,
+        current:standing && s.water?.drift?.[k] ? s.water.drift[k].slice() : null,highWater};
     }
     const isSwimmer=a=>(a?.traits||[]).some(t=>H.traitKey(t)==="swimmer");
     const hasGills=a=>(a?.traits||[]).some(t=>H.traitKey(t)==="gills");
@@ -79,6 +81,10 @@
     }
     function updateWater(s) {
       const driver=s.waterLevel;if(!driver)return;
+      if (s.arena.waterAgenda) {
+        queueWaterSources(s, riserSources(s, driver), "The water-level riser");
+        return;
+      }
       for(const [k,f] of Object.entries(s.waterField||{})) {
         const [x,y]=k.split(",").map(Number);
         if(s.arena.map[y]?.[x]===f.to)s.arena.map[y]=s.arena.map[y].slice(0,x)+f.from+s.arena.map[y].slice(x+1);
@@ -95,6 +101,7 @@
     // Dry reading of the same fill. The live map and the live field are put back.
     function previewFlood(s, driver) {
       if (!s?.arena?.map || !driver) return [];
+      if (s.arena.waterAgenda) return riserSources(s, driver).map(p => H.key(...p.at));
       const map = s.arena.map.slice();
       const field = s.waterField;
       s.waterField = {};
@@ -109,138 +116,255 @@
         s.waterField = field || {};
       }
     }
+    function riserSources(s, driver) {
+      return (driver.pockets || [driver]).flatMap(pocket => (pocket.sources || []).flatMap(at => {
+        const [x, y] = at;
+        if (!waterOpen(s, x, y) || (pocket.bounds && !pocket.bounds.includes(H.key(x, y)))) return [];
+        const volume = (pocket.level ?? driver.level ?? 0) - H.heightAt(s, x, y);
+        return volume > 0 ? [{ at, volume }] : [];
+      }));
+    }
     function advanceWater(s) {
+      if (!s.waterLevel && s.arena.waterAgenda && s.arena.waterLevel) s.waterLevel = H.clone(s.arena.waterLevel);
       if(!s.waterLevel || s.waterLevel.lastRound===s.round)return;
       const d=s.waterLevel;d.lastRound=s.round;
       d.level=Math.max(0,Math.min(d.maxLevel??3,(d.level||0)+(d.risePerRound||0)));
       updateWater(s);
     }
-    // ── Living Water agenda, W1 (accumulate + flow on streams-only maps). Water takes a phase
-    // each round after weather (turns.js beginRound): rain pools in the low ground, water spreads
-    // downhill with a current vector per wet edge. Depth is volume: 0 dry, 1+ shallow; deep (3+)
-    // and its pushes belong to W2, so W1 clamps at 2 and never paints "~" (pre-mortem #1: no
-    // flooded battle before W3's AI reads). Only arena-flagged maps run it (s.arena.waterAgenda),
-    // so every existing battle is untouched. Perf (T13): the flow pass visits wet tiles and their
-    // neighbors only; the rain pass is skipped entirely when nothing falls. Deterministic: fixed
-    // neighbor order, no rolls.
-    const WATER_W1_MAX = 2, WATER_PAINTABLE = [".", ",", "m"];
-    function waterAgenda(s) {
-      if (!s?.arena?.waterAgenda || s.preview) return;
-      const W = (s.water ||= { depth: {}, flow: {}, highwater: {} });
-      W.painted ||= {}; W.flow = {};
-      let visited = 0;
-      const w = s.arena.w, h = s.arena.h, key = H.key;
-      const wetBefore = new Set(Object.keys(W.depth).filter((k) => W.depth[k] > 0));
-      if (!W.seeded) {   // streams always run: standing shallows open at depth 1
-        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
-          if (H.surfaceAt(s, x, y) === "w") W.depth[key(x, y)] = Math.max(W.depth[key(x, y)] || 0, 1);
-        W.seeded = true;
+    // One volume ledger on opted-in arenas. Deep flooding is reserved for maps with W3 water-aware AI.
+    const WATER_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const WATER_PAINTABLE = [".", ",", "m", "w", "~"];
+    const agendaWater = s => (s.water ||= { depth: {}, flow: {}, highwater: {} });
+    const agendaLimit = s => s.arena.waterAgenda?.maxDepth === 3 ? 3 : 2;
+    const waterPos = key => key.split(",").map(Number);
+    const isFord = (s, x, y) => !!s.arena.fordTiles?.[H.key(x, y)] && H.surfaceAt(s, x, y) === "w";
+    const volumeLimit = (s, k) => s.arena.fordTiles?.[k] ? 2 : agendaLimit(s);
+    function waterOpen(s, x, y) {
+      const barrier = H.barrierAt(s, x, y);
+      const basin = s.arena.waterAgenda?.basin;
+      return H.inside(s, x, y) && (!basin || basin[H.key(x, y)]) && WATER_PAINTABLE.includes(H.surfaceAt(s, x, y))
+        && (!barrier || barrier.passable)
+        && !s.arena.objects?.some(o => o.x === x && o.y === y && o.blocksMove)
+        && !s.terrainEffects?.some(e => e.kind === "checkDam" && e.x === x && e.y === y && s.actors[e.owner]?.ownerTurns < e.expiresAt);
+    }
+    function queueWaterSurge(s, tiles, volume, label) {
+      if (!s.arena.waterAgenda) return false;
+      const sources = tiles.map(at => ({ at, volume }));
+      queueWaterSources(s, sources, label);
+      return true;
+    }
+    function queueWaterSources(s, sources, label) {
+      const open = sources.filter(({ at }) => waterOpen(s, ...at));
+      if (!open.length) return;
+      const W = agendaWater(s), round = s.round + 1;
+      const keys = new Set();
+      for (const { at: [x, y] } of open) {
+        keys.add(H.key(x, y));
+        const vector = downhill(s, x, y);
+        if (vector) keys.add(H.key(x + vector[0], y + vector[1]));
       }
-      const sky = H.Climate?.data?.weather?.[s.weatherState?.id];
-      const rate = sky?.rain ? 1 + (sky.wind || 0) : 0;
+      const tiles = [...keys].map(waterPos);
+      (W.surge ||= []).push({ round, label, sources: open, tiles });
+      s.wildTelegraphs.push({ kind: "surge", tiles });
+      H.log(s, { kind: "flood", tiles, text: label + " will release water next round.",
+        why: [tiles.map(at => `(${at.join(",")})`).join(" · ")] });
+    }
+    function downhill(s, x, y) {
+      let level = H.heightAt(s, x, y), best = null;
+      for (const [dx, dy] of WATER_DIRS) {
+        const nx = x + dx, ny = y + dy;
+        if (!waterOpen(s, nx, ny)) continue;
+        const next = H.heightAt(s, nx, ny);
+        if (next < level) { level = next; best = [dx, dy]; }
+      }
+      return best;
+    }
+    function previewCurrent(s, [x, y], actorId) {
+      const vector = s.water?.drift?.[H.key(x, y)];
+      if (!vector || !waterOpen(s, x, y)) return null;
+      const nx = x + vector[0], ny = y + vector[1];
+      if (!waterOpen(s, nx, ny) || H.heightAt(s, nx, ny) >= H.heightAt(s, x, y)) return null;
+      if (actorId) {
+        const a = s.actors[actorId], occupant = H.unitAt(s, nx, ny);
+        if (!a || a.defeated || a.notArrived || a.structure || chanted(s, a.id) || isSwimmer(a)
+          || H.ClassRuntime?.flies(a) || a.passives?.floodShoveImmune
+          || (occupant && occupant.id !== a.id) || !H.footOpen(s, a, nx, ny, "move")) return null;
+      }
+      return { from: [x, y], to: [nx, ny], round: s.water.driftRound };
+    }
+    function waterTelegraphs(s) {
+      const W = s.water;
+      if (!W) return [];
+      const current = Object.keys(W.drift || {}).map(waterPos);
+      const pending = (W.surge || []).filter(e => e.round === s.round + 1);
+      return [
+        ...(current.length ? [{ kind: "current", tiles: current }] : []),
+        ...pending.map(e => ({ kind: "surge", tiles: e.tiles })),
+      ];
+    }
+    function driftWater(s, W) {
+      if (W.driftRound !== s.round) return;
+      const drift = (x, y, actorId) => {
+        const route = previewCurrent(s, [x, y], actorId);
+        if (!route || !H.waterAt(s, ...route.to)) return null;
+        return route;
+      };
+      for (const item of s.arena.pickups || []) {
+        const route = !item.fixed && !item.anchored && drift(item.x, item.y);
+        if (!route) continue;
+        [item.x, item.y] = route.to;
+        H.log(s, { kind: "flood", tiles: [route.from, route.to], text: "The current carries a loose item downstream." });
+      }
+      for (const a of Object.values(s.actors)) {
+        const route = drift(a.x, a.y, a.id);
+        if (route) H.knock(s, a, a, 1, route, "current");
+      }
+    }
+    function waterAgenda(s) {
+      if (!s?.arena?.waterAgenda) return;
+      const W = agendaWater(s), { w, h } = s.arena, key = H.key;
+      const seedSources = !W.sources;
+      W.painted ||= {}; W.sources ||= {}; W.flow = {};
+      let visited = 0;
+      const wetBefore = Object.keys(W.depth);
+      if (seedSources) {
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+          const k = key(x, y), ch = W.painted[k] ?? s.arena.map[y][x];
+          if (ch !== "w" && ch !== "~") continue;
+          W.sources[k] = ch === "~" ? 3 : 1;
+          W.depth[k] = Math.max(W.depth[k] || 0, W.sources[k]);
+        }
+      }
+      const weather = H.Climate?.sky(s);
+      const sky = H.Climate?.data?.weather?.[weather?.id];
+      const sun = sky?.sun && !weather.night;
+      const micro = sky?.rain || (sun && (wetBefore.length || W.surge?.length)) ? H.Climate.microclimate(H.moduleArena(s.arena), weather) : null;
+      const feed = (k, volume, cap = volumeLimit(s, k)) => {
+        W.depth[k] = Math.max(W.depth[k] || 0, Math.min(cap, (W.depth[k] || 0) + volume));
+      };
       const pooled = [];
-      if (rate > 0) {   // Accumulate. Rain falls everywhere open; low cells first is what flow does with it.
-        const mc = H.Climate.microclimate(H.moduleArena(s.arena), s.weatherState, { wetTiles: Object.keys(s.wildWet || {}).map((k) => k.split(",").map(Number)) });
+      if (sky?.rain) {
         const canopyHolds = H.Climate.data.rules.canopyHoldsRainRounds;
         for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
           visited++;
-          const ch = H.surfaceAt(s, x, y);
-          if (ch !== "w" && ch !== "~" && !WATER_PAINTABLE.includes(ch)) continue;
-          const m = mc.at(x, y);
-          if (m?.canopy && (s.weatherState.rainRounds || 0) <= canopyHolds) continue;   // canopy holds the rain off (existing rule)
-          const k = key(x, y), before = W.depth[k] || 0;
-          if (before >= WATER_W1_MAX) continue;
-          W.depth[k] = Math.min(WATER_W1_MAX, before + rate);
-          if (before < 1 && W.depth[k] >= 1) pooled.push([x, y]);
+          if (!waterOpen(s, x, y) || (micro.at(x, y)?.canopy && (s.weatherState.rainRounds || 0) <= canopyHolds)) continue;
+          const k = key(x, y);
+          if (!W.depth[k]) pooled.push([x, y]);
+          feed(k, weather.id === "squall" ? 2 : 1, Math.min(volumeLimit(s, k), s.arena.waterAgenda?.rainDepth ?? 3));
+        }
+        if (s.weatherState.id === "squall" && pooled.length) H.log(s, { kind: "flood", tiles: pooled, text: "The squall drives extra water into exposed ground." });
+      }
+      if (pooled.length) H.log(s, { kind: "flood", tiles: pooled, text: "Rain pools in the low ground." });
+      const injected = new Set();
+      for (const surge of W.surge || []) {
+        if (surge.round !== s.round) continue;
+        const tiles = surge.sources.filter(({ at }) => waterOpen(s, ...at)).map(({ at, volume }) => {
+          const k = key(...at); injected.add(k); feed(k, volume);
+          return at;
+        });
+        if (tiles.length) {
+          H.log(s, { kind: "flood", tiles, text: surge.label + " releases water." });
+          (s.dreamRecent ||= {}).flood = true;
         }
       }
-      const arrivals = [];   // Flow. Each wet tile hands one volume to its lowest lower neighbor; the pooled stay.
-      const wetKeys = Object.keys(W.depth).filter((k) => W.depth[k] > 0).sort();
-      const region = new Set(wetKeys);
-      for (const k of wetKeys) {
-        const [x, y] = k.split(",").map(Number);
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nx = x + dx, ny = y + dy;
-          if (nx >= 0 && ny >= 0 && nx < w && ny < h) region.add(key(nx, ny));
-        }
-      }
-      const moves = [];
-      for (const k of [...region].sort()) {
-        visited++;
-        if ((W.depth[k] || 0) <= 0) continue;
-        const [x, y] = k.split(",").map(Number), here = H.heightAt(s, x, y);
-        let best = null;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h || H.surfaceAt(s, nx, ny) === "#") continue;
-          const nh = H.heightAt(s, nx, ny);
-          if (nh < here && (!best || nh < best.h)) best = { h: nh, dx, dy, k: key(nx, ny) };
-        }
-        if (best) { W.flow[k] = [best.dx, best.dy]; moves.push([k, best.k]); }
-        else W.flow[k] = null;   // pooled: no lower neighbor, the low ground keeps it
+      // Only due injections can change the ledger.
+      W.surge = (W.surge || []).filter(e => e.round > s.round);
+      const arrivals = new Set(), region = new Set(), moves = [];
+      const wet = Object.keys(W.depth).sort();
+      for (const k of wet) {
+        const [x, y] = waterPos(k);
+        region.add(k);
+        for (const [dx, dy] of WATER_DIRS) if (H.inside(s, x + dx, y + dy)) region.add(key(x + dx, y + dy));
+        const v = waterOpen(s, x, y) ? downhill(s, x, y) : null;
+        W.flow[k] = v;
+        if (v) moves.push([k, key(x + v[0], y + v[1])]);
       }
       for (const [from, to] of moves) {
-        W.depth[from] -= 1;
-        if (W.depth[from] <= 0) delete W.depth[from];
-        const had = W.depth[to] || 0;
-        W.depth[to] = Math.min(WATER_W1_MAX, had + 1);
-        if (had < 1 && !wetBefore.has(to)) { const [x, y] = to.split(",").map(Number); arrivals.push([x, y]); }
+        if ((W.depth[to] || 0) >= volumeLimit(s, to)) continue;
+        W.depth[from] = Math.max(W.sources[from] || 0, W.depth[from] - 1);
+        feed(to, 1);
+        arrivals.add(to);
       }
-      const wetNow = new Set(Object.keys(W.depth).filter((k) => W.depth[k] > 0));
-      const marks = {};   // high-water: one dry round of memory where depth just left
-      for (const k of wetBefore) if (!wetNow.has(k)) marks[k] = 1;
-      W.highwater = marks;
-      for (const k of Object.keys(W.depth)) {   // paint newly wet tiles shallow, restore newly dry ones
-        const [x, y] = k.split(",").map(Number), ch = H.surfaceAt(s, x, y);
-        if (W.depth[k] >= 1 && WATER_PAINTABLE.includes(ch)) {
-          W.painted[k] = ch;
-          s.arena.map[y] = s.arena.map[y].slice(0, x) + "w" + s.arena.map[y].slice(x + 1);
+      const marks = {};
+      const changed = new Set();
+      for (const k of Object.keys(W.depth)) {
+        const [x, y] = waterPos(k), ch = s.arena.map[y][x];
+        if (!WATER_PAINTABLE.includes(ch)) {
+          delete W.sources[k]; delete W.depth[k]; delete W.painted[k];
+          changed.add(k);
+          continue;
         }
+        const base = W.painted[k] ?? ch;
+        // New water survives its arrival phase; unsaturated soil and direct sun then take one volume.
+        if (!sky?.rain && !injected.has(k) && !arrivals.has(k) && ([",", "m"].includes(base) || (sun && !micro?.at(x, y)?.shade))) {
+          W.depth[k] = Math.max(W.sources[k] || 0, W.depth[k] - 1);
+        }
+        if (!W.depth[k]) delete W.depth[k];
+        const next = W.depth[k] >= 3 ? "~" : W.depth[k] > 0 ? "w" : base;
+        if (next !== ch && WATER_PAINTABLE.includes(ch)) {
+          if (W.painted[k] == null) W.painted[k] = ch;
+          s.arena.map[y] = s.arena.map[y].slice(0, x) + next + s.arena.map[y].slice(x + 1);
+          changed.add(k);
+        }
+        if (next === base || !W.depth[k]) delete W.painted[k];
       }
-      for (const k of Object.keys(W.painted)) {
-        if ((W.depth[k] || 0) >= 1) continue;
-        const [x, y] = k.split(",").map(Number);
-        if (s.arena.map[y]?.[x] === "w") s.arena.map[y] = s.arena.map[y].slice(0, x) + W.painted[k] + s.arena.map[y].slice(x + 1);
-        delete W.painted[k];
+      for (const k of wetBefore) if (!W.depth[k]) marks[k] = 1;
+      W.highwater = marks;
+      W.lastTickTiles = visited + region.size;
+      if (arrivals.size) H.log(s, { kind: "flood", tiles: [...arrivals].map(waterPos), text: "Water spreads downhill." });
+      driftWater(s, W);
+      for (const a of Object.values(s.actors)) if (changed.has(key(a.x, a.y))) refreshWaterDrowning(s, a, "the water changes underfoot");
+      W.drift = {}; W.driftRound = s.round + 1;
+      for (const k of Object.keys(W.depth)) {
+        const [x, y] = waterPos(k);
+        const v = waterOpen(s, x, y) ? downhill(s, x, y) : null;
+        if (v) W.drift[k] = v;
       }
-      W.lastTickTiles = visited;
-      if (pooled.length) H.log(s, { kind: "flood", tiles: pooled.slice(0, 12), text: `Rain pools in the low ground${pooled.length > 12 ? ` (${pooled.length} tiles)` : ""}.` });
-      if (arrivals.length) H.log(s, { kind: "flood", tiles: arrivals.slice(0, 12), text: `Water spreads downhill${arrivals.length > 12 ? ` (${arrivals.length} tiles)` : ""}.` });
+      const warned = Object.keys(W.drift).map(k => previewCurrent(s, waterPos(k)));
+      if (warned.length) H.log(s, { kind: "flood", tiles: warned.map(p => p.from),
+        text: "Currents may drag units downstream next round.",
+        why: warned.map(({ from, to }) => `(${from.join(",")}) → (${to.join(",")})`) });
     }
     function endRitual(s, a, how) {
-      if (!a.ritual) return;
-      const visitor = !!a.ritual.visitor;
-      const m = (s.wild || []).find(w => w.id === a.ritual.monsterId); if (m) delete m.suspended;   // a dream creature's stasis is the chant itself (chanted), nothing to clear
-      const held = m || s.actors[a.ritual.monsterId], heldTile = held ? [[held.x, held.y]] : [];   // both ends, so break effects play on both (RITUAL_FEEDBACK.md)
-      a.ritual = null; (s.captureLog ||= []).push({ actor: a.id, [how]: true });
+      const capture = H.Rites.capture(a);
+      if (!capture) return;
+      const visitor = !!capture.visitor;
+      const m = (s.wild || []).find(w => w.id === capture.monsterId); if (m) delete m.suspended;   // a dream creature's stasis is the chant itself (chanted), nothing to clear
+      const held = m || s.actors[capture.monsterId], heldTile = held ? [[held.x, held.y]] : [];   // both ends, so break effects play on both (RITUAL_FEEDBACK.md)
+      H.Rites.setCapture(a, null);
+      H.Rites.recordCapture(s, a, how, { [how]: true });
       log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y], ...heldTile], ended: how, text: how === "broken" ? `${a.name}'s ${visitor ? "retrieval chant" : "capture ritual"} breaks under the blow.` : how === "moved" ? `${a.name} moves and the ${visitor ? "retrieval chant" : "capture ritual"} collapses.` : visitor ? `${a.name}'s chant fizzles: the specimen is gone.` : `${a.name}'s ritual fizzles: the monster is gone.` });
       flushSacrifice(s, a);   // a death that waited on this channel opens its rite now, before the same blow can break it
     }
-    function ritualTick(s, a) {
-      if (!a.ritual) return;
-      const visitor = !!a.ritual.visitor;
-      const held = a.ritual.mind || visitor || a.ritual.gaia;   // an actor held in the chant, not a wild unit
-      const mind = held ? s.actors[a.ritual.monsterId] : null;
-      const m = held ? (mind && !mind.defeated ? mind : null) : (s.wild || []).find(w => w.id === a.ritual.monsterId && w.form === "unit");
+    function ritualTick(s, a, finish = false) {
+      const capture = H.Rites.capture(a);
+      if (!capture) return;
+      const visitor = !!capture.visitor;
+      const held = capture.mind || visitor || capture.gaia;   // an actor held in the chant, not a wild unit
+      const mind = held ? s.actors[capture.monsterId] : null;
+      const m = held ? (mind && !mind.defeated ? mind : null) : (s.wild || []).find(w => w.id === capture.monsterId && w.form === "unit");
       if (!m) return endRitual(s, a, "fizzled");   // gone: killed, faded with its dream, fled, or taken already
-      a.ritual.turnsLeft -= 1;
-      if (a.ritual.turnsLeft > 0) { log(s, { kind: "ritual", actor: a.id, tiles: [[m.x, m.y]], text: `${a.name} chants on (${a.ritual.turnsLeft} turn${a.ritual.turnsLeft === 1 ? "" : "s"} left).` }); return; }
-      const gaiaHeld = !!a.ritual.gaia;
-      a.ritual = null;
+      const turnsLeft = finish ? 0 : capture.turnsLeft - 1;
+      if (turnsLeft > 0) {
+        H.Rites.setCapture(a, { ...capture, turnsLeft });
+        log(s, { kind: "ritual", actor: a.id, tiles: [[m.x, m.y]], text: `${a.name} chants on (${turnsLeft} turn${turnsLeft === 1 ? "" : "s"} left).` });
+        return;
+      }
+      H.Rites.setCapture(a, null);
       flushSacrifice(s, a);   // a death that waited on this channel opens its rite once the chant is done
-      if (visitor) { if (H.Visitors) H.Visitors.abduct(s, m, { log }); return checkOutcome(s); }   // Intergalactic visitors P1: up into the ship, not into a bead
-      if (gaiaHeld || m.kind === "gaia") return bindGaia(s, a, m);   // Gaia: bound as a summon, not a bead
+      if (visitor) { if (H.Visitors) H.Visitors.abduct(s, m, { log, Rites: H.Rites }); return checkOutcome(s); }   // Intergalactic visitors P1: up into the ship, not into a bead
+      if (capture.gaia || m.kind === "gaia") return bindGaia(s, a, m);   // Gaia: bound as a summon, not a bead
       if (mind) {   // a monster of the mind: it leaves the field as a bead, and will come back tamed
         if (mind.dream?.source === "brood" && (a.beads || []).filter((b) => b.mind?.key === "broodMite").length >= (s.rules.brood?.maxHeld ?? 4)) { log(s, { kind: "ritual", actor: a.id, tiles: [[mind.x, mind.y]], ended: "full", text: `${a.name}'s hand is already full of Brood Mite beads: the chant ends and the ${mind.name.toLowerCase()} stays.` }); return checkOutcome(s); }   // the held cap also holds at the end of a chant begun below it
         mind.defeated = true; mind.escaped = true; mind.captured = true; mind.leaveReason = "taken into a bead"; mind.tempo = 0; spiritGone(s, mind);
         (a.beads ||= []).push({ kind: "dream", name: mind.name, maxLF: mind.maxLF, mind: { key: mind.dream.key, character: mind.character, sprite: mind.sprite, primary: mind.primary, secondary: mind.secondary, monster: mind.monster || null, dream: { ...mind.dream } } });
-        (s.captureLog ||= []).push({ actor: a.id, kind: `dream:${mind.dream.key}`, ok: true });
+        H.Rites.recordCapture(s, a, "ok", { kind: `dream:${mind.dream.key}`, ok: true });
         log(s, { kind: "ritual", actor: a.id, tiles: [[mind.x, mind.y]], captured: `dream:${mind.dream.key}`, text: `${a.name} completes the ritual: the ${mind.name.toLowerCase()} is taken into a bead.`, why: ["Released, it comes back tamed: on your side, for the rest of the battle, dream or no dream."] });
         return checkOutcome(s);
       }
       s.wild = s.wild.filter(w => w.id !== m.id);
       (a.beads ||= []).push({ kind: m.kind, name: m.name || wildRules?.data?.monsters?.[m.kind]?.name || m.kind, maxLF: m.maxLF });
-      (s.captureLog ||= []).push({ actor: a.id, kind: m.kind, ok: true });
+      H.Rites.recordCapture(s, a, "ok", { kind: m.kind, ok: true });
       log(s, { kind: "ritual", actor: a.id, tiles: [[m.x, m.y]], captured: m.kind, text: `${a.name} completes the ritual: the ${(m.name || m.kind).toLowerCase()} becomes a bead.`, why: ["A bead can be released beside you as a short-lived ally."] });
       checkOutcome(s);
     }
@@ -251,7 +375,7 @@
       else s.wild = (s.wild || []).filter(w => w.id !== m.id);
       const ours = a.side === "player";
       if (ours && !(s.summonUnlocks ||= []).includes("gaia")) s.summonUnlocks.push("gaia");
-      (s.captureLog ||= []).push({ actor: a.id, kind: "gaia", ok: true });
+      H.Rites.recordCapture(s, a, "ok", { kind: "gaia", ok: true });
       log(s, { kind: "ritual", actor: a.id, tiles: [[m.x, m.y]], captured: "gaia", text: `${a.name} completes the ritual: Gaia is bound${ours ? ", and she will answer your summons in battles to come" : ""}.`,
         why: ours ? ["Summon her as the Living Accord. Dream Space reveals the Wounded Ground; channel MAX into her and she stands up as the World Goddess."] : [] });
       checkOutcome(s);
@@ -261,9 +385,10 @@
     function finishRitualsOnWin(s) {
       if (s.outcome?.winner !== "player") return;
       for (const a of Object.values(s.actors)) {
-        if (a.side !== "player" || !a.ritual || a.ritual.visitor) continue;
+        const capture = H.Rites.capture(a);
+        if (a.side !== "player" || !capture || capture.visitor) continue;
         const had = (a.beads || []).length;
-        a.ritual.turnsLeft = 1; ritualTick(s, a);   // completes it, or fizzles if the monster is already gone
+        ritualTick(s, a, true);   // completes it, or fizzles if the monster is already gone
         if ((a.beads || []).length > had) log(s, { kind: "ritual", actor: a.id, text: `The fight was won mid-chant, so ${a.name}'s capture held to the end.` });
       }
     }
@@ -319,13 +444,14 @@
       return { ok: true, marker: mk };
     }
     // ── Movement money (machine P1): concept-agnostic discounts, surcharges and refunds on voluntary moves.
-    // Mods live in a.status.moveMods: [{ id, kind: "discount"|"surcharge"|"refund", amount, once?, perTurnCap?,
+    // Mods live in a.status.moveMods: [{ id, kind: "discount"|"surcharge"|"refund"|"waive", amount, once?, perTurnCap?,
     // if?, untilRound?, label }]. Qualifiers: { nearTile:[x,y], within? }, { nearUnit:id, within? },
-    // { nearerTo:[x,y] }, { heading:[dx,dy] }. Costing (adjustMoveCost) only reads; the move handler consumes once-mods and pays
+    // { nearerTo:[x,y] }, { heading:[dx,dy] }; any of them may also carry maxSteps (the move is no longer than that). Costing (adjustMoveCost) only reads; the move handler consumes once-mods and pays
     // refunds after the walk, so pricing never spends anything. Forced displacement never passes through here.
     const moveModsLive = (s, a) => (a.status?.moveMods || []).filter((m) => m.untilRound == null || s.round <= m.untilRound);
     function moveModQualifies(s, a, route, m) {
       const q = m.if; if (!q) return true;
+      if (q.maxSteps != null && route.length - 1 > q.maxSteps) return false;   // a cap on the move's length, beside any one qualifier below (Idol Claim's free step)
       const end = route[route.length - 1], start = route[0];
       if (q.nearTile) return dist(s, end[0], end[1], q.nearTile[0], q.nearTile[1]) <= (q.within ?? 1);
       if (q.nearUnit) { const u = s.actors[q.nearUnit]; return !!u && !u.defeated && dist(s, end[0], end[1], u.x, u.y) <= (q.within ?? 1); }
@@ -337,6 +463,7 @@
       let off = 0, extra = 0;
       for (const m of moveModsLive(s, a)) {
         if (!moveModQualifies(s, a, route, m)) continue;
+        if (m.kind === "waive") return 0;   // the whole move is free, under the floor too (Idol Claim's free step, Treasure Hunter TH1b); a once-mod like any other
         if (m.kind === "discount") off += m.amount;
         else if (m.kind === "surcharge") extra += m.amount;
       }
@@ -469,7 +596,7 @@
     // concentration break and the fizzle clock. A capture already in progress holds the step until that channel ends.
     function grantSacrifice(s, recipient, from) {
       if (!recipient || recipient.defeated || !from) return;
-      if (recipient.ritual) {
+      if (H.Rites.capture(recipient)) {
         const bag = recipient.pendingSacrifice || { steps: [] };
         if (!bag.steps.some((x) => x.from === from.id)) bag.steps.push({ type: "sacrifice", from: from.id, name: from.name });
         recipient.pendingSacrifice = bag;
@@ -488,6 +615,7 @@
     function endRite(s, a, how) {
       if (!a.rite) return;
       const n = a.rite.steps.length;
+      H.Vows?.riteEvent(s, a, "teaStepAbandoned", H, how === "abandoned" ? "abandoned unsealed tea" : "lost unsealed tea when the rite ended");
       H.Rites.clear(s, a);   // L1: abandon/fizzle/break empties the ledger record with the mirror
       log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], ended: how, text: how === "broken" ? `${a.name}'s rite breaks under the blow (${n} step${n === 1 ? "" : "s"} lost).` : how === "fizzled" ? `${a.name}'s rite fades: the banked steps go unspent.` : `${a.name} abandons the rite.` });
     }
@@ -829,6 +957,7 @@
       // never breaks on fear. Visage gaze and hero-down rout keep their own formulas.
       const lfFrac = Math.max(0, Math.min(1, (tgt.lf ?? 1) / (tgt.maxLF || 1)));
       p *= Math.pow(1 - lfFrac, FEAR.lfPow ?? 1.5);
+      if (tgt.traitsOff?.some((id) => Object.hasOwn(tgt.curePeelUntil || {}, id))) p += (s.rules.cure || H.C.rules.cure).fearAdd * (1 - lfFrac);
       if (hasTrait(tgt, "perfectConcentration")) p *= s.rules.concentration?.perfect?.fearMul ?? 1;   // composure, not courage
       for (const t of tgt.traits || []) p -= insightRules?.data?.traits?.[typeof t === "string" ? t : t?.id]?.fearResist || 0;   // Courageous
       const maimed = (s.rules.injury?.routMaimWeight ?? 1) ? H.Injury?.maimedCount(tgt) || 0 : 0;
@@ -1171,7 +1300,7 @@
       return null;
     }
     const blur = (s, a) => speedster(s, a) && !friction(s, a);
-    // SS2 Nothing Is Sudden: a blurred unit dodges at dodgeApMul of the price, rounded down (after Insane Reflexes' half it is 12 of 50), and
+    // SS2 Nothing Is Sudden: a blurred unit dodges at dodgeApMul of the price, rounded down (0 today: a free dodge that still spends the reaction, R-20261115-30), and
     // two tiles farther. engine.js dodgeCostFor and engine/injury.js dodgeReach call these; an unrelated unit gets its own number back.
     const speedDodge = (s, a, cost) => (blur(s, a) ? Math.floor(cost * (s.rules.trueSpeed.dodgeApMul ?? 1)) : cost);
     const speedReach = (s, a) => (blur(s, a) ? s.rules.trueSpeed.dodgeReachAdd || 0 : 0);
@@ -1336,7 +1465,7 @@
       }
       return out;
     }
-    return { friction, blur, speedDodge, speedReach, waterRunner, wetEnd, movePaths, speedSync, relicPassives, OWN_MOVE_ACTIONS, breakHoldsApart, settleHolds, pressSubmission, submissionRound, submitFoe, slipFree, canCommitSubmission, waterState, isSwimmer, refreshWaterDrowning, waterRecovery, updateWater, previewFlood, advanceWater, waterAgenda, fishRound, fishNear, carryLegacy, carryBeasts, legacyPrice, journalOptions, nameRandomFoes, assignEnemyLoci, corpseSweep, corpseBeside, burialAp, lastRites, graveWard, formCtx, carryLearnedForms, spawnFormLarva, formsTurnStartFor, formsAfterAction, spreadIdea, spreadByTalk, adhdPrice, adhdPaid, heldCostMul, breakCost, callCompanion, cornerAdvice, adviceMul, companionTick, strikeRange, grappleCost, freeStrike, grappled, grappleChance, knownEnemyTraps, chanted, endRitual, ritualTick, finishRitualsOnWin, riteDiscount, endRite, riteTick, grantSacrifice, beadBeast, beastTick, applyPoison, poisonTick, fearless, fearCheck, visageGaze, heroFell, onEdge, adjustMoveCost, consumeMoveMods, refundMove, eatShock, staggerTurns, tangleCut, moveFloor, relocationHold, entangle,
+    return { friction, blur, speedDodge, speedReach, waterRunner, wetEnd, movePaths, speedSync, relicPassives, OWN_MOVE_ACTIONS, breakHoldsApart, settleHolds, pressSubmission, submissionRound, submitFoe, slipFree, canCommitSubmission, waterState, isFord, isSwimmer, refreshWaterDrowning, waterRecovery, updateWater, previewFlood, advanceWater, waterAgenda, queueWaterSurge, previewCurrent, waterTelegraphs, fishRound, fishNear, carryLegacy, carryBeasts, legacyPrice, journalOptions, nameRandomFoes, assignEnemyLoci, corpseSweep, corpseBeside, burialAp, lastRites, graveWard, formCtx, carryLearnedForms, spawnFormLarva, formsTurnStartFor, formsAfterAction, spreadIdea, spreadByTalk, adhdPrice, adhdPaid, heldCostMul, breakCost, callCompanion, cornerAdvice, adviceMul, companionTick, strikeRange, grappleCost, freeStrike, grappled, grappleChance, knownEnemyTraps, chanted, endRitual, ritualTick, finishRitualsOnWin, riteDiscount, endRite, riteTick, grantSacrifice, beadBeast, beastTick, applyPoison, poisonTick, fearless, fearCheck, visageGaze, heroFell, onEdge, adjustMoveCost, consumeMoveMods, refundMove, eatShock, staggerTurns, tangleCut, moveFloor, relocationHold, entangle,
       edgeDistance, fleeBattle, isMonster, monsterCtx, monsterApply, monsterOf, monsterPotency, monsterRider, monsterTurnStart, monsterTurnEnd, monsterRelease, mindlessAct, arrivalBlocked, hasTrait, deathDoorOdds, communeDiscount, tryDeathDoor, performerTestOptions,
       focusedDreamTestOptions, devPlaygroundOptions, themedBattleOptions, meleeTestOptions,
       directiveLive, directiveDestOpen, consumeDirective, tilesOccupiedIn, pairWithin,

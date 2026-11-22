@@ -298,7 +298,7 @@
       fallen.broodRolled = true;
       if (H.seededChance(`${s.seed}:brood-bead:${fallen.id}`) >= R.beadChance) return null;
       (taker.beads ||= []).push({ kind: "dream", name: fallen.name, maxLF: fallen.maxLF, mind: { key: fallen.dream.key, character: fallen.character, sprite: fallen.sprite, primary: fallen.primary, secondary: fallen.secondary, monster: fallen.monster || null, dream: { ...fallen.dream } } });
-      (s.captureLog ||= []).push({ actor: taker.id, kind: `dream:${fallen.dream.key}`, ok: true, chance: true });
+      H.Rites.recordCapture(s, taker, "ok", { kind: `dream:${fallen.dream.key}`, ok: true, chance: true });
       log(s, { kind: "ritual", actor: taker.id, tiles: [[fallen.x, fallen.y]], captured: `dream:${fallen.dream.key}`, text: `${taker.name} finds a bead where the ${fallen.name.toLowerCase()} fell.`, why: [`Once the mother has fallen, a Brood Mite that dies has a ${Math.round(R.beadChance * 100)}% chance to leave a bead.`] });
       return taker;
     }
@@ -443,7 +443,16 @@
     // Tsukumogami: standing up needs room. Size 0-1 takes 2 tiles (horizontal first), size 2-3 takes
     // 2x2, growing from the object's tile into open tiles: inside, no blocking terrain, no unit, no
     // closed barrier. Null when it has no room to stand.
+    const wreckParts = (s, obj) => (s.arena.objects || []).filter((p) => p.wreckId === obj.wreckId);
+
     function standFootprint(s, obj, size) {
+      if (obj.wreckId) {
+        const parts = wreckParts(s, obj);
+        const length = vegetation.data.objects[obj.type].footprint[0];
+        const open = parts.every((p) => !H.unitAt(s, p.x, p.y) && !(barrierAt(s, p.x, p.y) && !barrierAt(s, p.x, p.y).passable));
+        if (parts.length !== length || !open) return null;
+        return obj.wreckAxis === "x" ? { w: length, h: 1 } : { w: 1, h: length };
+      }
       const open = (x, y) => inside(s, x, y) && !tileAt(s, x, y).blocksMove && !actorAt(s, x, y) && !(barrierAt(s, x, y) && !barrierAt(s, x, y).passable);
       if (size >= 2) return [[obj.x + 1, obj.y], [obj.x, obj.y + 1], [obj.x + 1, obj.y + 1]].every(([x, y]) => open(x, y)) ? { w: 2, h: 2 } : null;
       if (open(obj.x + 1, obj.y)) return { w: 2, h: 1 };
@@ -453,6 +462,8 @@
     // Tsukumogami (Muse Berry BD): the mirror of communeAlly. A right answer stands the structure up as an
     // actor on the waker's side; the object leaves the arena (its cover and sight-block go with it).
     function awakenAlly(s, a, obj) {
+      const parts = obj.wreckId ? wreckParts(s, obj) : null;
+      if (parts) obj = parts.find((p) => p.part === 0);
       const raw = Tsukumogami.makeAlly(obj, { owner: a.id, side: a.side });
       let n = 1; while (s.actors[n === 1 ? raw.id : `${raw.id}-${n}`]) n++;   // a re-woken object stands under a fresh id; the settled rest never shares the order
       if (n > 1) raw.id = `${raw.id}-${n}`;
@@ -461,7 +472,8 @@
         reaction: 0, moved: false, acted: false, tempo: 0, tempoCapacity: 0, bankedTempo: 0, tempoDebt: 0, tempoSpent: 0, actionsThisTurn: 0, guardUsedThisTurn: false,
         ownerTurns: 0, lastRecoverTurn: -99, status: { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null }, inventory: [], inventoryCapacity: 0,
         passives: {}, traits: raw.traits || [], conditions: {}, lanyardUsed: false, bristleconeUsed: false, lastDamageType: null, defeated: false };   // the material trait rides in raw
-      s.arena.objects = s.arena.objects.filter(o => o.id !== obj.id);
+      if (parts) ally.awakened.parts = parts;
+      s.arena.objects = s.arena.objects.filter((o) => parts ? o.wreckId !== obj.wreckId : o.id !== obj.id);
       s.actors[ally.id] = ally; s.disclosures[ally.id] = {}; s.knowledge[ally.id] = {}; s.observedAbilities[ally.id] = [];
       if (insightRules) { const deck = insightRules.buildDeck({ key: "summon:*", kind: "summon" }, { seed: s.seed }); s.insight.decks[ally.id] = deck; s.insight.knowledge[ally.id] = insightRules.spawnKnowledge(deck); }
       for (const other of Object.values(s.actors)) if (other.id !== ally.id && other.side !== ally.side) {
@@ -496,26 +508,36 @@
     // Tsukumogami: four rounds up, it settles back into an object with half its remaining LF, on the
     // footprint tile nearest where it woke. It leaves like a summon whose stay ended (defeated, lingering
     // in the order to be skipped), marked settledBack so it earns no kill credit and raises no corpse.
+    function wreckReturn(a, hp) {
+      return a.awakened.parts.map((p) => ({ ...p,
+        x: a.x + p.x - a.awakened.wakeX, y: a.y + p.y - a.awakened.wakeY, hp, status: {},
+      }));
+    }
     function settleTsukumogami(s, a) {
-      const [sx, sy] = Tsukumogami.settleTile(footprint(a), a.awakened.wakeX, a.awakened.wakeY);
+      const [sx, sy] = a.awakened.parts ? [a.x, a.y] : Tsukumogami.settleTile(footprint(a), a.awakened.wakeX, a.awakened.wakeY);
       const o = a.awakened.object, hp = Math.max(1, Math.floor(a.lf / 2));
-      s.arena.objects = [...(s.arena.objects || []), { ...o, x: sx, y: sy, hp, status: {} }];
+      const back = a.awakened.parts ? wreckReturn(a, hp) : [{ ...o, x: sx, y: sy, hp, status: {} }];
+      s.arena.objects = [...(s.arena.objects || []), ...back];
       a.defeated = true; a.settledBack = true; a.lf = 0;
-      log(s, { kind: "settle", actor: a.id, tiles: [[sx, sy]], text: `${a.name} settles back into a ${Tsukumogami.profile(o.type).common} (${hp} HP).` });
+      log(s, { kind: "settle", actor: a.id, tiles: back.map((p) => [p.x, p.y]), text: `${a.name} settles back into a ${Tsukumogami.profile(o.type).common} (${hp} HP).` });
     }
     // Tsukumogami: an awakened structure run out of LF collapses into rubble (the type's `becomes`, via
     // damageObject, so a cistern still floods). Called from checkOutcome beside rootFallenPlants.
     function collapseFallenStructures(s) {
       if (!Tsukumogami || !vegetation) return;
       for (const a of Object.values(s.actors)) {
-        if (!a.awakened || !a.defeated || a.settledBack || a.awakened.collapsed) continue;
+        if (!a.awakened || a.settledBack || a.awakened.collapsed) continue;
+        if (!a.defeated) {
+          if (a.awakened.parts && s.actors[a.awakened.owner]?.defeated) settleTsukumogami(s, a);
+          continue;
+        }
         a.awakened.collapsed = true;
-        const [sx, sy] = Tsukumogami.settleTile(footprint(a), a.awakened.wakeX, a.awakened.wakeY);
-        const back = { ...a.awakened.object, x: sx, y: sy, hp: 1, status: {} };
-        const r = vegetation.damageObject({ ...s.arena, objects: [...(s.arena.objects || []), back] }, back.id, 9999, { from: [sx, sy] });
+        const [sx, sy] = a.awakened.parts ? [a.x, a.y] : Tsukumogami.settleTile(footprint(a), a.awakened.wakeX, a.awakened.wakeY);
+        const back = a.awakened.parts ? wreckReturn(a, 1) : [{ ...a.awakened.object, x: sx, y: sy, hp: 1, status: {} }];
+        const r = vegetation.damageObject({ ...s.arena, objects: [...(s.arena.objects || []), ...back] }, a.awakened.object.id, 9999, { from: [sx, sy] });
         s.arena = { ...s.arena, objects: r.arena.objects, map: r.arena.map };
         for (const ev of r.events) log(s, { kind: ev.kind, actor: a.id, tiles: [[sx, sy]], text: ev.text });
-        log(s, { kind: "collapse", actor: a.id, tiles: [[sx, sy]], text: `${a.name} collapses into rubble.` });
+        log(s, { kind: "collapse", actor: a.id, tiles: back.map((p) => [p.x, p.y]), text: `${a.name} collapses into rubble.` });
       }
     }
     // Plant communion: an ally whose life has run out is dead. Its body stays as terrain (terrain/communion.js corpseObject).
@@ -526,7 +548,7 @@
         a.communed.rooted = true;
         const free = !(s.arena.objects || []).some(o => o.x === a.x && o.y === a.y);
         if (free) { s.arena.objects = (s.arena.objects || []).concat([Communion.corpseObject(a)]); }
-        const i = s.order.indexOf(a.id); if (i >= 0 && s.order[s.turnIndex] !== a.id) { s.order.splice(i, 1); if (i < s.turnIndex) s.turnIndex--; }
+        for (let i = s.order.length - 1; i >= 0; i--) if (s.order[i] === a.id && i !== s.turnIndex) { s.order.splice(i, 1); if (i < s.turnIndex) s.turnIndex--; }   // every copy but the slot now playing (SS4: a second beat is a second slot)
         log(s, { kind: "communeEnd", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} is spent and dies${free ? " where it stands. Its body stays" : ""}.`,
           why: ["A communed plant fights until its life runs out. What is left is terrain: it blocks and shelters as the plant did, and will not answer again."] });
       }
@@ -551,6 +573,7 @@
       for (const u of Object.values(s.actors)) if (u.totem && u.defeated) { log(s, { kind: "totem", actor: u.id, text: `The ${u.totem.name} goes back to sleep: its host fell.` }); u.totem = null; }
       rootFallenPlants(s);
       collapseFallenStructures(s);
+      H.summonRules?.Trial?.keep(s, log);   // Tandem T2c: a Trial's unbound tandem is never out of the fight, whatever path took it down
       H.astralDeathLink?.(s);   // the death-link resolves before the outcome is read: a fallen soul takes its body
       H.Instinct?.autoEnd(s);   // Survival Instincts: a lie ends when its side has no other standing unit; first, before any branch below can end the battle
       if (s.outcome) return;

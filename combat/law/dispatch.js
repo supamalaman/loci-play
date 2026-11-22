@@ -187,10 +187,13 @@
       return { ok: false, error: "docket spent" };
     }
     if (!o || !t || t.defeated) return { ok: false, error: "no standing accused" };
-    const ev = Object.values(s.cls?.lawEvidence?.[accusedId] || {}).flat();
-    const test = (s.cls?.testimony || []).filter((w) => w.target === accusedId || w.subject === accusedId);
-    let counts = TR.countsFromEvidence(ev, test).slice(0, 3);
-    if (!counts.length) counts = [{ grade: "witnessed", severity: 1, actRound: s.round, ledgerAct: true, label: "the arrest charge" }];
+    let counts = H.Courtroom.countsFor(s, accusedId);
+    if (!counts.length) {
+      const outlaw = t.status?.outlaw;
+      const courtKey = outlaw?.by === officerId && outlaw.until >= t.ownerTurns ? outlaw.courtKey : null;
+      const real = !courtKey || (s.cls?.courtBreaches || []).some((entry) => entry.by === officerId);
+      counts = [{ grade: real ? "witnessed" : "unproven", severity: 1, actRound: s.round, ledgerAct: real, courtKey, label: "the arrest charge" }];
+    }
     const trial = TR.openTrial({ form: "courtroom", accusedId, prosecutorId: officerId, seed: s.seed,
       units: H.Courtroom.fixtures(s), counts });
     s.trial = { t: trial, invokerId: officerId, accusedId, queued: null, queuedDefense: null,

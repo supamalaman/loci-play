@@ -21,10 +21,10 @@
     sightline: "holy", focus: "holy", legitimacy: "holy", complementarity: "holy", delegation: "holy", harmony: "holy", cooperative_principle: "holy",   // Cooperative Principle (five concepts P1/P2): working together, like Harmony; assigned at the 1.3.565 merge (Stanchion IN)
     threshold: "electric", resonance: "electric", timing: "electric", pipeline: "electric", hardware: "electric", mise_en_place: "electric", enhancement: "electric",
     adaptation: "water", swale: "water", plasticity: "water", periodicity: "water",
-    deception: "shadow", reversal: "shadow", stealth: "shadow",
+    deception: "shadow", reversal: "shadow", stealth: "shadow", mesmerism: "shadow",   // Mesmerism (Cure S2): a hidden order left without the subject's memory, beside Deception, which enhances it
     substitution: "arcane", pathway: "arcane", section: "arcane", collage: "arcane", indexing: "arcane", homology: "arcane", adjacency: "arcane", inference: "arcane", software: "arcane", retrieval: "arcane", imagination: "arcane", longtermism: "arcane",
     boundary: "fire", strategic_commitment: "fire", antifragility: "fire", hospitality: "fire",   // the Hot Pot Berserker: the boiling pot and the hearth (2026-10-25)
-    diffusion: "poison", obsolescence: "poison",
+    diffusion: "poison", obsolescence: "poison", disinhibition: "poison",   // Disinhibition (Cure S2): dissolves a unit's restraints layer by layer, like an intoxicant
     pruning: "nature", succession: "nature", traditional_medicine: "nature", herbal_medicine: "nature",
     reciprocal_obligation: "blood", dependency: "blood", extraction: "blood", credit: "blood",   // Credit (five concepts K1): a debt, like Reciprocal Obligation; assigned at the 1.3.564 merge (Bitt IN)
   };
@@ -39,6 +39,25 @@
   const SIGNATURE = { uluHurl: { projectile: "fx/ulu/projectile", impact: "fx/ulu/hit" },
     smite: { projectile: ["fx/solfeggio/smite-1", "fx/solfeggio/smite-2", "fx/solfeggio/smite-3", "fx/solfeggio/smite-4"],
       impact: ["fx/solfeggio/smite-5", "fx/solfeggio/smite-6", "fx/solfeggio/smite-7"] } };
+  // Each musical cut contains Warden and the notes. These are sole midpoints and standing body heights
+  // in source pixels, so the feet and body scale stay planted while the glow grows.
+  const WARDEN_FREESTYLE = [
+    { name: "warden-musical-1", footX: 66, footY: 176, bodyHeight: 173 },
+    { name: "warden-musical-2", footX: 91, footY: 191, bodyHeight: 158 },
+    { name: "warden-musical-3", footX: 112, footY: 230, bodyHeight: 173 },
+    { name: "warden-musical-4", footX: 147, footY: 287, bodyHeight: 169 },
+    { name: "warden-musical-5", footX: 201, footY: 305, bodyHeight: 175 },
+  ];
+  const FREESTYLE_BEATS = [[.10, 0], [.22, 1], [.53, 2], [.66, 3], [.81, 4], [.89, 3], [.96, 2], [1, 1]];
+  function bodyCastFor(ability, actor) {
+    return ability === "freestyle" && actor?.character === "warden" && !actor.form && !actor.soulOf ? "wardenFreestyle" : null;
+  }
+  function bodyCastFrame(cast) {
+    if (cast?.id !== "wardenFreestyle" || !(cast.p >= 0 && cast.p < 1)) return null;
+    const beat = FREESTYLE_BEATS.find(([until]) => cast.p < until);
+    return WARDEN_FREESTYLE[beat[1]];
+  }
+
   // Technique pictures (sprites/fx/spells/, 40 strips imported and unused until 2026-10-11). A technique's strip is
   // chosen by what it does (its shape) and its concept's element, so every technique gets one without a hand-made
   // list. The pictures are illustration only: the name on a strip's file is not the technique's name.
@@ -140,8 +159,9 @@
     for (const el of ELEMENTS) for (const [ph, n] of Object.entries(PHASES)) for (let i = 1; i <= n; i++) out.push(`fx/${el}/${ph}-${i}`);
     for (const [u, n] of Object.entries(UTILITY)) for (let i = 1; i <= n; i++) out.push(`fx/${u}/frame-${i}`);
     for (const s of Object.values(SIGNATURE)) for (const v of Object.values(s)) out.push(...(Array.isArray(v) ? v : [v]));
+    for (const frame of WARDEN_FREESTYLE) out.push(`fx/musical/${frame.name}`);
     return out;
   }
 
-  return { STRIP_SHAPES, stripShape, stripFor, SIGNATURE, PHASES, ELEMENTS, UTILITY, STATUS, CONCEPT_ELEMENT, CHANNEL_ELEMENT, EFFECT_UTILITY, elementFor, utilityFor, draws, files, POWER, COMMUNE, bodyAura };
+  return { bodyCastFor, bodyCastFrame, WARDEN_FREESTYLE, STRIP_SHAPES, stripShape, stripFor, SIGNATURE, PHASES, ELEMENTS, UTILITY, STATUS, CONCEPT_ELEMENT, CHANNEL_ELEMENT, EFFECT_UTILITY, elementFor, utilityFor, draws, files, POWER, COMMUNE, bodyAura };
 });

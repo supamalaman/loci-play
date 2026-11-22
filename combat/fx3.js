@@ -107,5 +107,151 @@
   }
   if (doc) { if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", autoDebug); else autoDebug(); }
 
-  root.FX3 = { state, load, layerFor, debugQuad, libUrl, LIB_VERSION, QUAD };
+  // F3: Bastion Collapse painter. The script owns time; this is a pure function of (script, folded, caster, t).
+  // Off unless asked. Iso is not mine until F5. No WebGL means the 2D painter keeps the frame.
+  const STORE_KEY = "loci:combat:fx3";
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const seg = (t, a, b) => clamp01((t - a) / Math.max(1e-6, b - a));
+  const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+  const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+  let held = new Set(), scene = null, camera = null, slabMeshes = [];
+
+  function tileKey(x, y) { return x + "," + y; }
+  function toCentre(centre, tile) {
+    if (typeof centre === "function") return (x, y) => {
+      const p = centre(x, y);
+      if (Array.isArray(p)) return p;
+      if (p && Number.isFinite(p.x)) return [p.x, p.y];
+      return [(x + 0.5) * tile, (y + 0.5) * tile];
+    };
+    return (x, y) => [(x + 0.5) * tile, (y + 0.5) * tile];
+  }
+
+  function plan(script, folded) {
+    const beats = (script && script.beats) || [];
+    const poseB = beats.find((b) => b.kind === "pose");
+    const travel = beats.find((b) => b.kind === "travel");
+    const pose = { t0: poseB ? poseB.start : 0, t1: poseB ? poseB.end : 0 };
+    const fold = travel ? { t0: travel.start, t1: travel.end } : { t0: pose.t1, t1: pose.t1 };
+    const impacts = beats.filter((b) => b.kind === "impact").map((b) => ({
+      t0: b.start, t1: b.end, x: (b.at && b.at[0]) || 0, y: (b.at && b.at[1]) || 0, target: b.target
+    }));
+    const left = (folded || []).map((w) => ({ x: w.x, y: w.y, kind: w.kind }));
+    const n = left.length, m = impacts.length, slabs = [];
+    const blockingMs = script && script.blockingMs || 0;
+    if (!m) return { slabs, pose, fold, blockingMs };
+    impacts.forEach((im, i) => {
+      const quota = Math.floor(n / m) + (i >= m - n % m ? 1 : 0), k = (im.t1 - im.t0) / 220;
+      left.sort((p, q) => (Math.abs(p.x - im.x) + Math.abs(p.y - im.y)) - (Math.abs(q.x - im.x) + Math.abs(q.y - im.y)));
+      const mine = left.splice(0, quota);
+      mine.sort((p, q) => p.x - q.x);
+      const base = { im, i, tc: im.t0, holdMs: 110 * k, backMs: 96 * k, pose, fold, blockingMs };
+      if (mine.length === 1) for (const sgn of [-1, 1]) slabs.push(Object.assign({}, base, { w: mine[0], sgn, twin: sgn }));
+      else mine.slice(0, 2).forEach((w, j) => slabs.push(Object.assign({}, base, { w, sgn: j === 0 ? -1 : 1, twin: 0 })));
+    });
+    return { slabs, pose, fold, blockingMs };
+  }
+
+  function slabAt(sl, idx, t, caster, toPx, tile) {
+    const blockingMs = sl.blockingMs, tt = Math.min(t, blockingMs);
+    const [fx, fy] = toPx(sl.im.x, sl.im.y);
+    const [ccx, ccy] = toPx(caster.x, caster.y);
+    const [bx, by] = toPx(sl.w.x, sl.w.y);
+    const b = { cx: bx, y: by - tile * 0.4, w: tile * 0.72, h: tile * 1.05 };
+    const fd = sl.fold.t1 - sl.fold.t0;
+    const throwMs = Math.max(120, fd * 0.5);
+    const launch = Math.max(sl.fold.t0 + fd * 0.3, sl.tc - throwMs);
+    const lift = easeOut(seg(tt, sl.pose.t0, sl.fold.t0));
+    const ang = Math.atan2(fy - ccy, fx - ccx), cs = Math.cos(ang);
+    const side = Math.abs(cs) > 0.5 ? (cs >= 0 ? 1 : -1) : sl.sgn;
+    const A = [b.cx, b.y + b.h / 2 - lift * 12];
+    const C = [ccx + side * (124 + (sl.sgn === side ? 34 : 0)), ccy - 24 + Math.sin(ang) * tile * 0.95 + (sl.sgn === side ? -10 : 14)];
+    const D = [fx + sl.sgn * (20 + b.w / 2), fy - 14];
+    const p1 = easeInOut(seg(tt, sl.fold.t0, launch)), q = seg(tt, launch, sl.tc), p2 = q * q;
+    const hump = Math.sin(Math.PI * p1);
+    const x = A[0] + (C[0] - A[0]) * p1 + (D[0] - C[0]) * p2;
+    const y = A[1] + (C[1] - A[1]) * p1 + (D[1] - C[1]) * p2 - hump * 22;
+    const rebuildEnd = sl.tc + sl.holdMs + sl.backMs;
+    const gone = seg(tt, sl.tc + sl.holdMs, rebuildEnd);
+    const hold = lift > 0.01 && tt < rebuildEnd && tt < blockingMs;
+    return { w: sl.w, sgn: sl.sgn, twin: sl.twin, tc: sl.tc, holdMs: sl.holdMs, backMs: sl.backMs, rebuildEnd,
+      hold, x, y, z: hump * 90, pw: b.w, ph: b.h, alpha: lift * (1 - gone), spin: p1 * Math.PI * 2 * (idx % 2 ? 1 : -1) };
+  }
+
+  function slabsAt(script, folded, caster, t, tile, centre) {
+    const size = tile || 48, toPx = toCentre(centre, size), who = caster || { x: 0, y: 0 };
+    const p = plan(script, folded);
+    return p.slabs.map((sl, i) => slabAt(sl, i, t == null ? 0 : t, who, toPx, size));
+  }
+
+  function clearLayer() {
+    if (!renderer) return;
+    try {
+      while (slabMeshes.length) scene.remove(slabMeshes.pop());
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear();
+    } catch (e) {}
+  }
+  function release() { held = new Set(); clearLayer(); }
+
+  function sync(opts) {
+    const o = opts || {};
+    if (!o.playing || !o.script) { release(); return []; }
+    const slabs = slabsAt(o.script, o.folded || [], o.caster || { x: 0, y: 0 }, o.t == null ? 0 : o.t, o.tile, o.centre);
+    held = new Set();
+    for (const sl of slabs) if (sl.hold) held.add(tileKey(sl.w.x, sl.w.y));
+    return slabs;
+  }
+
+  function holds(x, y) { return held.has(tileKey(x, y)); }
+
+  function mine(opts) {
+    const o = opts || {};
+    if (!o.on || !o.fullAnimation || o.iso) return false;
+    if (!o.playing || !o.script) return false;
+    const cue = o.script.cue || {};
+    const FX = root.ConceptCombatFX;
+    if (FX && typeof FX.ultimateId === "function") return FX.ultimateId(cue) === "bastionCollapse";
+    return cue.ability === "bastionCollapse" || cue.name === "Bastion Collapse" || cue.id === "bastionCollapse";
+  }
+
+  function paint(opts) {
+    const o = opts || {};
+    if (!mine(o)) { release(); return false; }
+    if (!doc || !webglAvailable()) { release(); return false; }
+    if (!lib) { load(); return false; }
+    const elapsed = o.elapsed == null ? 0 : o.elapsed;
+    const slabs = sync({ script: o.script, folded: o.folded, caster: o.caster, t: elapsed, playing: true, tile: o.tile, centre: o.centre });
+    if (!slabs.some((sl) => sl.hold || sl.alpha >= 0.02)) { clearLayer(); return false; }
+    const canvas = o.canvas || (doc.getElementById && doc.getElementById("ccCanvas"));
+    if (!canvas) return false;
+    try {
+      const layer = layerFor(canvas);
+      if (!layer) return false;
+      const T = lib;
+      const cssW = canvas.clientWidth || canvas.width || 1, cssH = canvas.clientHeight || canvas.height || 1;
+      if (!renderer) renderer = new T.WebGLRenderer({ canvas: layer, alpha: true, antialias: false, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(1); renderer.setSize(layer.width, layer.height, false); renderer.setClearColor(0x000000, 0);
+      T.ColorManagement.enabled = false; renderer.outputColorSpace = T.LinearSRGBColorSpace;
+      if (!scene) scene = new T.Scene();
+      camera = new T.OrthographicCamera(0, cssW, 0, cssH, -1000, 1000);
+      camera.position.set(0, 0, 10);
+      while (slabMeshes.length) scene.remove(slabMeshes.pop());
+      const geo = new T.PlaneGeometry(1, 1);
+      for (const sl of slabs) {
+        if (sl.alpha < 0.02) continue;
+        const pane = sl.w.kind === "wall" || sl.w.kind === "object";
+        const mat = new T.MeshBasicMaterial({ color: pane ? 0x8d8678 : 0xb5a57a, transparent: true, opacity: Math.max(0.35, sl.alpha), depthTest: false });
+        const m = new T.Mesh(geo, mat);
+        m.position.set(sl.x, sl.y, 0);
+        m.scale.set(sl.pw, sl.ph, 1);
+        m.rotation.z = sl.spin || 0;
+        scene.add(m); slabMeshes.push(m);
+      }
+      renderer.render(scene, camera);
+      return true;
+    } catch (e) { cannot("paint: " + String(e && e.message || e).slice(0, 160)); return false; }
+  }
+
+  root.FX3 = { state, load, layerFor, debugQuad, libUrl, LIB_VERSION, QUAD, slabsAt, holds, mine, paint, release, sync, STORE_KEY };
 })(typeof window !== "undefined" ? window : globalThis);

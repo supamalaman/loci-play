@@ -1,0 +1,35 @@
+{
+  "size_class": "terrain",
+  "footprint": "1x1 tile",
+  "note": "stone rubble: broken stone paving over dirt; the broken-floor rubble tile of cursor-destructive-map-tiles-spec (R-20261115-60, R-20261115-62); flat = top-down board, iso = isometric block",
+  "views": {
+    "flat": {
+      "source": "ChatGPT Image Nov 15, 2026, 09_26_36 PM.png",
+      "pixel_size": [
+        925,
+        923
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        921,
+        919
+      ],
+      "sha256": "7140c3c15c7edd5e0f202a79c81be3c75b38de405deb53d081e5aac6a861ab51"
+    },
+    "iso": {
+      "source": "ChatGPT Image Nov 15, 2026, 09_28_03 PM-1.png",
+      "pixel_size": [
+        1185,
+        826
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        1181,
+        822
+      ],
+      "sha256": "32fe221b528d935c04907bf93d4413e84e90fc269dc3b1386f8d34c126fdf793"
+    }
+  }
+}

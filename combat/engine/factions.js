@@ -133,6 +133,7 @@
       if (s.mirror) s.mirror.salvagePicked = 0;   // SC17 salvage count starts at zero (slice 4; moved from engine.js at merge, engine cap)
       if (Array.isArray(opts.civilians)) for (const c of opts.civilians) H.Civilian.present(s, c);
       if (Array.isArray(opts.lendSummons) && s.actors.player) s.actors.player.lentSummons = opts.lendSummons.slice();   // Tandem T2b: a teaching scenario lends a summon for this battle (summons.js familiarSet)
+      H.summonRules?.Trial?.battleStart(s, opts, H);   // Tandem T2c: a failed Trial's price, the free first call, and the unbound tandem of a Trial battle (summons/tandem-trial.js)
       if (typeof opts.afterCreate === "function") opts.afterCreate(s, { placeCivilian: (spec) => H.Civilian.present(s, spec) });
       if (opts.scenarioBattle === "theOpenDoor") { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.openDoor?.(s, H); }   // SH4 teaching: The Open Door starts with her table full (kept out of engine.js for the size cap)
     }

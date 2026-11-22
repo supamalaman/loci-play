@@ -39,7 +39,7 @@
         return H.returnSoul(s, a, "portal");
       },
       move(s, a, act) {
-        { const refused = moveRefusal(s, a); if (refused) return refused; }   // the reasons a unit cannot move at all, shared with Scramble
+        { const refused = moveRefusal(s, a, act); if (refused) return refused; }   // the reasons a unit cannot move at all, shared with Scramble
         const [tx, ty] = act.to || [];
         if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
         if((a.committed?.noRetreat||a.promise?.surrender==="retreat")&&presidentRules&&!presidentRules.canMove({...presidentUnits(s).find(u=>u.id===a.id),committed:{noRetreat:true}},{x:tx,y:ty},presidentUnits(s).filter(u=>u.side!==a.side)))return "Your commitment has surrendered retreat: that move would increase your distance from the nearest enemy.";
@@ -128,7 +128,7 @@
         if ((H.Injury?.gradeOf(a, "legs") || 0) === 2) return "Maimed legs can't jump: no voluntary movement.";
         if (a.soulless) return "The body lies soulless while its soul is out.";
         if (grappled(s, a)) return `${a.name} is held and cannot move.`;
-        if (Vows) { const no = Vows.refuses(s, a, "move"); if (no) return no; }   // Vows: Rooted
+        if (Vows) { const no = Vows.gate(s, a, "move", null, act, { log }); if (no) return no; }   // Vows: Rooted; breakVow elects the breach
         const spendError = a.tempo < jumpCost(s, a) ? `Jump needs ${jumpCost(s, a)} action points (have ${a.tempo}).` : null;
         if (spendError) return spendError;
         const [tx, ty] = act.to || [];
@@ -148,7 +148,7 @@
         if ((H.Injury?.gradeOf(a, "legs") || 0) === 2) return "Maimed legs can't climb: no voluntary movement.";
         if (a.soulless) return "The body lies soulless while its soul is out.";
         if (grappled(s, a)) return `${a.name} is held and cannot move.`;
-        if (Vows) { const no = Vows.refuses(s, a, "move"); if (no) return no; }   // Vows: Rooted
+        if (Vows) { const no = Vows.gate(s, a, "move", null, act, { log }); if (no) return no; }   // Vows: Rooted; breakVow elects the breach
         const [tx, ty] = act.to || [];
         if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
         if (!climbOptions(s, a.id).some(o => o.to[0] === tx && o.to[1] === ty)) return "Choose an adjacent ledge you can climb.";   // TS-01: climbOptions already drops ledges the whole footprint cannot fit

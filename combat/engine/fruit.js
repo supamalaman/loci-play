@@ -156,7 +156,7 @@
     const roomsOf = (a) => (fruitOf(a)?.id === "locus" ? (a.fruit.rooms ||= []) : []);
     const roomOf = (a, id) => roomsOf(a).find((r) => r.ability === id) || null;
     // Bound arts cannot be stored (the spec's "boss, signature, form, merge, identity"; a finished boss folio's part is Layer D 19.13, deferred), and neither can an ultimate (its charge would be skipped).
-    const boundArt = (id) => { const d = ab(id); return !d || !!(d.fruitOnly || d.merge || d.pairs || d.classKind || d.boss || d.signature || d.identity || d.formOnly) || d.tier === "ultimate"; };
+    const boundArt = (id) => { const d = ab(id); return !d || !!(d.fruitOnly || d.tenantOnly || d.merge || d.pairs || d.classKind || d.boss || d.signature || d.identity || d.formOnly) || d.tier === "ultimate"; };
     // What the eater watched a foe use this battle: techniques it witnessed (observedAbilities) that an enemy-side unit cast (the log's act lines), newest last, one entry per technique.
     function watched(s, a) {
       const seen = new Set(s.observedAbilities?.[a.id] || []), out = [];

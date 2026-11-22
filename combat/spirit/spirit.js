@@ -208,24 +208,29 @@
     if (Array.isArray(cand.target) && H?.actorAt) { const u = H.actorAt(s, cand.target[0], cand.target[1]); return u ? u.id : null; }
     return null;
   }
-  // The scoring term. Small, capped, and stage-gated; 0 for the player's own fighters.
-  function value(s, a, cand, def, H) {
+  // The scoring term, in its parts. AI Sight I2 reads `focus` and `protect` apart for the battle log's reason line.
+  function parts(s, a, cand, def, H) {
+    const out = { focus: 0, protect: 0, scout: 0 };
     const t = R(s), stage = s.rules?.spirit?.stage ?? 3;
-    if (stage < 1 || !aiSide(s, a)) return 0;
+    if (stage < 1 || !aiSide(s, a)) return out;
     const c = cached(s, a.side);
-    if (!c) return 0;   // the round hook owns the cache; the decider never writes state
+    if (!c) return out;   // the round hook owns the cache; the decider never writes state
     const role = c.roles?.[a.id];
     const fw = t.roleFocus?.[role] ?? 1, pw = t.roleProtect?.[role] ?? 1;
-    let v = 0;
     const tid = targetId(s, cand, H);
-    if (tid && tid === c.signals.focus && (cand.type === "strike" || (cand.type === "ability" && def && def.target === "enemy"))) v += t.focusBonus * fw;
-    if (tid && tid === c.signals.protect && cand.type === "ability" && def && PROTECTIVE.includes(def.effect)) v += t.protectBonus * pw;
+    if (tid && tid === c.signals.focus && (cand.type === "strike" || (cand.type === "ability" && def && def.target === "enemy"))) out.focus += t.focusBonus * fw;
+    if (tid && tid === c.signals.protect && cand.type === "ability" && def && PROTECTIVE.includes(def.effect)) out.protect += t.protectBonus * pw;
     if (tid && c.signals.protect && (cand.type === "strike" || (cand.type === "ability" && def && def.target === "enemy"))) {
       const p = s.actors[c.signals.protect], f = s.actors[tid];
-      if (p && f && f.side !== a.side && dist(s, p.x, p.y, f.x, f.y) <= 2) v += t.protectBonus * pw;
+      if (p && f && f.side !== a.side && dist(s, p.x, p.y, f.x, f.y) <= 2) out.protect += t.protectBonus * pw;
     }
-    if ((s.rules?.spirit?.stage ?? 3) >= 3 && cand.type === "observe" && c.roles?.[a.id] === "scout" && (c.coherence ?? 3) >= 2) v += t.focusBonus;   // the scout's eyes
-    return Math.max(-t.spiritCap, Math.min(t.spiritCap, v));
+    if ((s.rules?.spirit?.stage ?? 3) >= 3 && cand.type === "observe" && c.roles?.[a.id] === "scout" && (c.coherence ?? 3) >= 2) out.scout += t.focusBonus;   // the scout's eyes
+    return out;
+  }
+  // The scoring term. Small, capped, and stage-gated; 0 for the player's own fighters.
+  function value(s, a, cand, def, H) {
+    const t = R(s), p = parts(s, a, cand, def, H);
+    return Math.max(-t.spiritCap, Math.min(t.spiritCap, p.focus + p.protect + p.scout));
   }
 
   const maxReach = (s, a, H) => {
@@ -259,5 +264,5 @@
     return (c.stance === "outnumbered" || c.stance === "hidden") ? t.tempoHold : 0;
   }
 
-  return { TUNABLES, enabled, conducted, aiSide, knownFoes, stanceOf, assess, assignRoles, roundHook, cached, acted, onDeath, onExit, canAdmin, greedOpen, greedMul, value, spacingValue, holdThreshold, TELEGRAPH, PROTECTIVE };
+  return { TUNABLES, enabled, conducted, aiSide, knownFoes, stanceOf, assess, assignRoles, roundHook, cached, acted, onDeath, onExit, canAdmin, greedOpen, greedMul, value, parts, spacingValue, holdThreshold, TELEGRAPH, PROTECTIVE };
 });

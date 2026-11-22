@@ -96,6 +96,7 @@
   // The hold zone (SCENARIOS.md 3.2): the 3 tiles of the cut between the player's spawn and the enemy spawns that lie nearest the middle of the map, else the
   // three walkable tiles of the central column. Laid once at setup so outcome() stays cheap.
   function holdZone(arena) {
+    if (arena.fordTiles) return Object.keys(arena.fordTiles).map(k => k.split(",").map(Number));
     const from = arena.spawns?.player?.[0], exits = arena.spawns?.enemy || [], h = arena.map.length, w = arena.map[0].length, mid = [(w - 1) / 2, (h - 1) / 2];
     const dist = ([x, y]) => Math.abs(x - mid[0]) + Math.abs(y - mid[1]);
     const cuts = from && exits.length ? chokepoints(arena, from, exits).sort((a, b) => dist(a) - dist(b) || a[1] - b[1] || a[0] - b[0]) : [];
@@ -106,10 +107,34 @@
     return [...cuts, ...tiles.filter((t) => !cuts.some((c) => c[0] === t[0] && c[1] === t[1]))].slice(0, 3);
   }
 
-  function setupMode(mode, { arena, hero = "player", enemies = [], seed = 0, rounds } = {}) {
+  // The exit on the far edge from the hero's start (escape, and the scenario `exit` objective SC19): reachable, not an enemy's spawn, the most
+  // open approach (3 walkable neighbours: no corners or pockets), then the hardest to reach. null when the far edge has no reachable tile.
+  function farExit(arena, seed, enemies) {
+    const start = arena.spawns.player[0], w = arena.map[0].length;
+    const farX = start[0] < w / 2 ? w - 1 : 0;
+    const costs = G.walkCosts(arena, start);
+    const enemySpawns = arena.spawns.enemy || [];
+    const cands = [];
+    for (let y = 0; y < arena.map.length; y++) {
+      if (!costs.has(K(farX, y))) continue;
+      if ((arena.objects || []).some((o) => o.x === farX && o.y === y && o.blocksMove)) continue;
+      if (enemySpawns.some(([ex, ey]) => ex === farX && ey === y)) continue;
+      const open = DIRS.filter(([dx, dy]) => G.stepCost(arena, farX, y, farX + dx, y + dy) != null).length;
+      cands.push({ at: [farX, y], open, cost: costs.get(K(farX, y)), r: roll(seed, "exit:" + y) });
+    }
+    if (!cands.length) return null;
+    cands.sort((a, b) => b.open - a.open || b.cost - a.cost || a.r - b.r);
+    const exits = [cands[0].at];
+    const guard = guardTiles(arena, start, exits, Math.max(1, enemies.length));
+    return { exits, guard };
+  }
+
+  // rules: the battle's rules (engine.js passes s.rules); a scenario reads its objective there, and only an `exit` objective lays an exit.
+  function setupMode(mode, { arena, hero = "player", enemies = [], seed = 0, rounds, rules } = {}) {
     if (!modes[mode]) throw new Error(`unknown mode ${mode}`);
     const s = { mode, name: modes[mode].name, hero, seed };
     if (mode === "scenario") s.zone = holdZone(arena);
+    if (mode === "scenario" && rules?.scenario?.objective?.kind === "exit" && arena.spawns?.player?.[0]) Object.assign(s, farExit(arena, seed, enemies) || {});   // SC19 Back Door; no reachable far-edge tile: no exit, and the clock or a cleared field ends it
     if (mode === "survive") s.rounds = rounds || modes.survive.rounds + Math.max(0, enemies.length - 1) * 2;
     if (mode === "assassinate") {
       const count = enemies.length >= 3 ? 2 : 1;
@@ -118,23 +143,9 @@
       s.targets = ranked.slice(0, count).map((e) => e.id);
     }
     if (mode === "escape") {
-      const start = arena.spawns.player[0], w = arena.map[0].length;
-      const farX = start[0] < w / 2 ? w - 1 : 0;
-      const costs = G.walkCosts(arena, start);
-      const enemySpawns = arena.spawns.enemy || [];
-      const cands = [];
-      for (let y = 0; y < arena.map.length; y++) {
-        if (!costs.has(K(farX, y))) continue;
-        if ((arena.objects || []).some((o) => o.x === farX && o.y === y && o.blocksMove)) continue;
-        if (enemySpawns.some(([ex, ey]) => ex === farX && ey === y)) continue;
-        // prefer an open approach (3 walkable neighbours: no corners or pockets), then the hardest to reach
-        const open = DIRS.filter(([dx, dy]) => G.stepCost(arena, farX, y, farX + dx, y + dy) != null).length;
-        cands.push({ at: [farX, y], open, cost: costs.get(K(farX, y)), r: roll(seed, "exit:" + y) });
-      }
-      if (!cands.length) throw new Error("escape: no reachable exit tile on the far edge");
-      cands.sort((a, b) => b.open - a.open || b.cost - a.cost || a.r - b.r);
-      s.exits = [cands[0].at];
-      s.guard = guardTiles(arena, start, s.exits, Math.max(1, enemies.length));
+      const found = farExit(arena, seed, enemies);
+      if (!found) throw new Error("escape: no reachable exit tile on the far edge");
+      Object.assign(s, found);
     }
     return s;
   }

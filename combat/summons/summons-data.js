@@ -306,6 +306,31 @@
         text: "The colony wakes: a 12-potency spore burst on hostiles within 2, and allies inside it heal 10 LF." } },
       identity: "Distributed survival exchanges concentrated strength for network dependence." },
 
+    // The Raven (RAVEN.md rev 2 section 2; R1 data): Odin's Huginn and Muninn, thought and memory. No true-form
+    // art yet: it plays the base sprite until an alternate sheet exists (R-20261103-10). chanceTraits rides with the Messenger
+    // trait in R2 (Keel R7), not here.
+    raven: { name: "The Raven",
+      trueForm: { name: "The Raven · Huginn and Muninn", sprite: "raven", provisional: true,
+        maxLFMul: 1.25, potencyMul: 1.15, pfRegenAdd: 1,
+        traits: [{ id: "bothBirds", name: "Two Birds, One Mind",
+          text: "Both birds are out in Dream Space: the bonuses above are theirs." }],   // R-20261103-10 vocabulary
+        text: "Dream Space reveals Huginn and Muninn together: +25% maximum LF, +15% technique potency, +1 ΦF regeneration per turn." },
+      source: "Norse myth (Odin's ravens Huginn and Muninn); fictional game adaptation", attitude: "analytical", room: "high-seat",
+      standIn: { primary: "inference", secondary: "sightline" },
+      proposed: { primary: "Retrieval", secondary: "Forecasting", reserve: "Indexing", personal: null },
+      signature: { name: "What the Day Brought Back", status: "spec",
+        mechanism: "The first time an effect on your side expires or is removed while the Raven is on the field, bring it back where it was at x0.6 strength for 1 turn.",
+        constraint: "Only effects that existed this battle and ended within 2 rounds; never an ultimate; never a fallen unit; once per appearance.",
+        counters: ["Remove the effect's prerequisite", "Act after the 2-round window", "Kill the Raven before the effect ends"] },
+      ultimate: { name: "Thought and Memory", status: "spec",
+        mechanism: "Fly out and come back: every harm already used in a hit this battle is remembered, and the allies' next steps are foreseen.",
+        constraint: "Once per appearance; the damage half does nothing until a harm channel has been used in a hit this battle.",
+        play: { type: "buff", radius: 3, status: { id: "thoughtAndMemory", resistSeenChannels: 0.7, moveAdd: 1, duration: 2 },
+          text: "Allies within 3 take 30% less damage from every harm channel already used in a hit this battle, and move +1, for 2 turns. The Raven makes no other action that turn." } },
+      pact: { call: { pf: 4, seeds: 35 }, duration: 3 },
+      identity: "What was seen is not lost; it is carried back and handed on.",
+      chanceTraits: [["messenger", 1]] },   // R2: the Raven always arrives holding Messenger
+
     // Gaia (Mala, 2026-10-26: "capture ritual for Gaia and her world form is her Max form"). Not a level unlock: a capture
     // ritual on the weakened Wounded Ground (engine/conditions.js ritualTick) unlocks her for later battles. She comes as the
     // Living Accord; the Dream Space reveals her true form (the Wounded Ground, on your side), and the MAX channel (as
@@ -370,7 +395,10 @@
         lend: { max: 3, potency: 1 }, stretch: { lf: 4, leash: 4 }, reflect: { share: 0.5, max: 3 },
         fragments: ["Its leash is 2 tiles: past that, an order fails and it strains.",
           "Each different foe it wounds lends it a tile, up to 3, and every tile adds to its later hits.",
-          "Strain breaks its pattern: pulled past its leash, every tile falls away."] },
+          "Strain breaks its pattern: pulled past its leash, every tile falls away."],
+        // Its Trial (T2c; R-20261115-03, R-20261115-42; summons/tandem-trial.js): an ordeal. Survive `rounds` rounds against it unbound.
+        // A fail takes price.lf LF at the start of the next battle; a retry opens after `retryAfter` finished battles.
+        trial: { kind: "ordeal", quality: "Endurance", rounds: 5, price: { lf: 10 }, retryAfter: 1, scenario: "theMosaicsOrdeal" } },
       source: "Tandem wing (the ordeal Trial, T2c)", attitude: "vigilant",
       standIn: { primary: "collage", secondary: "adjacency" },
       proposed: { primary: "Collage", secondary: "Adjacency", reserve: null, personal: null },

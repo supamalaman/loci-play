@@ -122,6 +122,7 @@
     // Yourself (Muse, Mala's screenshot 2026-10-15): not a stranger. What you know about yourself, and how much you do not
     // (Observe Self finds it); your own observation deck is what others can learn about you, not a list of locks for you.
     const self = t.id === viewer && s.self?.traits ? s.self.traits : null;
+    const peeledTag = (id) => t.traitsOff?.includes(id) ? " (peeled)" : "";
     const catOf = (id) => insight?.data?.traits?.[id]?.category || null;
     const traitRows = (items) => {   // Psychological / Biological / Values; anything uncategorized keeps the old Traits row
       const byCat = {};
@@ -142,7 +143,7 @@
       const T = insight?.data?.traits || {}, catalog = insight?.data?.self?.catalog || [];
       const selfCat = (tr) => tr.category || catalog.find((x) => x.id === tr.id)?.category || T[tr.id]?.category || T[String(tr.id).replace(/Self$/, "")]?.category || "psychology";
       const name = (tr) => T[tr.id]?.name || tr.name || tr.id;
-      const known = self.filter((tr) => tr.known).map((tr) => ({ cat: selfCat(tr), text: `${name(tr)}${tr.apparent ? "" : " (hidden from others)"}` }));
+      const known = self.filter((tr) => tr.known).map((tr) => ({ cat: selfCat(tr), text: `${name(tr)}${peeledTag(tr.id)}${tr.apparent ? "" : " (hidden from others)"}` }));
       const byCat = {};
       for (const it of [...known, ...imitated.map((e) => ({ cat: catOf(e.id) || "psychology", text: e.text }))]) (byCat[it.cat] ||= []).push(it.text);
       for (const [cat, label] of Object.entries(TROW)) add(label, byCat[cat] || []);
@@ -165,7 +166,7 @@
           return c.text;
         }));
       }
-      traitRows([...revealed.filter((c) => c.kind === "trait").map((c) => ({ id: c.trait, text: c.text })), ...imitated]);
+      traitRows([...revealed.filter((c) => c.kind === "trait").map((c) => ({ id: c.trait, text: c.text + peeledTag(c.trait) })), ...imitated]);
       const receipts=Object.entries(s.findings?.holders?.[viewer]||{}).filter(([id,r])=>r.method==="report"&&s.findings.facts[id]?.subject===t.id);
       if(receipts.length)add("Sources",[...new Set(receipts.map(([,r])=>`Reported by ${s.actors[r.via]?.name||r.via}`))]);
       const unlocks = [...new Set(revealed.flatMap((c) => c.unlocks || []))].map((a) => insight?.data?.actions?.[a]?.name || a);

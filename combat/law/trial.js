@@ -120,7 +120,7 @@
         label: c.label || c.breach || c.id || `count-${i + 1}`,
         grade: c.grade || "unproven", severity: c.severity ?? 1,
         actRound: c.actRound ?? 0, ledgerAct: c.ledgerAct !== false,
-        victimId: c.victimId || null, status: "open", appealed: false,
+        victimId: c.victimId || null, ...(c.courtKey ? { courtKey: c.courtKey } : {}), status: "open", appealed: false,
         confessed: false, absolved: false, exchanges: 0 })),
       representation: { defense: "self", prosecution: "self" },
       claimed: {}, suspects: {}, log: [], over: false, verdicts: null,
@@ -134,7 +134,7 @@
       else { t.representation[side] = "self"; t[`${side}Paid`] = 0; }
     }
     const worst = Math.max(0, ...t.counts.map((c) => c.severity));
-    t.magistrate = worst >= SEV.grave || opts.courtTier === "capital";
+    t.magistrate = opts.magistrate ?? (worst >= SEV.grave || opts.courtTier === "capital");
     say(t, `The court sits: ${form.name} law. ${t.counts.length} count${t.counts.length === 1 ? "" : "s"} against ${t.accusedId}.`,
       [form.about, t.magistrate ? "The Magistrate presides. Death is on the table." : "A local judge sits. No death power."],
       "A trial answers two questions per count: is it proven, and what does it cost. Everything else is theater around those.");
@@ -182,9 +182,9 @@
     const out = [];
     for (const e of evidence || []) out.push({ grade: e.grade, severity: e.severity ?? 1,
       actRound: e.round ?? 0, ledgerAct: true, label: e.delivery ? `${e.delivery} breach` : "breach",
-      victimId: e.victimId || null });
+      victimId: e.victimId || null, ...(e.courtKey ? { courtKey: e.courtKey } : {}) });
     for (const w of testimony || []) if (!w.landed) out.push({ grade: "unproven", severity: 1,
-      actRound: w.round ?? 0, ledgerAct: false, label: `testimony: ${w.ability || "act"}` });
+      actRound: w.round ?? 0, ledgerAct: false, courtKey: w.courtKey || `testimony:${w.round ?? 0}:${w.ability || "act"}`, label: `testimony: ${w.ability || "act"}` });
     return out;
   }
 
@@ -256,9 +256,11 @@
     if (!c) return { ok: false, error: "no open count" };
     const other = side === "defense" ? "prosecution" : "defense";
     const dir = side === "defense" ? 1 : -1;
+    let witnessId;
     const swing = (n, text, why, lesson) => {
       const before = t.favor;
       t.favor += n; clampFavor(t); say(t, text, why, lesson);
+      if (t.form === "courtroom") t.log.at(-1).speaker = { side, ...(witnessId ? { witnessId } : {}) };
       // Turning beats: the room visibly turns the first time each way.
       if (before < TRIAL.doubt && t.favor >= TRIAL.doubt && !t.turnedDefense) { t.turnedDefense = true;
         say(t, "The room turns. The defense has the court's ear now — close counts will break their way.", null, "Momentum matters in real courtrooms too: this is 'the weight of the evidence' made visible."); }
@@ -280,6 +282,7 @@
       case "evidence": {
         const called = callWitness(t, side, c, move.witnessId);
         if (!called.ok) return called;
+        witnessId = called.witness.id;
         const u = called.witness, w = testimonyWeight(t, side, u), truth = groundTruth(c);
         if (u.honest && truth && side === "defense") {
           // Honest alibi cannot vouch for a real act: collapses, play wasted.
@@ -365,7 +368,9 @@
         swing(dir * TRIAL.perjuryFavor, `Perjury! ${unit(t, move.witnessId).name} is EXPOSED, stammering, undone. Failed testimony punished.`, ["Mirrors the class spec's Perjury."], "Perjury is a crime against the court itself — that's why exposing it swings the whole room, not just the count.");
         break;
       }
-      case "end": say(t, `${side === "defense" ? "Defense rests" : "Prosecution rests"} on ${c.label}: it stands as graded (${c.grade.toUpperCase()}).`); break;
+      case "end": say(t, `${side === "defense" ? "Defense rests" : "Prosecution rests"} on ${c.label}: it stands as graded (${c.grade.toUpperCase()}).`);
+        if (t.form === "courtroom") t.log.at(-1).speaker = { side };
+        break;
       default: return { ok: false, error: `unknown play ${move.kind || move}` };
     }
     if (!t.over) {

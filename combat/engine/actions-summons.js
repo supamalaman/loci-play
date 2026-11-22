@@ -66,11 +66,11 @@
         if (!summonRules.callsPalace(a)) return summonRules.NOT_A_CALLER;   // K1 O1: the player character, a familiarKeeper, or a class with familiars (Mala, 2026-11-07)
         const unlocked = summonRules.familiarSet(a, act.unlocked || []).includes(act.summon);   // K1 O2: only from the caller's own set
         if (!unlocked) return `${def.name} is not unlocked yet.`;
-        const cost = summonProfile(s, a.id);
+        const cost = summonProfile(s, a.id, act.summon);   // Tandem T2c: a passed tandem's first call costs nothing
         if (Array.isArray(act.unlocked) && a.id === "player") s.unlockedSummons = act.unlocked.slice();   // remembered for death's door (the player's list only: K1, an ally's call carries its own set)
         const can = summonReadiness(s, a.id, act.summon, act.unlocked);
         if (!can.ok) return can.reason;
-        const summonTax = hasTrait(a, "attentionToDetail") ? 5 : 0;   // Attention to Detail: sturdier craft costs slightly
+        const summonTax = !cost.freeCall && hasTrait(a, "attentionToDetail") ? 5 : 0;   // Attention to Detail: sturdier craft costs slightly (not on a free first call, Tandem T2c)
         if (a.tempo < cost.apCost + summonTax) return `Summoning needs ${cost.apCost + summonTax} action points.`;
         if (a.pf < cost.phiCost) return `Summoning needs ${cost.phiCost} ΦF.`;
         const q = summonQuestions.pickQuestion(act.summon, `${s.seed}:${s.round}:${a.id}:${act.summon}`, { hintCount: H.summonQuestionHints(s, a.id, act.summon) });   // O2c: per-summon study hints (via H: queries installs after actions)
@@ -81,6 +81,7 @@
         if (!dreamSame(s,a.x,a.y,at[0],at[1])) return "Summons cannot cross the sealed Dream Space.";
         const spend = spendTempo(s, a, cost.apCost + summonTax, `Summon ${def.name}`); if (spend) return spend;
         a.pf -= cost.phiCost;
+        if (cost.freeCall) summonRules.Trial?.spendFree(s, a, act.summon, log);
         if (s.summonQuestionBoost > 0) { score.correct = true; score.bond = 2; score.durationBonus = 1; score.potencyMul = 1.2; s.summonQuestionBoost--; }
         if (score.correct) s.summonCorrectAnswers++;
         const raw = summonRules.makeSummonActor(act.summon, { owner: a.id, at, bond: score.bond, potencyMul: score.potencyMul, durationAdd: a.passives?.summonDurationAdd || 0 });
@@ -274,7 +275,7 @@
         const spendError = spendTempo(s, a, RITUAL.beadAp, "Release bead"); if (spendError) return spendError;
         beads.splice(beads.indexOf(bead), 1);
         const beast = beadBeast(s, a, bead, [tx, ty]);
-        (s.captureLog ||= []).push({ actor: a.id, released: beast.id, kind: bead.kind, lf: beast.lf });
+        H.Rites.recordCapture(s, a, "released", { released: beast.id, kind: bead.kind, lf: beast.lf });
         log(s, { kind: "summon", actor: beast.id, target: a.id, tiles: [[tx, ty]], bead: true, text: beast.tamed ? `${beast.name} steps out of the bead at (${tx},${ty}) with ${beast.lf} LF, tamed: it fights for ${a.name} for the rest of the battle.` : `${beast.name} bursts from the bead at (${tx},${ty}) with ${beast.lf} LF. It stays ${RITUAL.beadTurns} turns.` });
       },
       callBeast(s, a, act) {   // a creature learned by swallowing its beads (account/beads.js): called like a released bead, once a battle each

@@ -92,6 +92,12 @@
       { id: "lk-ult", prompt: "All Rise for the Wrong King drains action points. How can an enemy resist it?", choices: ["By guarding (verifying the claim)", "By being far away", "They can't"], answer: 0,
         explain: "There is a verification window: guarding during it resists the command." },
     ],
+    raven: [
+      { id: "raven-thought", prompt: "Thought and Memory has a second half besides the damage cut. What does it give allies within 3?", choices: ["+1 movement for 2 turns", "A free Guard", "Healing each turn"], answer: 0,
+        explain: "Thought looks ahead: allies within 3 also move +1 for 2 turns." },
+      { id: "raven-memory", prompt: "Thought and Memory takes damage off your allies. From which harm?", choices: ["Every channel", "Channels already used in a hit this battle", "Only impact"], answer: 1,
+        explain: "Memory keeps only what it has seen: a channel counts once any hit this battle has used it, so it does little before the first hits land." },
+    ],
   };
 
   function hash(str) {

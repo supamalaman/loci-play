@@ -1,9 +1,8 @@
 "use strict";
 // Courtroom battle driver (W1.3 build): Deadly Sentencing, live. The trial
 // pauses the battle (violence = contempt), argues counts over rounds, and
-// applies verdicts: acquittal, confiscation (sealed technique), or the
-// Executioner's Sword. Auto-argued both sides; the invoker (player, always
-// the prosecution) queues their own presses via Talk ▸ trial rows.
+// applies verdicts. Either side may convene through The Bench. The player
+// can queue legal plays for their own side through Talk ▸ Trial.
 //   RULES                                    → tunables (rite price, evidence floor, counts cap)
 //   canInvoke(s, H, invokerId, accusedId)    → refusal reason or null
 //   invoke(s, H, invokerId, accusedId)       → { ok } (opens s.trial, spends the rite step)
@@ -13,14 +12,14 @@
 //   violenceGate(s, H, a)                    → refusal string or null (contempt + favor against the brawler)
 // Invoke costs 1 banked rite step + presented evidence (2+ observations on
 // the accused) + real counts (live lawEvidence/testimony, cap 3). One trial
-// per battle; retrials (≤2, new evidence only) reopen inside it. AI never
-// invokes (driven-only) and defends on policy. Sword dodge = 1 free
+// per battle; retrials (≤2, new evidence only) reopen inside it. The rite is
+// driven-only. Convene has a normal dodge response. Sword dodge = 1 free
 // reaction + a severed limb (maimed: maxLF ×0.75, battle-long).
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./trial.js"));
   else root.ConceptCombatCourtroom = factory(root.ConceptCombatTrial);
 })(typeof self !== "undefined" ? self : this, function (TR) {
-  const RULES = { riteCost: 1, evidenceNeeded: 2, maxCounts: 3, invokeTempo: 25, playTempo: 10 };
+  const RULES = { riteCost: 1, evidenceNeeded: 2, maxCounts: 3, invokeTempo: 25, playTempo: 10, conveneTempo: 20, conveneReach: 5 };
   const seed01 = (seed, tag) => { let h = 2166136261; for (const c of `${seed}:${tag}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619); h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
   const revealedOn = (s, who, accused) => (s.insight?.knowledge?.[who]?.[accused]?.revealed || []).length;
   const foundIds = (s, accused) => Object.values(s.cls?.lawEvidence?.[accused] || {}).flat().filter((e) => e.grade === "found").map((e) => e.id);
@@ -31,7 +30,55 @@
   function countsFor(s, accusedId) {
     const ev = Object.values(s.cls?.lawEvidence?.[accusedId] || {}).flat();
     const test = (s.cls?.testimony || []).filter((w) => w.target === accusedId || w.subject === accusedId);
-    return TR.countsFromEvidence(ev, test).slice(0, RULES.maxCounts);
+    const counts = TR.countsFromEvidence(ev, test).slice(0, RULES.maxCounts);
+    const prior = accusedId === "player" && s.courtPrior;
+    if (prior && counts.length < RULES.maxCounts) counts.push({
+      grade: prior.grade, severity: prior.severity, actRound: 0, ledgerAct: prior.real,
+      label: `prior: ${prior.kind.replace(/[A-Z]/g, (letter) => " " + letter.toLowerCase())}`,
+      courtKey: `prior:${prior.id}`, victimId: null,
+    });
+    return counts;
+  }
+  const hasTrait = (u, id) => !!u?.traits?.some((trait) => (trait?.id || trait) === id);
+  const hasBench = (u, H) => (H?.hasTrait || hasTrait)(u, "bench");
+  function inCourtReach(s, H, a, x, y) {
+    return H.dist(s, a.x, a.y, x, y) <= RULES.conveneReach && H.hasSight(s, a.x, a.y, x, y);
+  }
+  const conveneCost = (s, H, actor) => Math.round(RULES.conveneTempo * (H.heldCostMul?.(s, actor) ?? 1));
+  function canConvene(s, H, invokerId, accusedId, paid = false) {
+    const a = s.actors[invokerId], t = s.actors[accusedId];
+    const standing = (u) => u && !u.defeated && !u.notArrived && !u.fled && !(H.Instinct?.lying(u) ?? u.status?.playingDead);
+    if (!standing(a) || !hasBench(a, H)) return "Convene the Court requires The Bench.";
+    if (!standing(t) || t.side === a.side || ["bystander", "civilian"].includes(t.side) || H.Tourist?.is(t)) return "Only a standing opponent can be tried.";
+    if (s.trial && !s.trial.over) return "Court is already in session.";
+    if (s.trialDone) return "One trial per battle: the docket is spent.";
+    if (!inCourtReach(s, H, a, t.x, t.y)) return "The accused must be in sight within 5 tiles.";
+    if (H.dreamSame && !H.dreamSame(s, a.x, a.y, t.x, t.y)) return "The accused is outside this dream.";
+    if (!countsFor(s, accusedId).length) return "No counts to try: no evidence, testimony, or prior names them.";
+    if (!paid && a.tempo < conveneCost(s, H, a)) return `Convene the Court needs ${conveneCost(s, H, a)} AP.`;
+    return null;
+  }
+  function aiConvene(s, H, a, accusedId) {
+    if (canConvene(s, H, a.id, accusedId)) return false;
+    const accused = s.actors[accusedId];
+    const carries = (id) => (H.hasTrait || hasTrait)(a, id);
+    if (carries("honorable") && accused.lf * 2 < accused.maxLF) return false;
+    const counts = countsFor(s, accusedId);
+    return (carries("dutiful") && counts.some((c) => c.courtKey?.startsWith("prior:") || c.grade === "proven" || TR.GRADES[c.grade] >= TR.GRADES.witnessed)) ||
+      (carries("truthSeeker") && counts.some((c) => ["witnessed", "sworn"].includes(c.grade)));
+  }
+  function convene(s, H, invokerId, accusedId) {
+    const no = canConvene(s, H, invokerId, accusedId, true);
+    if (no) return { ok: false, error: no };
+    const counts = countsFor(s, accusedId);
+    const magistrate = !!H.ClassRuntime?.law?.isMagistrate(s.actors[invokerId]) && counts.some((c) => c.severity >= TR.SEV.serious);
+    const t = TR.openTrial({ form: "courtroom", accusedId, prosecutorId: invokerId, seed: s.seed,
+      units: fixtures(s), counts, magistrate });
+    s.trial = { t, invokerId, accusedId, queued: null, queuedDefense: null, contempt: [], over: false,
+      foundAtOpen: foundIds(s, accusedId), convened: true };
+    H.log(s, { kind: "trial", actor: invokerId, target: accusedId,
+      text: `The battle holds while the court hears ${s.actors[accusedId].name} on ${counts.map((c) => c.label).join(", ")}. ${magistrate ? "The Magistrate presides." : "A local judge presides."}` });
+    return { ok: true };
   }
   function canInvoke(s, H, invokerId, accusedId) {
     const a = s.actors[invokerId], t = s.actors[accusedId];
@@ -48,7 +95,8 @@
     const no = canInvoke(s, H, invokerId, accusedId);
     if (no) return { ok: false, error: no };
     const a = s.actors[invokerId];
-    a.rite.steps.splice(0, RULES.riteCost);
+    if (H.Rites) H.Rites.spendSteps(a, RULES.riteCost);
+    else a.rite.steps.splice(0, RULES.riteCost);   // standalone court fixtures have no engine ledger
     const t = TR.openTrial({ form: "courtroom", accusedId, prosecutorId: invokerId, seed: s.seed,
       units: fixtures(s), counts: countsFor(s, accusedId) });
     s.trial = { t, invokerId, accusedId, queued: null, contempt: [], over: false, foundAtOpen: foundIds(s, accusedId) };
@@ -114,6 +162,8 @@
     const tr = s.trial, accused = s.actors[tr.accusedId], invoker = s.actors[tr.invokerId];
     for (const e of tr.t.log) H.log(s, { kind: "trial", text: e.text, why: e.why });
     const sentences = tr.t.verdicts?.sentences || [];
+    const applied = new Map();
+    let swordDispelled = false;
     for (const v of tr.t.verdicts?.counts || []) {
       if (v.verdict === "innocent") H.log(s, { kind: "trial", actor: tr.accusedId, text: `${v.count}: INNOCENT (${v.how}).` });
       else H.log(s, { kind: "trial", actor: tr.accusedId, text: `${v.count}: GUILTY (${v.how}).` });
@@ -121,22 +171,25 @@
     for (const sn of sentences) {
       if (sn.kind === "confiscate" && accused && !accused.defeated) {
         const tech = sealPick(s, H, accused);
-        if (tech) { accused.sealedTechs = [...(accused.sealedTechs || []), tech]; H.log(s, { kind: "trial", actor: tr.accusedId, text: `CONFISCATED: ${tech} is sealed — cast nothing sealed.` }); }
+        if (tech) { applied.set(sn.count, sn.kind); accused.sealedTechs = [...(accused.sealedTechs || []), tech]; H.log(s, { kind: "trial", actor: tr.accusedId, text: `CONFISCATED: ${tech} is sealed — cast nothing sealed.` }); }
       } else if (sn.kind === "sword" && accused && !accused.defeated) {
         if (H.Bonds?.maxFriends?.(invoker, accused)) {   // the lawyer's heart: bonds dispel the sword
+          swordDispelled = true;
           H.log(s, { kind: "trial", actor: tr.invokerId, text: `${invoker.name} DISPELS the Sword: ${accused.name} is spared. Mercy has standing here.` });
           H.submitFoe(s, invoker, accused, "spared by dispel");
         } else if ((accused.reaction ?? 0) > 0) {
+          applied.set(sn.count, sn.kind);
           accused.reaction -= 1;
           accused.maxLF = Math.max(1, Math.floor((accused.maxLF || 10) * 0.75)); accused.lf = Math.min(accused.lf, accused.maxLF);
           accused.status.maimed = true;
           H.log(s, { kind: "trial", actor: tr.accusedId, text: `${accused.name} dodges the Sword with a free reaction — and a severed limb (maimed: maxLF now ${accused.maxLF}).` });
         } else {
+          applied.set(sn.count, sn.kind);
           accused.lf = 0; accused.defeated = true; accused.defeatedBy = "sword";
           (s.corpses ||= []).push({ id: `corpse-${accused.id}`, of: accused.id, name: accused.name, x: accused.x, y: accused.y, side: accused.side, boss: !!accused.boss, named: !!(H.C?.characters?.[accused.character] && !accused.beast && !accused.monster), round: s.round, killer: "sword", killerName: "The Sword", sacrifice: false }); (s.corpseMade ||= {})[accused.id] = true;   // the full record corpseSweep would make (1.3.456 audit)   // recorded: corpseSweep must not add a second (1.3.455 audit)
           H.log(s, { kind: "trial", actor: tr.accusedId, text: `THE SWORD takes ${accused.name}: no reaction left, no limb to give.` });
         }
-      } else if (sn.kind === "minor" && accused) { accused.tempo = Math.max(0, (accused.tempo || 0) - 25); H.log(s, { kind: "trial", actor: tr.accusedId, text: "Minor sentence: −25 tempo, now." });
+      } else if (sn.kind === "minor" && accused) { applied.set(null, sn.kind); accused.tempo = Math.max(0, (accused.tempo || 0) - 25); H.log(s, { kind: "trial", actor: tr.accusedId, text: "Minor sentence: −25 tempo, now." });
       } else if ((sn.kind === "guilty-trait" || sn.kind === "harsh") && accused) { accused.traits = [...(accused.traits || []), "guilty"]; H.log(s, { kind: "trial", actor: tr.accusedId, text: "GUILTY trait (battle-long): future sentences bite harder." });
       } else if (sn.kind === "incarceration" && accused && !accused.defeated) { const called = H.Dispatch?.trigger(s, H, accused.id, { reason: "verdict", by: invoker?.id });   // the police come for the standing sentenced (dispatch.js); loop 1a17c856419
         if (called?.ok) H.log(s, { kind: "trial", actor: tr.accusedId, text: "INCARCERATION: the verdict asks for cuffs, and the call goes out." });
@@ -151,7 +204,14 @@
         H.log(s, { kind: "trial", actor: tr.accusedId, text: `${accused.name} is ACQUITTED: the arrest is voided, the cuffs come off. Free to go.` });
       }
     }
-    (s.trialLedger ||= []).push({ accused: tr.accusedId, by: tr.invokerId, verdicts: tr.t.verdicts?.counts?.map((v) => `${v.count}:${v.verdict}`) || [], round: s.round });
+    const recordCounts = (tr.t.verdicts?.counts || []).map((verdict) => {
+      const count = tr.t.counts?.find((entry) => entry.id === verdict.count);
+      return { source: count?.courtKey, real: count?.ledgerAct !== false, grade: count?.grade || "unproven",
+        severity: count?.severity ?? verdict.severity ?? 1, verdict: verdict.verdict,
+        sentence: swordDispelled ? null : applied.get(verdict.count) || applied.get(null) || null };
+    });
+    (s.trialLedger ||= []).push({ accused: tr.accusedId, by: tr.invokerId,
+      verdicts: tr.t.verdicts?.counts?.map((v) => `${v.count}:${v.verdict}`) || [], round: s.round, recordCounts, swordDispelled });
     tr.over = true; s.trialDone = true;
     H.log(s, { kind: "trial", text: "Court adjourns: the battle resumes." });
   }
@@ -161,9 +221,9 @@
     tr.contempt.push({ who: a.id, round: s.round });
     s.keepRefusal = true;   // the action is refused, but the contempt stands: apply() keeps this state
 
-    tr.t.favor = Math.max(-12, Math.min(12, tr.t.favor + (a.side === "player" ? 2 : -2)));   // contempt backfires on the brawler's side
+    tr.t.favor = Math.max(-12, Math.min(12, tr.t.favor + (a.side === s.actors[tr.invokerId]?.side ? 2 : -2)));   // contempt backfires on the brawler's side
     H.log(s, { kind: "trial", actor: a.id, text: `${a.name} brawls during trial: CONTEMPT. The room turns against their side (favor ${tr.t.favor >= 0 ? "+" : ""}${tr.t.favor}). No double-jeopardy shield; hunters will remember.` });
     return `${a.name} cannot fight during trial: contempt of court.`;
   }
-  return { RULES, canInvoke, countsFor, fixtures, invoke, queuePlay, queueDefense, advance, applyVerdicts, violenceGate, foundIds };
+  return { RULES, canInvoke, canConvene, convene, aiConvene, conveneCost, inCourtReach, hasBench, countsFor, fixtures, invoke, queuePlay, queueDefense, advance, applyVerdicts, violenceGate, foundIds };
 });

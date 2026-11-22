@@ -1,0 +1,35 @@
+{
+  "size_class": "terrain",
+  "footprint": "1x1 tile",
+  "note": "asphalt rubble: a broken road with its lane paint; the broken-floor rubble tile of cursor-destructive-map-tiles-spec (R-20261115-60, R-20261115-62); flat = top-down board, iso = isometric block",
+  "views": {
+    "flat": {
+      "source": "ChatGPT Image Nov 15, 2026, 09_27_00 PM.png",
+      "pixel_size": [
+        965,
+        964
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        961,
+        960
+      ],
+      "sha256": "2f6cc5e775ec1e44b243ecd417e100cab0f83dcea474ac4fd04cf1ed33e243fc"
+    },
+    "iso": {
+      "source": "ChatGPT Image Nov 15, 2026, 09_28_04 PM-4.png",
+      "pixel_size": [
+        1183,
+        808
+      ],
+      "alpha_bounds": [
+        4,
+        4,
+        1179,
+        804
+      ],
+      "sha256": "808016449137293606ce04ad92b216a7ef560c916cba50fb1e1d87111de48b7b"
+    }
+  }
+}

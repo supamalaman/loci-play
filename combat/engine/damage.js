@@ -118,7 +118,7 @@
       const K = (s.rules.concentration?.k ?? 10) * kMul;
       const lf = opts.afterLF ?? tgt?.lf ?? 0, channels = [];
       if (tgt?.contractActive?.contract.active.concentration) channels.push("contract");
-      if (tgt?.ritual) channels.push("ritual");
+      if (H.Rites.capture(tgt)) channels.push("ritual");
       if (tgt?.rite) channels.push("rite");
       if (tgt?.status?.heldTones) channels.push("tones");
       if ((tgt?.soulOf || tgt?.soulId) && (opts.afterLF ?? tgt?.lf ?? 0) > 0) channels.push("astral");
@@ -137,8 +137,9 @@
       };
       const why = () => [`Concentration holds ${Math.round(p * 100)}% of the time against a ${lost} LF hit (${+K.toFixed(2)} / (${+K.toFixed(2)} + ${lost}))${kMul !== 1 ? `; traits scale focus ×${+kMul.toFixed(2)}` : ""}.`];
       if(tgt.contractActive?.contract.active.concentration){const r=roll("contract");if(!r.hold)H.Contracts.end(s,tgt,"concentration broken by damage");}
-      if (tgt.ritual) {
-        const visitor = !!tgt.ritual.visitor, r = roll("ritual");
+      const capture = H.Rites.capture(tgt);
+      if (capture) {
+        const visitor = !!capture.visitor, r = roll("ritual");
         if (r.hold) log(s, { kind: "ritual", actor: tgt.id, tiles: [[tgt.x, tgt.y]], text: `${tgt.name} keeps the ${visitor ? "retrieval chant" : "capture ritual"} going through the blow (concentration).`, why: why() });
         else endRitual(s, tgt, "broken");
       }
@@ -251,6 +252,39 @@
       tgt.lf = 1; tgt.gentled = true;
       log(s, { kind: "spare", actor: src.id, target: tgt.id, text: `${src.name} stays his hand: ${tgt.name} is left at 1 LF.` });
       return true;
+    }
+    // Do No Harm (hot-build cuts F2, Florence's value): each foe once, the first hit of hers that would drop
+    // them from above 1 LF to 0 leaves them at 1. Same seat as Gentle Hand, her own vow and flag.
+    function doNoHarmSpare(s, src, tgt, before) {
+      if (!src || src.id === tgt.id || src.side === tgt.side || !H.hasTrait(src, "doNoHarm") || tgt.noHarmed) return false;
+      if (!(before > 1)) return false;   // a foe already at 1 LF was not reduced from above 1: no spare, no flag spent
+      tgt.lf = 1; tgt.noHarmed = true;
+      log(s, { kind: "spare", actor: src.id, target: tgt.id, text: `${src.name} will not be the one: ${tgt.name} is left at 1 LF.` });
+      return true;
+    }
+    // Latch Dose (hot-build cuts F2, Florence): a foe's ranged hit (a line, signal, routed or field delivery
+    // from 2+ tiles; never a Strike or a contact hit, never her own side's fire) on her, or on an ally within
+    // 2 of her, banks part of the LF it took as Dose (max 12): half when her field is down (a substrate stamp
+    // is live) and the shooter stands inside it (primed), a quarter otherwise (rushed). A bank of 4+ at once
+    // pays 1 Inspiration through the shared Cash (once a round). Case Notes' mark makes its foe's bank primed.
+    function latchDoseBank(s, src, tgt, lfLost, inst) {
+      if (!src || !tgt || lfLost <= 0 || s.preview) return;
+      if (src.side === tgt.side) return;
+      if (inst && (inst.ability === "strike" || inst.delivery === "contact")) return;
+      for (const f of Object.values(s.actors || {})) {
+        if (!f || f.defeated || f.side !== tgt.side || !H.hasTrait(f, "clinician")) continue;
+        if (tgt.id !== f.id && Math.abs(tgt.x - f.x) + Math.abs(tgt.y - f.y) > 2) continue;
+        const range = Math.abs(src.x - tgt.x) + Math.abs(src.y - tgt.y);
+        if (range < 2) continue;
+        let primed = !!f.substrate && Math.abs(src.x - f.x) + Math.abs(src.y - f.y) <= 2, marked = false;
+        if (f.caseMark?.target === src.id && (f.caseMark.expiresAt ?? 99) > f.ownerTurns) { primed = true; marked = true; }
+        const bank = Math.min(12 - (f.dose || 0), Math.floor(lfLost / (primed ? 2 : 4)));
+        if (bank <= 0) continue;
+        if (marked) delete f.caseMark;   // the mark is spent only by a bank that actually lands
+        f.dose = (f.dose || 0) + bank;
+        log(s, { kind: "effect", actor: f.id, target: tgt.id, dose: f.dose, text: `${f.name} catches the shot in her vials: Dose ${f.dose}/12.`, why: [marked ? "Latch Dose: the Case Notes mark makes this catch primed; half banks." : primed ? "Latch Dose: her field is down and the shooter stands in it; half the caught damage banks." : "Latch Dose: rushed, a quarter banks."] });
+        if (bank >= 4) H.Inspiration?.cash(s, f, "Noted.");
+      }
     }
     // The Look needs no trigger here: actor.js afterHit already rolls it for every theLook carrier
     // (10% per damaging move, once per enemy per turn, reaction eaten outright). A second roll here
@@ -370,6 +404,7 @@
         mult *= src.passives.summonDamageDealtMul;
         notes.push(`Non-believer deals ×${src.passives.summonDamageDealtMul} damage to a summoned creature.`);
       }
+      if (potency > 0 && src?.passives?.damageDealtMul && src.passives.damageDealtMul !== 1) { mult *= src.passives.damageDealtMul; notes.push(`${src.name} deals ×${src.passives.damageDealtMul} with every blow.`); }   // a trait-carried passive (the Vocational maid, R-20261115-63)
       if (src?.form?.golden && potency > 0 && inst?.ability === "strike") { mult *= 1.25; notes.push("Whole: the Integrated Self strikes as one — ×1.25 potency."); }   // techniques already carry Whole in their manifest (engine.js: cost -1, potency x1.25); a strike has no manifest
       if(tgt.outlaw&&src&&presidentRules){const office=Object.values(s.actors).map(h=>presidentUnits(s).find(u=>u.id===h.id)).find(h=>h&&h.side===src.side&&presidentRules.officeValid(h)&&presidentRules.inJurisdiction(h,presidentUnits(s).find(u=>u.id===tgt.id),presidentContext(s)));if(office&&presidentRules.recognizers(office,presidentUnits(s),presidentContext(s)).includes(src.id)){mult*=presidentRules.outlawMul(src.id,presidentUnits(s).find(u=>u.id===tgt.id),[src.id]);notes.push("A recognized ally's attack on an outlaw gains ×1.25 under Due Process.");}}
       if (s.mirror && !opts.bleedOut && !s.mirror.channelsUsed.includes(damageType)) s.mirror.channelsUsed.push(damageType);
@@ -397,6 +432,10 @@
         if (gw) { potency = Math.max(0, potency - gw); notes.push(`${tgt.name} stands by a tended grave (−${gw}).`); } }
       if (potency > 0 && H.hasTrait(tgt, "hardy") && inst && (inst.delivery === "field" || inst.terrain === true)) {   // Seedkeeper: Hardy grounds out field/terrain damage
         potency = Math.max(0, potency - 10); notes.push(`${tgt.name} is Hardy: field damage −10.`); }
+      if (potency > 0 && src && src.side !== tgt.side && H.hasTrait(tgt, "carapace") && tgt.carapaceRound !== s.round) {   // Chitinous Archbishop (F3): the first foe hit on her each round loses 3 potency
+        tgt.carapaceRound = s.round; potency = Math.max(0, potency - 3); notes.push(`${tgt.name}'s Carapace turns the first hit this round (−3).`); }
+      { const vm = potency > 0 ? (ClassRuntime?.law?.vestmentMul?.(s, src, inst) ?? 1) : 1;   // F3: Binding Vestment halves her named delivery cast from inside it
+        if (vm !== 1) { mult *= vm; notes.push(`Cast from inside a Binding Vestment that names ${inst.delivery}: ×${vm}.`); } }
       { // Settlement: a Palisade or Keep shelters adjacent allies of its side (Mala, 2026-10-19).
         const shelter = potency > 0 && (s.arena.objects || []).find((o) => (o.type === "palisade" || o.type === "keep") && (o.hp ?? 0) > 0 && o.side === tgt.side && Math.max(Math.abs(o.x - tgt.x), Math.abs(o.y - tgt.y)) <= 1);
         if (shelter) { mult *= 0.5; notes.push(`${tgt.name} shelters beside the ${shelter.name} (×0.5).`); } }
@@ -599,6 +638,7 @@
         }
       }
       if (tgt.lf === 0 && tgt.status?.submission && src && s.actors[tgt.status.submission.by]?.side === src.side) { tgt.lf = 1; notes.push("Pressed for a submission: the hunt is for surrender, not a kill."); }
+      if (tgt.lf === 0 && summonRules?.Tandem?.unbound(tgt)) { tgt.lf = 1; notes.push("Unbound: it cannot be killed, only endured."); }   // Tandem T2c: the ordeal's tandem (summons/tandem-trial.js)
       if (dmg > 0) H.Tourist?.hurt(s,tgt,dmg,H.touristH());
       if(before>tgt.lf) tgt.pain={v:Math.min(1,(tgt.pain?.v||0)*Math.pow(0.5,Math.max(0,s.round-(tgt.pain?.round||s.round)))+(before-tgt.lf)/(tgt.maxLF||30)),round:s.round};
       // (pocket model: snap-back is a concentration roll now — the soul channel in concentrationCheck below.)
@@ -649,6 +689,7 @@
       // warded: what a ward took off this hit (structured, so the map and the duel scene can show it; Muse 2026-10-10).
       log(s, { kind: "damage", actor: src ? src.id : null, target: tgt.id, at:[tgt.x,tgt.y], amount: applied, lfLost: Math.max(0, before - tgt.lf), ability: inst && inst.ability, ...(warded ? { warded, wardBroke } : {}),
         damageType, text: `${opts.label || (inst ? inst.name : "Hit")} → ${tgt.name}: ${applied} LF (${remaining}) · ${C.damageTypes[damageType]?.name || damageType}.`, why: notes, edge: opts.edge });
+      latchDoseBank(s, src, tgt, Math.max(0, before - tgt.lf), inst);   // Florence (F2): a ranged hit on her or a near ally banks Dose
       ClassRuntime?.Martial?.onDamage(s, src, tgt, Math.max(0, before - tgt.lf), classH());   // Martial Artist: fight counters, charge/feast spill
       if (src && dmg > 0 && !s.preview) { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onHit(s, src, tgt, dmg, H); }   // admiration: a big shot writes the ledger
       if (inst?.holy && src && tgt !== src && dmg > 0 && !s.preview && s.rules.holy) {   // docs/holy.md: holy power struck in plain sight, so skeptics may start to believe and the strikers' side may be inspired
@@ -667,8 +708,13 @@
         log(s, { kind: "summon", actor: tgt.id, text: `${tgt.name} storms home: struck by its own caller. The pact is BROKEN.` });
       }
       if (dmg > 0 || warded > 0) H.fruitAfterHit?.(s, src, tgt, damageType, inst, { dmg, warded, wardHide });   // Sinkerfruit (respec S2a, S1b): Ripe Coilfruit answers an impact hit; the hide and the borrowed move earn feats
-      if (tgt.lf <= 0 && !tgt.defeated && !gentleSpare(s, src, tgt) && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt)) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
+      const civilianHarm = !s.preview && src?.id === "player" && tgt.side === "civilian" && before > tgt.lf
+        ? { round: s.round, targetId: tgt.id, targeted: inst?.courtTarget === tgt.id, killed: false }
+        : null;
+      if (civilianHarm) ((s.cls ||= {}).civilianHarm ||= []).push(civilianHarm);
+      if (tgt.lf <= 0 && !tgt.defeated && !gentleSpare(s, src, tgt) && !doNoHarmSpare(s, src, tgt, before) && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt)) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
         tgt.defeated = true; delete tgt.status.playingDead; tgt.defeatedBy = src && src.id !== tgt.id ? src.id : null; for (const e of (H.Sealing?.onSealerDown?.(s, tgt) || [])) log(s, { kind: "seal", actor: e.foe, text: e.text });   // the killer, for the corpse (ritual burial; revenge later)   // W2.3: a dead sealer's binds drop
+        if (civilianHarm) civilianHarm.killed = true;
         H.pactLeave(s, tgt);   // a pact summon falls: downed, no standing; kill the caller: the call ends
         { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onDeath?.(s, tgt, src && src.id !== tgt.id ? src.id : null, H); }   // group spirit: a fallen leader shocks now (SPIRIT-ORDER SPEC)
         { const OD = typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders; OD?.onDeath(s, tgt, H); }   // admiration: first falls, adjacent losses, ordered falls
@@ -692,7 +738,9 @@
         if (tgt.boss && s.vignette && bossRules?.dropOrb) { s.vignette.bossOrb = bossRules.dropOrb(tgt); log(s,{kind:"bossReward",actor:tgt.id,text:`${bossRules.data.orbs[s.vignette.bossOrb]?.name || "A boss orb"} falls from ${tgt.name}.`}); }
         // The Brain Chip (docs/brain-chip.md): one falls from an AGI defeated after it transcended; a climbing one drops nothing.
         if (tgt.character === "agi" && tgt.takeoff?.transcended) { s.brainChips = (s.brainChips || 0) + 1; log(s, { kind: "brainChip", actor: tgt.id, tiles: [[tgt.x, tgt.y]], text: `The Brain Chip falls from ${tgt.name}.`, why: ["It transcended before it fell. The chip is kept if this battle is won."] }); }
-        lootDrop(s, src, tgt);   // loot v1: the fallen may drop consumables (killer's hands or the ground)
+        const installer = src?.states?.unmasked && src.states.marked && s.actors[src.states.marked.by];
+        if (installer && installer.id !== tgt.id && src.id !== tgt.id) { tgt.defeatCreditBy = installer.id; tgt.defeatCreditSide = installer.side; }
+        lootDrop(s, tgt.defeatCreditBy ? installer : src, tgt);   // loot v1: the fallen may drop consumables (killer's hands or the ground)
         if (tgt.summon?.order) { tgt.summon.order = null; tgt.summon.holdPosition = false; log(s, { kind: "summonOrder", actor: tgt.id, text: `${tgt.name}'s committed ultimate is cancelled because the summon fell before its next turn.` }); }
         if (tgt.dream?.key) recordMirrorEvent(s, { kind: "dream", monster: tgt.dream.key, via: "defeat" });
         s.barriers = s.barriers.filter((b) => b.owner !== tgt.id);
@@ -754,11 +802,12 @@
     function applyEntryEffects(s, source, target, x, y, cause = "enters") {
       H.Contracts?.moved(s,target,x,y);
       // A step breaks a chant whatever carries the unit (a flyer's or a golden form's early return below used to keep it).
-      if (target.ritual) {   // C18: the channeler must hold still; Perfect Concentration may shift one tile a turn on its own feet
+      const capture = H.Rites.capture(target);
+      if (capture) {   // C18: the channeler must hold still; Perfect Concentration may shift one tile a turn on its own feet
         const steps = H.hasTrait(target, "perfectConcentration") && source === target && cause === "enters" ? s.rules.concentration?.perfect?.ritualSteps || 0 : 0;
-        if (target.ritual.stepTurn !== target.ownerTurns) { target.ritual.stepTurn = target.ownerTurns; target.ritual.steps = 0; }
-        if (steps && target.ritual.steps < steps) {
-          target.ritual.steps += 1;
+        const used = capture.stepTurn === target.ownerTurns ? capture.steps : 0;
+        if (steps && used < steps) {
+          H.Rites.setCapture(target, { ...capture, stepTurn: target.ownerTurns, steps: used + 1 });
           log(s, { kind: "ritual", actor: target.id, tiles: [[x, y]], text: `${target.name} shifts a step and the chant does not waver (Perfect Concentration).` });
         } else endRitual(s, target, "moved");
       }

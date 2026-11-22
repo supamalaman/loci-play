@@ -37,7 +37,7 @@
     jatayu: { name: "Jatayu", role: "The Archive", windows: ["archive", "bestiary", "traitWeb", "studioRoster", "studioSheet", "crewWall", "artLibrary"], art: std("jatayu"), voice: "old, exact, patient", lines: "jatayu", hook: "H04", perk: null, wired: true, slice: "S1" },
     tallyman: { name: "The Tallyman", role: "Ledger House", windows: ["ledgerHouse"], art: std("neo-warden-tallyman", "portrait-{x}.png"), voice: "courteous, exact, a little grim", lines: "tallyman", hook: "H05", perk: null, wired: true, owes: true, slice: "S1", counters: { shop: "pioneer", gear: "smith", kiln: "talisman", stall: "kaikeyi" } },
     pioneer: { name: "Pioneer", role: "Field shop", windows: ["ledgerHouse"], art: std("pioneer"), voice: "cheerful, practical", lines: "pioneer", hook: "H06", perk: "P1", wired: true, slice: "S3" },
-    smith: { name: "The Smith", role: "Gear and repair", windows: ["ledgerHouse"], art: { status: "staged", folder: null, stagedFolder: "blacksmith-review", pattern: null, map: {}, fallback: null }, voice: "terse, proud of the work", lines: null, hook: "H07", perk: "P2", wired: false, slice: "S5" },   // placeholder name (D6); staged art, landed by the Cutter
+    smith: { name: "The Smith", role: "Gear and repair", windows: ["ledgerHouse"], art: std("smith"), voice: "terse, proud of the work", lines: "smith", hook: "H07", perk: "P2", wired: true, slice: "S5" },   // placeholder name (D6); faces landed by the Cutter (S5): he speaks at the Ledger House Gear counter
     talisman: { name: "The Talisman", role: "Kiln", windows: ["ledgerHouse"], art: std("talisman", "portrait-{x}.png"), voice: "patient, exact", lines: "talisman", hook: "H08", perk: null, wired: true, slice: "S3" },
     kaikeyi: { name: "Kaikeyi", role: "The Stall", windows: ["ledgerHouse"], art: std("kaikeyi", "portrait-{x}.png"), voice: "shrewd, cordial", lines: "kaikeyi", hook: "H09", perk: null, wired: true, slice: "S3" },
     ravana: { name: "Ravana", role: "Threat leaderboard", windows: ["threatBoard"], art: std("ravana"), voice: "boastful, never cruel", lines: "ravana", hook: "H11", perk: null, wired: true, slice: "S2" },
@@ -45,7 +45,7 @@
     jambavan: { name: "Jambavan", role: "Hiring Hall", windows: ["hiringHall"], art: std("jambavan"), voice: "gruff, fatherly", lines: "jambavan", hook: "H12", perk: "P3", wired: true, slice: "S1" },
     magistrate: { name: "The Magistrate", role: "The Codex", windows: ["codex"], art: { status: "live", folder: "magistrate", pattern: "heads/{x}.png", map: { neutral: "neutral", happy: "smile", angry: "angry", sad: "hurt", surprised: "focused", tired: "tired" }, fallback: "idle" }, voice: "formal, dry", lines: "magistrate", hook: "H13", perk: null, wired: true, slice: "S4" },   // six non-standard heads, mapped (D7); a true surprised head is art request A3
     freemason: { name: "The Freemason", role: "Scribing desk", windows: ["scribingDesk"], art: { status: "live", folder: "freemason", pattern: "face-{x}.png", map: { neutral: "neutral", happy: "amused", angry: "angry", sad: "tired", surprised: "thinking", speaking: "speaking" }, fallback: "idle" }, voice: "measured, craftsmanlike", lines: "freemason", hook: "H14", perk: null, wired: true, slice: "S4" },   // seven non-standard faces, mapped (D7); a true surprised face is art request A4
-    madScientist: { name: "The Mad Scientist", role: "The Lab", windows: ["lab", "townWalk"], art: { status: "staged", folder: null, stagedFolder: "mad-scientist-review", pattern: null, map: {}, fallback: null }, voice: "delighted, cross, exact", lines: null, hook: "H15", perk: "P4", wired: false, slice: "S5" },
+    madScientist: { name: "The Mad Scientist", role: "The Lab", windows: ["lab", "townWalk"], art: std("mad-scientist"), voice: "delighted, cross, exact", lines: "madScientist", hook: "H15", perk: "P4", wired: true, slice: "S5" },
     starfarer: { name: "The Starfarer", role: "Workshop", windows: ["workshop"], art: std("starfarer"), voice: "far-seeing, unhurried", lines: "starfarer", hook: "H16", perk: null, wired: true, slice: "S4" },
     lakshmana: { name: "Lakshmana", role: "School", windows: ["school"], art: std("lakshmana"), voice: "earnest, strict, fair", lines: "lakshmana", hook: "H17", perk: null, wired: true, slice: "S2" },
     gambler: { name: "The Gambler", role: "Town square", windows: ["square", "proposeStakes", "sweatIt", "cardtable"], art: std("gambler", "portrait-{x}.png"), voice: "easy, risky, friendly", lines: "gambler", hook: "H18", perk: null, wired: true, slice: "S2", counters: { cardtable: "gambler" } },   // C6a re-cut: the self counter so counterKeeper("cardtable", "cardtable") resolves and Talk answers fold:cardtable (without it the fold event falls back to fold:scenarios)
@@ -69,19 +69,21 @@
     hiringHall: w("jambavan", "ui.js:1100", ["showHall"], "S1"), codex: w("magistrate", "ui.js:1119", ["showCodex"], "S4"),
     scribingDesk: w("freemason", "legacy/workshop-ui.js:4", [], "S4"), lab: w("madScientist", "ui.js:1157", ["showLab"], "S5"),
     sheet: w("contextual", "ui.js:showSheet", ["showSheet"], "S6"),   // Fame F3a: the character sheet has no keeper of its own; S6 (the overlay resolver) names who speaks there (FAME.md 10.2 The sheet + 10.8 slicing row; differs from 10.6's exemption wording, disclosed in the shelf NOTE)
+    roomOfTrials: w("contextual", "summons/room-of-trials.js:mount", [], "S6"),
     workshop: w("starfarer", "ui.js:1386", ["showWorkshop", "showWorkshopHub"], "S4"), school: w("lakshmana", "ui.js:1514", ["showSchool"], "S2"),
     square: w("gambler", "ui.js:1551", ["showBusk"], "S2"), cardtable: w("gambler", "ui.js:showCardTable", ["showCardTable"], "S6"), classicMenu: w("arantxa", "ui.js:1181", ["showSetup"], "S4"),
     battleSidePanel: w(null, "ui.js:673", [], null, "control surface: owns the Dialogue toggle, no keeper"),
     teachCard: w("contextual", "ui.js:2653", ["showTeachCard"], "S6"), mindDuel: w("served", "ui.js:4450", [], null, "already served: portraitMarkup"),
     multitudes: w("contextual", "ui.js:4692", ["showMultitudesCard"], "S6"), audition: w("contextual", "ui.js:4703", ["showAuditionCard"], "S6"),
     proposeStakes: w("gambler", "ui.js:4760", ["showStakesCard"], "S6"), sweatIt: w("gambler", "ui.js:4800", ["showStakeCard"], "S6"),
-    vowCard: w("contextual", "ui.js:4819", ["showVowCard"], "S6"),
+    vowCard: w("contextual", "ui.js:4819", ["showVowCard", "showVowConfirm"], "S6"),
     communeQuestion: w("contextual", "ui.js:4895", ["showCommuneQuestion", "showAwakenQuestion", "showNameDreamQuestion"], "S6"), summonQuestion: w("contextual", "ui.js:4948", ["showSummonQuestion"], "S6"),
     battleOver: w("arantxa", "ui.js:5339", [], "S4"), cutscenePopups: w("served", "ui.js:327", [], null, "already served: faceFile"),
     narratorWindow: w("arantxa", "ui.js:2056", [], "S4"), dispatch: w("chief", "law/dispatch.js:45", [], null, "radio voice only (decision D9)"),
     saveBroken: w(null, "ui.js:1329", ["showSaveBroken"], null, "system overlay (broken save guard, 2026-11-03): plain words about the player's data, no keeper"), firstPick: w(null, "ui.js:1340", ["showFirstPick"], null, "its own scene (Familiar S2, 2026-11-03): the first-launch familiar choice"),
     enemyBubbles: w("served", "ui.js:3883", ["showDialogueFrom"], null, "already served: speakers.js heads"),
     museum: w("museumKeeper", "ui.js:showMuseum", ["showMuseum"], "S6"),   // Museum M2: the town door's panel; keeper unnamed (M9)
+    familiarPicker: w("contextual", "ui.js:showFamiliarPicker", ["showFamiliarPicker"], "S6"),   // Familiar S3 (codex-familiar-s3-build rev 1): the familiar collection, opened from the field and from the battle's Familiars command; like the summon card, S6 names who speaks
   };
 
   const art = (id) => KEEPERS[id]?.art || null;

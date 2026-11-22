@@ -59,7 +59,7 @@
     const KIND = { move: "move", jump: "move", climb: "move", guard: "guard", overwatch: "overwatch", ability: "ability", playCard: "card" };   // overwatch: Cure (S1), so a gate can block the Overwatch action type
     const defOf = (id) => { const d = H.C.states?.[id]; return d ? { ...d, id } : null; };
     const live = (u) => !!u && !u.defeated && !u.notArrived;
-    const quiet = (def, inst) => !!def.hidden && !inst.revealed.length;
+    const quiet = (def, inst) => !!def.hidden && (def.id === "latent" ? !inst.revealed.includes("player") : !inst.revealed.length);
     const abOf = (id) => (H.ab ? H.ab(id) : H.C.abilities[id]);
     // Walk a unit's held states; a state removed by an earlier step in the walk is skipped.
     const each = (u, fn) => { for (const id of Object.keys(u?.states || {})) { const inst = u.states?.[id], def = defOf(id); if (inst && def) fn(inst, def); } };
@@ -81,6 +81,137 @@
       if (kind === "water") return near(1, waterTile);
       if (kind === "question") return u.probedRound === s.round;
       return false;
+    }
+    const SUGGESTIONS = { hold: "suggestedHold", back: "suggestedBack", guard: "suggestedGuard" };
+    const rawTrait = (u, id) => (u.traits || []).some((t) => (typeof t === "string" ? t : t.id) === id);
+    const cureRules = (s) => s.rules.cure || H.C.rules.cure;
+    const layers = (s, u) => RESTRAINT.filter((id) => rawTrait(u, id)).slice(0, cureRules(s).maxLayers);
+    const nextLayer = (s, u) => layers(s, u).find((id) => !u.traitsOff?.includes(id));
+    const truce = (s, a, t) => (a.truceWith === t.id && a.truceUntil >= s.round) || (t.truceWith === a.id && t.truceUntil >= s.round);
+    const freeQuestion = (a, d) => d.ability === "whoAreYou" && !!a.states?.askable;
+    function cureBill(a, m) {
+      if (freeQuestion(a, m)) Object.assign(m, { cost: 0, tempoCost: 0, noCharge: true });
+      else if (abOf(m.ability)?.cureWholeTurn) Object.assign(m, { tempoCost: Math.max(1, a.tempo), cureWholeTurn: true });
+    }
+    function cureTarget(s, a, m, t, at, choice) {
+      if (!live(t) || t.escaped || t.lf <= 0) return { ok: false, error: "Choose a standing subject." };
+      const fail = (error) => ({ ok: false, error });
+      const [x, y] = at, ability = m.ability, st = t.states || {};
+      if (H.dist(s, a.x, a.y, x, y) > m.range || !H.hasSight(s, a.x, a.y, x, y) || H.Instinct?.hidden(a, t)) return fail("Choose a visible subject in range.");
+      if (t.summon || t.beast || t.companion || t.communed || t.clone || t.mirrorOf) return fail("This technique needs a person with their own restraints.");
+      const choices = abOf(ability)?.cureChoices;
+      if (choices && choice !== undefined && !Object.hasOwn(choices, choice)) return fail("Choose a listed cue or suggestion.");
+      const steady = ability === "steadyVoice", free = freeQuestion(a, m);
+      if (steady) {
+        if (t.side !== a.side || t.unwilling) return fail("Steady Voice needs a willing ally or yourself.");
+        if (st.heard || st.fixated || st.unmasked) return fail("That subject cannot accept Steady Voice.");
+      } else {
+        if (t.side === a.side || t.id === a.id || H.Tourist?.is(t) || truce(s, a, t) || H.Parley?.blocks(s, a, t)) return fail("Choose an opponent outside a truce.");
+        if (free && t.boss !== "asker") return fail("This offered question is only for the Asker.");
+        if (st.unmasked || st.incapacitated || st.steadied) return fail("That subject refuses the technique in their current state.");
+        if (!free && (rawTrait(t, "stoic") || t.primary === "stoicism" || t.secondary === "stoicism")) return fail("Their Stoicism holds.");
+        if (ability === "whoAreYou") {
+          if (!free && !nextLayer(s, t) && !st.latent) return fail("There is no remaining restraint to probe.");
+        } else {
+          if (st.spoken) return fail("That subject has already received their instruction for this battle.");
+          if (t.primary === "selectivity" || t.secondary === "selectivity") return fail("Their Selectivity filters the instruction.");
+          if (ability === "holdTheFlame" && st.fixated) return fail("That subject is already fixated.");
+          if (ability !== "holdTheFlame" && !st.fixated) return fail("That subject must first be fixated.");
+          if (ability === "quietInstruction" && !t.traitsOff?.length) return fail("Peel a restraint before giving a latent order.");
+          if (ability === "hypnoticSuggestion" && ["guarded", "stubborn"].some((id) => H.hasTrait(t, id))) return fail("An intact Guarded or Stubborn restraint refuses.");
+        }
+      }
+      return { ok: true, tiles: [at], targets: [t.id], cureChoice: choice ?? Object.keys(choices || {})[0] };
+    }
+    function restoreLayer(s, t, id = t.traitsOff?.at(-1)) {
+      if (!id || !t.traitsOff?.includes(id)) return null;
+      t.traitsOff = t.traitsOff.filter((layer) => layer !== id);
+      if (t.curePeelUntil) delete t.curePeelUntil[id];
+      if (!t.traitsOff.length) remove(s, t, "curePeeled");
+      return id;
+    }
+    function probe(s, a, t) {
+      t.probedRound = s.round;
+      observed(s, a, t);
+      const layer = nextLayer(s, t);
+      if (!layer) return;
+      const deck = s.insight?.decks?.[t.id], card = deck?.cards.find((c) => c.kind === "trait" && c.trait === layer);
+      if (card && H.Observation && H.insightRules) {
+        const bySubject = H.Observation.knowledge(s, a, true);
+        const know = (bySubject[t.id] ||= H.insightRules.spawnKnowledge(deck));
+        if (!know.revealed.includes(card.id)) {
+          know.revealed.push(card.id);
+          H.Observation.credit(s, a, t, [card], H.observationH());
+        }
+      }
+      const name = H.insightRules?.data?.traits?.[layer]?.name || layer;
+      if (!t.cureGuardedProbe && H.hasTrait(t, "guarded")) {
+        t.cureGuardedProbe = true;
+        log(s, { kind: "cure", actor: a.id, target: t.id, text: `${t.name} keeps their first restraint. Guarded holds.` });
+        return;
+      }
+      if (layer === "honest" || layer === "loyal") {
+        const probes = (t.cureProbes ||= {});
+        probes[layer] = (probes[layer] || 0) + 1;
+        if (probes[layer] < 2) {
+          log(s, { kind: "cure", actor: a.id, target: t.id, text: `${name} holds. It takes another probe.` });
+          return;
+        }
+        delete probes[layer];
+      }
+      (t.traitsOff ||= []).push(layer);
+      (t.curePeelUntil ||= {})[layer] = s.round + cureRules(s).peelRounds - 1;
+      if (!t.states?.curePeeled) grant(s, t, "curePeeled", { by: a.id });
+      log(s, { kind: "cure", actor: a.id, target: t.id, text: `${t.name}'s ${name} restraint is peeled.` });
+    }
+    function cureResolve(s, a, inst) {
+      const t = s.actors[inst.targets[0]];
+      if (!live(t)) return;
+      const from = { by: a.id };
+      switch (inst.ability) {
+        case "whoAreYou": probe(s, a, t); break;
+        case "holdTheFlame": grant(s, t, "fixated", from); break;
+        case "quietInstruction":
+          grant(s, t, "latent", { ...from, cue: inst.cureChoice });
+          grant(s, t, "spoken", from);
+          break;
+        case "hypnoticSuggestion":
+          if (grant(s, t, SUGGESTIONS[inst.cureChoice], from)) grant(s, t, "spoken", from);
+          break;
+        case "steadyVoice": {
+          const restored = restoreLayer(s, t);
+          delete t.routed;
+          grant(s, t, "calm", from);
+          grant(s, t, "heard", from);
+          if (restored) log(s, { kind: "cure", actor: a.id, target: t.id, text: `${t.name} recovers a peeled restraint.` });
+          break;
+        }
+      }
+    }
+    function cureAi(s, a, cand) {
+      const t = Array.isArray(cand.target) && H.actorAt(s, ...cand.target);
+      if (!t || !cureTarget(s, a, H.manifest(s, a, cand.ability), t, cand.target, cand.cureChoice).ok) return 0;
+      const basics = H.abilitiesOf(t).map(abOf).filter((x) => x?.tier === "basic" && x.effect === "damage");
+      const hit = Math.max(s.rules.strike.potency, ...basics.map((x) => x.potency || 0));
+      const near = (u, v) => H.dist(s, u.x, u.y, v.x, v.y);
+      const stood = Object.values(s.actors).filter(live);
+      switch (cand.ability) {
+        case "whoAreYou":
+          if (freeQuestion(a, { ability: cand.ability })) return hit;
+          if (t.states?.latent?.by === a.id && t.states.latent.cue === "question" && !cueMet(s, t, "question")) return hit + 6;
+          return !t.traitsOff?.length && !stood.some((u) => u.side !== a.side && near(a, u) <= 2) ? hit : 0;
+        case "holdTheFlame": return t.traitsOff?.length ? hit + 3 : hit * 0.4;
+        case "quietInstruction": return cueMet(s, t, cand.cureChoice) || cand.cureChoice === "question" && H.abilitiesOf(a).includes("whoAreYou") ? hit + 6 : 0;
+        case "hypnoticSuggestion": {
+          const threatened = basics.some((x) => ["line", "routed"].includes(x.delivery)) || stood.some((u) => u.side === a.side && near(u, t) <= 3);
+          if (!threatened) return 0;
+          if (cand.cureChoice === "back") return near(a, t) === 1 && safeStep(s, t, a) ? hit + 1 : 0;
+          if (cand.cureChoice === "guard") return stood.some((u) => u.side === a.side && u.id !== a.id && near(u, t) <= 2) ? hit + 2 : 0;
+          return hit;
+        }
+        case "steadyVoice": return t.routed ? hit + 3 : t.traitsOff?.length ? hit : 0;
+        default: return 0;
+      }
     }
     // One tile directly away from `from`, only onto a tile that is open, not burning, not a trap, not a drop and not water that blocks moves.
     // Its own small resolver: forced movement (resolve.js knock) charges slam and fall damage, which a harmless compel must not do.
@@ -128,6 +259,7 @@
       if (!pk || (unit.relicUsed || []).includes(pk.item)) return false;
       s.arena = { ...s.arena, pickups: s.arena.pickups.filter((q) => q !== pk) };
       (unit.relicUsed ||= []).push(pk.item);
+      unit.relicGolds = (unit.relicGolds || 0) + 1;   // how many times he has gone gold this battle (TH1b: the termination test counts it against the distinct items and the one Second Claim)
       const inst = grant(s, unit, "relicGold", { by: unit.id });
       if (inst) inst.treasure = pk.item;
       log(s, { kind: "pickup", actor: unit.id, item: pk.item, tiles: [[unit.x, unit.y]], text: `${unit.name} seizes ${pk.name || pk.item}: gold spreads over him, and the next blow cracks it.` });
@@ -148,6 +280,148 @@
       (s.relicDrops ||= {})[id] = holder.id;
       holder.relicBrokeRound = s.round;   // Pack Strong (resolve.js knock) reads this: the blow that cracked the gold still meets the knock at 1 tile less
       log(s, { kind: "drop", actor: holder.id, item, tiles: [open], text: `${holder.name}'s gold cracks: the treasure drops at (${open.join(",")}).` });
+    }
+
+    // ── Treasure Hunter TH1b (cursor-treasure-hunter-spec section 1; R-20261115-26): the Survey mark on a pickup, Idol Claim, Relic Path, Second Claim
+    // and Sun Ward's gate and prime. Numbers: content.js rules.treasureHunter and the four ability rows. Nothing here is a new store of its own:
+    // a mark is a field on the pickup plus a once discount in the movement-money list (conditions.js status.moveMods), the free step is one waived
+    // move in that list, a Relic Path is a terrainEffects row, and Second Claim edits the used-item list relicClaim reads.
+    const TH = (s) => s.rules?.treasureHunter || H.C.rules?.treasureHunter || {};
+    const pickupsOf = (s) => s.arena?.pickups || [];
+    const far = (s, a, q) => H.dist(s, a.x, a.y, q.x, q.y);
+    const nearestFirst = (s, a) => (p, q) => far(s, a, p) - far(s, a, q) || String(p.id).localeCompare(String(q.id));
+    const isCompass = (m) => typeof m?.id === "string" && m.id.startsWith("compass:");
+    // The Survey mark ("cash the compass"): the pickup is surveyed by him, and his next move that ends on its tile costs compassApOff less AP.
+    function compassMark(s, a, pk) {
+      s.arena = { ...s.arena, pickups: s.arena.pickups.map((q) => (q === pk ? { ...q, surveyedBy: a.id } : q)) };
+      ((a.status ||= {}).moveMods ||= []).push({ id: `compass:${pk.id}`, kind: "discount", amount: TH(s).compassApOff ?? 10, once: true, if: { nearTile: [pk.x, pk.y], within: 0 }, label: "the compass mark" });
+    }
+    // A mark whose pickup is gone (taken by anyone, or its id handed to a later drop on another tile) takes its discount with it.
+    function compassSweep(s) {
+      for (const u of Object.values(s.actors || {})) {
+        const mods = u.status?.moveMods; if (!mods || !mods.some(isCompass)) continue;
+        u.status.moveMods = mods.filter((m) => !isCompass(m) || (live(u) && pickupsOf(s).some((q) => `compass:${q.id}` === m.id && q.surveyedBy === u.id && q.x === m.if.nearTile[0] && q.y === m.if.nearTile[1])));
+      }
+    }
+    // His Survey also reads the loot (resolve.js survey calls this first): the nearest pickup within survey range that nobody has surveyed takes his mark.
+    function huntSurvey(s, a) {
+      if (!isHunter(a) || !live(a)) return false;
+      const R = H.C.concepts?.discovery?.finds?.surveyRange ?? 4;
+      const pk = pickupsOf(s).filter((q) => !q.surveyedBy && far(s, a, q) <= R).sort(nearestFirst(s, a))[0];
+      if (!pk) return false;
+      compassMark(s, a, pk);
+      log(s, { kind: "effect", actor: a.id, tiles: [[pk.x, pk.y]], text: `${a.name}'s compass settles on ${pk.name || pk.item} at (${pk.x},${pk.y}).`,
+        why: [`Surveyed loot: his next move that ends on that tile costs ${TH(s).compassApOff ?? 10} AP less (never under the move floor), once.`] });
+      return true;
+    }
+    function idolClaim(s, a, inst) {
+      const R = inst.area?.radius ?? 4, steps = TH(s).idolStepTiles ?? 3;
+      const fresh = pickupsOf(s).filter((q) => !q.surveyedBy && far(s, a, q) <= R);
+      for (const pk of fresh) compassMark(s, a, pk);
+      const mine = pickupsOf(s).filter((q) => q.surveyedBy === a.id && far(s, a, q) <= R).sort(nearestFirst(s, a))[0];
+      if (mine) {
+        a.status.moveMods = (a.status.moveMods || []).filter((m) => m.id !== "idolStep");
+        a.status.moveMods.push({ id: "idolStep", kind: "waive", once: true, untilRound: s.round, if: { nearerTo: [mine.x, mine.y], maxSteps: steps }, label: "Idol Claim's free step" });
+      }
+      log(s, { kind: "effect", actor: a.id, ability: inst.ability, tiles: fresh.map((q) => [q.x, q.y]),
+        text: !fresh.length && !mine ? `${a.name} claims the room, and finds no loot within ${R} to put his name on.`
+          : `${a.name} claims ${fresh.length} pickup${fresh.length === 1 ? "" : "s"} within ${R}${mine ? `; one move this round of up to ${steps} tile${steps === 1 ? "" : "s"} toward (${mine.x},${mine.y}) costs no AP` : ""}.`,
+        why: ["Idol Claim: every pickup in reach that nobody had surveyed is surveyed by him (a cheaper move onto each, once).", ...(mine ? ["The free step is one move that ends nearer the nearest pickup he has surveyed; it is gone at the end of the round."] : [])] });
+    }
+    // Relic Path: the tiles a path of `max` steps can reach from him. It runs over open ground only (no blocked tile, wall or unit, no drop of 2
+    // or more), whatever the ground costs and however high it climbs. Returns the breadth-first tree; relicRoute reads one path out of it.
+    const tk = (x, y) => `${x},${y}`;
+    function relicReach(s, a, max) {
+      const prev = new Map([[tk(a.x, a.y), null]]); let edge = [[a.x, a.y]];
+      const open = (x, y, fx, fy) => { if (!H.inside(s, x, y) || (H.dreamSame && !H.dreamSame(s, fx, fy, x, y)) || H.tileAt(s, x, y).blocksMove || H.actorAt(s, x, y) || H.unitAt?.(s, x, y)) return false;
+        const b = H.barrierAt(s, x, y); return !(b && !b.passable) && H.heightAt(s, fx, fy) - H.heightAt(s, x, y) < 2; };
+      for (let n = 0; n < max && edge.length; n++) { const next = [];
+        for (const [x, y] of edge) for (const [dx, dy] of H.DIRS) { const nx = x + dx, ny = y + dy; if (prev.has(tk(nx, ny)) || !open(nx, ny, x, y)) continue; prev.set(tk(nx, ny), [x, y]); next.push([nx, ny]); }
+        edge = next; }
+      return prev;
+    }
+    function relicRoute(reach, a, tx, ty) {
+      if (!reach.has(tk(tx, ty)) || (tx === a.x && ty === a.y)) return null;
+      const out = []; for (let cur = [tx, ty]; cur && !(cur[0] === a.x && cur[1] === a.y); cur = reach.get(tk(cur[0], cur[1]))) out.unshift(cur);
+      return out;
+    }
+    const relicPathOf = (s, a) => (s.terrainEffects || []).find((e) => e.kind === "relicPath" && e.owner === a.id && (a.ownerTurns || 0) < e.expiresAt) || null;
+    // actions.js stepCost asks this for every step of the mover's own pathing: a tile of his own live path costs him 1 move point.
+    function relicPathAt(s, mover, x, y) {
+      if (!mover || !s.terrainEffects?.length) return false;
+      const e = relicPathOf(s, mover); return !!e && e.tiles.some((t) => t[0] === x && t[1] === y);
+    }
+    // targeting.js asks this for the three techniques (effect "treasureHunt") before anything is paid; null hands a self-cast back to the usual rule.
+    function huntTarget(s, a, m, tx, ty) {
+      const fail = (error) => ({ ok: false, error }), hunt = abOf(m.ability)?.hunt;
+      if (hunt === "secondClaim") {
+        if (!(a.relicUsed || []).length) return fail("Second Claim needs an item that already turned you gold this battle.");
+        if ((a.secondClaims || 0) >= (TH(s).secondClaimsPerBattle ?? 1)) return fail("Second Claim is spent for this battle.");
+        return null;
+      }
+      if (hunt !== "relicPath") return null;
+      if (tx == null || !H.inside(s, tx, ty)) return fail("Choose the tile the path ends on.");
+      if (relicPathOf(s, a)) return fail("A Relic Path is already laid: walk it first.");
+      const reach = relicReach(s, a, m.range), route = relicRoute(reach, a, tx, ty);
+      if (!route) return fail(`No path of ${m.range} tiles over open ground ends there.`);
+      if (pickupsOf(s).some((q) => reach.has(tk(q.x, q.y))) && !pickupsOf(s).some((q) => q.x === tx && q.y === ty)) return fail("A pickup is within the path's reach: the path must end on one.");
+      return { ok: true, tiles: route, targets: [] };
+    }
+    function secondClaim(s, a, inst) {
+      const used = a.relicUsed || [];
+      if (!used.length || (a.secondClaims || 0) >= (TH(s).secondClaimsPerBattle ?? 1)) { log(s, { kind: "effect", actor: a.id, ability: inst.ability, text: `${a.name} has nothing to claim a second time.` }); return; }
+      const lying = pickupsOf(s).filter((q) => used.includes(q.item)).sort(nearestFirst(s, a))[0];
+      const item = lying ? lying.item : used[used.length - 1];
+      a.relicUsed = used.filter((id) => id !== item);
+      a.secondClaims = (a.secondClaims || 0) + 1;
+      log(s, { kind: "effect", actor: a.id, ability: inst.ability, item, tiles: lying ? [[lying.x, lying.y]] : [], text: `${a.name} stakes a second claim: ${lying?.name || item} can turn him gold once more.`,
+        why: ["Second Claim: one item he has already used is eligible again, once a battle. He is still gold with one treasure at a time."] });
+    }
+    // resolve.js hands the three techniques here once the cast is committed (after an announced window closes).
+    function huntResolve(s, a, inst) {
+      const hunt = abOf(inst.ability)?.hunt;
+      if (hunt === "idolClaim") return idolClaim(s, a, inst);
+      if (hunt === "secondClaim") return secondClaim(s, a, inst);
+      if (hunt !== "relicPath") return;
+      const tiles = (inst.tiles || []).map((t) => [t[0], t[1]]), end = tiles[tiles.length - 1];
+      s.terrainEffects = (s.terrainEffects || []).filter((e) => !(e.kind === "relicPath" && e.owner === a.id));
+      s.terrainEffects.push({ id: `relicPath-${a.id}-${s.round}`, kind: "relicPath", label: "Relic Path", owner: a.id, side: a.side, tiles, expiresAt: (a.ownerTurns || 0) + (TH(s).relicPathTurns ?? 2) });
+      log(s, { kind: "effect", actor: a.id, ability: inst.ability, tiles, text: `${a.name} finds the old road: a path of ${tiles.length} tile${tiles.length === 1 ? "" : "s"} to (${end[0]},${end[1]}) that only he can walk.`,
+        why: ["Relic Path: for his next move every tile of it costs him 1 move point, climbs included. His next move spends it, walked or not."] });
+    }
+    // Sun Ward (window.js): offered in his base form only, never over a ward he holds; whole when the shooter stands on a tile his own live rumor names.
+    const sunWardOpen = (s, d) => { const w = d?.status?.ward; return !!d && !d.states?.relicGold && !(w && (w.expiresAt == null || w.expiresAt > (d.ownerTurns || 0))); };
+    function sunWardPrimed(s, d, attack) {
+      const atk = s.actors[attack?.owner];
+      return !!atk && (s.rumors || []).some((r) => typeof r.id === "string" && r.id.startsWith(`rumor-${d.id}-`) && r.expiresRound > s.round && r.tile[0] === atk.x && r.tile[1] === atk.y);
+    }
+    // The AI's price for each (damage scale; rules.treasureHunter.ai). null: not ours, the scorer goes on as usual. The pull is Gold Fever's
+    // (the spec lists these under the trait, and traits drive behaviour): a hunter without the trait surveys and casts as any Discovery holder would.
+    function huntAi(s, a, cand) {
+      const d = abOf(cand.ability), T = TH(s).ai || {}, used = a.relicUsed || [], fever = isHunter(a) && !!H.hasTrait?.(a, "goldFever");
+      const wanted = (q) => !used.includes(q.item);   // loot that can still turn him gold
+      if (d?.effect === "survey") {
+        if (!fever || a.states?.relicGold) return null;
+        const R = H.C.concepts?.discovery?.finds?.surveyRange ?? 4;
+        return pickupsOf(s).some((q) => !q.surveyedBy && wanted(q) && far(s, a, q) <= R) ? (T.survey ?? 6) : null;
+      }
+      const hunt = d?.hunt; if (!hunt) return null;
+      if (!fever || a.states?.relicGold) return 0;   // the techniques work for anyone who holds them; only a hunter with the fever, out of his gold, has a reason to
+      if (hunt === "idolClaim") {
+        const n = pickupsOf(s).filter((q) => !q.surveyedBy && wanted(q) && far(s, a, q) <= (d.area?.radius ?? 4)).length;
+        return n >= 2 ? Math.min(T.idolClaimCap ?? 12, n * (T.idolClaimPerPickup ?? 5)) : 0;
+      }
+      if (hunt === "relicPath") {   // only to loot he could not simply walk to this turn
+        const [tx, ty] = Array.isArray(cand.target) ? cand.target : [];
+        const pk = pickupsOf(s).find((q) => q.x === tx && q.y === ty);
+        if (!pk || !wanted(pk)) return 0;
+        return (H.moveOptions?.(s, a.id) || []).some((o) => o.to[0] === tx && o.to[1] === ty) ? 0 : (T.relicPath ?? 6);
+      }
+      if (hunt === "secondClaim") {   // when the only loot left is loot he has used, and some of it lies near
+        if (!used.length || (a.secondClaims || 0) >= (TH(s).secondClaimsPerBattle ?? 1) || pickupsOf(s).some(wanted)) return 0;
+        return pickupsOf(s).some((q) => far(s, a, q) <= (T.nearTiles ?? 6)) ? (T.secondClaim ?? 5) : 0;
+      }
+      return 0;
     }
 
     function grant(s, unit, id, opt = {}) {
@@ -189,7 +463,7 @@
         const ids = [];
         for (const h of units) {
           if (h.side !== u.side || !live(h) || !h.states) continue;
-          each(h, (st, def) => { if (def.offers?.ability && !ids.includes(def.offers.ability) && (def.offers.to || "allies") === (h.id === u.id ? "self" : "allies")) ids.push(def.offers.ability); });
+          each(h, (st, def) => { if (def.offers?.ability && (def.id !== "latent" || st.revealed.includes(u.side)) && !ids.includes(def.offers.ability) && (def.offers.to || "allies") === (h.id === u.id ? "self" : "allies")) ids.push(def.offers.ability); });
         }
         if (ids.length) u.stateOffers = ids; else delete u.stateOffers;
       }
@@ -352,6 +626,7 @@
       presenceSweep(s);   // someone who arrived since (a late ally) counts from the next turn's start
       placeSweep(s);      // a holder pushed out, or a granter gone, during someone else's turn
       syncOffers(s);      // a defeated holder's offer goes with it
+      compassSweep(s);    // Treasure Hunter (TH1b): a pickup that left the field between actions takes its mark's discount with it
       each(a, (st, def) => {
         if (def.clock?.counts === "ownerTurns") { if (st.count <= 0) { finish(s, a, st, def); return; } st.count -= 1; }   // n covers n of the holder's turns
         if (adjacentBreak(s, a, st, def)) return;
@@ -359,6 +634,8 @@
       });
     }
     function roundEnd(s) {
+      for (const u of Object.values(s.actors)) if (u.curePeelUntil && !unmasks(u))
+        for (const [id, until] of Object.entries(u.curePeelUntil)) if (until <= s.round) restoreLayer(s, u, id);
       H.Cards?.zoneTick(s);   // Battle Cards C4: a zone's rounds tick down before the rows' own clocks
       for (const a of Object.values(s.actors)) if (a.states) each(a, (st, def) => {
         if (def.clock?.counts === "rounds") { st.count -= 1; if (st.count <= 0) { finish(s, a, st, def); return; } }
@@ -370,6 +647,8 @@
     function afterAction(s, a, action) {
       placeSweep(s);   // any action can move a holder (a step, a shove, a pull): moved and apart breakers look after every one
       H.Cards?.sweep(s);   // Battle Cards C4: so does a zone: a unit that stepped or was pushed out loses its row, one that stepped in gains it
+      compassSweep(s);   // Treasure Hunter (TH1b): a compass mark goes when its pickup does
+      if (action?.type === "move" && s.terrainEffects?.length && relicPathOf(s, a)) s.terrainEffects = s.terrainEffects.filter((e) => !(e.kind === "relicPath" && e.owner === a.id));   // Relic Path: his next move spends it, walked or not
       if (action?.type !== "ability" || !action.ability) return;
       const def = abOf(action.ability);
       const at = typeof action.target === "string" ? s.actors[action.target]
@@ -381,6 +660,7 @@
       }
       if (def?.states?.once) (a.stateOnce ||= {})[def.states.once] = a.ownerTurns;
       placeSweep(s);   // and again after the ability's own grants and moves
+      if (action.ability === "remind" && live(at) && at.side === a.side && !unmasks(at)) restoreLayer(s, at);
       breakFor(s, at || a, action.ability, a);
     }
     // The holder's { ability } breakers for this ability fire now. afterAction calls it; an ability whose breaker must fire
@@ -441,7 +721,10 @@
     }
     function aiValue(s, a, cand) {
       if (cand?.type !== "ability") return null;
-      const d = abOf(cand.ability), w0 = d?.states?.ai; if (w0 == null) return null;
+      { const hv = huntAi(s, a, cand); if (hv != null) return hv; }   // Treasure Hunter (TH1b): his Survey on loot and his three techniques
+      const d = abOf(cand.ability);
+      if (d?.effect === "cure") return cureAi(s, a, cand);
+      const w0 = d?.states?.ai; if (w0 == null) return null;
       const near = (n) => Object.values(s.actors).some((u) => live(u) && u.side !== a.side && Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)) <= n);
       const w = typeof w0 === "number" ? w0 : (w0.clear != null && near(w0.clear)) || (w0.below != null && a.lf > a.maxLF * w0.below) ? 0 : w0.value;
       const t = typeof cand.target === "string" ? s.actors[cand.target]
@@ -455,17 +738,25 @@
     // ── Reveal.
     function observed(s, observer, target) {
       each(target, (st, def) => {
-        if (!def.hidden || st.revealed.includes(observer.side)) return;
+        if (!def.hidden || st.revealed.includes(observer.side) || ["spoken", "heard"].includes(def.id)) return;
         st.revealed.push(observer.side);
+        if (def.id === "latent") {
+          syncOffers(s);
+          if (observer.side === "player") {
+            const cue = abOf("quietInstruction")?.cureChoices?.[st.cue] || st.cue;
+            log(s, { kind: "state", actor: observer.id, target: target.id, text: `${observer.name} sees a latent order in ${target.name}. Cue: ${cue}.` });
+          }
+          return;
+        }
         log(s, { kind: "state", actor: observer.id, target: target.id, text: `${observer.name} sees that ${target.name} is ${def.name}.`, why: def.why ? [def.why] : [] });
       });
     }
     function visibleTo(s, unit, side) {
       const out = [];
-      each(unit, (st, def) => { if (!def.hidden || unit.side === side || st.revealed.includes(side)) out.push({ id: def.id, name: def.name, text: def.text, count: st.count }); });
+      each(unit, (st, def) => { if (!["spoken", "heard"].includes(def.id) && (!def.hidden || def.id !== "latent" && unit.side === side || st.revealed.includes(side))) out.push({ id: def.id, name: def.name, text: def.text, count: st.count }); });
       return out;
     }
 
-    return { States: { relicClaim, grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
+    return { States: { cureTarget, cureResolve, cureBill, relicClaim, huntSurvey, huntTarget, huntResolve, relicPathAt, sunWardOpen, sunWardPrimed, grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
   })();
 });
