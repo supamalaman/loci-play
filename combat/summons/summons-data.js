@@ -407,6 +407,113 @@
       ultimate: { name: "Grout and Glass", status: "spec", mechanism: "Every tile it carries bursts outward at once.", constraint: "Ordered within its leash, or it strains.",
         play: { type: "nova", centre: "self", radius: 1, potency: 16, text: "The Mosaic bursts: a shower of tiles on hostiles within 1 of it, 16 potency before the announce bonus." } },
       identity: "A whole made of borrowed pieces, close enough to its user to share its wounds." },
+
+    // The Alchemical Homunculus, the second tandem (Tandem T3; R-20261115-03; muse-tandem-spirit-spec sections 4 and 8).
+    // An automatic far tandem of theme Delegation: an alchemical construct that ranges up to 8 tiles from its creator.
+    // It does not reflect damage to its user; instead, it executes a declared program chosen at call time from 1–3
+    // instructions, visible to foes, rewritable once per user turn at the user's turn start.
+    homunculus: { name: "The Alchemical Homunculus",
+      tandem: { user: "any", leash: 8,
+        rule: "Delegation: an automatic servant that ranges up to 8 tiles and executes its declared program without reflection.",
+        price: "It cannot adapt mid-turn: its program is public to foes and can only be rewritten at its user's turn start.",
+        hexagon: { power: "D", speed: "C", leash: "A", stamina: "B", precision: "C", growth: "B" },
+        programs: [
+          { id: "harryWeakest", name: "Harry the Weakest", text: "Pursue and strike the hostile unit with the lowest remaining LF." },
+          { id: "guardUser", name: "Guard User", text: "Stay within 2 tiles of its user and strike any foe that comes that close." },
+          { id: "distractCaster", name: "Distract Caster", text: "Target foes chanting, channeling, or holding highest ΦF." }
+        ],
+        fragments: [
+          "Its leash is 8 tiles: an automatic far tandem that ranges across the field without reflecting damage to its user.",
+          "It executes a declared program set at call time; its user can rewrite it only at the start of their own turn.",
+          "Its program is visible to all: foes who observe it can read whom it will go after, and it cannot change orders until its master's turn."
+        ] },
+      source: "Tandem wing (the Alchemical Homunculus, T3)", attitude: "analytical",
+      standIn: { primary: "delegation", secondary: "conjunction" },
+      proposed: { primary: "Delegation", secondary: "Conjunction", reserve: null, personal: null },
+      signature: { name: "Declared Instruction", status: "spec", mechanism: "Executes a public program set at call time; user can rewrite it once per turn.",
+        constraint: "Program is visible to enemies and cannot adapt mid-turn.", counters: ["Read the program to predict its moves", "Lure it into hazardous terrain", "Counter the targeted ally or foe"] },
+      ultimate: { name: "Prime Distillation", status: "spec", mechanism: "Channels alchemical force into a concentrated burst.", constraint: "Ordered within leash.",
+        play: { type: "nova", centre: "self", radius: 2, potency: 15, text: "The Homunculus unleashes an alchemical surge on all foes within 2 tiles." } },
+      identity: "A creature crafted of clay and quicksilver, bound to obey its declared instructions without reflecting harm to its creator." },
+
+    // The Instar, the first 3-form molting tandem (Tandem T4; muse-tandem-spirit-spec sections 5A and 8).
+    // A tandem of theme Succession and Plasticity that evolves through need-triggered molts across three forms:
+    // Form I (Larva): 3-tile leash, no guard yet; molts when an ally falls in battle (witness).
+    // Form II (Pupa): close 2-tile leash, carapace (-4 damage taken, never below 1) and the close echo; molts when its user drops below 25% LF (cornered).
+    // Form III (Imago): 4-tile leash, flies (class-runtime.js isFlyer reads `winged`), +3 potency on wounded targets; final form (Growth E).
+    instar: { name: "The Instar",
+      tandem: { user: "any", leash: 3,
+        rule: "Larva: it keeps within 3 tiles of its user; outside them an order fails and it strains.",
+        price: "To stretch its leash to 5 tiles through its next turn, its user pays 3 LF, and must have more than 3 to pay it.",
+        hexagon: { power: "D", speed: "D", leash: "C", stamina: "B", precision: "C", growth: "A" },
+        stretch: { lf: 3, leash: 5 },
+        moltCondition: "witness",
+        currentForm: 1,
+        forms: [
+          {
+            form: 1,
+            name: "The Instar (Form I: Larva)",
+            leash: 3,
+            rule: "Larva: it keeps within 3 tiles of its user; outside them an order fails and it strains.",
+            price: "To stretch its leash to 5 tiles through its next turn, its user pays 3 LF, and must have more than 3 to pay it.",
+            hexagon: { power: "D", speed: "D", leash: "C", stamina: "B", precision: "C", growth: "A" },
+            stretch: { lf: 3, leash: 5 },
+            moltCondition: "witness",
+            fragments: [
+              "Its leash is 3 tiles: a larval spirit that clings close to its summoner.",
+              "Witnessing an ally's fall shatters its larval form, triggering an irreversible molt into its pupal carapace.",
+              "It is slow and fragile in this form, and nothing yet guards it: wound it now, before it molts."
+            ]
+          },
+          {
+            form: 2,
+            name: "The Instar (Form II: Pupa)",
+            leash: 2,
+            rule: "Pupa: its carapace takes 4 off each hit it suffers (never below 1), and as a close tandem half of what it loses, at most 3 a hit, echoes to its user.",
+            price: "To stretch its leash to 4 tiles through its next turn, its user pays 4 LF, and must have more than 4 to pay it.",
+            hexagon: { power: "B", speed: "C", leash: "D", stamina: "A", precision: "C", growth: "B" },
+            stretch: { lf: 4, leash: 4 },
+            reflect: { share: 0.5, max: 3 },
+            carapace: 4,
+            moltCondition: "cornered",
+            fragments: [
+              "Its leash is 2 tiles: a hardened pupa with heavy chitin that sheds 4 damage from incoming hits.",
+              "Close to its user, it shares half its wounds, at most 3 a hit; when its user drops below a quarter of their LF, it molts into its final form.",
+              "Its armor is thick, but its reach is cramped: past 2 tiles from its user an order fails and it strains."
+            ]
+          },
+          {
+            form: 3,
+            name: "The Instar (Form III: Imago)",
+            leash: 4,
+            rule: "Imago: it flies (3 more move, half the AP a step, one move a step whatever the ground), and its hits on a wounded foe gain 3 potency.",
+            price: "To stretch its leash to 6 tiles through its next turn, its user pays 5 LF, and must have more than 5 to pay it.",
+            hexagon: { power: "A", speed: "A", leash: "C", stamina: "C", precision: "B", growth: "E" },
+            stretch: { lf: 5, leash: 6 },
+            winged: true,
+            bonusPotency: 3,
+            moltCondition: null,
+            fragments: [
+              "Its leash is 4 tiles: fully emerged on iridescent wings, it flies over any ground.",
+              "Its growth is complete (Growth E): this is its final form and it will never molt again.",
+              "It strikes hardest at a foe already wounded; a foe still unhurt takes nothing extra from it."
+            ]
+          }
+        ],
+        fragments: [
+          "Its leash is 3 tiles: a larval spirit that clings close to its summoner.",
+          "Witnessing an ally's fall shatters its larval form, triggering an irreversible molt into its pupal carapace.",
+          "It is slow and fragile in this form, and nothing yet guards it: wound it now, before it molts."
+        ]
+      },
+      source: "Tandem wing (the Instar, T4)", attitude: "vigilant",
+      standIn: { primary: "succession", secondary: "plasticity" },
+      proposed: { primary: "Succession", secondary: "Plasticity", reserve: null, personal: null },
+      signature: { name: "Successive Ecdysis", status: "spec", mechanism: "Molts in stages when need conditions fire (witnessing ally fall, user cornered below 25% LF).",
+        constraint: "Molts are strictly one-way; Form 3 is final.", counters: ["Defeat it in Form 1 before it molts", "Prevent ally defeats to deny its pupal molt", "Keep the user above 25% LF to prevent imago emergence"] },
+      ultimate: { name: "Ecdysis Burst", status: "spec", mechanism: "The spirit bursts forth from its current shell in a wave of transformative force.", constraint: "Ordered within leash.",
+        play: { type: "nova", centre: "self", radius: 1, potency: 16, text: "The Instar sheds force: a burst of transformative chitin on hostiles within 1 of it, 16 potency." } },
+      identity: "A spirit that evolves through mortal necessity, shedding successive forms as danger deepens." },
   };
 
   // Mala's implementation notes, verbatim intent.

@@ -49,6 +49,16 @@
     fall: { 2: 8, 3: 16 },      // LF by drop (plan §4); drop 1 = 0
     fairness: { maxCostGap: 2, maxSpawnHeightGap: 1 },
     attempts: 24,
+    // DT5 (R-20261121-15): about half of all generated maps get one breakable floor, chosen by the biome of the columns it sits
+    // in (mapgen.js placeFloors). chance is drawn for every map, but terrace maps and dry groves have
+    // no fitting biome and keep their floor, so 0.85 here is ~49% of all generated maps (seeds 0-999). Pairs mirror across the centre, never on a spawn or a bridge, and the map
+    // must still validate. salt seeds its own stream, so the parts and layout a seed draws stay the same.
+    breakableFloors: { chance: 0.85, salt: 0x0d75f10e,
+      kinds: {
+        iceSheet:     { biomes: ["rim", "quarry"],    from: ".", to: "i", maxTiles: 6 },   // a small ice sheet on high, exposed paving
+        frozenWater:  { biomes: ["wetland"],          from: "w", to: "i", maxTiles: 6 },   // shallow water frozen over
+        boardwalk:    { biomes: ["wetland", "grove"], from: "w", to: "d", maxTiles: 4, shore: true },   // deck over water, touching land
+      } },
     // Destructible terrain (structures.js). Solid ground never breaks; cliff faces,
     // bridges, and tiles tagged breakable (ice, crust, wooden deck) do. Only ground-targeting
     // attacks (placed, or area damage) hit terrain. The deck carries the structure tag: a destructive blow doubles integrity damage.

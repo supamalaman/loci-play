@@ -457,7 +457,7 @@
     // Forced movement (Mala, 2026-10-30): a holder or a held unit moved by anything but its own Move, Jump or Climb (knockback, pull,
     // throw, dash, swap, teleport, dodge, terrain) loses the hold at once, beside each other or not. Seams: engine/conditions.js settleHolds, breakHoldsApart.
     spirit: { stage: 3, outAt: 1.5, winAt: 1.5, lfLine: 0.6, focusBonus: 2, protectBonus: 2, spiritCap: 4, dangerNear: 6, dangerFoe: 0.25, spacingAlly: 2, spacingFoe: 1, tempoHold: 2 },   // group spirit (SPIRIT-ORDER SPEC): stage 0 = off, 1 = Focus+Protect, 2 = +Spacing+Tempo, 3 = +roles (Halves measured per stage on the sim pipeline)
-    orders: { ap: 10, rounds: 3, threshold: 2, weight: 3, max: 6, complyBar: 3, nearMiss: 1.5, roleBonus: 4, trustMax: 5 },   // talk orders (SPIRIT-ORDER SPEC half 2): bond mirrors the advice constants (threshold/weight/max); complyBar/nearMiss weigh bond × fit × sense
+    orders: { ap: 10, rounds: 3, threshold: 2, weight: 3, max: 6, complyBar: 3, nearMiss: 1.5, roleBonus: 4, trustMax: 5, vow: { swear: 1, kept: 1, broken: -2 } },   // vow: Crossings V1 (R-20261121-26), respect each ally gives a witnessed vow   // talk orders (SPIRIT-ORDER SPEC half 2): bond mirrors the advice constants (threshold/weight/max); complyBar/nearMiss weigh bond × fit × sense
     grapple: { ap: 35, range: 1, base: 0.6, guardPenalty: 0.25, stunnedBonus: 0.2, apCut: 30, rounds: 1,
       // break (Mala, 2026-10-11): on its own turn a held unit can break the hold. It always works and costs more than
       // the `apCut` the hold already took, so staying held is the cheaper choice and breaking is the freer one.
@@ -1717,6 +1717,13 @@
     cost: 0, tempoCost: 10, range: 0, potency: 0, protection: 8, duration: 1, effect: "barrier", effectCategory: "conditional", reactive: true, answerOnly: true, expiry: "ownerNextTurnStart", wardLabel: "Purple Litany",
     reveal: "Purple Litany answers a ranged shot from 2 or more tiles. Primed against the Fixed foe (whole 8-point dome, Off-tempo: the attacker's last technique is forbidden for a round). With no mark, rushed (half). While she holds a mark, only that foe's shot is answered (Focus lock). It also covers an unwarded ally within 2.",
     prompt: "Who is the dome watching when the shot comes?" };
+  // Shardback (hot-build cuts F5a; cursor-hotbuilds-cuts-spec section 5; R-20261121-23): Ward Field is her reactive, a
+  // Purple Litany-shaped ward on herself that also raises a one-round berm beside her, toward the shooter (engine/window.js).
+  abilities.wardField = { name: "Ward Field", tier: "refined", concepts: ["gradingDrainage", "thorn"], pairOnly: true, pairs: [["gradingDrainage", "thorn"]],
+    delivery: "self", target: "self", mechanism: "Answer a shot you see coming from 2 or more tiles: a 6-point ward on yourself, and a berm rises on the open tile beside you toward the shooter for one round.",
+    cost: 2, tempoCost: 10, range: 0, potency: 0, protection: 6, duration: 1, effect: "barrier", effectCategory: "conditional", reactive: true, answerOnly: true, expiry: "ownerNextTurnStart", wardLabel: "Ward Field",
+    reveal: "Ward Field answers a ranged shot from 2 or more tiles: a 6-point ward on her (rushed: half), and, if the tile beside her toward the shooter is open floor, a berm there until her next turn (a line across it to her deals half). Strikes and contact hits are not answered.",
+    prompt: "Which tile did the ground rise on, and why that one?" };
   abilities.crownOfPlates = { name: "Crown of Plates", tier: "ultimate", concepts: ["glamour", "focus"], merge: true, pairOnly: true, pairs: [["glamour", "focus"]],
     delivery: "self", target: "self", area: { shape: "radius", radius: 3 }, mechanism: "The Fixed foe cannot attack on its next turn; allies within 3 gain a 6-point ward.",
     cost: 16, range: 0, potency: 0, effect: "classEffect", effectCategory: "conditional", timing: "announced", announce: "Kneel.",
@@ -2028,6 +2035,12 @@
       gate: { blocks: ["all"], reason: "he is dozing" }, clock: { counts: "ownerTurns", n: 1 }, triggers: [{ on: "turnStart", limit: 1, do: [{ healLF: 18 }] }], breakers: [{ hurt: 1 }] },
     // Ravana (Mala, 2026-10-24; docs/ravana-build.md). Ten heads that grow back and Brahma's boon; both end when the Brahmastra
     // finds him (the arrow to the navel, the secret Vibhishana told Rama).
+    // Surpanakha flee chain S2 (cursor-surpanakha-flee-chain-spec; R-20261107-07, R-20261108-06): after 3 rounds of the golden deer,
+    // Ravana arrives in mendicant guise. Foes hit him for x0.7; the first blow breaks the guise and reveals his ten heads and boon.
+    ravanaMendicant: { name: "Mendicant", text: "A wandering ascetic in saffron robes: foes hit him for x0.7. The first blow shows his true shape.",
+      why: "Valmiki, Aranya Kanda: Ravana approaches in the guise of a wandering mendicant.",
+      mods: [{ on: "taken", mult: 0.7 }],
+      breakers: [{ hurt: 1, do: [{ grant: "ravanaHeads", to: "self" }, { grant: "ravanaBoon", to: "self" }, { scene: { title: "Ravana Revealed", line: "The saffron robes tear away: ten heads, twenty arms, the King of Lanka." } }] }] },
     ravanaHeads: { name: "Ten heads", text: "A blow of 10 or more costs him a head, and the head grows back with 6 LF; ten heads, then no more. The Brahmastra ends it.",
       why: "Valmiki, Yuddha Kanda: Rama cuts Ravana's heads and they grow back, until the Brahmastra strikes where the nectar is kept.",
       clock: { counts: "manual", n: 10 }, triggers: [{ on: "hit", if: { minDamage: 10 }, do: [{ healLF: 6 }, { count: -1 }] }],
@@ -2055,6 +2068,8 @@
     unmasked: { name: "Unmasked", text: "They are not themselves, and only themselves.", why: "The restraints are off, so their other traits and their needs decide, with no thought for sides. They are not stronger.",
       anySide: true, unmasks: true, gate: { blocks: ["ultimate"], reason: "they are not themselves, and cannot gather that much" }, clock: { counts: "ownerTurns", n: 1 } },
     marked: { name: "Marked", text: "The cut is the signature.", why: "An act done under an order leads back, one link, to whoever left it." },
+    markTrace: { name: "Mark trace", hidden: true, group: "markTrace", text: "A read links this mark to its installer.", why: "Keep both ends in sight to follow the link.", clock: { counts: "ownerTurns", n: 1 } },
+    detectiveMarkTrace: { name: "Detective’s trace", hidden: true, group: "markTrace", text: "The Detective keeps the link for longer.", why: "Keep both ends in sight to follow the link.", clock: { counts: "ownerTurns", n: 3 } },
     emptied: { name: "Emptied", text: "Nothing is left of them but the question.", why: "The capability has gone to someone else; the one who carried it keeps only the asking.",
       gate: { blocks: ["all"], reason: "nothing is left of them but the question", except: ["whoAreYou"] }, clock: { counts: "ownerTurns", n: 3 } },
     suggestedHold: { name: "Told to wait", text: "They stand and wait.", why: "A held mind takes one plain suggestion for its next turn: here, to do nothing.",
@@ -2454,7 +2469,9 @@
     if (characters.jambavan) characters.jambavan.traits = ["contemplative", "traditionalist", "honorable"];
     if (characters.jatayu) Object.assign(characters.jatayu, { traits: ["aerodynamic", "loyal", "courageous"], startStates: ["jatayuAloft", "jatayuLastWord"] });   // Jatayu (docs/jatayu-build.md): winged, so he breaks the serpent noose
     if (characters.surpanakha) Object.assign(characters.surpanakha, { traits: ["vengeful", "rivalrous", "impatient", "proud"], startStates: ["surpanakhaGuise", "surpanakhaWounded"],
-      fleeChain: { character: "maricha", chance: 1, delay: 1, states: ["marichaDeer"], why: "Her flight is a lure: Lanka sends a golden deer to the place she ran from." } });   // Surpanakha (docs/surpanakha-build.md; Mala: vengeful AND rivalrous)
+      fleeChain: { character: "maricha", chance: 1, delay: 1, states: ["marichaDeer"], why: "Her flight is a lure: Lanka sends a golden deer to the place she ran from.",
+        then: { after: 3, character: "ravana", delay: 1, states: ["ravanaMendicant"], withholds: ["ravanaHeads", "ravanaBoon"], arrival: "in the guise of a wandering mendicant",
+          why: "The deer has drawn the guard away: Ravana comes to the door as a wandering mendicant." } } });   // S2: the lure held unbroken `after` rounds books the next arrival in that guise, his startStates `withholds` held back until the guise breaks (engine/hires.js lureTimer, spawn; R-20261108-06)   // Surpanakha (docs/surpanakha-build.md; Mala: vengeful AND rivalrous)
     if (characters.wizard) {   // Wizard kit + High remainder (Mala, 2026-10-27): Arcane Mastery + astral presence always (a master, not a student); cipher primary; imagination aboard for wards and rehearsal (his summon source is an open loop — the palace stays Warden-only); NPCs draw control or engine
       const wiz = characters.wizard;
       wiz.traits = ["arcaneMastery", "astralPresence"];
@@ -2496,6 +2513,8 @@
     if (characters.martial_artist) characters.martial_artist.traits = ["playfulness", "competitive"];   // Martial Artist (Mala, 2026-10-22): values trait playfulness, same as Monkey King
     for (const id of ["statute", "warrant"]) if (abilities[id]?.pairs && !abilities[id].pairs.some(([p, q]) => p === "laws_of_gods_of_men" && q === "constraint")) abilities[id].pairs.push(["laws_of_gods_of_men", "constraint"]);   // F3: the Archbishop's Constraint blend keeps her law (an unused pair)
     if (abilities.statute) Object.assign(abilities.statute, { freeFirst: "turn", freeFirstFor: ["chitinous_archbishop"], reveal: `${abilities.statute.reveal} The Chitinous Archbishop's first Statute each turn is free.` });   // F3: her first Statute each turn is free (the def is shared with the Magistrate and the Goblin)
+    if (abilities.cutSlope) Object.assign(abilities.cutSlope, { freeFirst: "turn", freeFirstFor: ["shardback"], reveal: `${abilities.cutSlope.reveal} Shardback's first Cut Slope each turn is free.` });   // F5a: her free first is a grading move (the def is shared with every Grading & Drainage holder)
+    if (characters.shardback) characters.shardback.traits = ["stoneHide", "hardPlace"];   // Shardback (hot-build cuts F5a): Stone Hide and Hard Place; her psychological trait comes with F5b's AI table
     if (characters.chitinous_archbishop) Object.assign(characters.chitinous_archbishop, { traits: ["carapace", "liturgist", "citesPrecedent"], wheelhouse: "constraint", wheelhouseEnabled: true, reserve: ["constraint"], conceptPool: ["laws_of_gods_of_men", "transmigration", "constraint"], configs: [{ id: "archbishop-main", label: "Laws + Transmigration", primary: "laws_of_gods_of_men", secondary: "transmigration", reserve: ["constraint"], lens: {} }, { id: "archbishop-vestment", label: "Laws + Constraint", primary: "laws_of_gods_of_men", secondary: "constraint", reserve: ["transmigration"], lens: {} }] });   // Chitinous Archbishop (hot-build cuts F3): Carapace, Liturgist, Cites Precedent (R-20261116-04) and the Constraint wheelhouse
     if (characters.memorialist) characters.memorialist.traits = ["steadyHands", "eulogy"];   // Memorialist (Codex, 2026-10-24): longer Roll wards + once-a-battle self-mend
     if (characters.florence_oloo) Object.assign(characters.florence_oloo, { traits: ["steadyHands", "clinician", "doNoHarm"], wheelhouse: "inference", wheelhouseEnabled: true, reserve: ["inference"], conceptPool: ["diffusion", "innovation", "inference"], configs: [{ id: "florence-main", label: "Diffusion + Innovation", primary: "diffusion", secondary: "innovation", reserve: ["inference"], lens: {} }, { id: "florence-notes", label: "Diffusion + Inference", primary: "diffusion", secondary: "inference", reserve: ["innovation"], lens: {} }] });   // Florence Oloo (hot-build cuts F2): her three traits and the Inference wheelhouse
@@ -2562,6 +2581,7 @@
     mon("chillingWail", "Chilling Wail", "boundary", { delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, range: 0, potency: 6, damageType: "citrinitas" }, "Everyone within 2 takes 6 and loses 10 AP next turn.");
     mon("broodBite", "Brood Bite", "diffusion", { delivery: "contact", target: "enemy", area: { shape: "single" }, range: 1, potency: 8, damageType: "citrinitas" }, "8 citrinitas to an adjacent target.");
   }
+  if (concepts.inference) concepts.inference.abilities.push("theMarkAnswers");
   const represented = (edges) => (edges || []).filter(e => (e.source === "section" || e.target === "section" || e.source === "collage" || e.target === "collage")
       && (concepts[e.source] || e.source === "*") && (concepts[e.target] || e.target === "*"))
     .map(e => ({ ...e, status: implementedRepresentationEdges.has(e.id) ? "known" : "draft", exceptions: e.exceptions || [], origin: "graph" }));

@@ -284,6 +284,7 @@
       if (!opt.preview && prediction) aiLearnResult(state,s,action,prediction);
       H.FocusPlans?.after(s,action);
       markConversation(state,s,action,start);
+      H.States?.refreshMarkTraces(s);
       if (!opt.preview) delete s.preview;
       if (!opt.preview) Spirit()?.acted(s, action, H);
       if (s.outcome) Vows?.finishTeaVows(s, H);

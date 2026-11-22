@@ -147,7 +147,7 @@
     { id: "drawer:move", label: "Move ▸", title: "Move", has: (id) => ["move", "jump", "climb", "disengage", "breakGrapple"].includes(id) || id === "scramble" || id.startsWith("press:") },
     // Rituals (Mala, 2026-10-20): dreams, Palace summons, capture ritual, communes, rites, Contains Multitudes and
     // Become the Integrated Self all ride one tab; the old Dream drawer folded into it.
-    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "familiars", "summons", "orderSummonUltimate", "stretchLeash", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteTea", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") || id.startsWith("plantOrgonite") },
+    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "familiars", "summons", "orderSummonUltimate", "stretchLeash", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteTea", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") || id.startsWith("plantOrgonite") || id.startsWith("rewriteProgram:") },
     { id: "drawer:talk", label: "Talk ▸", title: "Talk", has: (id) => id === "insight" || id === "trial" || id === "convene" || id === "stakes" || id.startsWith("accept:") || id.startsWith("decline:") || id.startsWith("terms:") || id.startsWith("convert") || id.startsWith("display:") || id.startsWith("borrow:") || id.startsWith("order:") || id === "repayDebt" || id === "settleVisit" || id === "declareBankruptcy" },
     // Observe is its own tab now; studying a plant stays here, but the commune selection moved to Rituals.
     { id: "drawer:observe", label: "Observe ▸", title: "Observe", has: (id) => ["observe", "investigate", "observeSelf"].includes(id) || id?.startsWith("journal:") || id?.startsWith("finding:") },
@@ -1750,7 +1750,7 @@
         <fieldset id="ccOpener" ${encounter === "firstWall" ? "hidden" : ""}><legend>Who opens</legend>
           <label class="cc-inline"><input type="radio" name="ccOpen" value="player" checked> ${esc(C.characters[mainClass()].name)}</label>
           <label class="cc-inline"><input type="radio" name="ccOpen" value="pathfinder"> Pathfinder</label></fieldset>
-        ${TEACH ? `<label class="cc-inline" title="Enemies sometimes stop to share a quote from your Readwise library (Wisdom) or to ask you a question (Inquiry). It changes nothing about who wins."><input id="ccTeachMode" type="checkbox" ${U.teachMode ? "checked" : ""}> Teach mode · Wisdom and Inquiries during battle</label>` : ""}
+        ${TEACH ? `<label class="cc-inline" title="Enemies sometimes stop to share a quote from your Readwise library or an idea from a landscape master (Wisdom), or to ask you a question (Inquiry). It changes nothing about who wins."><input id="ccTeachMode" type="checkbox" ${U.teachMode ? "checked" : ""}> Teach mode · Wisdom and Inquiries during battle</label>` : ""}
         <div class="cc-row"><button type="button" class="cc-primary" id="ccStart">Play scenario ▶ <kbd>Enter</kbd></button></div>
         </div></details>
         ${TB ? `<details class="cc-menu-section" id="ccThreatPanel" ${U.setupPanels.threat ? "open" : ""}><summary><span aria-hidden="true">☰</span> Threat leaderboard <small>Top ${TB.top(15).length} · rated by sim</small></summary><div class="cc-menu-body"><p class="cc-muted">Everyone against the same benchmark, Control: 32 duels and 32 three-a-side battles on the same seeds (docs/threat-ratings.md). Challenge opens a 1v1 on the Gap Court (a boss opens its own fight). Unrated fighters don't appear until they're rated.</p><ol class="cc-threat-board">${TB.top(15).map(r => { const ch = r.kind && r.kind !== "main" ? { name: r.name, sprite: r.sprite } : C.characters[r.id]; if (!ch) return ""; const btn = r.kind === "boss" ? `<button type="button" data-challenge-encounter="${esc(r.encounter)}">Challenge</button>` : r.kind === "wild" ? `<small class="cc-muted">In the wild</small>` : r.kind === "main" ? `<small class="cc-muted">You</small>` : `<button type="button" data-challenge="${r.id}">Challenge</button>`; return `<li title="${esc(r.note || `${r.wins}/${r.battles} battles`)}"><span class="cc-threat-rank">#${r.rank}</span>${spriteImg(ch.sprite, ch.name, "cc-threat-sprite")}<b>${esc(ch.name)}</b><small>${esc(r.tier)} · ${r.wins}/${r.battles}</small>${btn}</li>`; }).join("")}</ol></div></details>` : ""}
@@ -4109,6 +4109,24 @@
     // placement and attack resolution still use engine.hasSight independently.
     // This is only a presentation choice; it does not grant line of sight.
     const unseen = () => false;
+    function drawMarkTrace(s) {
+      const trace = E.markTrace(s, "player");
+      if (!trace) return;
+      const onBoard = (at) => at && viewXY(...at) ? centre(...at) : null;
+      const from = onBoard(trace.from), to = onBoard(trace.to);
+      if (!from && !to) return;
+      const grey = trace.grey || !from || !to;
+      g.save();
+      g.strokeStyle = grey ? "#aab5c1" : "#78e1dd";
+      g.lineWidth = trace.detective ? 3 : 2;
+      if (grey) g.setLineDash([6, 4]);
+      g.beginPath();
+      if (from && to) {
+        g.moveTo(...from); g.lineTo(...to);
+      } else g.arc(...(from || to), Math.max(5, geo.tw * .15), 0, Math.PI * 2);
+      g.stroke();
+      g.restore();
+    }
     function draw() {
       if (!U.s) return;
       let cam = isoSync(); if (!!cam !== !!geo.iso) { layout(); cam = isoCam; syncZoomBar(); }
@@ -4420,6 +4438,7 @@
         g.restore();
       }
       if (cam) isoFlush(cam, guides);
+      drawMarkTrace(s);
       if (s.dreamSpace) drawDreamFilter();
       else if (GF) {
         const look = GF.veil(s);
@@ -5015,7 +5034,7 @@
       const HC = root.ConceptCombatHover, t = U.unitInfo && (U.s?.actors?.[U.unitInfo] || (U.s?.wild || []).find((m) => m.id === U.unitInfo && m.lf > 0));
       const visible = t && !t.notArrived && HC?.windowHtml && !unseen(t.x, t.y);
       if (!visible) { panel.hidden = true; panel.innerHTML = ""; if (U.unitInfo && (!t || t.notArrived)) U.unitInfo = null; return; }
-      root.ConceptCombatStatus.replace(panel, HC.windowHtml(HC.knownCard(U.s, t.id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, parley: PY, stance: E.stance(U.s, "player", t.id), hostileSides: E.hostileSides(U.s, t.id) }), esc));
+      root.ConceptCombatStatus.replace(panel, HC.windowHtml(HC.knownCard(U.s, t.id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, parley: PY, stance: E.stance(U.s, "player", t.id), hostileSides: E.hostileSides(U.s, t.id), markTrace: E.markTrace(U.s, "player") }), esc));
       if ((t.sprite || "").startsWith("tsukumogami")) { const face = faceFile(SPRITE_DIR[t.sprite] || t.sprite, "neutral"); if (face) panel.insertAdjacentHTML("afterbegin", `<img class="cc-unit-face" src="${face}" alt="">`); }   // the house looks back
       if (t.id === "player" && !t.soulOf) panel.insertAdjacentHTML("beforeend", gearLine());
       if (PR) panel.insertAdjacentHTML("beforeend", `<div class="cc-muted cc-gear-line"><b>Beauty</b> ${PR.beautyOf(t)} · <b>Will</b> ${t.willpower ?? 10}/${t.maxWillpower ?? 10}</div>`);
@@ -5622,7 +5641,7 @@
     function ritualGroup(it) {   // Rituals holds dreams through wards: headers keep it navigable (Grok Keystone, 2026-10-27)
       const id = String(it?.id || "");
       if (["dreamSpace", "wakeDream", "aura", "nameDream", "plantOrgonite"].includes(id) || id.startsWith("focusDream:")) return [0, "Dreams"];
-      if (["familiars", "summons", "orderSummonUltimate", "stretchLeash", "bead"].includes(id)) return [1, "Familiars"];
+      if (["familiars", "summons", "orderSummonUltimate", "stretchLeash", "bead"].includes(id) || id.startsWith("rewriteProgram:")) return [1, "Familiars"];
       if (["ritual", "ritualHold", "tameBeast", "markVessel", "callPack"].includes(id)) return [2, "Capture"];
       if (id === "commune" || id === "communeIngredient" || id === "communeStructure" || id.startsWith("treeant") || id.startsWith("maxChannel")) return [3, "Communion"];
       if (id.startsWith("rite") || id === "mockTrial") return id === "mockTrial" ? [6, "Trials"] : [4, "Rites"];
@@ -5763,6 +5782,7 @@
         if (it.id === "tallySettle") return act({ type: "tallySettle", actor: "player" });
         if (it.id?.startsWith("accept:") || it.id?.startsWith("decline:")) return act({ type: "answerTerms", actor: "player", target: it.id.split(":")[1], accept: it.id.startsWith("accept:") });
         if (it.id === "stretchLeash") return act({ type: "stretchLeash", actor: p.id, summon: it.summonId });   // Tandem T2c
+        if (it.id?.startsWith("rewriteProgram:")) return act({ type: "rewriteTandemProgram", actor: p.id, summon: it.summonId, program: it.programId });   // Tandem T3
         if (it.id === "orderSummonUltimate") {
           const summon = s.actors[it.summonId], play = SM.activeUltimate(summon).play;
           if (play.centre === "playerTarget" || play.status?.lockTarget) {
@@ -6894,7 +6914,7 @@
       // Hover card (insight/hover.js): public condition + everything you've seen or Observed about this unit.
       const HC = root.ConceptCombatHover;
       const wildHere = !a && (s.wild || []).find((m) => m.form === "unit" && m.lf > 0 && m.x === t[0] && m.y === t[1]);   // wild animals card too (Muse, 2026-10-15)
-      const card = (a || wildHere) && HC ? HC.html(HC.knownCard(s, (a || wildHere).id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, parley: PY, stance: a ? E.stance(s, "player", a.id) : null, hostileSides: a ? E.hostileSides(s, a.id) : null }), esc) : "";
+      const card = (a || wildHere) && HC ? HC.html(HC.knownCard(s, (a || wildHere).id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, parley: PY, stance: a ? E.stance(s, "player", a.id) : null, hostileSides: a ? E.hostileSides(s, a.id) : null, markTrace: E.markTrace(s, "player") }), esc) : "";
       if (a && !card) parts.push(`${a.name} · LF ${a.lf}/${a.maxLF} · ΦF ${a.pf}`);
       if (AU) for (const o of Object.values(s.actors)) if (o.aura && !o.defeated && (o.aura.imbued || E.geometry.dist(s, o.x, o.y, ...t) <= AU.rules.radius + (o.aura.radiusAdd || 0))) {   // Auras: rings are visible, so public
         const pr = AU.profileFor(o.aura.concept); parts.push(`◌ Inside ${o.name}'s ${pr.name} (stage ${o.aura.stage}/4) · ${pr.text}`);

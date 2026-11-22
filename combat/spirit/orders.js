@@ -176,6 +176,17 @@
     const p = s.actors?.[protectorId]; if (!p) return;
     for (const w of watchers(s, p.side, [protectorId])) deed(s, protectorId, w, 1);
   }
+  // Crossings V1 (claude-crossings-spec section 3; R-20261121-26): a vow is witnessed. Swearing one with a lasting
+  // restriction, keeping it to its natural end, and breaking it (forced or chosen) move each living ally's respect for
+  // the swearer once (rec.witnessed holds what was counted). Previews count nothing. Numbers: rules.orders.vow.
+  function onVow(s, actorId, event, rec) {
+    const a = s.actors?.[actorId], n = (R(s).vow || {})[event];
+    if (!a || s.preview || !n || !rec || (rec.witnessed ||= {})[event] || (event !== "swear" && (rec.witnessed.kept || rec.witnessed.broken))) return 0;
+    rec.witnessed[event] = true;
+    const ws = watchers(s, a.side, [a.id]);
+    for (const w of ws) deed(s, a.id, w, n);
+    return ws.length;
+  }
   function onSave(s, saviorId, H) {
     const p = s.actors?.[saviorId]; if (!p) return;
     for (const w of watchers(s, p.side, [saviorId])) deed(s, saviorId, w, 2);
@@ -330,5 +341,5 @@
     return { account: { ...account, trust: JSON.parse(JSON.stringify(s.trust || {})), respect }, lines };
   }
 
-  return { ROLES, active, watchers, deed, respectOf, trustOf, bumpTrust, fitOf, senseOf, compliance, refusalLine, issue, orderValue, onHit, onMove, onProtect, onSave, onDeath, roundHook, observeNotes, carryOpts, settleOrders };
+  return { ROLES, active, watchers, deed, respectOf, trustOf, bumpTrust, fitOf, senseOf, compliance, refusalLine, issue, orderValue, onHit, onMove, onProtect, onSave, onVow, onDeath, roundHook, observeNotes, carryOpts, settleOrders };
 });

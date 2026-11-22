@@ -55,6 +55,7 @@
     if(f.kind==="facedown") return ["player","enemy"].some((side)=>(s.mystery?.[side]||[]).some((c)=>c.unitId===f.subject&&(f.n==null||c.n===f.n)&&c.trigger===f.trigger&&(f.cardId?c.kind==="card"&&c.cardId===f.cardId:c.kind!=="card"&&c.ability===f.ability)));   // I4b: a read ends when its card fires, is ripped or expires
     if(f.kind==="lot") return !!s.stakes&&s.stakes.leaderId===f.subject&&s.stakes.state==="agreed";   // I4b: the concealed lot stays known while the wager stands
     if(f.kind==="location") {const u=s.actors[f.subject];return !!u&&!u.defeated&&u.x===f.at[0]&&u.y===f.at[1];}
+    if(f.kind==="evidence") return (s.cls?.lawEvidence?.[f.accused]?.[f.owner]||[]).some(e=>e.id===f.entry&&e.grade==="found");   // P1 (R-20261121-18): the witness's statement, once taken, stands while the breach is on the ledger, even if the plant or structure is later destroyed; serving the sentence ends it
     return !!s.insight?.decks?.[f.subject]?.cards.some(c=>c.id===f.card);
   }
   function factsOf(s,a){return Object.keys(s.findings?.holders?.[a.id]||{}).map(id=>s.findings.facts[id]).filter(f=>validFact(s,f));}

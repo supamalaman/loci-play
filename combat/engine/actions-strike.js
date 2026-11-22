@@ -224,5 +224,64 @@
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-strike.js)`);
     Object.assign(K.handlers, family);
+    // Qualifier cards QC1 (2026-11-21, ready-to-review/claude-qualifier-cards-spec): engine-only cards for strike and
+    // throw in drawer "act", which no menu reads (ui.js is untouched). A card's rows start from the built-in AI's own
+    // candidates of its type that pass preview (taken whole, so towers, houses, buildings, the Heart Court tile, wild units
+    // and the Sinkerfruit steelWill pass come along), then add the spec's extra rows. A caller may pass the AI's list as
+    // extra.candidates so it is computed once. A card never applies an action. Hazard: an AI that reads these cards
+    // must first replace the H.candidates call, or the two would call each other without end.
+    const judge = (s, act, extra, label, cost, help) => {
+      const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+      return { act, label, cost, off: !pv.ok, why: pv.ok ? "" : pv.error, help };
+    };
+    const reference = (s, a, type, extra) => {
+      const seen = new Set(), out = [];
+      for (const c of extra.candidates ?? H.candidates(s, a.id)) {
+        if (c.type !== type || c.actor !== a.id) continue;
+        const { vowGain, ...act } = c, sig = JSON.stringify(act);   // vowGain is the AI's scoring stash, not part of the action
+        if (seen.has(sig) || !H.preview(s, act).ok) continue;
+        seen.add(sig); out.push(act);
+      }
+      return out;
+    };
+    const steelFor = (s, a, t, effort) => {   // the AI's post-pass rule (ai.js candidates): coil or mist, not damped, AP for the effort plus the coat
+      const f = t && H.fruitOf?.(t);
+      return !!(f && (f.id === "coil" || f.id === "mist") && !H.damped(s, t) && a.tempo >= effort + H.fruitRules.steelWillAP);
+    };
+    // The price on a row is what the handler would charge, read off a dry run (tempoSpent counts every point spendTempo
+    // takes): the Grappler's free strike, Speed-Talker's half price, the GDP star tax, Four Arms, a hold's multiplier and the
+    // Steel will coat are all in it. A refused act falls back to its nominal price, with the refusal as its why.
+    const priceOf = (s, a, act, nominal) => { const r = H.apply(s, act, { preview: true }); return r.ok ? (r.state.actors[a.id]?.tempoSpent || 0) - (a.tempoSpent || 0) : nominal; };
+    const strikeRow = (s, a, act, extra) => {
+      const nominal = (act.effort ?? s.rules.actionCosts.strike) + (act.steelWill ? H.fruitRules.steelWillAP : 0), cost = priceOf(s, a, act, nominal);
+      return judge(s, act, extra, `Strike (${act.target.join(",")}) · ${cost} AP${act.steelWill ? " with Steel will" : ""}`, cost,
+        "The universal strike: it costs action points, not ΦF, and more points hit harder.");
+    };
+    const cards = {
+      strike: { type: "strike", drawer: "act", options(s, a, extra = {}) {
+        const R = s.rules.actionCosts, refs = reference(s, a, "strike", extra), rows = refs.map((act) => strikeRow(s, a, act, extra));
+        // One extra row a target: the largest effort the handler accepts, when it is not already a reference effort there.
+        const top = Math.min(R.strikeMax + s.rules.maxOverclockPerAction, Math.floor((a.tempo || 0) / 5) * 5);
+        for (const spot of new Set(refs.map((r) => r.target.join(",")))) {
+          const tile = spot.split(",").map(Number), t = actorAt(s, ...tile), efforts = new Set(refs.filter((r) => r.target.join(",") === spot).map((r) => r.effort));
+          for (let effort = top; effort >= R.strikeMin; effort -= 5) {
+            const act = { type: "strike", actor: a.id, target: tile, effort };
+            if (steelFor(s, a, t, effort)) act.steelWill = true;
+            if (!H.preview(s, act).ok) continue;
+            if (!efforts.has(effort)) rows.push(strikeRow(s, a, act, extra));
+            break;
+          }
+        }
+        return rows;
+      } },
+      throw: { type: "throw", drawer: "act", options(s, a, extra = {}) {
+        const T = EmergentIdeas?.active(a).find((x) => x.id === "fulcrumThrow")?.effects;
+        return reference(s, a, "throw", extra).map((act) => { const cost = priceOf(s, a, act, T?.ap ?? 0);
+          return judge(s, act, extra, `Throw (${act.pick.join(",")}) onto (${act.at.join(",")}) · ${cost} AP`, cost, "Fulcrum Throw: lift the opponent beside you onto another opponent."); });
+      } },
+    };
+    H.actionCards ||= {};
+    for (const type of Object.keys(cards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-strike.js)`);
+    Object.assign(H.actionCards, cards);
   })();
 });

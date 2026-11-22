@@ -3904,6 +3904,42 @@
     Guests?.price?.(s, a, abilityId, m);
     Auditor?.price?.(s, a, abilityId, m);   // Auditor Goblin W2
   }
+  // Shardback (hot-build cuts F5a; cursor-hotbuilds-cuts-spec section 5; R-20261121-23). Every Cut Slope or Place Fill
+  // records its tile on the grader (a.graded). For a holder of both Grading & Drainage and Thorn that ground is thorn soil:
+  // her Brier Ring's thorns there deal 2 more. Hard Place: a turn she ends on her graded ground or her own berm pays 1 ΦF,
+  // once a round. Ward Field's berm: the open tile beside her toward the shooter, for one round.
+  const Shardback = (() => {
+    const key = (x, y) => `${x},${y}`;
+    const pair = (a) => { const c = [a?.primary, a?.secondary]; return c.includes("gradingDrainage") && c.includes("thorn"); };
+    function graded(s, a, x, y) { if (a) (a.graded ||= {})[key(x, y)] = true; }
+    function thornSoilAdd(s, a, x, y) { return pair(a) && a.graded?.[key(x, y)] ? 2 : 0; }
+    function turnEnd(s, a, log) {
+      if (!a || a.defeated || !hasTr(a, "hardPlace") || a.hardPlaceRound === s.round) return;
+      const own = a.graded?.[key(a.x, a.y)] || (s.barriers || []).some((b) => b.owner === a.id && b.concept === "berm" && b.x === a.x && b.y === a.y);
+      if (!own) return;
+      a.hardPlaceRound = s.round;
+      const old = a.pf; a.pf = Math.min(a.maxPF ?? a.pf + 1, a.pf + 1);
+      if (a.pf > old) log(s, { kind: "effect", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} ends her turn on ground she made: Hard Place, +1 ΦF.`, why: ["Hard Place: a turn ended on a tile she graded this battle, or on her own berm, pays 1 ΦF once a round."] });
+    }
+    function wardBerm(s, d, atk, H, log) {
+      if (!d || !atk || d.defeated) return null;
+      const dx = Math.sign(atk.x - d.x), dy = Math.sign(atk.y - d.y);
+      const steps = Math.abs(atk.x - d.x) >= Math.abs(atk.y - d.y) ? [[dx, 0], [0, dy]] : [[0, dy], [dx, 0]];
+      for (const [sx, sy] of steps) {
+        if (!sx && !sy) continue;
+        const x = d.x + sx, y = d.y + sy;
+        if (y < 0 || x < 0 || y >= s.arena.map.length || x >= s.arena.map[0].length) continue;
+        if (H.tileAt(s, x, y).blocksMove || H.actorAt(s, x, y) || H.barrierAt(s, x, y)) continue;
+        const b = { id: "b" + (++s.seq), owner: d.id, x, y, protection: 0, duration: 1, expiresAt: d.ownerTurns + 1, concept: "berm", blocksSight: false, blocksMove: false, blocksRoute: false, passable: true, heightDelta: 1, coverFraction: 0.5, absorbsLine: false, returnFraction: 0, wardField: true };
+        s.barriers.push(b);
+        log(s, { kind: "effect", actor: d.id, tiles: [[x, y]], text: `Ward Field: the ground rises at (${x},${y}) between ${d.name} and ${atk.name}.`, why: ["A one-round berm: a line across it to her deals half; it raises the tile one level until her next turn."] });
+        return b;
+      }
+      log(s, { kind: "effect", actor: d.id, text: `Ward Field: no open ground beside ${d.name} toward ${atk.name}; only the ward rises.`, why: ["The berm needs an empty floor tile on the side the shot comes from."] });
+      return null;
+    }
+    return { graded, thornSoilAdd, turnEnd, wardBerm };
+  })();
   function turnStartGuests(s, a, H) { Guests?.turnStart?.(s, a, H); }
   function attend(s, a, act, H, spend) { return Guests?.callAttendant?.(s, a, act, H, spend) || null; }
   function attendantPulse(s, a, inst, H) { Guests?.pulse?.(s, a, inst, H); }
@@ -3911,5 +3947,5 @@
     if (tgt && tgt.defeated) Guests?.onOwnerFell?.(s, tgt, H);   // the host falls: every guest leaves
     else Guests?.onHit?.(s, tgt, H);   // the Spirit Raven: any hit ends it
   }
-  return { holyOf, auditor: Auditor, price, law: Law, ma: Ma, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, spendTrophyEye, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan, attend, attendantPulse, commonGroundOff, commonGroundSpend, purposeMoveOff, purposeMoveSpend, coopApOff, coopMark, purposeWatch, purposeSkips, referentFollow, noMoreTrim, turnStep, hunterBloodTrail, hunterIndexed, hunterKnownCount, hunterObserved, hunterQuarryOf, hunterChargedOf, hunterForcedMove, hunterParried, trophyEyeOf };
+  return { holyOf, auditor: Auditor, price, law: Law, ma: Ma, shardback: Shardback, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, spendTrophyEye, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan, attend, attendantPulse, commonGroundOff, commonGroundSpend, purposeMoveOff, purposeMoveSpend, coopApOff, coopMark, purposeWatch, purposeSkips, referentFollow, noMoreTrim, turnStep, hunterBloodTrail, hunterIndexed, hunterKnownCount, hunterObserved, hunterQuarryOf, hunterChargedOf, hunterForcedMove, hunterParried, trophyEyeOf };
 });

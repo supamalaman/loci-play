@@ -114,6 +114,7 @@
     }
     function resolveDreamAbility(s, a, inst) {
       ClassRuntime?.noMoreTrim?.(s, a, inst, { dist, log, actorAt });
+      if (inst.effect === "markTrace") return H.States.traceResolve(s, a, inst);
       if (inst.effect === "cure") return H.States.cureResolve(s, a, inst);
       if(inst.scribedEffects){resolveScribedEffects(s,a,inst);return;}
       const why = [];
@@ -164,6 +165,7 @@
         const [x, y] = inst.tiles[0];
         if (ClassRuntime?.gradeResisted && ClassRuntime.gradeResisted(s, a, x, y, classH())) return;   // As-Built: the tile keeps its shape
         s.arena.height[y][x] -= 1; a.earthStock = Math.min(12, (a.earthStock || 0) + 1);
+        ClassRuntime?.shardback?.graded(s, a, x, y);   // F5a: the grader's graded ground (thorn soil, Hard Place)
         disturbSuccession(s, [[x, y]], "Cut-and-fill"); recordEarthMoved(s, a, 1, [[x, y]]);
         log(s, { kind: "earthwork", actor: a.id, tiles: [[x, y]], text: `${a.name} cuts one soil level at (${x},${y}); the permanent grade is now ${s.arena.height[y][x]}.`, why: ["One abstract soil unit was removed from the terrain and added to the actor's earth stock; terrain + stock remain conserved.", `Earth stock: ${a.earthStock}/12. The new elevation immediately changes movement, falls and line range.`] });
         return;
@@ -205,6 +207,7 @@
         const [x, y] = inst.tiles[0];
         if (ClassRuntime?.gradeResisted && ClassRuntime.gradeResisted(s, a, x, y, classH())) return;   // As-Built: the tile keeps its shape
         s.arena.height[y][x] += 1; a.earthStock -= 1;
+        ClassRuntime?.shardback?.graded(s, a, x, y);   // F5a
         disturbSuccession(s, [[x, y]], "Cut-and-fill");
         log(s, { kind: "earthwork", actor: a.id, tiles: [[x, y]], text: `${a.name} places one soil unit at (${x},${y}); the permanent grade is now ${s.arena.height[y][x]}.`, why: ["One soil unit moved from the actor's earth stock into the terrain; no material was created.", `Earth stock: ${a.earthStock}/12. The raised tile immediately changes movement, falls and line range.`] });
         return;
@@ -486,12 +489,13 @@
         }
       }
       if(inst.effect==="brierRing"){
-        const [cx,cy]=inst.tiles[0]; let n=0;
+        const [cx,cy]=inst.tiles[0]; let n=0,soiled=0;
         for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
           if(!dx&&!dy) continue;
-          if(seedThorn(s,a,cx+dx,cy+dy,{dmg:4,duration:inst.duration||2,slow:true})) n++;
+          const soil=ClassRuntime?.shardback?.thornSoilAdd(s,a,cx+dx,cy+dy)||0;   // F5a thorn soil: +2 on ground she graded
+          if(seedThorn(s,a,cx+dx,cy+dy,{dmg:4+soil,duration:inst.duration||2,slow:true})){n++;if(soil)soiled++;}
         }
-        log(s,{kind:"effect",actor:a.id,tiles:[[cx,cy]],text:`${a.name} rings (${cx},${cy}) with briers: ${n} thorn tiles.`,why:["Entering a ring tile deals 4 and snares (half movement until it clears)."]});
+        log(s,{kind:"effect",actor:a.id,tiles:[[cx,cy]],text:`${a.name} rings (${cx},${cy}) with briers: ${n} thorn tiles${soiled?` (${soiled} on thorn soil)`:""}.`,why:["Entering a ring tile deals 4 and snares (half movement until it clears).",...(soiled?["Thorn soil: a ring tile on ground she graded this battle deals 6."]:[])]});
         return;
       }
       if(inst.effect==="overgrowth"){

@@ -213,6 +213,57 @@
         default: return 0;
       }
     }
+    // A trace belongs to its reader. It never replaces the true installer link on the subject.
+    const heldTrace = (u) => {
+      const trace = u?.states?.detectiveMarkTrace || u?.states?.markTrace;
+      return trace?.reader === u?.id ? trace : null;
+    };
+    const traceState = (id) => id === "markTrace" || id === "detectiveMarkTrace";
+    function tracePoint(s, a, u, range = Infinity) {
+      if (!live(u) || u.escaped || H.Instinct?.hidden(a, u)) return null;
+      if (a.side !== u.side && H.Stealth?.concealed(u) && !H.Stealth.markerEats(s, u) &&
+          !H.ClassRuntime?.Martial?.seesHidden?.(a) && !(H.hasTrait(a, "gyoEyes") && H.dist(s, a.x, a.y, u.x, u.y) <= 3)) return null;
+      return H.footprint(u).find(([x, y]) => H.dist(s, a.x, a.y, x, y) <= range &&
+        H.astralSameRegion(s, a.x, a.y, x, y) && H.dreamCanReach(s, a, { ability: "theMarkAnswers", delivery: "signal" }, x, y) &&
+        H.hasSight(s, a.x, a.y, x, y)) || null;
+    }
+    function traceTarget(s, a, m, at) {
+      const t = H.actorAt(s, ...at);
+      const aim = t?.states?.marked?.by && tracePoint(s, a, t, m.range);
+      if (!aim) return { ok: false, error: "Choose a visible marked unit in range." };
+      return { ok: true, aim, tiles: [aim], targets: [t.id] };
+    }
+    function updateTrace(s, a, trace) {
+      const subject = tracePoint(s, a, s.actors[trace.link]), installer = tracePoint(s, a, s.actors[trace.by]);
+      if (subject) trace.subjectAt = subject;
+      if (installer) trace.installerAt = installer;
+    }
+    function traceResolve(s, a, inst) {
+      const t = s.actors[inst.targets[0]], installer = t?.states?.marked?.by;
+      if (!installer) return;
+      const id = a.character === "detective" ? "detectiveMarkTrace" : "markTrace";
+      const trace = grant(s, a, id, { by: installer, link: t.id });
+      if (!trace) return;
+      trace.reader = a.id;
+      trace.installerName = s.actors[installer]?.name || "Installer unavailable";
+      updateTrace(s, a, trace);
+      if (a.side === "player") log(s, { kind: "markTrace", actor: a.id, target: t.id, tiles: [trace.subjectAt].filter(Boolean),
+        text: `${a.name} traces ${t.name}'s mark to ${trace.installerName}.` });
+    }
+    function refreshMarkTraces(s) {
+      for (const a of Object.values(s.actors)) {
+        const trace = heldTrace(a);
+        if (trace && live(a) && !a.escaped) updateTrace(s, a, trace);
+      }
+    }
+    function markTrace(s, id) {
+      const a = s.actors[id], trace = heldTrace(a);
+      if (!trace || !live(a) || a.escaped || s.outcome) return null;
+      const subject = tracePoint(s, a, s.actors[trace.link]), installer = tracePoint(s, a, s.actors[trace.by]);
+      return { subject: trace.link, installer: trace.installerName,
+        from: subject || trace.subjectAt || null, to: installer || trace.installerAt || null,
+        grey: !(subject && installer), detective: trace.id === "detectiveMarkTrace", turns: trace.count };
+    }
     // One tile directly away from `from`, only onto a tile that is open, not burning, not a trap, not a drop and not water that blocks moves.
     // Its own small resolver: forced movement (resolve.js knock) charges slam and fall damage, which a harmless compel must not do.
     function safeStep(s, u, from) {
@@ -738,7 +789,7 @@
     // ── Reveal.
     function observed(s, observer, target) {
       each(target, (st, def) => {
-        if (!def.hidden || st.revealed.includes(observer.side) || ["spoken", "heard"].includes(def.id)) return;
+        if (!def.hidden || st.revealed.includes(observer.side) || traceState(def.id) || ["spoken", "heard"].includes(def.id)) return;
         st.revealed.push(observer.side);
         if (def.id === "latent") {
           syncOffers(s);
@@ -753,10 +804,10 @@
     }
     function visibleTo(s, unit, side) {
       const out = [];
-      each(unit, (st, def) => { if (!["spoken", "heard"].includes(def.id) && (!def.hidden || def.id !== "latent" && unit.side === side || st.revealed.includes(side))) out.push({ id: def.id, name: def.name, text: def.text, count: st.count }); });
+      each(unit, (st, def) => { if (!traceState(def.id) && !["spoken", "heard"].includes(def.id) && (!def.hidden || def.id !== "latent" && unit.side === side || st.revealed.includes(side))) out.push({ id: def.id, name: def.name, text: def.text, count: st.count }); });
       return out;
     }
 
-    return { States: { cureTarget, cureResolve, cureBill, relicClaim, huntSurvey, huntTarget, huntResolve, relicPathAt, sunWardOpen, sunWardPrimed, grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
+    return { States: { traceTarget, traceResolve, markTrace, refreshMarkTraces, cureTarget, cureResolve, cureBill, relicClaim, huntSurvey, huntTarget, huntResolve, relicPathAt, sunWardOpen, sunWardPrimed, grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
   })();
 });

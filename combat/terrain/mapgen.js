@@ -180,6 +180,56 @@
     };
   }
 
+  // ── breakable floors (DT5, R-20261121-15) ───────────────────────────────
+  // After a map validates, about half get one breakable floor whose kind follows the biome (the part archetype) of the
+  // columns it sits in: ice on rim and quarry paving, frozen water in wetlands, a deck boardwalk over wetland and grove
+  // water. Its own seeded stream, so a seed's parts and layout never change. Tiles come in mirror pairs (fair), never on
+  // a spawn or a bridge; a map that no longer validates keeps its old floor.
+  function biomeOfColumn(arena, x) {
+    const w = arena.map[0].length, p = arena.parts;
+    return x < R.sideWidth ? p[0].archetype : x >= w - R.sideWidth ? p[2].archetype : p[1].archetype;
+  }
+  function placeFloors(arena, seed) {
+    const F = R.breakableFloors;
+    if (!F || !arena.parts) return arena;
+    const rand = mulberry32((seed ^ F.salt) >>> 0);
+    if (rand() >= F.chance) return arena;
+    const w = arena.map[0].length, h = arena.map.length, mid = Math.floor((w - 1) / 2);
+    const blocked = new Set([...arena.spawns.player, ...arena.spawns.enemy].map(([x, y]) => x + "," + y));
+    for (const st of arena.structures || []) for (const t of st.tiles) blocked.add(t.x + "," + t.y);
+    const shore = (x, y) => DIRS.some(([dx, dy]) => inside(arena, x + dx, y + dy) && !D.terrain[arena.map[y + dy][x + dx]].tags.includes("water") && walkable(arena, x + dx, y + dy));
+    const fits = (k, x, y) => arena.map[y][x] === k.from && !blocked.has(x + "," + y) && k.biomes.includes(biomeOfColumn(arena, x)) && (!k.shore || shore(x, y));
+    // A west-half tile qualifies when it and its mirror both fit (the centre column stands alone).
+    const seeds = {};
+    for (const [id, k] of Object.entries(F.kinds)) {
+      const list = [];
+      for (let y = 0; y < h; y++) for (let x = 0; x <= mid; x++) if (fits(k, x, y) && fits(k, w - 1 - x, y)) list.push([x, y]);
+      if (list.length) seeds[id] = list;
+    }
+    const ids = Object.keys(seeds);
+    if (!ids.length) return arena;
+    const id = pick(rand, ids), k = F.kinds[id], ok = new Set(seeds[id].map(([x, y]) => x + "," + y));
+    // Grow one patch from a random qualifying tile over neighbouring qualifying tiles, counting both mirror halves.
+    const start = pick(rand, seeds[id]), patch = [start], seen = new Set([start.join(",")]);
+    const cost = ([x]) => (x === w - 1 - x ? 1 : 2);
+    let size = cost(start);
+    for (let i = 0; i < patch.length; i++) {
+      for (const [dx, dy] of DIRS) {
+        const n = [patch[i][0] + dx, patch[i][1] + dy], key = n.join(",");
+        if (!ok.has(key) || seen.has(key) || size + cost(n) > k.maxTiles) continue;
+        seen.add(key); patch.push(n); size += cost(n);
+      }
+    }
+    const rows = arena.map.map((r) => r.split(""));
+    for (const [x, y] of patch) { rows[y][x] = k.to; rows[y][w - 1 - x] = k.to; }
+    const next = { ...arena, map: rows.map((r) => r.join("")) };
+    const v = validate(next);
+    if (!v.ok) return arena;
+    // Arena data, not module exports (check-dead-exports reads an indent-4 `return { ... }` literal as an export list).
+    const placed = { ...next, stats: v.stats, breakableFloor: { kind: id, tiles: size } };
+    return placed;
+  }
+
   const byId = Object.fromEntries(D.parts.map((p) => [p.id, p]));
   function partsOf(archetype, slot) { return D.parts.filter((p) => p.archetype === archetype && p.slot === slot); }
 
@@ -208,7 +258,7 @@
       const v = validate(arena);
       if (!v.ok) { lastErrors = v.errors; continue; }
       const used = [west, c, east];
-      return {
+      return placeFloors({
         ...arena,
         name: `${D.archetypes[archetype].name} · ${used.map((p) => p.name).join(" / ")}`,
         archetype, layout, seed, attempt,
@@ -217,7 +267,7 @@
         stats: v.stats, generated: true,
         // the isometric look, derived from the seed so the same map looks the same every battle (no catalog id, no features)
         ...(D.isoPalettes?.[archetype] ? { visual: { style: "isometric", seed: seed >>> 0, lighting: "day", palette: D.isoPalettes[archetype], features: [] } } : {}),
-      };
+      }, seed);
     }
     // Every attempt failed: fall back to the designed arena of this archetype (never a broken map).
     const designed = Object.entries(D.arenas).find(([, a]) => a.archetype === archetype);

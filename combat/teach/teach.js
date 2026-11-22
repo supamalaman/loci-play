@@ -15,9 +15,9 @@
 //   answer(card, index)                     → { correct, right, explain }
 //   intro(voice, name)                      → the line that leads into a quote
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./wisdom-data.js"), require("../landscape-catalog.js"), require("../terrain/communion-data.js"), require("./concept-questions.js"));
-  else root.ConceptCombatTeach = factory(root.ConceptCombatWisdom, root.LandscapeConceptCatalog, root.ConceptCombatCommunionData, root.ConceptCombatConceptQuestions);
-})(typeof self !== "undefined" ? self : this, function (Wisdom, Lexicon, CommunionData, ConceptQs) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./wisdom-data.js"), require("../landscape-catalog.js"), require("../terrain/communion-data.js"), require("./concept-questions.js"), require("./landscape-masters-questions.js"));
+  else root.ConceptCombatTeach = factory(root.ConceptCombatWisdom, root.LandscapeConceptCatalog, root.ConceptCombatCommunionData, root.ConceptCombatConceptQuestions, root.ConceptCombatLandscapeMasters);
+})(typeof self !== "undefined" ? self : this, function (Wisdom, Lexicon, CommunionData, ConceptQs, Masters) {
   const rules = {
     chance: 0.2,            // per speaking unit's turn start (allies speak too, so a little lower than when only enemies did), once the gap below has passed
     minRoundsBetween: 3,    // at least this many rounds from one card to the next (at 2, a three-enemy battle showed one almost every other round)
@@ -52,7 +52,10 @@
     return hash(seed, `teach:due:${round}:${actorId}`) < rules.chance;
   }
 
-  const quotes = () => Wisdom?.quotes || [];
+  // Landscape Masters S1 (R-20261121-28): the curated masters lines join the Wisdom pool after the Readwise quotes,
+  // tagged so a later theme can weight them (spec D2). Paraphrases, attributed; no book text.
+  let quoteCache = null;
+  const quotes = () => quoteCache || (quoteCache = [...(Wisdom?.quotes || []), ...(Masters?.lines || []).map((l) => ({ ...l, tag: "landscape-master" }))]);
   function wisdomCard({ seed, round, actor, seen = [] }) {
     const pool = quotes().map((q, i) => ({ q, i })).filter(({ i }) => !seen.includes(`w:${i}`)); if (!pool.length) return null;
     const { q, i } = pick(pool, hash(seed, `teach:wisdom:${round}:${actor.id}`));
@@ -69,6 +72,7 @@
     for (const t of terms) out.push({ id: `lex:${t.slug}`, source: "lexicon", term: t, weight: rules.art.includes(t.slug) ? rules.illustratedWeight : 1 });
     for (const q of CommunionData?.questions || []) if (!q.for) out.push({ id: `bot:${q.id}`, source: "botany", q, weight: 1 });
     for (const q of ConceptQs?.questions || []) out.push({ id: `con:${q.id}`, source: "concepts", q, weight: 1 });
+    for (const q of Masters?.questions || []) out.push({ id: `lm:${q.id}`, source: "masters", q, weight: 1 });   // Landscape Masters S1: the fourth source
     return (bankCache = out);
   }
   // A definition often names its own term; blank it so the question is not answered by reading it.
@@ -80,6 +84,7 @@
     const lead = fill(pick(ASK, hash(seed, `teach:ask:${round}:${actor.id}`)), actor.name);
     const base = { kind: "inquiry", id: item.id, speaker: actor.id, speakerName: actor.name, sprite: actor.sprite || null, lead };
     if (item.source === "botany") return { ...base, topic: "Botany", prompt: item.q.prompt, choices: item.q.choices.slice(), answer: item.q.answer, explain: item.q.explain || "" };
+    if (item.source === "masters") return { ...base, topic: "Landscape Masters", prompt: item.q.prompt, choices: item.q.choices.slice(), answer: item.q.answer, explain: item.q.explain || "", masterId: item.q.masterId };
     if (item.source === "concepts") return { ...base, topic: item.q.topic || "Concepts", prompt: item.q.prompt, choices: item.q.choices.slice(), answer: item.q.answer, explain: item.q.explain || "" };
     const t = item.term, all = Lexicon.concepts.filter((o) => o.slug !== t.slug && o.term);
     const near = all.filter((o) => o.register === t.register), far = all.filter((o) => o.register !== t.register);

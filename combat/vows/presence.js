@@ -19,6 +19,8 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatPresence = factory();
 })(typeof self !== "undefined" ? self : this, function () {
+  // Crossings V1: Orders hears the Presence vow (respect deeds), lazily.
+  const Orders = () => { try { return (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null; } catch { return null; } };
   const RULES = {
     declareAp: 20, displayAp: 25, displayPf: 2, deathVisionAp: 40, deathVisionPf: 6, kneeAp: 10,
     displayBase: 2, displayBeautyCap: 3, breachAp: 25,
@@ -41,6 +43,7 @@
     const a = s.actors[id];
     if (!a || a.defeated) return { ok: false, error: "No one left to declare." };
     s.presence = { declarer: id, declRound: s.round, lfDealt: 0, shattered: false };
+    Orders()?.onVow(s, id, "swear", s.presence);   // V1: zero blows, sworn in front of the side
     H.log(s, { kind: "presence", actor: id, text: `${a.name} declares Presence: they will kneel. Zero blows; the will breaks or the path does.` });
     return { ok: true };
   }
@@ -54,6 +57,7 @@
     const a = s.actors[p.declarer];
     if (a && !a.defeated) a.tempo = Math.max(0, (a.tempo || 0) - RULES.breachAp);
     (s.vowsBroken ||= []).push({ actor: p.declarer, round: s.round, path: "presence" });
+    Orders()?.onVow(s, p.declarer, "broken", p);   // V1: the path shattered
     H.log(s, { kind: "presence", actor: p.declarer, text: `The path shatters: ${a?.name || "the declarer"} dealt harm. The declaration is void (−${RULES.breachAp} AP).` });
   }
   function objectiveMet(s) {
@@ -86,6 +90,7 @@
     if (p.shattered || p.lfDealt > 0) return { ok: false, error: "The path is shattered: harm was dealt." };
     if (!objectiveMet(s)) return { ok: false, error: "Not all standing enemies are broken." };
     (s.vowsKept ||= []).push({ actor: id, round: p.declRound });
+    Orders()?.onVow(s, id, "kept", p);   // V1: the path held to the knee
     s.presenceWon = { declRound: p.declRound, mark: "overawed" };
     s.outcome = { winner: "player", reason: "presence", text: `${s.actors[id]?.name || "The presenter"} takes a knee: every enemy broken, not a blow dealt. Victory by presence.` };
     s.phase = "over";

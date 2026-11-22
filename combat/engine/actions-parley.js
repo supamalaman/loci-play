@@ -152,6 +152,17 @@
     Object.assign(K.handlers, family);
     // Action seams card (R-20261110-46): Convene the Court, one row per opponent the court can summon. The Talk drawer
     // still builds its own row in ui.js; E.actionOptions serves this card the same way it serves the Observe cards.
+    // Qualifier cards QC4 (claude-qualifier-cards-spec, slice QC4): the engine-only action card
+    // for setIntent in drawer "act". Reference rows only, taken from the built-in AI's
+    // candidates, with the AI's scoring stash key vowGain dropped. No handler change, no menu
+    // change; ui.js is not touched.
+    const judge = (s, act, extra, label, cost, help) => {
+      const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+      return { act, label, cost, off: !pv.ok, why: pv.ok ? "" : pv.error, help };
+    };
+    const refRows = (s, a, extra, type) => (extra.candidates ?? H.candidates(s, a.id))
+      .filter((c) => c.type === type)
+      .map((c) => { const { vowGain, ...act } = c; return act; });
     const cards = {
       convene: { type: "convene", drawer: "talk", options(s, a) {
         if (!Courtroom?.hasBench(a, H)) return [];
@@ -160,6 +171,15 @@
           const act = { type: "convene", actor: a.id, target: t.id }, pv = H.preview(s, act);
           return { act, label: `Convene the Court: ${t.name} · ${cost} AP`, cost, off: !pv.ok, why: pv.ok ? "" : pv.error,
             help: "Summon a charged opponent within five tiles and sight. They can dodge before the hearing opens." };
+        });
+      } },
+      setIntent: { type: "setIntent", drawer: "act", options(s, a, extra = {}) {
+        const byId = new Map((H.availableAbilities ? H.availableAbilities(s, a.id) : []).map((x) => [x.id, x.m]));
+        return refRows(s, a, extra, "setIntent").map((act) => {
+          const m = byId.get(act.ability);
+          const cost = m?.tempoCost ?? 0;
+          const name = (H.ab ? H.ab(act.ability)?.name : null) || act.ability;
+          return judge(s, act, extra, `Set ${name} on ${act.trigger}`, cost, "Pay now for a technique that fires later on its trigger.");
         });
       } },
     };

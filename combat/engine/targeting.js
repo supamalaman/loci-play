@@ -62,6 +62,7 @@
           if (!m.scribedEffects?.some(e=>e.key==="reveal") && occ && !occ.defeated && Stealth?.concealed(occ) && !Stealth?.markerEats(s, occ) && !ClassRuntime?.Martial?.seesHidden?.(a) && !(hasTrait?.(a, "gyoEyes") && dist(s, a.x, a.y, occ.x, occ.y) <= 3))
             return { ok: false, error: `${occ.name} cannot be seen (Concealed).` };
         }
+        if (m.effect === "markTrace") return H.States.traceTarget(s, a, m, [tx, ty]);
         // Big units (Mala, 2026-10-27: "they can be targeted from any tile theyre standing on"): a single-target technique
         // aimed at any tile of a multi-tile unit aims at that unit's best tile — in reach and in sight first, then the
         // nearest, then the tile clicked — so range, sight, the line and the hit all agree on the unit, not its anchor.

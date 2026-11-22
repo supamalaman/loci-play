@@ -297,6 +297,7 @@
       potency=H.Contracts?.specialize(s,src,tgt,inst,potency)??potency;
       if (src?.redInk && potency > 0) { potency += 2; why = (why || []).concat(["Red Ink burns in the blood: +2 potency."]); }   // W9.4: the rented strength hits first
       { const lent = potency > 0 ? summonRules?.Tandem?.lentPotency(src) : 0; if (lent) { potency += lent; why = (why || []).concat([`${src.name}'s lent tiles: +${lent} potency.`]); } }   // Tandem T2b: made of what it strikes
+      { const bonus = potency > 0 ? (summonRules?.Tandem?.bonusPotency?.(src, tgt) || 0) : 0; if (bonus) { potency += bonus; why = (why || []).concat([`${src.name}'s form potency: +${bonus} potency.`]); } }   // Tandem T4: form strike bonus
       // A bleed-out skips the who-may-hit gates: the wound was dealt when the bleed was applied, this only finishes it.
       if (!opts.bleedOut && H.Tourist?.is(src) && src.id !== tgt?.id) return 0;
       if (!opts.bleedOut && (H.PostHuman.blocked(s, src, tgt) || H.Civilian.blocked(s, src, tgt) || H.Visitors?.blocked(s, src, tgt) || H.Factions.blocked(s, src, tgt))) return 0;   // Post-Humanity, civilians, visitors — and heroes, who only fight villains
@@ -434,6 +435,8 @@
         potency = Math.max(0, potency - 10); notes.push(`${tgt.name} is Hardy: field damage −10.`); }
       if (potency > 0 && src && src.side !== tgt.side && H.hasTrait(tgt, "carapace") && tgt.carapaceRound !== s.round) {   // Chitinous Archbishop (F3): the first foe hit on her each round loses 3 potency
         tgt.carapaceRound = s.round; potency = Math.max(0, potency - 3); notes.push(`${tgt.name}'s Carapace turns the first hit this round (−3).`); }
+      if (potency > 0 && src && src.side !== tgt.side && H.hasTrait(tgt, "stoneHide") && inst && (inst.ability === "strike" || inst.effect === "strike" || inst.delivery === "contact") && tgt.stoneHideTurn !== (tgt.ownerTurns ?? 0)) {   // Shardback (F5a): the first foe Strike or contact hit on her each turn of hers loses 2
+        tgt.stoneHideTurn = tgt.ownerTurns ?? 0; potency = Math.max(0, potency - 2); notes.push(`${tgt.name}'s Stone Hide turns the first contact hit this turn (−2).`); }
       { const vm = potency > 0 ? (ClassRuntime?.law?.vestmentMul?.(s, src, inst) ?? 1) : 1;   // F3: Binding Vestment halves her named delivery cast from inside it
         if (vm !== 1) { mult *= vm; notes.push(`Cast from inside a Binding Vestment that names ${inst.delivery}: ×${vm}.`); } }
       { // Settlement: a Palisade or Keep shelters adjacent allies of its side (Mala, 2026-10-19).
@@ -615,6 +618,7 @@
           notes.push(`Shared Burden distributes ${total} damage across ${members.length} linked allies.`);
         }
       }
+      { const red = summonRules?.Tandem?.damageReduction?.(tgt) || 0; if (red > 0 && dmg > 0) { dmg = Math.max(1, dmg - red); notes.push(`Carapace: -${red} damage.`); } }   // Tandem T4: hardened carapace
       const before = tgt.lf;
       if (tgt.form?.golden && bossRules) {
         const formHit = bossRules.damageForm(tgt, dmg); Object.assign(tgt, formHit.player); dmg = formHit.absorbed;

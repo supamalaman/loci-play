@@ -74,11 +74,18 @@
   }
 
   // bond 2 / potencyMul come from the summon question (questions.scoreAnswer) or the palace recall.
-  function makeSummonActor(id, { owner = "player", at, bond = 1, potencyMul = 1, durationAdd = 0 } = {}) {
+  function makeSummonActor(id, { owner = "player", at, bond = 1, potencyMul = 1, durationAdd = 0, program = null, form = null } = {}) {
     const s = SD.summons[id];
+    const tandemBlock = s.tandem ? JSON.parse(JSON.stringify(s.tandem)) : null;
+    if (tandemBlock && Array.isArray(tandemBlock.programs) && tandemBlock.programs.length) {
+      tandemBlock.activeProgram = program && tandemBlock.programs.some((p) => p.id === program) ? program : tandemBlock.programs[0].id;
+    }
+    let shape = { name: s.name, winged: false };
+    if (tandemBlock && Array.isArray(tandemBlock.forms) && tandemBlock.forms.length)   // Tandem T4: a molting tandem arrives in the form it has reached (the battle's tandemForms, from the account; else Form 1)
+      shape = Tandem.applyForm(tandemBlock, Math.min(tandemBlock.forms.length, 3, Math.max(1, Math.floor(form) || 1)));
     return {
-      id: `summon-${id}`, name: s.name, side: "player", controller: "ai", character: id, ...(s.sprite ? { sprite: s.sprite } : {}),   // a summon drawn from another body's art (Gaia)
-      summon: { key: id, owner, turnsLeft: Math.max(1, R.baseDuration + (bond === 2 ? R.bondBonusDuration : 0) + durationAdd), bond, potencyMul, ...(s.tandem ? { tandem: JSON.parse(JSON.stringify(s.tandem)) } : {}) },   // Tandem T1: the row's tandem block rides on the actor; palace bond is untouched (R-20261114-10)
+      id: `summon-${id}`, name: shape.name, ...(shape.winged ? { winged: true } : {}), side: "player", controller: "ai", character: id, ...(s.sprite ? { sprite: s.sprite } : {}),   // a summon drawn from another body's art (Gaia)
+      summon: { key: id, owner, turnsLeft: Math.max(1, R.baseDuration + (bond === 2 ? R.bondBonusDuration : 0) + durationAdd), bond, potencyMul, ...(tandemBlock ? { tandem: tandemBlock } : {}) },   // Tandem T1: the row's tandem block rides on the actor; palace bond is untouched (R-20261114-10)
       attitude: s.attitude, weights: SD.attitudes[s.attitude].weights,
       primary: s.standIn.primary, secondary: s.standIn.secondary,
       maxLF: R.maxLF, lf: R.maxLF, x: at[0], y: at[1],

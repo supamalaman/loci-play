@@ -134,6 +134,18 @@
       hurt: ["A crack runs through us both.", "Some glass falls."], ally_hurt: ["Stay close to me.", "Keep the grout from cracking."],
       low_lf: ["The pattern is thinning."], ordered: ["Every tile, ready.", "Next turn, I scatter."],
       ultimate: ["Grout and glass, all around me."], defeat: ["Only fragments now.", "Swept up."], rethink: ["That piece does not fit. Another."] } },
+    homunculus: { summary: "Flat and literal; reads its orders aloud like a recipe, and calls its user the one who wrote them.", lines: {   // Tandem T3 rev 1 (Jackstay BD)
+      summoned: ["Clay set. Orders read.", "I run what is written."], dismissed: ["The vessel cools.", "Orders complete. Back to the jar."],
+      attack: ["As written.", "Step one: strike."], hit: ["Executed.", "The instruction holds."],
+      hurt: ["The clay cracks. The orders stand.", "Damage noted. Continuing."], ally_hurt: ["Not in my orders. Rewrite them.", "I saw. I may not turn."],
+      low_lf: ["Quicksilver running out."], ordered: ["Instruction received.", "New orders at your turn."],
+      ultimate: ["Distil."], defeat: ["Back to earth and mercury.", "The jar is empty."], rethink: ["That step fails. Next step."] } },
+    instar: { summary: "Soft and certain; speaks of every form as a skin it will leave behind, and of its user as what it grows toward.", lines: {   // Tandem T4 rework (Hogging BD)
+      summoned: ["I am small yet. Stay near.", "A new skin, and you."], dismissed: ["I go back to the dark to wait.", "Keep my shape for me."],
+      attack: ["Bite.", "Grow into it."], hit: ["Taken.", "That hurt them."],
+      hurt: ["The shell holds.", "Cracked, not broken."], ally_hurt: ["I saw that.", "I will remember it."],
+      low_lf: ["This skin is almost spent."], ordered: ["Near you, always.", "I go where you need."],
+      ultimate: ["Out of the old shell."], defeat: ["Only the husk is left.", "Molted, and gone."], rethink: ["Not that way. Another."] } },
     zherm: { summary: "Calm, communal and a little eerie; a body that is also a colony.", lines: {
       summoned: ["We are here.", "Spores in the air. Good air."],
       dismissed: ["We go back to the dark and damp.", "Something of us stays."],

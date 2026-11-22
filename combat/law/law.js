@@ -85,7 +85,7 @@
     for (const e of statutes(s)) {
       if (!boundBy(s, a, e)) continue;
       const here = inZone(e, a.x, a.y), vessel = vesselBy(s, a, e.owner), wanted = outlawBy(s, a, e.owner) || vessel;   // F3: a Vessel is followed as an Outlaw is
-      if (m.delivery === e.named && (here || wanted)) out.push({ owner: e.owner, ap: LAW.statute.apAdd, statute: e.id, why: `${e.label}: ${e.named} techniques ${here ? "inside" : vessel ? "anywhere, for a Vessel" : "anywhere, for an Outlaw"} cost +${LAW.statute.apAdd} AP.` });
+      if (m.delivery === e.named && (here || wanted)) out.push({ owner: e.owner, ap: LAW.statute.apAdd, statute: e.id, inZone: here, why: `${e.label}: ${e.named} techniques ${here ? "inside" : vessel ? "anywhere, for a Vessel" : "anywhere, for an Outlaw"} cost +${LAW.statute.apAdd} AP.` });
       const writer = s.actors[e.owner];
       if (here && a.side !== e.side && isMagistrate(writer) && S(s).jurisdiction?.[`${a.id}:${e.owner}`] !== s.round)
         out.push({ owner: e.owner, pf: LAW.jurisdiction.pfAdd, jurisdiction: true, why: `Jurisdiction: the first technique each round inside ${writer.name}'s Statute costs +${LAW.jurisdiction.pfAdd} ΦF.` });
@@ -117,7 +117,10 @@
       if (g !== "proven") {
         if (g === "unproven") entry.id = `ev${(s.seq = (s.seq || 0) + 1)}`;   // I4c: only unproven breaches file cards, so only they take ids (the shared seq is untouched otherwise)
         (((S(s).lawEvidence ||= {})[a.id] ||= {})[t.owner] ||= []).push(entry);
-        if (g === "unproven") fileEvidenceCard(s, a, t.owner, entry);   // I4c: each unproven breach files one evidence card in the accused's deck
+        if (g === "unproven") {
+          fileEvidenceCard(s, a, t.owner, entry);   // I4c: each unproven breach files one evidence card in the accused's deck
+          if (t.inZone) fileObjectEvidence(s, a, t.owner, entry, t.statute);   // P1: files on living plants and structures inside the statute zone; an Outlaw's or Vessel's breach outside it is zoneless and files nowhere (D3, R-20261109-18)
+        }
       }
       if (g === "proven") { say(s, H, o || a, `${a.name} breaches ${o ? o.name + "'s" : "the"} Statute (${L[t.owner]} on the ledger).`, ["Judgment of the Gods sentences each breach."]); continue; }
       say(s, H, o || a, `${a.name} breaches ${o ? o.name + "'s" : "the"} Statute (${g}, ${L[t.owner]} on the ledger).`,
@@ -285,7 +288,19 @@
     }
   }
 
-  const served = (s, u, ownerId) => { if (S(s).lawLedger?.[u.id]) delete S(s).lawLedger[u.id][ownerId]; const gone = ((S(s).lawEvidence?.[u.id] || {})[ownerId] || []).map((e) => e.id); if (S(s).lawEvidence?.[u.id]) delete S(s).lawEvidence[u.id][ownerId]; const decks = [s.insight?.decks?.[u.id], s.placeObservation?.key && s.insight?.decks?.[s.placeObservation.key]].filter(Boolean); for (const deck of decks) if (gone.length) deck.cards = deck.cards.filter((c) => c.kind !== "evidence" || !gone.includes(c.evidence?.entry)); };   // I4c+4d: serving the breach removes its evidence cards (accused and place decks)
+  const served = (s, u, ownerId) => {
+    if (S(s).lawLedger?.[u.id]) delete S(s).lawLedger[u.id][ownerId];
+    const gone = ((S(s).lawEvidence?.[u.id] || {})[ownerId] || []).map((e) => e.id);
+    if (S(s).lawEvidence?.[u.id]) delete S(s).lawEvidence[u.id][ownerId];
+    const decks = [s.insight?.decks?.[u.id], s.placeObservation?.key && s.insight?.decks?.[s.placeObservation.key]].filter(Boolean);
+    for (const deck of decks) if (gone.length) deck.cards = deck.cards.filter((c) => c.kind !== "evidence" || !gone.includes(c.evidence?.entry));
+    if (S(s).objectEvidence && gone.length) {
+      for (const objId of Object.keys(S(s).objectEvidence)) {
+        S(s).objectEvidence[objId] = S(s).objectEvidence[objId].filter((r) => !gone.includes(r.entry));
+        if (!S(s).objectEvidence[objId].length) delete S(s).objectEvidence[objId];
+      }
+    }
+  };   // I4c+4d+P1: serving the breach removes its evidence cards and object filings
   // The Ordeal of the River (Hammurabi Law 2): the accused goes into the river. Fall: the river has judged (served). Live: the
   // unproven breaches are struck, and the false accuser pays per struck breach (never below 1 LF: the fine stings, it does not
   // kill). Same damage rules as Judgment; no randomness.
@@ -412,6 +427,45 @@
     }
     return out;
   }
+  function fileObjectEvidence(s, accused, ownerId, entry, statuteId) {
+    if (!statuteId) return;
+    const stObj = (s.terrainEffects || []).find((e) => e.id === statuteId);
+    if (!stObj || !stObj.tiles?.length) return;
+    const objs = (s.arena?.objects || []).filter((o) => (o.kind === "plant" || o.kind === "object" || o.kind === "structure") && o.hp > 0 && !o.dead && inZone(stObj, o.x, o.y));
+    for (const obj of objs) {
+      const list = ((S(s).objectEvidence ||= {})[obj.id] ||= []);
+      if (!list.some((r) => r.entry === entry.id)) {
+        list.push({ entry: entry.id, accused: accused.id, owner: ownerId });
+      }
+    }
+  }
+  function foundObjectEvidence(s, H, observer, obj, commonName) {
+    if (!obj || !S(s).objectEvidence?.[obj.id]) return [];
+    const rows = S(s).objectEvidence[obj.id] || [];
+    const out = [];
+    for (const row of rows) {
+      const arr = S(s).lawEvidence?.[row.accused]?.[row.owner] || [];
+      const entry = arr.find((e) => e.id === row.entry);
+      if (!entry || entry.grade !== "unproven") continue;
+      entry.grade = "found";
+      const accused = s.actors?.[row.accused] || { name: row.accused };
+      say(s, H, observer, `${observer.name} finds proof against ${accused.name} in the ${commonName}: ${evidenceText(entry, true)}`,
+        ["Found evidence argues like witnessed: stronger than unproven, not as strong as a sworn act."]);
+      if (H.Observation?.recordFact) {
+        H.Observation.recordFact(s, observer, {
+          id: `evidence:${obj.id}:${entry.id}`,
+          kind: "evidence",
+          subject: obj.id,
+          entry: entry.id,
+          accused: row.accused,
+          owner: row.owner,
+          text: evidenceText(entry, true)
+        }, "investigate");
+      }
+      out.push(entry.id);
+    }
+    return out;
+  }
 
   // ── exhibits: Observe debriefs units into trial witnesses (TRIAL.md). Silent
   // v1 (the observe log shows the study); surfacing exhibits in UI is later work.
@@ -472,5 +526,5 @@
     return null;
   }
 
-  return { named, vesselBy, markVessel, faithful, person, vestmentMul, choirOption, choirSustain, vestments, LAW, IDS, taxes, price, beforeAbility, target, resolve, moved, beforeMove, afterHit, turnStart, aiValue, statutes, gates, outlawBy, guilty, breaches, isMagistrate, isLawgiver, evidence, proven, debrief, foundEvidence };
+  return { named, vesselBy, markVessel, faithful, person, vestmentMul, choirOption, choirSustain, vestments, LAW, IDS, taxes, price, beforeAbility, target, resolve, moved, beforeMove, afterHit, turnStart, aiValue, statutes, gates, outlawBy, guilty, breaches, isMagistrate, isLawgiver, evidence, proven, debrief, foundEvidence, fileObjectEvidence, foundObjectEvidence };
 });

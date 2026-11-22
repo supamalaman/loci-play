@@ -37,10 +37,14 @@
     return { title: m.name || d.name || m.kind, subtitle: "Wild · hostile to everyone", sections, hidden: 0, hint: "", id: m.id, statuses: [], otherConditions: [],
       vitals: { lf: m.lf ?? null, maxLF: m.maxLF ?? null, pf: null, maxPF: null, ultimate: null }, defeated: !(m.lf > 0), intent: tele?.text || null, noticed: 0, hasDeck: false, wild: true };
   }
-  function knownCard(s, targetId, { viewer = "player", content = null, insight = null, monsters = null, wild = null, stance = null, hostileSides = null, parley = null } = {}) {
+  function knownCard(s, targetId, { viewer = "player", content = null, insight = null, monsters = null, wild = null, stance = null, hostileSides = null, parley = null, markTrace = null } = {}) {
     const t = s.actors?.[targetId];
     if (!t) { const m = (s.wild || []).find((w) => w.id === targetId && w.form === "unit"); return m ? wildCard(s, m, wild, content) : null; }
     const me = s.actors?.[viewer], sections = [], add = (label, items) => { items = items.filter(Boolean); if (items.length) sections.push({ label, items }); };
+    if (markTrace && (markTrace.subject === t.id || me?.id === t.id)) {
+      const state = markTrace.grey ? markTrace.to ? "Grey trace · last visible link" : "Grey trace · installer out of sight" : "Clear trace";
+      add(markTrace.detective ? "Detective’s trace" : "Mark trace", [`Installer · ${markTrace.installer}`, state]);
+    }
     const ab = (id) => content?.abilities?.[id];
     const cname = (c) => content?.concepts?.[c]?.name || c;
 

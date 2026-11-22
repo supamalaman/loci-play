@@ -31,7 +31,26 @@
     if (T && r.pending && r.status !== "passed") return { status: "failed", owed: T.price.lf, since: 0, free: false, pending: false, left: true };
     return r;
   }
-  const withRecord = (account, id, rec) => ({ ...account, tandems: { ...((account && account.tandems) || {}), [id]: { status: rec.status, owed: rec.owed || 0, since: rec.since || 0, free: !!rec.free, pending: !!rec.pending } } });
+  const withRecord = (account, id, rec) => ({ ...account, tandems: { ...((account && account.tandems) || {}), [id]: { status: rec.status, owed: rec.owed || 0, since: rec.since || 0, free: !!rec.free, pending: !!rec.pending,
+    ...(rec.status === "passed" && rec.form > 1 ? { form: rec.form } : {}), ...(rec.status === "passed" && rec.clean > 0 ? { clean: rec.clean } : {}) } } });   // Tandem T4: the form an owned tandem has reached, and its clean-battle count
+
+  // Tandem T4 (SPEC section 5A; R-20261121-27): an owned tandem's growth between battles. `g` is what the battle wrote
+  // (tandem.js noteGrowth: the form it reached, whether it strained; absent when it was never called). A molt in the battle is
+  // kept and starts the new form's count afresh; otherwise a won battle in which it was out and never strained counts one clean
+  // battle. When the form's condition is "mastery", the third clean battle molts it one form (Form 3 is final).
+  // Returns { form, clean, line }; line is set only by a mastery molt.
+  function growth(forms, rec, g, won) {
+    if (!Array.isArray(forms) || !forms.length) return { form: 1, clean: 0, line: null };
+    const last = Math.min(3, forms.length);
+    let form = Math.min(last, Math.max(rec.form || 1, (g && g.form) || 1)), clean = rec.clean || 0, line = null;
+    if (form > (rec.form || 1)) clean = 0;
+    else if (g && won && !g.strained) clean += 1;
+    const f = forms[form - 1];
+    if (f && f.moltCondition === "mastery" && clean >= 3 && form < last) {
+      form += 1; clean = 0; line = `${f.name} has fought three clean battles beside you: it molts into Form ${form}, ${forms[form - 1].name}.`;
+    }
+    return { form, clean, line };
+  }
 
   // What the wing shows for one tandem, and whether its Trial may begin now (with the reason when it may not).
   function view(account, id) {
@@ -53,7 +72,10 @@
   function battleOpts(account) {
     const owed = [], free = [];
     for (const id of ids()) { const r = recordOf(account, id); if (r.status === "failed" && r.owed > 0) owed.push({ id, lf: r.owed }); if (r.status === "passed" && r.free) free.push(id); }
-    return owed.length || free.length ? { owed, free } : null;
+    const forms = {};   // Tandem T4: an owned molting tandem arrives in the form it has reached (battleStart writes s.tandemForms)
+    for (const id of ids()) { const r = recordOf(account, id); if (r.status === "passed" && r.form > 1) forms[id] = r.form; }
+    const hasForms = Object.keys(forms).length > 0;
+    return owed.length || free.length || hasForms ? { owed, free, ...(hasForms ? { forms } : {}) } : null;
   }
   // Right after a real battle is created: the price that battle took is no longer owed (so it is taken once, even if the battle is
   // then abandoned), a Trial left unfinished becomes the fail it is, and a Trial that just began is marked pending.
@@ -89,6 +111,13 @@
       }
       if (r.status === "failed" && raw) next = withRecord(next, id, { ...r, since: r.since + 1 });
       if (r.status === "passed" && spent.has(id)) { if (r.free) next = withRecord(next, id, { ...r, free: false }); lines.push(`${row.name}'s free first call is spent.`); }   // spendNow may have written it already
+      if (r.status === "passed" && row.tandem.forms) {   // Tandem T4: keep the form it reached; count a clean won battle; a mastery molt
+        const cur = recordOf(next, id), g = ((s && s.tandemGrowth) || {})[id], won = !!(s && s.outcome && s.outcome.winner === "player");
+        const out = growth(row.tandem.forms, cur, g, won);
+        if (out.form !== (cur.form || 1) || out.clean !== (cur.clean || 0)) next = withRecord(next, id, { ...cur, form: out.form, clean: out.clean });
+        if (out.line) lines.push(out.line);
+        else if (g && out.form > (cur.form || 1)) lines.push(`${row.tandem.forms[out.form - 1].name} keeps the form it reached: it will answer your next call in Form ${out.form}.`);
+      }
     }
     return { account: next, lines };
   }
@@ -118,6 +147,7 @@
           why: ["A failed Trial wounds once, at the start of the next battle. It was stated before the Trial began."] });
       }
       s.tandemFree = (T.free || []).filter((id) => trialOf(id));
+      if (T.forms) s.tandemForms = Object.fromEntries(Object.entries(T.forms).filter(([id, n]) => trialOf(id) && SD.summons[id].tandem.forms && n > 1));   // Tandem T4: read by every summon call (engine/actions-summons.js, conditions.js death door)
     }
     if (opts && opts.tandemTrial) place(s, opts.tandemTrial, H);
   }
@@ -180,5 +210,5 @@
     return null;
   }
 
-  return { trialOf, ids, recordOf, view, list, battleOpts, started, settle, spendNow, battleStart, place, keep, freeCall, spendFree, options };
+  return { trialOf, ids, recordOf, view, list, battleOpts, started, settle, growth, spendNow, battleStart, place, keep, freeCall, spendFree, options };
 });

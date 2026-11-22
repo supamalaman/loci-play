@@ -34,6 +34,8 @@
   const traits = {
     // Chitinous Archbishop (hot-build cuts F3): Carapace (biology, innate; Lab record docs/trait-lab.md), Liturgist (psychology, carries her AI table).
     carapace:{name:"Carapace",category:"biology",difficulty:2,text:"Plates over the body: the first foe hit on her each round loses 3 potency."},
+    stoneHide:{name:"Stone Hide",category:"biology",difficulty:2,text:"Hide like packed stone: the first Strike or contact hit a foe lands on her each turn loses 2 potency."},
+    hardPlace:{name:"Hard Place",category:"values",difficulty:2,text:"She keeps the ground she made: a turn she ends on a tile she graded this battle, or on her own berm, gives her 1 ΦF, once a round."},
     liturgist:{name:"Liturgist",category:"psychology",difficulty:2,text:"The law first, then the body: she posts a Statute while none of hers stands, and marks as her Vessel whoever stands in it. A believer she marks is a body she may wake in."},
     citesPrecedent:{name:"Cites Precedent",category:"values",text:"Remembers witnessed techniques. When answering a visible attacker who repeats a technique you already saw them use, the reactive technique costs 0 AP. Its ΦF and reaction are still paid. Change techniques or deny sight to defeat the precedent.",open:true},
     discernment:{name:"Discernment",category:"psychology",difficulty:2,text:"Each new hidden fact personally learned through Observe or Investigate gives +5% direct damage against that enemy, up to +25% for this battle. Repeated or shared knowledge adds nothing."},
@@ -365,7 +367,7 @@
       /* feats batch, 2026-10-27 */ "packMule", "fourArms",
       /* prehensile tail PT1, 2026-11-12 */ "prehensileTail", /* Florence F2, 2026-11-15 */ "steadyHands",
       /* tsukumogami structures, 2026-10-29 */ "heavy", "rigid", "brittle", "light",
-      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory", /* the maid's Vocational form, 2026-11-15: a boss form */ "vocational", /* Chitinous Archbishop F3, 2026-11-16 */ "carapace"],
+      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory", /* the maid's Vocational form, 2026-11-15: a boss form */ "vocational", /* Chitinous Archbishop F3, 2026-11-16 */ "carapace", /* Shardback F5a, 2026-11-21 */ "stoneHide"],
     psychology: ["discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
       "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "comparative", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
@@ -375,7 +377,7 @@
       /* the respec fruit, 2026-11-01 */ "fruitbound",
       /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer", /* the Treasure Hunter, TH1 */ "goldFever", /* Florence F2, 2026-11-15 */ "clinician",
       /* Chitinous Archbishop F3, 2026-11-16 */ "liturgist", /* the Raven Messenger, K3 (re-cut of R2) */ "messenger", /* the Magistrate's bench, court M2a (1.3.572) */ "bench"],
-    values: ["citesPrecedent", "believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
+    values: ["citesPrecedent", "hardPlace", "believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
       "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective",
       /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand", /* the Treasure Hunter, TH1 */ "findersKeepers", /* Florence F2, 2026-11-15 */ "doNoHarm"],
     state: ["complex", "unexplainedEvent"],
@@ -420,6 +422,7 @@
     byTheBook: { counters: ["fool", "impatient"], synergies: ["dutiful", "honest"] },
     homestead: { counters: ["restless", "impatient"], synergies: ["loyal", "stubborn", "traditionalist", "dutiful"] },
     markedGround: { counters: ["impatient", "restless"], synergies: ["dutiful", "stubborn", "proud"] },
+    hardPlace: { counters: ["impatient", "restless"], synergies: ["stubborn", "proud"] },   // 1.3.573 merge (Deadwood IN): Shardback F5a's values trait keeps the ground she made, as markedGround keeps a claim (traits.test)
     awardWinningDirector: { counters: ["fool"], synergies: ["proud", "competitive", "ambitious"] },
     humanExperience: { counters: ["fool"], synergies: ["empathic", "talkative", "persuasive"] },
     methodActing: { counters: ["stubborn"], synergies: ["imaginative", "curious"] },

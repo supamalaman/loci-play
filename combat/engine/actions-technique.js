@@ -48,7 +48,7 @@
         { const no = H.Inspiration.crescendoRefuses(s, a, m); if (no) return no; }   // a Crescendo technique needs its Inspiration and only one is in force (ledgers.js)
         const crescendoFree = H.Inspiration.crescendoFree(s, a, act.ability, m); if (crescendoFree) Object.assign(m, { tempoCost: 0, cost: 0, lfPrice: 0 });   // the bend: this cast is free (stamped at commit)
         { const off = ClassRuntime?.ma?.discount(a) || 0; if (off && m.cost > 0) { m.cost = Math.max(0, m.cost - off); m.maDiscounted = true; } }   // Ma: The Space Between's discount on the next technique
-        if (m.effect === "cure" && (act.from || internal?.prepaid)) return "This technique must be delivered in person.";
+        if (["cure", "markTrace"].includes(m.effect) && (act.from || internal?.prepaid)) return "This technique must be delivered in person.";
         const sigFrom = act.from ? H.validSignalOrigin(s, a, m, act.from) : null;
         if (act.from && !sigFrom.ok) return sigFrom.error;
         const src = sigFrom?.ok ? { ...a, x: act.from[0], y: act.from[1] } : a;   // signal origin (machine P3): geometry reads the marker tile; costs stay on the caster

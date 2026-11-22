@@ -110,5 +110,80 @@
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-items.js)`);
     Object.assign(K.handlers, family);
+    // Qualifier cards QC2 (claude-qualifier-cards-spec, slice QC2): engine-only action cards for
+    // playCard and useItem in drawer "act". Reference rows come from the built-in AI's candidates
+    // (playCard also takes the Cards.aiPick action); extra rows are judged by preview. No handler
+    // change, no menu change; ui.js is not touched.
+    const judge = (s, act, extra, label, cost, help) => {
+      const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+      return { act, label, cost, off: !pv.ok, why: pv.ok ? "" : pv.error, help };
+    };
+    const refRows = (s, a, extra, type) => (extra.candidates ?? H.candidates(s, a.id))
+      .filter((c) => c.type === type)
+      .map((c) => { const { vowGain, ...act } = c; return act; });
+    const cards = {
+      playCard: { type: "playCard", drawer: "act", options(s, a, extra = {}) {
+        if (!H.Cards) return [];
+        const rows = [];
+        const seen = new Set();
+        const push = (act, label) => {
+          const rowKey = `${act.card}:${act.target ? act.target.join(",") : "null"}`;
+          if (seen.has(rowKey)) return;
+          seen.add(rowKey);
+          rows.push(judge(s, act, extra, label, 0, "Play a Battle Card from the hand. No AP, no ΦF."));
+        };
+        const pick = H.Cards.aiPick(s, a);
+        if (pick && pick.act) {
+          const picked = H.Cards.options(s, a.id).find((r) => r.index === pick.act.card);
+          const name = picked ? picked.name : "a card";
+          const at = pick.act.target;
+          push(pick.act, at ? `Play ${name} → (${at[0]},${at[1]})` : `Play ${name}`);
+        }
+        for (const row of H.Cards.options(s, a.id)) {
+          if (row.state !== "ready") continue;
+          if (row.needsTarget) {
+            for (const at of row.targets) push({ type: "playCard", actor: a.id, card: row.index, target: at }, `Play ${row.name} → (${at[0]},${at[1]})`);
+          } else {
+            push({ type: "playCard", actor: a.id, card: row.index, target: null }, `Play ${row.name}`);
+          }
+        }
+        return rows;
+      } },
+      useItem: { type: "useItem", drawer: "act", options(s, a, extra = {}) {
+        const rows = [];
+        const seen = new Set();
+        const itemName = (item) => accountItems?.consumables?.[item]?.name || wildRules?.data?.items?.[item]?.name || pickupRules?.sources?.[item]?.name || item;
+        const itemRange = (item) => {
+          const effect = accountItems?.consumables?.[item]?.effect;
+          if (effect && !effect.wild) return (effect.placeBarrier || effect.blockSightTiles || effect.observe) ? 4 : 0;
+          return wildRules?.data?.items?.[item]?.range ?? 0;
+        };
+        const itemCost = (item) => {
+          const effect = accountItems?.consumables?.[item]?.effect;
+          if (effect && !effect.wild) return Cooking()?.useCost(item, s.rules.actionCosts.utility, a) ?? s.rules.actionCosts.utility;
+          return s.rules.actionCosts.utility;
+        };
+        const push = (act) => {
+          const rowKey = `${act.item}:${act.target ? act.target.join(",") : "null"}`;
+          if (seen.has(rowKey)) return;
+          seen.add(rowKey);
+          const at = act.target || [a.x, a.y];
+          rows.push(judge(s, act, extra, `Use ${itemName(act.item)} → (${at[0]},${at[1]})`, itemCost(act.item), "Use an inventory item."));
+        };
+        for (const act of refRows(s, a, extra, "useItem")) push(act);
+        for (const item of (a.inventory || [])) push({ type: "useItem", actor: a.id, item, target: [a.x, a.y] });
+        for (const item of (a.inventory || [])) {
+          if (itemRange(item) !== 4) continue;
+          for (const u of Object.values(s.actors)) {
+            if (u.defeated || u.id === a.id) continue;
+            if (dist(s, a.x, a.y, u.x, u.y) <= 4) push({ type: "useItem", actor: a.id, item, target: [u.x, u.y] });
+          }
+        }
+        return rows;
+      } },
+    };
+    H.actionCards ||= {};
+    for (const type of Object.keys(cards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-items.js)`);
+    Object.assign(H.actionCards, cards);
   })();
 });

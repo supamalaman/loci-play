@@ -279,7 +279,13 @@
       gentle_hand: { trigger: "the first lethal blow she lands on a foe", effect: { sparedAt: 1 }, bound: "once per foe per battle; the win stays non-lethal", counter: "Hit the spared foe again: the hand stays itself only once." },
       purple_litany: { trigger: "a ranged hit from 2 or more tiles on her, or an unwarded ally within 2", effect: { dome: 8, offTempo: true }, bound: "one reaction a round; primed only against a Fixed foe", counter: "Swap who shoots, or close inside 2 tiles." },
     }, "chitin-bishop"),
-    shardback: B(["regrade", "drainagePlan", "lash", "brierRing"], { primaryBasic: "regrade", primaryRefined: "drainagePlan", secondaryBasic: "lash", secondaryRefined: "brierRing" }, {}, "creature-combat", "brief"),
+    // Shardback F5a (R-20261121-23): Cut Slope and Place Fill come back to her (R-20261114-56; the Engineer keeps Regrade and Drainage Plan). Brief until F5b adds her merge.
+    shardback: B(["cutSlope", "placeFill", "lash", "brierRing"], { primaryBasic: "cutSlope", primaryRefined: "placeFill", secondaryBasic: "lash", secondaryRefined: "brierRing" }, {
+      stone_hide: { trigger: "a Strike or contact hit from a foe lands on her, the first since her turn began", effect: { potencyLess: 2 }, bound: "once per turn of hers; foes only; Strikes and contact hits only", counter: "Open with a cheap touch, or hit her from range." },
+      hard_place: { trigger: "she ends her turn on a tile she graded this battle or on her own berm", effect: { phi: 1 }, bound: "once per round", counter: "Drive her off the ground she made." },
+      thorn_soil: { trigger: "her Brier Ring grows a thorn on a tile she graded this battle", effect: { thornDamageAdd: 2 }, bound: "her own graded tiles only; needs both her concepts", counter: "Fight her off the ground she cut and filled." },
+      ward_field: { trigger: "a ranged hit from 2 or more tiles on her", effect: { ward: 6, berm: 1 }, bound: "one reaction a round; rushed is half the ward", counter: "Close inside 2 tiles, or strike." },
+    }, "creature-combat", "brief"),
     eldritch: B(["annotate", "redact", "survey", "verify"], { primaryBasic: "annotate", primaryRefined: "redact", secondaryBasic: "survey", secondaryRefined: "verify" }, {}, "eldritch", "brief"),
     // The Treasure Hunter (TH1; Discovery + Extraction, crew street): the four live techniques and, since TH1b, his two merges: Idol Claim (the pair's merge ultimate)
     // and Relic Path (the merge technique of his wheelhouse blend, Discovery + Alternate Pathway: a reserve merge, as the Auditor Goblin's Ledger of Debts is). Live:
@@ -312,7 +318,7 @@
       long_reach: { trigger: "you Strike", effect: { strikeRange: 2 }, bound: "Strike only; Grapple needs contact", counter: "Fight from three tiles or more, or close to contact where reach is no advantage." },
       corner_man: { trigger: "your turn starts at or below 40% LF", effect: { summon: "fighting_coach", turns: 4 }, bound: "once per battle", counter: "Finish her from above 40%, or drop the Coach." },
     }, "kickboxer"),
-    detective: B(["compareExplanations", "independentCheck", "isolateTheVariable", "authenticateIdentity", "establishTheFacts"], {}, {
+    detective: B(["compareExplanations", "independentCheck", "isolateTheVariable", "authenticateIdentity", "establishTheFacts", "theMarkAnswers"], {}, {
       provenance_ledger: { trigger: "you observe or witness a unit", effect: { recordsSource: true }, bound: "one source per kind of evidence per target", counter: "Block lines; repeat the same tell." },
       testable_suspicion: { trigger: "a read is confirmed", effect: { confirmedHitMul: 1.25 }, bound: "one round", counter: "Deny the second source." },
     }, "detective"),

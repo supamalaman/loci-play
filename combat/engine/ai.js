@@ -623,6 +623,7 @@
       const waterHere = waterRisk(s, a, [a.x, a.y]);
       const moveValue = (to) => {
         let v = weatherAt(to) - weatherHere;
+        if (summonRules?.Tandem?.moveValue) v += summonRules.Tandem.moveValue(s, a, to, { dist });
         if (ClassRuntime?.mise) v += ClassRuntime.mise.stayValue(s, a, to, classH());   // Mise en Place: do not walk off a station that is still worth something
         const fear = motivesOf(s, a).selfHealth ?? 1;   // trait motives: fear backs a hurt unit off; courage holds through pain
         if (painEff * fear > 0.4 && nearestFoe) v += (dist(s, to[0], to[1], nearestFoe.x, nearestFoe.y) - dist(s, a.x, a.y, nearestFoe.x, nearestFoe.y)) * 3 * painEff * fear;
@@ -1720,7 +1721,7 @@
       if(ClassRuntime?.aiVeto?.(s,a,cand) || (cand.type==="ability" && a.status?.overpressure && !ClassRuntime?.wire?.[cand.ability]?.relief))return 0;
       let base=rawScore(s,id,cand);
       if (base >= 0 && animeKitOption(a, cand)) { const floor = observeFloor(s, a); if (floor > base) base = traceAiTerm("animeKitFloor", floor); }   // docs/anime-orbit.md §5a: at least Observe
-      return base < 0 ? traceAiTerm("negativeRawScore", base) : traceAiTerm("rawScore", base) + traceAiTerm("concentration", concentrationValue(s,s.actors[id],cand)) + traceAiTerm("court", H.courtScore?.(s, id, cand) || 0) + traceAiTerm("spirit", Spirit()?.value(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, { actorAt }) || 0) + traceAiTerm("orders", Orders()?.orderValue(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, H) || 0) + traceAiTerm("keen", sightKeen(s, s.actors[id], cand));
+      return base < 0 ? traceAiTerm("negativeRawScore", base) : traceAiTerm("rawScore", base) + traceAiTerm("concentration", concentrationValue(s,s.actors[id],cand)) + traceAiTerm("court", H.courtScore?.(s, id, cand) || 0) + traceAiTerm("spirit", Spirit()?.value(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, { actorAt }) || 0) + traceAiTerm("orders", Orders()?.orderValue(s, s.actors[id], cand, cand.ability ? ab(cand.ability) : null, H) || 0) + traceAiTerm("keen", sightKeen(s, s.actors[id], cand)) + traceAiTerm("tandemProgram", summonRules?.Tandem?.programScore ? summonRules.Tandem.programScore(s, a, cand, { actorAt, dist }) : 0);
     }
     // The anime kit floor (Mala, 2026-10-27: "they should be scored pretty high, at least up there with Observe, because at
     // the end of the day, they can change the tile or the tide of battle"). Keyed to the kind of option, not the character:

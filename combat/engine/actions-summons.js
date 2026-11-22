@@ -1,5 +1,5 @@
 "use strict";
-// Actions, the summons family: tameBeast, markVessel, callPack, resolveSummonUltimate, pet, wakeDream, focusDream, summon, callPact, dismissPact, stretchLeash, orderSummonUltimate, monsterSummon, dreamSpace, bead, callBeast, callDream, nameDream, treeant, maxChannel, sealBeast.
+// Actions, the summons family: tameBeast, markVessel, callPack, resolveSummonUltimate, pet, wakeDream, focusDream, summon, callPact, dismissPact, stretchLeash, rewriteTandemProgram, orderSummonUltimate, monsterSummon, dreamSpace, bead, callBeast, callDream, nameDream, treeant, maxChannel, sealBeast.
 // Split out of actions.js on 2026-11-11 (tools/split-actions.mjs, action seams A2; the map is tools/action-families.json,
 // the lookup docs/action-families.md). Not a module in its own right and not in engine.js's ENGINE_PARTS: actions.js
 // installs it with the host object H and K, the names actions.js has in its own scope (K.handlers is the action table).
@@ -84,8 +84,9 @@
         if (cost.freeCall) summonRules.Trial?.spendFree(s, a, act.summon, log);
         if (s.summonQuestionBoost > 0) { score.correct = true; score.bond = 2; score.durationBonus = 1; score.potencyMul = 1.2; s.summonQuestionBoost--; }
         if (score.correct) s.summonCorrectAnswers++;
-        const raw = summonRules.makeSummonActor(act.summon, { owner: a.id, at, bond: score.bond, potencyMul: score.potencyMul, durationAdd: a.passives?.summonDurationAdd || 0 });
+        const raw = summonRules.makeSummonActor(act.summon, { owner: a.id, at, bond: score.bond, potencyMul: score.potencyMul, durationAdd: a.passives?.summonDurationAdd || 0, program: act.program, form: s.tandemForms?.[act.summon] });   // Tandem T4: the form the account says it has reached (tandem-trial.js battleStart), never one the action names
         const summon = liveSummon(s,a,raw);
+        summonRules.Tandem?.noteGrowth(s, summon, {});   // Tandem T4: it was out this battle (the account reads it at the end)
         if (hasTrait(a, "attentionToDetail")) { summon.maxLF = summon.lf = Math.round(summon.maxLF * 1.25); log(s, { kind: "effect", actor: a.id, target: summon.id, text: `Attention to Detail: ${summon.name} arrives sturdier (${summon.maxLF} LF).` }); }
         a.status.imaginedRehearsal = null;
         s.actors[summon.id] = summon; s.disclosures[summon.id] = {}; s.knowledge[summon.id] = {};
@@ -93,7 +94,8 @@
         if (insightRules) { const deck = insightRules.buildDeck({ key: "summon:*", kind: "summon" }, { seed: s.seed }); s.insight.decks[summon.id] = deck; s.insight.knowledge[summon.id] = insightRules.spawnKnowledge(deck); }
         if (s.dreamSpace && dreamSpaceRules?.summonTurnTicks(s.dreamSpace) === false) s.dreamSpace.summons.push(summon.id);
         s.order.splice(s.turnIndex + 1, 0, summon.id); s.summonUsed.push(summonRules.usedKey(a.id, act.summon));   // K1 O5: once per battle, per caller
-        log(s, { kind: "summon", actor: summon.id, text: `${summon.name} arrives at (${at[0]},${at[1]}) for ${summon.summon.turnsLeft} turns${score.correct ? ". Correct: " + score.explain : ". " + score.explain}` });
+        const prog = summonRules.Tandem?.activeProgram?.(summon);
+        log(s, { kind: "summon", actor: summon.id, text: `${summon.name} arrives at (${at[0]},${at[1]}) for ${summon.summon.turnsLeft} turns${prog ? ` · Program: ${prog.name}` : ""}${score.correct ? ". Correct: " + score.explain : ". " + score.explain}` });
       },
       callPact(s, a, act) {
         if (a.form?.golden) return "The Integrated Self has no need to summon.";
@@ -116,8 +118,9 @@
         if (!dreamSame(s,a.x,a.y,at[0],at[1])) return "Summons cannot cross the sealed Dream Space.";
         const spend = spendTempo(s, a, cost.apCost + summonTax, `Call ${def.name}`); if (spend) return spend;
         a.pf -= pf; s.seeds -= seeds;   // the purse pays: act() copies s.seeds back to the account
-        const raw = summonRules.makeSummonActor(act.line, { owner: a.id, at, bond: 2, potencyMul: 1.2, durationAdd: a.passives?.summonDurationAdd || 0 });
+        const raw = summonRules.makeSummonActor(act.line, { owner: a.id, at, bond: 2, potencyMul: 1.2, durationAdd: a.passives?.summonDurationAdd || 0, form: s.tandemForms?.[act.line] });
         const summon = liveSummon(s,a,raw);
+        summonRules.Tandem?.noteGrowth(s, summon, {});   // Tandem T4: it was out this battle (the account reads it at the end)
         summon.summon.turnsLeft = terms.duration + (summonRules.data.rules.bondBonusDuration || 0) + (a.passives?.summonDurationAdd || 0); summon.summon.pact = { line: act.line, owner: a.id };   // full bond: the correct-answer package (potency 1.2, bond 2, duration bonus) on the pact's own terms
         if (hasTrait(a, "attentionToDetail")) { summon.maxLF = summon.lf = Math.round(summon.maxLF * 1.25); log(s, { kind: "effect", actor: a.id, target: summon.id, text: `Attention to Detail: ${summon.name} arrives sturdier (${summon.maxLF} LF).` }); }
         a.status.imaginedRehearsal = null;
@@ -144,6 +147,13 @@
         if (!T || !T.of(summon)) return "Choose your tandem on the field.";
         const r = T.stretch(s, a, summon); if (r.error) return r.error;
         log(s, r.event);
+      },
+      rewriteTandemProgram(s, a, act) {   // Tandem T3: rewrite declared program on the user's turn
+        const T = summonRules?.Tandem;
+        const summon = s.actors[act.summon] || Object.values(s.actors).find((x) => x.summon && x.summon.owner === a.id && T?.of(x));
+        if (!T || !summon || !T.of(summon)) return "Choose your tandem on the field.";
+        const r = T.rewriteProgram(s, a, summon, act.program, log);
+        if (r && r.error) return r.error;
       },
       orderSummonUltimate(s, a, act) {
         if (!summonRules?.orderUltimate) return "Summon ultimates are unavailable.";
@@ -418,5 +428,26 @@
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-summons.js)`);
     Object.assign(K.handlers, family);
+    // Action seams A3 (CHANGELOG entry 100: a new action handler pairs with its card): the card for rewriteTandemProgram, in the Rituals
+    // drawer where ui.js shows it. One row per declared program of each living tandem the actor owns; off and why come from a preview of
+    // the exact act, so the handler's own refusal (turn start only, once a turn, the active program) is the why. Dark like every card.
+    const cards = {
+      rewriteTandemProgram: { type: "rewriteTandemProgram", drawer: "rituals", options(s, a, extra = {}) {
+        const T = summonRules?.Tandem; if (!T?.programsOf) return [];
+        const out = [];
+        for (const u of Object.values(s.actors)) {
+          if (u.defeated || !T.of(u) || u.summon?.owner !== a.id) continue;
+          const cur = T.activeProgram(u)?.id;
+          for (const pr of T.programsOf(u)) {
+            const act = { type: "rewriteTandemProgram", actor: a.id, summon: u.id, program: pr.id }, pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+            out.push({ act, label: `Program ${u.name}: ${pr.name}${cur === pr.id ? " (active)" : ""}`, cost: 0, off: !pv.ok, why: pv.ok ? "" : pv.error, help: pr.text });
+          }
+        }
+        return out;
+      } },
+    };
+    H.actionCards ||= {};
+    for (const type of Object.keys(cards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-summons.js)`);
+    Object.assign(H.actionCards, cards);
   })();
 });

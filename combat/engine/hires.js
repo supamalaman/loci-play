@@ -61,6 +61,7 @@
         u.defeated = true; u.escaped = true; u.leaveReason = "has no one left to work for and leaves"; u.tempo = 0; spiritGone(s, u);
         log(s, { kind: "hire", actor: u.id, left: true, tiles: [[u.x, u.y]], text: `${u.name} has no one left to work for and leaves.` });
       }
+      lureTimer(s);
       const B = s.hires; if (!B?.pending?.length) return;
       for (const p of B.pending.slice()) {
         if (p.round > s.round) continue;
@@ -69,6 +70,7 @@
         const at = (p.at && openNear(s, { x: p.at[0], y: p.at[1] })) || openNear(s, owner); if (!at) continue;
         B.pending.splice(B.pending.indexOf(p), 1);
         spawn(s, owner, p, at);
+        if (p.handoff) handOff(s, s.actors[p.handoff]);
       }
     }
     // Kin: who can still come (a character not standing on the field), and the call itself.
@@ -93,9 +95,31 @@
       if (H.Factions && !H.Factions.fits(s.rules, chain.character, allies.map((u) => u.character))) return;   // feud
       if (H.seededChance(`${s.seed}:fleeChain:${a.id}`) >= (chain.chance ?? 1)) return;
       const near = (u) => Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)), owner = allies.reduce((b, u) => (near(u) < near(b) ? u : b));
-      book(s).pending.push({ kind: "kin", owner: owner.id, side: a.side, character: chain.character, round: s.round + (chain.delay ?? 1), at: [a.x, a.y], states: (chain.states || []).slice(), fled: a.name });
+      book(s).pending.push({ kind: "kin", owner: owner.id, side: a.side, character: chain.character, round: s.round + (chain.delay ?? 1), at: [a.x, a.y], states: (chain.states || []).slice(), fled: a.name, ...(chain.then ? { then: { ...chain.then } } : {}) });
       const name = C.characters[chain.character].name;
       log(s, { kind: "hire", actor: a.id, hire: "kin", character: chain.character, tiles: [[a.x, a.y]], text: `${a.name}'s flight is a lure: ${name} will be here ${(chain.delay ?? 1) === 1 ? "next round" : `in ${chain.delay} rounds`}.`, why: chain.why ? [chain.why] : [] });
+    }
+    // Surpanakha flee chain S2 (cursor-surpanakha-flee-chain-spec rules 3-4; R-20261107-07, R-20261108-06): a lure that arrived from a fleeChain
+    // with a `then` (Maricha's golden deer) and still holds its shape `then.after` rounds after it arrived calls that character to its side,
+    // `then.delay` rounds later, in `then.states` (Ravana as the mendicant), unless he is on the field or already coming. The call is the lure's
+    // own (callKin's pending, owner = the lure): a deer struck before the arrival has fled, and nobody comes (spec test "hit deer -> no Ravana").
+    function lureTimer(s) {
+      for (const m of Object.values(s.actors)) {
+        const L = m.lure; if (!L || L.called || !live(m) || !m.states?.[L.state] || s.round - m.arrivedRound < L.after) continue;
+        if (!C.characters[L.character] || Object.values(s.actors).some((u) => u.character === L.character) || pendingFor(s, L.character)) continue;   // anyone of that name in this battle, standing, fled or fallen: he does not come twice
+        if (H.Factions && !H.Factions.fits(s.rules, L.character, Object.values(s.actors).filter((u) => u.side === m.side && live(u)).map((u) => u.character))) continue;   // feud
+        L.called = true;
+        book(s).pending.push({ kind: "kin", owner: m.id, character: L.character, round: s.round + L.delay, states: (L.states || []).slice(), withholds: (L.withholds || []).slice(), arrival: L.arrival || null, handoff: m.id });
+        const name = C.characters[L.character].name;
+        log(s, { kind: "hire", actor: m.id, hire: "kin", character: L.character, tiles: [[m.x, m.y]], text: `${m.name} has held the guard's eye long enough: ${name} will be here ${L.delay === 1 ? "next round" : `in ${L.delay} rounds`}.`, why: L.why ? [L.why] : [] });
+      }
+    }
+    // The lure leaves when the one it called arrives (spec defaults: "deer escapes", one lure on the board). Alive, off the field.
+    function handOff(s, m) {
+      if (!live(m)) return;
+      m.defeated = true; m.escaped = true; m.leaveReason = "slipped away as the mendicant arrived"; m.tempo = 0; spiritGone(s, m);
+      log(s, { kind: "stateScene", actor: m.id, state: m.lure?.state || null, title: "The Lure Hands Off", line: "The golden deer slips into the forest: the trap is sprung." });
+      log(s, { kind: "hire", actor: m.id, left: true, tiles: [[m.x, m.y]], text: `${m.name} slips away into the forest, his part finished.` });
     }
     // Round 1: a unit whose character heralds another (Sita heralds Rama) has them already on the way, on a seeded chance.
     function heralds(s) {
@@ -128,10 +152,14 @@
       for (const other of Object.values(s.actors)) if (other.id !== u.id && other.side !== u.side) { (s.knowledge[other.id] ||= {})[u.id] ||= { secondary: false, lens: false, abilities: {} }; s.knowledge[u.id][other.id] = { secondary: false, lens: false, abilities: {} }; }
       s.order.push(u.id);
       H.wheelhouseSettle?.(s, u, ch);   // hotbuild hires roll on arrival, like any NPC spawn (W0a)
-      if (p.kind === "kin") for (const id of ch.startStates || []) H.States?.grant(s, u, id);   // kin arrive as themselves (Hanuman: Forgotten)
-      for (const id of p.states || []) H.States?.grant(s, u, id);   // a flee chain's lure arrives in its shape (Maricha: the golden deer)
+      u.arrivedRound = s.round;
+      if (p.then) u.lure = { ...p.then, state: (p.states || [])[0] || null, called: false };   // S2: this lure's timer (lureTimer)
+      const withheld = new Set(p.withholds || []);   // a guise arrival holds back the startStates its chain names until the guise's breaker grants them (Ravana's mendicant: heads, boon)
+      if (p.kind === "kin") for (const id of ch.startStates || []) if (!withheld.has(id)) H.States?.grant(s, u, id);   // kin arrive as themselves (Hanuman: Forgotten)
+      for (const id of p.states || []) H.States?.grant(s, u, id);   // a flee chain's lure arrives in its shape (Maricha: the golden deer; Ravana: the mendicant)
+      const guise = p.arrival || null;
       log(s, { kind: "hire", actor: u.id, target: owner.id, arrived: true, hire: p.kind, tiles: [at],
-        text: p.fled ? `${u.name} steps out where ${p.fled} fled${u.states?.marichaDeer ? ", in the shape of a golden deer" : ""}.` : p.kind === "kin" ? `${u.name} answers ${owner.name}'s call and takes the field.` : p.kind === "merc" ? `${u.name} arrives on contract to fight beside ${owner.name}.` : p.kind === "flowerMediator" ? `${u.name} arrives with flowers to talk for ${owner.name}.` : `${u.name} arrives under a letter of safe conduct to talk for ${owner.name}.` });
+        text: p.fled ? `${u.name} steps out where ${p.fled} fled${u.states?.marichaDeer ? ", in the shape of a golden deer" : ""}.` : guise ? `${u.name} arrives ${guise}.` : p.kind === "kin" ? `${u.name} answers ${owner.name}'s call and takes the field.` : p.kind === "merc" ? `${u.name} arrives on contract to fight beside ${owner.name}.` : p.kind === "flowerMediator" ? `${u.name} arrives with flowers to talk for ${owner.name}.` : `${u.name} arrives under a letter of safe conduct to talk for ${owner.name}.` });
     }
 
     // End of a hired unit's own turn: the merc's clock and nerve, the mediator's patience.

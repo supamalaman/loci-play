@@ -20,6 +20,8 @@
 //   step that finishes a user it drops to 0 is a zero-potency hit, which takes no LF and so echoes nothing).
 //   fragments [three lines]  Observe on the tandem reveals the next one, in order, once per look, per observing side.
 // Admission (section 4): no tandem rates above C (A or B) in all three of Power, Speed and Leash: the tradeoff law.
+// T4 (muse-tandem-spirit-spec §5A and §8.4): need-triggered molts (ACTs, max 3 forms). Molts are one-way; Form 3 is final.
+// Conditions menu: cornered, witness, refusal, mastery.
 // Pure functions; the engine passes its own distance (`dist(s, x1, y1, x2, y2)`) and log.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
@@ -28,6 +30,14 @@
   const LETTERS = ["A", "B", "C", "D", "E"];
   const HEXAGON = [["power", "Power"], ["speed", "Speed"], ["leash", "Leash"], ["stamina", "Stamina"], ["precision", "Precision"], ["growth", "Growth"]];
   const TRADEOFF = ["power", "speed", "leash"], ABOVE_C = ["A", "B"];
+  const MOLT_CONDITIONS = ["cornered", "witness", "refusal", "mastery"];
+  const MOLT_WORDS = { cornered: "it molts when its user falls below a quarter of their LF", witness: "it molts when an ally falls while it is out",
+    refusal: "it molts when its user breaks its rule", mastery: "it molts after three won battles in which it never strains" };
+
+  const writeLog = (s, ev, log) => {
+    if (typeof log === "function") log(s, ev);
+    else if (Array.isArray(s?.log)) s.log.push(ev);
+  };
 
   // The tandem block an actor carries (makeSummonActor copies it from the row), or null for every other unit.
   const of = (a) => (a && a.summon && a.summon.tandem) || null;
@@ -50,20 +60,82 @@
   const strained = (a) => !!(a && a.status && a.status.tandemStrain && a.status.tandemStrain.until >= (a.ownerTurns || 0));
   const leashText = (s, a) => `${a.name} acts within ${leashOf(a)} tile${leashOf(a) === 1 ? "" : "s"} of ${userOf(s, a)?.name || "its user"}`;
 
+  // Molts (T4; SPEC section 5A; R-20261121-27). A tandem with `forms` (2 or 3) is in one of them at a time; the block's leash,
+  // rule, price, hexagon, stretch, reflect, carapace, bonusPotency, fragments and moltCondition are that form's, and the actor
+  // carries its name and `winged` (class-runtime.js isFlyer reads it: a winged unit flies). applyForm is the one writer, used
+  // by the call (summons.js makeSummonActor) and by molt here, so the two cannot disagree. Molts go forward only; Form 3 is final.
+  const FORM_KEYS = ["leash", "rule", "price", "hexagon", "stretch", "reflect", "carapace", "bonusPotency", "fragments", "moltCondition"];
+  function applyForm(t, n, a = null) {
+    const f = t.forms[n - 1];
+    t.currentForm = n;
+    for (const k of FORM_KEYS) {
+      const v = f[k];
+      if (v == null) delete t[k];
+      else t[k] = Array.isArray(v) ? [...v] : typeof v === "object" ? { ...v } : v;
+    }
+    if (a) { a.name = f.name; if (f.winged) a.winged = true; else delete a.winged; }
+    return { name: f.name, winged: !!f.winged };
+  }
+  const currentForm = (a) => { const t = of(a); return t && Array.isArray(t.forms) ? t.currentForm || 1 : null; };
+  const canMolt = (a) => { const n = currentForm(a); return n != null && n < Math.min(3, of(a).forms.length) && !!of(a).moltCondition; };
+  // Form II's carapace sheds this much from each hit it takes (engine/damage.js); Form III's bonus is added to its hits on a wounded foe.
+  const damageReduction = (tgt) => { const t = of(tgt); return t && typeof t.carapace === "number" ? t.carapace : 0; };
+  const bonusPotency = (src, tgt) => { const t = of(src); return t && typeof t.bonusPotency === "number" && tgt && tgt.lf < tgt.maxLF ? t.bonusPotency : 0; };
+  // What this battle did to each tandem, for the account at its end (tandem-trial.js settle): the form it reached and whether it
+  // strained. Written when it is called (engine/actions-summons.js), when it strains and when it molts.
+  function noteGrowth(s, a, patch) {
+    const key = a && a.summon && a.summon.key; if (!s || !key) return;
+    const g = ((s.tandemGrowth ||= {})[key] ||= { form: currentForm(a) || 1, strained: false });
+    Object.assign(g, patch);
+  }
+  // One step forward. Refused when it is not a molting tandem, when it is in its last form, or when `to` is not the next form.
+  function molt(s, a, to, reason, log = null) {
+    const t = of(a), cur = currentForm(a);
+    if (cur == null) return { ok: false, error: "Not a molting tandem." };
+    if (cur >= Math.min(3, t.forms.length)) return { ok: false, error: `Form ${cur} is final.` };
+    if (to !== cur + 1) return { ok: false, error: to <= cur ? `Molts are one-way: Form ${cur} cannot go back to Form ${to}.` : `A molt goes one form at a time: Form ${cur} to Form ${cur + 1}.` };
+    const oldName = a.name;
+    applyForm(t, to, a);
+    noteGrowth(s, a, { form: to });
+    const event = { kind: "tandemMolt", actor: a.id, fromForm: cur, toForm: to, trigger: reason,
+      text: `${oldName} molts into Form ${to}, ${a.name}: ${reason}.`,
+      why: ["A molt answers a need, not a meter, and it is one-way: it never goes back, and Form 3 is final (Tandem T4)."] };
+    writeLog(s, event, log);
+    return { ok: true, form: to, event };
+  }
+  // After every hit (afterHit): a tandem whose molt condition is "cornered" molts when its user is below a quarter of their LF;
+  // one whose condition is "witness" molts when the unit just hit was an ally of its side (not itself) and fell. "refusal" is in
+  // strain; "mastery" is counted between battles (tandem-trial.js growth), never inside one.
+  function checkMoltTriggers(s, { hitTarget, log } = {}) {
+    const out = [];
+    for (const a of Object.values((s && s.actors) || {})) {
+      if (!a || a.defeated || !canMolt(a)) continue;
+      const t = of(a), cond = t.moltCondition, u = userOf(s, a);
+      if (!u) continue;   // an unbound tandem (a Trial's foe) has no user and never molts
+      let reason = null;
+      if (cond === "cornered" && u && !u.defeated && u.lf > 0 && u.lf < u.maxLF / 4) reason = `cornered: ${u.name} is below a quarter of their LF`;
+      else if (cond === "witness" && hitTarget && hitTarget.id !== a.id && hitTarget.side === a.side && (hitTarget.defeated || hitTarget.lf <= 0)) reason = `witness: ${hitTarget.name} fell while it was out`;
+      if (reason) { const r = molt(s, a, currentForm(a) + 1, reason, log); if (r.ok) out.push(r); }
+    }
+    return out;
+  }
+
   // Strain for one turn: `now` is its current turn (at its own turn start), otherwise its next one.
   function strain(s, a, why, log, { now = false } = {}) {
     a.status = a.status || {};
     a.status.tandemStrain = { label: "Strained", until: (a.ownerTurns || 0) + (now ? 0 : 1), why };
-    if (log) log(s, { kind: "tandem", actor: a.id, strain: true, text: `${a.name} strains against its leash: ${why} For a turn it can only move and guard.`,
-      why: [`${leashText(s, a)} (its tandem rule). Outside it, an order fails and the tandem strains (R-20261114-33).`] });
+    writeLog(s, { kind: "tandem", actor: a.id, strain: true, text: `${a.name} strains against its leash: ${why} For a turn it can only move and guard.`,
+      why: [`${leashText(s, a)} (its tandem rule). Outside it, an order fails and the tandem strains (R-20261114-33).`] }, log);
     shed(s, a, log);
+    noteGrowth(s, a, { strained: true });   // a strained battle is not a clean one (mastery: tandem-trial.js growth)
+    if (canMolt(a) && of(a).moltCondition === "refusal") molt(s, a, currentForm(a) + 1, "refusal: its user broke its rule", log);   // the molt answers the betrayal
   }
   // Strain sheds every lent tile (T2b: the boundary of "made of what it strikes").
   function shed(s, a, log) {
     const n = (a.tandemTiles || []).length; if (!n) return 0;
     a.tandemTiles = [];
-    if (log) log(s, { kind: "tandem", actor: a.id, shed: n, text: `${a.name} loses its pattern under the strain: ${n === 1 ? "its one lent tile falls" : `all ${n} lent tiles fall`} away.`,
-      why: ["Strain sheds every tile a tandem was lent (its boundary)."] });
+    writeLog(s, { kind: "tandem", actor: a.id, shed: n, text: `${a.name} loses its pattern under the strain: ${n === 1 ? "its one lent tile falls" : `all ${n} lent tiles fall`} away.`,
+      why: ["Strain sheds every tile a tandem was lent (its boundary)."] }, log);
     return n;
   }
   // The potency its lent tiles add to its own hits (0 for every other unit).
@@ -76,16 +148,20 @@
     const ls = of(src) && src.summon.tandem.lend;
     if (ls && !src.defeated && tgt.side !== src.side && tgt.category !== "bystander" && tgt.id !== src.id && !(src.tandemTiles || []).includes(tgt.id) && (src.tandemTiles || []).length < ls.max) {
       src.tandemTiles = [...(src.tandemTiles || []), tgt.id];
-      if (log) log(s, { kind: "tandem", actor: src.id, target: tgt.id, lend: src.tandemTiles.length, text: `${tgt.name} lends ${src.name} a tile: ${src.tandemTiles.length} of ${ls.max}, +${lentPotency(src)} potency on its later hits.`,
-        why: ["Made of what it strikes: each different foe it wounds lends it a tile."] });
+      writeLog(s, { kind: "tandem", actor: src.id, target: tgt.id, lend: src.tandemTiles.length, text: `${tgt.name} lends ${src.name} a tile: ${src.tandemTiles.length} of ${ls.max}, +${lentPotency(src)} potency on its later hits.`,
+        why: ["Made of what it strikes: each different foe it wounds lends it a tile."] }, log);
     }
     const t = of(tgt), rf = t && t.reflect, u = rf && userOf(s, tgt);
-    if (!u || t.leash > 2) return;
-    const echo = Math.min(rf.max, Math.floor(lost * rf.share)); if (echo <= 0) return;
-    const before = u.lf; u.lf = Math.max(0, u.lf - echo);
-    if (log) log(s, { kind: "tandem", actor: tgt.id, target: u.id, echo: before - u.lf, text: `The blow echoes back to ${u.name}: ${before - u.lf} LF (${u.lf}/${u.maxLF}).`,
-      why: [`A close tandem shares its wounds: half of what it loses, rounded down, at most ${rf.max} a hit. An echo never echoes.`] });
-    if (u.lf <= 0 && finish) finish(u, src);
+    if (u && t.leash <= 2) {
+      const echo = Math.min(rf.max, Math.floor(lost * rf.share));
+      if (echo > 0) {
+        const before = u.lf; u.lf = Math.max(0, u.lf - echo);
+        writeLog(s, { kind: "tandem", actor: tgt.id, target: u.id, echo: before - u.lf, text: `The blow echoes back to ${u.name}: ${before - u.lf} LF (${u.lf}/${u.maxLF}).`,
+          why: [`A close tandem shares its wounds: half of what it loses, rounded down, at most ${rf.max} a hit. An echo never echoes.`] }, log);
+        if (u.lf <= 0 && finish) finish(u, src);
+      }
+    }
+    checkMoltTriggers(s, { hitTarget: tgt, log });   // Tandem T4: cornered and witness molts
   }
   // The user's stretch (T2b, its price): `user` pays stretch.lf LF and the tandem acts within stretch.leash tiles through its
   // next turn. Returns a refusal string, or the event to log.
@@ -118,7 +194,7 @@
     const next = nextFragment(s, observer, a); if (!next) return null;
     const f = of(a).fragments, n = next.n;
     ((s.tandemFragments ||= {})[observer.side] ||= {})[a.summon.key] = n + 1;
-    if (log) log(s, { kind: "observe", actor: observer.id, target: a.id, fragment: n + 1, text: observer.id === "player" ? `${a.name}, fragment ${n + 1} of ${f.length}: ${f[n]}` : `${observer.name} reads fragment ${n + 1} of ${a.name}.` });   // a foe's find stays its own, as other AI looks do
+    writeLog(s, { kind: "observe", actor: observer.id, target: a.id, fragment: n + 1, text: observer.id === "player" ? `${a.name}, fragment ${n + 1} of ${f.length}: ${f[n]}` : `${observer.name} reads fragment ${n + 1} of ${a.name}.` }, log);   // a foe's find stays its own, as other AI looks do
     return f[n];
   }
   // At its own turn start: outside the leash means strain for this turn.
@@ -163,6 +239,37 @@
     const top = TRADEOFF.filter((k) => ABOVE_C.includes(hex[k]));
     if (top.length > 2) out.push(`${id}: above C in all of Power, Speed and Leash (the tradeoff law: it must pay somewhere)`);
     if ("bond" in t) out.push(`${id}: tandem.bond is not a field (palace bond stays on the summon; R-20261114-10)`);
+    if (t.programs != null) {
+      if (!Array.isArray(t.programs) || t.programs.length < 1 || t.programs.length > 3) out.push(`${id}: tandem.programs is 1 to 3 declared instructions`);
+      for (const p of (Array.isArray(t.programs) ? t.programs : [])) {
+        if (!p || typeof p.id !== "string" || !p.id.trim() || typeof p.name !== "string" || !p.name.trim() || typeof p.text !== "string" || !p.text.trim()) {
+          out.push(`${id}: program requires id, name and text`);
+          break;
+        }
+      }
+    } else if (t.leash > 2 && !t.forms) {
+      out.push(`${id}: far tandem (leash > 2) must declare 1 to 3 programs`);
+    }
+    if (t.forms != null) {
+      if (!Array.isArray(t.forms) || t.forms.length < 2 || t.forms.length > 3) out.push(`${id}: tandem.forms is 2 to 3 forms (max 3 forms, SPEC §5A)`);
+      const forms = Array.isArray(t.forms) ? t.forms : [];
+      for (let i = 0; i < forms.length; i++) {
+        const f = forms[i];
+        if (f.form !== i + 1) out.push(`${id}: form ${i + 1} has form index ${i + 1}`);
+        if (!f.name || typeof f.name !== "string" || !f.name.trim()) out.push(`${id}: form ${i + 1} names the form`);
+        if (!Number.isInteger(f.leash) || f.leash < 1) out.push(`${id}: form ${i + 1} leash is at least 1 tile`);
+        for (const k of ["rule", "price"]) if (!f[k] || typeof f[k] !== "string" || !f[k].trim()) out.push(`${id}: form ${i + 1} ${k} is stated in words`);
+        for (const [k] of HEXAGON) if (!LETTERS.includes(f.hexagon?.[k])) out.push(`${id}: form ${i + 1} hexagon.${k} is a letter A to E`);
+        const topF = TRADEOFF.filter((k) => ABOVE_C.includes(f.hexagon?.[k]));
+        if (topF.length > 2) out.push(`${id}: form ${i + 1} above C in all of Power, Speed and Leash (the tradeoff law: it must pay somewhere)`);
+        if (i + 1 < forms.length) {
+          if (!MOLT_CONDITIONS.includes(f.moltCondition)) out.push(`${id}: form ${i + 1} moltCondition must be one of ${MOLT_CONDITIONS.join(", ")}`);
+        }
+        if (i + 1 === 3) {
+          if (f.hexagon?.growth !== "E") out.push(`${id}: form 3 hexagon.growth must be E (growth complete; Form 3 is final)`);
+        }
+      }
+    }
     return out;
   }
   // The hexagon as rows for a card: [{ key, label, letter }].
@@ -175,7 +282,132 @@
     const cells = hexagon(t).map((r) => `<span class="cc-tandem-cell" data-hex="${r.key}"><b>${esc(r.letter)}</b> ${esc(r.label)}</span>`).join("");
     if (now && now.unbound) return `<div class="cc-tandem" data-tandem data-unbound><div class="cc-tandem-hex">${cells}</div><p class="cc-tandem-leash">Unbound: no user, so no leash and no strain · ${esc(t.rule)}</p><p class="cc-tandem-price">It cannot be killed: a blow that would finish it leaves it at 1 LF.</p></div>`;
     const leash = now && now.leash != null ? now.leash : t.leash;
-    return `<div class="cc-tandem" data-tandem><div class="cc-tandem-hex">${cells}</div><p class="cc-tandem-leash">Leash ${leash} tile${leash === 1 ? "" : "s"}${leash !== t.leash ? " (stretched)" : ""} · ${esc(t.rule)}</p><p class="cc-tandem-price">Price: ${esc(t.price)}</p>${now && now.pay ? `<p class="cc-tandem-pay" data-can-pay="${now.ok ? "yes" : "no"}">${esc(now.pay)}</p>` : ""}</div>`;
+    const progHtml = now && now.program ? `<p class="cc-tandem-prog" data-program="${esc(now.program.id)}">Program: <b>${esc(now.program.name)}</b> — ${esc(now.program.text)}</p>` : "";
+    const formHtml = Array.isArray(t.forms) ? `<p class="cc-tandem-form" data-form="${t.currentForm || 1}">Form ${t.currentForm || 1} of ${t.forms.length}${t.moltCondition ? ` · ${MOLT_WORDS[t.moltCondition]}` : " · its final form"}</p>` : "";
+    return `<div class="cc-tandem" data-tandem>${formHtml}<div class="cc-tandem-hex">${cells}</div><p class="cc-tandem-leash">Leash ${leash} tile${leash === 1 ? "" : "s"}${leash !== t.leash ? " (stretched)" : ""} · ${esc(t.rule)}</p><p class="cc-tandem-price">Price: ${esc(t.price)}</p>${progHtml}${now && now.pay ? `<p class="cc-tandem-pay" data-can-pay="${now.ok ? "yes" : "no"}">${esc(now.pay)}</p>` : ""}</div>`;
+  }
+
+  // Declared programs (T3, muse-tandem-spirit-spec sections 4 and 8; R-20261115-03):
+  // An automatic/far tandem carries 1–3 declared programs set at call time (defaulting to the first).
+  // The active program is visible on its card and guides its AI. Its user may rewrite it only on the
+  // user's own turn start, max once per user turn; foes observe and play around it.
+  const programsOf = (a) => (of(a)?.programs || []);
+  const activeProgramId = (a) => a?.summon?.tandem?.activeProgram || of(a)?.activeProgram || of(a)?.programs?.[0]?.id || null;
+  const activeProgram = (a) => {
+    const id = activeProgramId(a);
+    return (programsOf(a) || []).find((p) => p.id === id) || null;
+  };
+
+  // Why `user` cannot rewrite `a`'s declared program to `newProgramId` now, or null.
+  function rewriteRefusal(s, user, a, newProgramId) {
+    const t = of(a);
+    if (!t) return "Choose your tandem on the field.";
+    if (a.defeated) return "Choose your living tandem on the field.";
+    const progs = t.programs;
+    if (!Array.isArray(progs) || !progs.length) return `${a.name} has no declared programs to rewrite.`;
+    if (!user || a.summon.owner !== user.id) return "Only the tandem's user can rewrite its program.";
+    const current = s?.currentId || (s?.order && s.order[s.turnIndex]);
+    if (current && current !== user.id) return "A declared program can only be rewritten on your own turn.";
+    if (a.summon?.tandem?.rewrittenTurn === (user.ownerTurns || 0)) return `${a.name}'s program has already been rewritten this turn.`;
+    // Turn start only (spec section 4, "only rewrite at their next turn start"): before the user moves or spends AP this turn.
+    // turns.js clears moved at every turn and beat and actionsThisTurn at every turn; spendTempo counts each paid action.
+    if (user.moved || (user.actionsThisTurn || 0) > 0) return "A declared program can only be rewritten at the start of your turn, before you move or act.";
+    const targetProg = progs.find((p) => p.id === newProgramId);
+    if (!targetProg) return `Invalid program: choose from ${progs.map((p) => p.name).join(", ")}.`;
+    if (activeProgramId(a) === newProgramId) return `${a.name} is already executing ${targetProg.name}.`;
+    return null;
+  }
+
+  function rewriteProgram(s, user, a, newProgramId, log) {
+    const no = rewriteRefusal(s, user, a, newProgramId);
+    if (no) return { error: no };
+    a.summon.tandem.activeProgram = newProgramId;
+    a.summon.tandem.rewrittenTurn = (user.ownerTurns || 0);
+    const targetProg = of(a).programs.find((p) => p.id === newProgramId);
+    const event = { kind: "tandem", actor: user.id, target: a.id, program: newProgramId,
+      text: `${user.name} rewrites ${a.name}'s declared program to ${targetProg.name}: "${targetProg.text}".`,
+      why: ["Declared programs: public to foes, rewritable at user's turn start."] };
+    writeLog(s, event, log);
+    return { event };
+  }
+
+  // AI scoring term for candidate actions under declared programs (ai.js score).
+  const geometryOf = (dist) => dist || ((st, x1, y1, x2, y2) => Math.abs(x1 - x2) + Math.abs(y1 - y2));
+  const foesOf = (s, a) => Object.values(s.actors).filter((u) => !u.defeated && !u.notArrived && u.side !== a.side && u.category !== "bystander");
+  const isCaster = (u) => !!(u && (u.status?.channeling || u.status?.chanting || (u.aura && !u.defeated) || (u.pf || 0) >= 10));
+  // The foes tandem `t`'s active program aims at right now: one rule for its own AI (Case 1) and for the foes who read it (Case 2).
+  // harryWeakest: the lowest LF (nearer to the tandem, then id, breaks a tie); distractCaster: the prime caster (chanting,
+  // channelling, an aura or 10+ ΦF first, then the most ΦF, then nearer); guardUser: every foe within 2 tiles of its user.
+  function marked(s, t, dist) {
+    const g = geometryOf(dist), foes = foesOf(s, t), progId = activeProgramId(t);
+    if (!foes.length) return [];
+    if (progId === "harryWeakest") return [[...foes].sort((x, y) => x.lf - y.lf || g(s, t.x, t.y, x.x, x.y) - g(s, t.x, t.y, y.x, y.y) || (x.id < y.id ? -1 : 1))[0]];
+    if (progId === "distractCaster") return [[...foes].sort((x, y) => (isCaster(y) ? 1 : 0) - (isCaster(x) ? 1 : 0) || (y.pf || 0) - (x.pf || 0) || g(s, t.x, t.y, x.x, x.y) - g(s, t.x, t.y, y.x, y.y) || (x.id < y.id ? -1 : 1))[0]];
+    if (progId === "guardUser") { const u = userOf(s, t); return u ? foes.filter((f) => g(s, u.x, u.y, f.x, f.y) <= 2) : []; }
+    return [];
+  }
+  function programScore(s, a, cand, { actorAt, dist } = {}) {
+    if (!s || !a || a.defeated || !cand) return 0;
+    const geometryDist = geometryOf(dist);
+    const findActor = actorAt || ((st, x, y) => Object.values(st.actors).find((u) => !u.defeated && u.x === x && u.y === y));
+
+    // Case 1: `a` is a tandem executing its declared program
+    const progId = activeProgramId(a);
+    if (progId && of(a)) {
+      const livingFoes = foesOf(s, a);
+      if (!livingFoes.length) return 0;
+      const targetUnitId = typeof cand.target === "string" ? cand.target : (Array.isArray(cand.target) ? findActor(s, cand.target[0], cand.target[1])?.id : null);
+      const aimed = marked(s, a, dist), isFoe = !!targetUnitId && livingFoes.some((f) => f.id === targetUnitId);
+
+      if (progId === "harryWeakest") {
+        if (targetUnitId === aimed[0].id) return 12;
+        if (isFoe) return -8;
+        return 0;
+      }
+      if (progId === "guardUser") {
+        const u = userOf(s, a);
+        if (!u) return 0;
+        if (targetUnitId && aimed.some((f) => f.id === targetUnitId)) return 12;
+        if (isFoe && aimed.length > 0) return -8;
+        if (cand.type === "guard" && geometryDist(s, u.x, u.y, a.x, a.y) <= 2) return 6;
+        return 0;
+      }
+      if (progId === "distractCaster") {
+        const prime = aimed[0];
+        if (targetUnitId === prime.id) return 12;
+        if (targetUnitId && isCaster(prime) && !isCaster(s.actors[targetUnitId])) return -8;
+        return 0;
+      }
+    }
+
+    // Case 2: `a` is playing around an opponent's declared program. The program is public (spec section 4), so a foe it aims at
+    // (the weakest under Harry the Weakest, the prime caster under Distract Caster, anyone within 2 of the user under Guard User)
+    // values Guard or Recover +5. Rev 1 (Jackstay BD): rev 0 read Harry the Weakest only (Keelson AD batch 1, note 2).
+    const hostileTandems = Object.values(s.actors).filter((u) => !u.defeated && u.side !== a.side && of(u) && activeProgramId(u));
+    for (const ht of hostileTandems)
+      if (marked(s, ht, dist).some((f) => f.id === a.id) && (cand.type === "guard" || cand.type === "recover")) return 5;
+    return 0;
+  }
+
+  // AI positioning pull under declared programs (ai.js moveValue).
+  function moveValue(s, a, to, { dist } = {}) {
+    if (!s || !a || !to || !of(a)) return 0;
+    const geometryDist = dist || ((st, x1, y1, x2, y2) => Math.abs(x1 - x2) + Math.abs(y1 - y2));
+    const progId = activeProgramId(a);
+    if (!progId) return 0;
+    const livingFoes = Object.values(s.actors).filter((u) => !u.defeated && !u.notArrived && u.side !== a.side && u.category !== "bystander");
+    if (!livingFoes.length) return 0;
+
+    if (progId === "guardUser") {
+      const u = userOf(s, a);
+      if (!u) return 0;
+      const dTo = geometryDist(s, to[0], to[1], u.x, u.y);
+      if (dTo <= 2) return 5;
+      return -5 * (dTo - 2);
+    }
+    const aim = marked(s, a, dist)[0];   // harryWeakest, distractCaster: walk toward the same foe programScore strikes (one rule, marked)
+    if (!aim) return 0;
+    return (geometryDist(s, a.x, a.y, aim.x, aim.y) - geometryDist(s, to[0], to[1], aim.x, aim.y)) * 3;
   }
 
   // T2c (R-20261115-42). Unbound: the tandem a Trial sets against the player (summons/tandem-trial.js place). It has no user, so
@@ -185,11 +417,27 @@
   // engine action stretchLeash). Off, with the engine's own refusal as the reason, while `p` cannot pay.
   function menuItems(s, p) {
     if (!p || !s) return [];
-    return Object.values(s.actors).filter((a) => !a.defeated && of(a) && of(a).stretch && a.summon.owner === p.id).map((a) => {
-      const st = of(a).stretch, no = stretchRefusal(p, a);
-      return { id: "stretchLeash", summonId: a.id, label: `Stretch ${a.name}'s leash to ${st.leash} tiles · ${st.lf} LF`, off: !!no,
-        why: no || `Pay ${st.lf} LF (you have ${p.lf}): ${a.name} acts within ${st.leash} tiles of you through its next turn. No AP.` };
-    });
+    const out = [];
+    for (const a of Object.values(s.actors)) {
+      if (a.defeated || !of(a) || a.summon.owner !== p.id) continue;
+      const t = of(a);
+      if (t.stretch) {
+        const st = t.stretch, no = stretchRefusal(p, a);
+        out.push({ id: "stretchLeash", summonId: a.id, label: `Stretch ${a.name}'s leash to ${st.leash} tiles · ${st.lf} LF`, off: !!no,
+          why: no || `Pay ${st.lf} LF (you have ${p.lf}): ${a.name} acts within ${st.leash} tiles of you through its next turn. No AP.` });
+      }
+      if (Array.isArray(t.programs) && t.programs.length) {
+        const cur = activeProgramId(a);
+        for (const pr of t.programs) {
+          const no = rewriteRefusal(s, p, a, pr.id);
+          out.push({ id: `rewriteProgram:${pr.id}`, summonId: a.id, programId: pr.id,
+            label: `Program ${a.name}: ${pr.name}${cur === pr.id ? " (active)" : ""}`,
+            off: !!no,
+            why: no || `Rewrite declared program to ${pr.name}: "${pr.text}". Free; only at the start of your turn, once.` });
+        }
+      }
+    }
+    return out;
   }
   // The card for a tandem on the field (ui.js renderDetail): the T1 card, plus one line that agrees with the engine about the price
   // right now (its user can pay it, or why not), or, for an unbound tandem, that the leash and the price do not apply.
@@ -197,10 +445,11 @@
     const t = of(a); if (!t) return "";
     if (unbound(a)) return cardHtml(t, esc, { unbound: true });
     const u = s && a.summon ? s.actors[a.summon.owner] : null, st = t.stretch;
-    if (!st || !u) return cardHtml(t, esc);
+    const prog = activeProgram(a);
+    if (!st || !u) return cardHtml(t, esc, { leash: leashOf(a), program: prog });
     const no = stretchRefusal(u, a);
-    return cardHtml(t, esc, { pay: no ? `${u.name} cannot pay it now: ${no}` : `${u.name} can pay it now (${u.lf} LF; the stretch takes ${st.lf}).`, ok: !no, leash: leashOf(a) });
+    return cardHtml(t, esc, { pay: no ? `${u.name} cannot pay it now: ${no}` : `${u.name} can pay it now (${u.lf} LF; the stretch takes ${st.lf}).`, ok: !no, leash: leashOf(a), program: prog });
   }
 
-  return { unbound, stretchRefusal, menuItems, cardFor, LETTERS, HEXAGON, of, userOf, reach, outside, stretched, leashOf, shed, lentPotency, afterHit, stretch, observed, moveAllowed, strained, strain, turnStart, aimRefusal, moveRefusal, actionRefusal, responseRefusal, admission, hexagon, cardHtml };
+  return { unbound, stretchRefusal, menuItems, cardFor, LETTERS, HEXAGON, of, userOf, reach, outside, stretched, leashOf, shed, lentPotency, afterHit, stretch, observed, moveAllowed, strained, strain, turnStart, aimRefusal, moveRefusal, actionRefusal, responseRefusal, admission, hexagon, cardHtml, programsOf, activeProgramId, activeProgram, rewriteRefusal, rewriteProgram, programScore, moveValue, MOLT_CONDITIONS, applyForm, currentForm, damageReduction, bonusPotency, noteGrowth, molt };
 });

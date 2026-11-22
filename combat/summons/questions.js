@@ -74,6 +74,18 @@
       { id: "mosaic-strain", prompt: "What happens to the Mosaic's tiles when it is pulled past its leash and strains?", choices: ["Every tile falls away", "It keeps them", "It gains one more"], answer: 0,
         explain: "Strain breaks its pattern: every lent tile falls away, so keep it close." },
     ],
+    homunculus: [
+      { id: "homunculus-program", prompt: "The Alchemical Homunculus runs a declared program. When can its user rewrite it?", choices: ["At the start of the user's turn", "Anytime mid-turn", "Only after the Homunculus falls"], answer: 0,
+        explain: "The program is public: its user can rewrite it only at the start of their own turn." },
+      { id: "homunculus-echo", prompt: "Does damage to the Alchemical Homunculus reflect back to its user?", choices: ["No, far tandems do not reflect", "Yes, half of all damage", "Only when strained"], answer: 0,
+        explain: "Automatic/far tandems with leash > 2 do not reflect damage to their user." },
+    ],
+    instar: [
+      { id: "instar-leash", prompt: "What is the Instar's larval leash?", choices: ["3 tiles", "1 tile", "8 tiles"], answer: 0,
+        explain: "The Instar starts in Form I with a 3-tile leash." },
+      { id: "instar-molt", prompt: "How do tandems grow across forms?", choices: ["Through need-triggered molts", "By earning XP", "By leveling up in rooms"], answer: 0,
+        explain: "Tandem forms molt when fiction events demand it, never at XP thresholds." },
+    ],
     zherm: [
       { id: "zherm-nodes", prompt: "The Body Is a Colony spreads Zherm across fungal nodes. What's the weakness?", choices: ["Nodes can be isolated or destroyed", "He can't move", "He can't heal"], answer: 0,
         explain: "Distributed survival trades concentrated strength for dependence on the network." },

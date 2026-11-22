@@ -86,6 +86,8 @@
     return null;
   }
 
+  // Crossings V1: Orders hears a vow (respect deeds). Lazy, as the engine parts load it.
+  const Orders = () => { try { return (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null; } catch { return null; } };
   function swear(s, a, target, vow, H) {
     if (!vow?.boon) return null;
     const b = BOONS[vow.boon], rs = restrictionsOf(vow);
@@ -93,6 +95,7 @@
     (s.declarations ||= []).push({ actor: a.id, on: target, boon: vow.boon, round: s.round, consent: !!vow.consent });   // W4.4: the declaration ledger (Collective Promise reads this; W4.6: AI declarations consent)
     a.vows.push({ on: target, boon: vow.boon, consent: !!vow.consent, restrictions: rs.filter((id) => RESTRICTIONS[id].lasts === "while" || RESTRICTIONS[id].lasts === "battle"), at: [a.x, a.y], round: s.round,
       ...(target === "technique" && !b.binding ? { untilTurn: a.ownerTurns + (b.effect.stanceTurns ?? 1) } : {}) });
+    { const v = a.vows[a.vows.length - 1]; if (v.restrictions.length) Orders()?.onVow(s, a.id, "swear", v); }   // V1: a lasting restriction, sworn in front of the side
     for (const id of rs) {
       if (id === "bloodPrice") { const pay = Math.round(a.maxLF * 0.15); a.lf = Math.max(1, a.lf - pay); }
       if (id === "spentTomorrow") a.vowApTax = (a.vowApTax || 0) + 30;
@@ -155,6 +158,7 @@
 
   function applyBreach(s, a, v, H, elected = false, cause = "was forced off the Rooted spot") {
     v.broken = true; a.tempo = Math.max(0, a.tempo - BREACH_AP);
+    Orders()?.onVow(s, a.id, "broken", v);   // V1: forced or chosen, the side saw the word break
     if (v.on === "word") a.ultimateCharge = 0;
     if (v.on === "aura" || v.on === "imbue") { if (a.aura) { delete a.aura.radiusAdd; delete a.aura.drain; delete a.aura.power; delete a.aura.powerWhile; delete a.aura.rechargeMul; } }
     if (v.on === "dream" && s.dreamSpace && v.drainBefore != null) s.dreamSpace.drain = v.drainBefore;
@@ -187,6 +191,7 @@
     if (kind === "ability" && a.burnedBridge && ability?.tier === "ultimate" && H?.log) {
       a.burnedBridge = false;
       a.tempo = Math.max(0, a.tempo - BREACH_AP);
+      Orders()?.onVow(s, a.id, "broken", (a.burnedBridgeWitness ||= {}));   // V1: Burned Bridge outlives the vow it was sworn with; breaking it later is still a broken word
       H.log(s, { kind: "vow", actor: a.id, breach: true, vow: "Burned Bridge", price: `Lose ${BREACH_AP} AP`, elected: true, text: `${a.name} breaks Burned Bridge: the restriction ends and ${a.name} loses ${BREACH_AP} AP.` });
       return null;
     }
@@ -234,6 +239,7 @@
     }
     const kept = [];
     for (const v of a.vows) {   // kept and broken vows certify here (W6.1, W4.4); battle end reads these plus the live records
+      if (!v.broken && v.restrictions.length && !sourceLasts(s, a, v)) Orders()?.onVow(s, a.id, "kept", v);   // V1: a lasting restriction kept to its natural end, on any side (a statement of its own: the if/else below certifies)
       if (v.broken) (s.vowsBroken ||= []).push({ actor: a.id, round: v.round, consent: !!v.consent });
       else if (!sourceLasts(s, a, v) && a.side === "player") { kept.push(v); (s.vowsKept ||= []).push({ actor: a.id, round: v.round, consent: !!v.consent }); }   // round: when it was sworn (the stipend reads it)
     }

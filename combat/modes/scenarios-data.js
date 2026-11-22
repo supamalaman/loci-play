@@ -539,6 +539,28 @@
         mid: { when: { foeHolds: "manual" }, text: "A face-down card is waiting. If it only wounds you, the rest of the kill is a cheap blow, not the bar." },
         result: { player: "The setter is down.", enemy: "They held the crater.",
           none: "The rounds run out." } } },
+    declaredOrders: { id: "declaredOrders", name: "Declared Orders", minTier: 2, weight: 1,   // teaching the first far tandem (Tandem T3 rev 1, muse-tandem-spirit-spec section 4; R-20261119-01): the Homunculus is lent for this one battle (lend; never an unlock), as T2b lends the Mosaic. Appended last so the termination sixths keep their members (C11).
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier", "student", "wizard"], at: [[6, 2], [6, 4], [7, 3]] },
+      lend: ["homunculus"],
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "The Tandem wing lends you the Homunculus for this battle: call it from your summons. It ranges up to 8 tiles from you, and no blow that hurts it echoes back to you. It runs one declared program, written on its card for everyone to read, and it arrives running Harry the Weakest.",
+        mid: { when: { round: 3 }, text: "Its program is public: the foe it hunts can see it coming. At the start of your turn, before you move or act, you can rewrite it once, from Rituals, to another of its three programs." },
+        result: { player: "The three are down. The orders held, and the lend ends with the battle.", enemy: "Your foes read the orders and answered them. Next time rewrite the program at the start of your turn, before you move.",
+          none: "The rounds run out." } } },
+    successiveSkins: { id: "successiveSkins", name: "Successive Skins", minTier: 2, weight: 1,   // teaching the first molting tandem (Tandem T4 rework, muse-tandem-spirit-spec section 5A; R-20261121-27): the Instar is lent for this one battle (lend; never an unlock, so no form is kept). Appended last so the termination sixths keep their members (C11).
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier", "student", "wizard"], at: [[6, 2], [6, 4], [7, 3]] },
+      lend: ["instar"],
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "The Tandem wing lends you the Instar for this battle: call it from your summons. It arrives as a Larva and keeps within 3 tiles of you. It grows by need, not by a meter: if one of your allies falls while it is out, it molts into its Pupa.",
+        mid: { when: { round: 3 }, text: "As a Pupa its carapace takes 4 off every hit, and half of what it loses, at most 3 a hit, echoes to you. Fall below a quarter of your health and it molts into its Imago, which flies. A molt never goes back." },
+        result: { player: "The three are down. The lend ends with the battle, and the Instar keeps no form it reached.", enemy: "Your foes broke you before it could grow. Next time call another ally beside it: an ally falling while it is out is what makes it molt.",
+          none: "The rounds run out." } } },
   };
 
   return { SCENARIOS, LAW };

@@ -119,7 +119,8 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
   // Tandem T2c (muse-tandem-spirit-spec section 3; R-20261115-03, R-20261115-15, R-20261115-42): one record per tandem, keyed by its
   // summon id. status "none" | "passed" | "failed"; owed = LF the failed Trial still takes at the next battle's start; since = battles
   // finished since the fail (the retry gate); free = the first call after a pass is still unspent; pending = a Trial was begun and has
-  // not been settled (summons/tandem-trial.js reads a pending record as a fail: leaving the ordeal is not a refusal). A passed tandem
+  // not been settled (summons/tandem-trial.js reads a pending record as a fail: leaving the ordeal is not a refusal). Tandem T4: a passed
+  // molting tandem may also carry form (2 or 3, the form it has reached) and clean (won battles it fought unstrained in this form). A passed tandem
   // is in the palace list (`unlocked`) by its record alone, never through `order` or a level. An old save has no `tandems` key: {}.
   const TANDEM_STATUS = ["none", "passed", "failed"];
   function cleanTandems(raw) {
@@ -130,6 +131,11 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
       const status = TANDEM_STATUS.includes(r.status) ? r.status : "none";
       out[id] = { status, owed: status === "failed" ? Math.max(0, Math.floor(Number(r.owed) || 0)) : 0, since: status === "failed" ? Math.max(0, Math.floor(Number(r.since) || 0)) : 0,
         free: status === "passed" && r.free === true, pending: status !== "passed" && r.pending === true };
+      if (status === "passed") {   // Tandem T4: the form an owned molting tandem has reached (2 or 3) and its clean-battle count toward a mastery molt
+        const form = Math.floor(Number(r.form) || 0), clean = Math.floor(Number(r.clean) || 0);
+        if (form === 2 || form === 3) out[id].form = form;
+        if (clean > 0) out[id].clean = clean;
+      }
     }
     return out;
   }

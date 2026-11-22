@@ -18,6 +18,7 @@
   var DELIVERY_RANK = { self: 0, contact: 0, placed: 1, line: 1, signal: 1, routed: 2, field: 2, composite: 2 };
 
   var PARTS = {
+    theMarkAnswers: { riders: ["markedLink", "lastSeen", "detectiveMarkTrace"] },
     whoAreYou: { riders: ["readRestraint", "peelRestraint"] },
     holdTheFlame: { riders: ["fixated", "wholeTurn"] },
     quietInstruction: { riders: ["latent", "spoken", "cue"] },
@@ -3210,7 +3211,9 @@
     // Chitin Bishop F4: Purple Litany is the Fixed Gaze twin (barrier, reactive, ward); Crown and Dome Harmonic are her merges.
     purpleLitany: {riders:["barrier","reactive","ward"]},
     crownOfPlates: {riders:["class:bishop","announced"]},
-    domeHarmonic: {riders:["class:bishop"]}
+    domeHarmonic: {riders:["class:bishop"]},
+    // Shardback F5a: Ward Field is a Purple Litany-shaped reactive ward that also raises a one-round berm toward the shooter.
+    wardField: {riders:["barrier","reactive","ward"]}
   });
   TECHNIQUE_IDS = Object.keys(PARTS).sort();
   const clone = x => x == null ? null : JSON.parse(JSON.stringify(x));

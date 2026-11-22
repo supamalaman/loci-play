@@ -1342,8 +1342,9 @@
       if (!door.ok) return;
       const at = summonRules.placeSummon(moduleArena(s.arena), [owner.x, owner.y], arrivalBlocked(s));
       if (!at) { log(s, { kind: "deathDoor", actor: owner.id, text: "A summon answers, but there is no open ground beside the fallen." }); return; }
-      const raw = summonRules.makeSummonActor(door.id, { owner: owner.id, at, durationAdd: owner.passives?.summonDurationAdd || 0 });
+      const raw = summonRules.makeSummonActor(door.id, { owner: owner.id, at, durationAdd: owner.passives?.summonDurationAdd || 0, form: s.tandemForms?.[door.id] });   // Tandem T4: the form it has reached
       const summon = liveSummon(s, owner, raw);
+      summonRules.Tandem?.noteGrowth(s, summon, {});   // Tandem T4: it was out this battle
       summon.defeated = false; summon.knockedOut = false; summon.lf = raw.lf; summon.maxLF = raw.maxLF; summon.deathDoor = null; summon.focus = null;
       summon.summon = { ...summon.summon, deathDoor: true };
       s.actors[summon.id] = summon; s.disclosures[summon.id] = {}; s.knowledge[summon.id] = {};

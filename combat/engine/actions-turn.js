@@ -107,5 +107,29 @@
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-turn.js)`);
     Object.assign(K.handlers, family);
+    // Qualifier cards QC3 (claude-qualifier-cards-spec, slice QC3): the engine-only action card
+    // for recover in drawer "act". Reference rows come from the built-in AI's candidates; when
+    // the AI does not propose it, one extra row stands in, judged by preview. No handler change,
+    // no menu change; ui.js is not touched.
+    const judge = (s, act, extra, label, cost, help) => {
+      const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+      return { act, label, cost, off: !pv.ok, why: pv.ok ? "" : pv.error, help };
+    };
+    const refRows = (s, a, extra, type) => (extra.candidates ?? H.candidates(s, a.id))
+      .filter((c) => c.type === type)
+      .map((c) => { const { vowGain, ...act } = c; return act; });
+    const cards = {
+      recover: { type: "recover", drawer: "act", options(s, a, extra = {}) {
+        const cost = s.rules.actionCosts.utility;
+        const label = `Recover · ${cost} AP`;
+        const help = "Restore ΦF for action points.";
+        const ref = refRows(s, a, extra, "recover");
+        if (ref.length) return ref.map((act) => judge(s, act, extra, label, cost, help));
+        return [judge(s, { type: "recover", actor: a.id }, extra, label, cost, help)];
+      } },
+    };
+    H.actionCards ||= {};
+    for (const type of Object.keys(cards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-turn.js)`);
+    Object.assign(H.actionCards, cards);
   })();
 });

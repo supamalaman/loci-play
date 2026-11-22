@@ -184,12 +184,19 @@
         const before = book.familiarity[obj.id] || 0;
         const BT = Communion.rules.botanist, botanist = !!BT && hasTrait(a, BT.trait);
         // Investigate a plant (I3): the rest of the turn buys familiarity at Observe's rate, plus the depth bonus, with no per-look cap
-        if (deep && before >= prof.need) return `You already know the ${prof.common} as well as it can be known: there is nothing left to Investigate.`;
+        const hasUnprovenEvidence = (s.cls?.objectEvidence?.[obj.id] || []).some((r) => {
+          const e = (s.cls?.lawEvidence?.[r.accused]?.[r.owner] || []).find((x) => x.id === r.entry);
+          return e && e.grade === "unproven";
+        });
+        if (deep && before >= prof.need && !hasUnprovenEvidence) return `You already know the ${prof.common} as well as it can be known: there is nothing left to Investigate.`;
         const bonusNow = (hiker ? Communion.rules.hikerBonus : 0) + (botanist ? BT.observeBonus : 0);
         const result = deep ? { familiarity: before + Math.floor(deep.ap / Communion.rules.observeStep) + insightRules.data.rules.investigate.depthBonus + bonusNow, spend: a.tempo }
           : Communion.observe(before, act.invest || Communion.rules.observeStep, bonusNow);
         const spend = spendTempo(s, a, result.spend, deep ? "Investigate a plant" : "Observe a plant"); if (spend) return spend;
-        if (deep) deep.spent = true;
+        if (deep) {
+          deep.spent = true;
+          ClassRuntime?.law?.foundObjectEvidence?.(s, H, a, obj, prof.common);
+        }
         const gained = H.recallFamiliarity?.(a, result.familiarity) ?? result.familiarity;   // Perfect Recall (S6c): +1 familiarity on every Observe
         book.familiarity[obj.id] = gained; scoutNoted(s, a, null); H.Exposure.looked(s, a);
         const ready = gained >= prof.need, fam = Math.min(gained, prof.need);
@@ -287,11 +294,18 @@
         }
         const before = book.familiarity[wreckKey(obj)] || 0;
         // Investigate a structure (I3): as a plant, after the free Animist warning
-        if (deep && before >= prof.need) return `You already know the ${prof.common} as well as it can be known: there is nothing left to Investigate.`;
+        const hasUnprovenEvidence = (s.cls?.objectEvidence?.[obj.id] || []).some((r) => {
+          const e = (s.cls?.lawEvidence?.[r.accused]?.[r.owner] || []).find((x) => x.id === r.entry);
+          return e && e.grade === "unproven";
+        });
+        if (deep && before >= prof.need && !hasUnprovenEvidence) return `You already know the ${prof.common} as well as it can be known: there is nothing left to Investigate.`;
         const result = deep ? { familiarity: before + Math.floor(deep.ap / Tsukumogami.rules.observeStep) + insightRules.data.rules.investigate.depthBonus, spend: a.tempo }
           : Tsukumogami.observe(before, act.invest || Tsukumogami.rules.observeStep);
         const spend = spendTempo(s, a, result.spend, deep ? "Investigate a structure" : "Study a structure"); if (spend) return spend;
-        if (deep) deep.spent = true;
+        if (deep) {
+          deep.spent = true;
+          ClassRuntime?.law?.foundObjectEvidence?.(s, H, a, obj, prof.common);
+        }
         const gained = H.recallFamiliarity?.(a, result.familiarity) ?? result.familiarity;   // Perfect Recall (S6c): +1 familiarity on every Observe
         book.familiarity[wreckKey(obj)] = gained; scoutNoted(s, a, null); H.Exposure.looked(s, a);
         const ready = gained >= prof.need, fam = Math.min(gained, prof.need);

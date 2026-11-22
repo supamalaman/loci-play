@@ -27,6 +27,13 @@
     price, targetRule, expiry, teaches, newEffect, counter, potencyDefinition: "No direct LF damage", domains: ["ideas", "action", "others"],
   });
   const abilities = {
+    theMarkAnswers: { name: "The Mark Answers", concepts: ["inference"], tier: "basic", merge: true, delivery: "signal", target: "tile",   // a Detective merge technique, not a fifth basic: basic tier, unannounced, 4 ΦF (R-20261121-02); authored on Inference alone, so anyone holding Inference keeps it (R-20261121-11)
+      effect: "markTrace", effectCategory: "conditional", area: { shape: "single" }, range: 5, potency: 0, cost: 4, tempoCost: 25, actionCost: 25,
+      prerequisites: [], dependencies: [], timing: "immediate", domains: ["ideas", "action", "others"],
+      mechanism: "Read a visible marked unit to learn who installed its order.", reveal: "Trace the installer. A lost line of sight greys the trace.",
+      price: "25 AP and 4 ΦF", targetRule: "A visible marked unit in range", expiry: "One owner turn. Three for the Detective.",
+      teaches: "A mark records a source even when the actor who left it is out of sight.", newEffect: "Remember the link and the last point you could see.",
+      potencyDefinition: "Information only", counter: "Break sight to the marked unit before the read, or break sight to the installer to grey the line." },
     whoAreYou: { ...cureFields("25 AP and 3 ΦF; an Askable question is free", "Visible foe within 3; Askable names the Asker", "Peels last three rounds unless unmasked", "Restraint can shape behavior", "Read and temporarily peel a restraint", "Remind restores a layer; Guarded delays the first peel"), name: "Who Are You?", concepts: ["disinhibition"], tier: "basic", delivery: "signal", target: "enemy", effect: "cure", effectCategory: "conditional",
       range: 3, potency: 0, cost: 3, mechanism: "Probe the target and peel the next restraint.", reveal: "Guarded blocks the first peel. Honest and Loyal each take two probes. Remind restores one peeled layer." },
     holdTheFlame: { ...cureFields("Remaining AP and 6 ΦF", "Visible opponent within 3 who can be fixated", "Through the subject’s next turn", "Attention can be held by an outside cue", "Fixated blocks movement", "A hit or reminder breaks fixation; Selectivity refuses it"), name: "Hold the Flame", concepts: ["mesmerism"], tier: "refined", delivery: "signal", target: "enemy", effect: "cure", effectCategory: "conditional",
