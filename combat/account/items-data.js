@@ -584,6 +584,19 @@
     silverDagger: { name: "Silver dagger", slot: "tool", rarity: "common", biomes: [], dropWeight: 0.4, weapon: { kind: "blade" }, passive: { strikePotencyAdd: 1 }, text: "A silver dagger. Strikes hit for +1 potency." },
   };
 
+  // Rigs (claude-rigs-spec RG1; R-20261111-27, R-20261122-31): the 39 hardware cards (cursor-hardware-hierarchy-cut) as tool-slot gear.
+  // A rig holds compute; each point is one Forecast a battle (engine/actions-observe.js). Within a tier every card is the same rig
+  // (the x2/x4/x8 in an id is how many cards the art shows). dropOnly: no random drop or shop roll ever picks one (loot.js pickItem).
+  // Names are the cut's provisional ones (Decision 5), all Loci-original (R-20261109-02).
+  const RIG_TIERS = { era: ["legendary", 4], king: ["rare", 3], artist: ["uncommon", 2], officer: ["uncommon", 2], manager: ["common", 1], labourer: ["common", 1] };
+  const RIG_IDS = ["era-rack-1", "era-rack-2", "era-rack-3", "era-block-1", "era-block-2", "era-block-3", "king-brick-x8", "king-card-x4", "king-tower", "king-brick-x4", "artist-brick-x2", "artist-card-x2-1", "artist-card-x2-2", "artist-blower-x2", "artist-card-x2-3", "artist-card-x4", "officer-card-x2-1", "officer-card-1", "officer-blower-1", "officer-brick", "officer-card-2", "officer-blower-x2", "officer-blower-2", "officer-card-x2-2", "manager-card-1", "manager-blower", "manager-card-2", "manager-card-3", "manager-block", "manager-board", "manager-card-4", "labourer-core-5", "labourer-core-3", "labourer-core-2", "labourer-core-4", "labourer-slate-2", "labourer-slate-1", "labourer-core-1", "labourer-card"];
+  const rigName = (id) => id.split("-").map((w) => /^x\d$/.test(w) || /^\d$/.test(w) ? w : w[0].toUpperCase() + w.slice(1)).join(" ");
+  for (const id of RIG_IDS) {
+    const [rarity, n] = RIG_TIERS[id.split("-")[0]];
+    equipment[id] = { name: rigName(id), slot: "tool", kind: "rig", rarity, biomes: [], dropOnly: true, passive: { computeAdd: n },
+      text: `Compute ${n}: ${n} Forecast${n === 1 ? "" : "s"} a battle. Holders of Hardware get one more.` };
+  }
+
   // Seeds earned per battle (before passives). Losses pay a share, like XP.
   const seedRules = { victory: 30, perEnemy: 10, perMonster: 5, perCorrectAnswer: 5, lossShare: 0.25, minLoss: 5 };
 

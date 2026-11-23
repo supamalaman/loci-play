@@ -2928,6 +2928,7 @@
     if (aeroForce(tgt) === "drag" && inst?.delivery === "line") m(AERO.dragMul, `${tgt.name} is streamlined (Drag): line attacks ×${AERO.dragMul}.`);
     S(s).interceptMul = null;
     { const hc = hunterChargedMod(s, src, tgt, inst, H); if (hc) m(hc.mul, hc.note); }   // Big Game Hunter: Charged (merge spec H3a)
+    { const k = Shardback.upheavalMul(s, src, tgt, inst); if (k !== 1) m(k, `${tgt.name} stands on thorn soil: ${H.ab?.(inst.ability)?.name || "the upheaval"} ×${k}.`); }   // Shardback F5b
     const T = tgt.status || {}, A = src?.status || {};
     if (T.shimmer && T.shimmer.until > tgt.ownerTurns && src?.side !== tgt.side && (!inst?.area || inst.area.shape === "single") && H.seededChance?.(`${s.seed}:shimmer:${tgt.id}:${s.round}:${src?.id}:${inst?.ability || "strike"}`) < GLAM.fizzle) m(0, `The shimmer fools ${src?.name || "the attacker"}: the blow lands on nothing.`);
     if (T.denounced && T.denounced.until >= s.round && src && src.side === T.denounced.side && src.id !== T.denounced.by) m(GLAM.denounceMul, `${tgt.name} is Denounced: ×${GLAM.denounceMul}.`);
@@ -3255,7 +3256,7 @@
     if (tgt?.status?.cushion?.by && dealt > 0) C.stored[tgt.status.cushion.by] = Math.min(30, (C.stored[tgt.status.cushion.by] || 0) + Math.round(dealt));
     if (src && inst?.ability === "piston" && !src.defeated) addPressure(s, src, 1, H);   // Piston works the boiler: +1 pressure on a landing hit
     const sh = C.shareFrom; C.shareFrom = null;
-    if (sh && dealt > 0) for (const id of sh.members) { const u = H.actor(s, id); if (!u || u.defeated || id === sh.tgt) continue; const part = Math.min(sh.cap, dealt); u.lf = Math.max(0, u.lf - part); H.log(s, { kind: "effect", actor: u.id, text: `${u.name} carries ${part} of the shared load.` }); if (u.lf <= 0) H.defeat?.(s, u); }
+    if (sh && dealt > 0) for (const id of sh.members) { const u = H.actor(s, id); if (!u || u.defeated || id === sh.tgt) continue; const part = Math.min(sh.cap, dealt); u.lf = Math.max((typeof module === "object" && module.exports ? (() => { try { return require("../animated-body/animated-body.js"); } catch { return null; } })() : globalThis.ConceptCombatAnimatedBody)?.bleedFloor?.(s, u) || 0, u.lf - part); H.log(s, { kind: "effect", actor: u.id, text: `${u.name} carries ${part} of the shared load.` }); if (u.lf <= 0) H.defeat?.(s, u); }
     if (sh && dealt > 0) for (const id of sh.members) { const u = H.actor(s, id), L = u?.status?.loadShare;   // one-shot shares (Shore Up) spend themselves on the load
       if (u && L && L.uses != null && --L.uses <= 0) { u.status.loadShare = null; H.log(s, { kind: "effect", actor: u.id, text: `${u.name}'s bracing is spent.` }); } }
     // Never strike first, broken in the open: the first strike was the oathbreaker's. Any oathbound unit, any battle.
@@ -3320,6 +3321,7 @@
     Law.turnStart(s,a,H);
     Director.turnStart(s,a,H);
     Mise.turnStart(s,a,H);   // station lifetimes
+    ((typeof module === "object" && module.exports) ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet)?.turnStart(s, a);   // the Chef's table: an expired Hospitality rejected clears
     Homology?.turnStart(s,a,H);   // Homology: a pending reconstruction resolves; spent guards drop
     Actor.turnStart(s,a,H);
     Suits?.turnStart?.(s, a, H);   // Posterity woven workstation
@@ -3938,7 +3940,25 @@
       log(s, { kind: "effect", actor: d.id, text: `Ward Field: no open ground beside ${d.name} toward ${atk.name}; only the ward rises.`, why: ["The berm needs an empty floor tile on the side the shot comes from."] });
       return null;
     }
-    return { graded, thornSoilAdd, turnEnd, wardBerm };
+    // F5b: Earth Upheaval and Upheaval Now hit a foe on her thorn soil for half again (damageMods); Ward Field is primed when the
+    // shooter stands on her thorn soil (engine/window.js: whole ward, and she cashes); Shard Rain raises her berms on the open
+    // tiles of its line, for two of her turns (resolve.js after-technique hook).
+    const UPHEAVAL = new Set(["earthUpheaval", "upheavalNow"]);
+    function upheavalMul(s, src, tgt, inst) { return UPHEAVAL.has(inst?.ability) && tgt && thornSoilAdd(s, src, tgt.x, tgt.y) ? 1.5 : 1; }
+    function primed(s, d, atk) { return !!atk && thornSoilAdd(s, d, atk.x, atk.y) > 0; }
+    function shardRainBerms(s, a, inst, H, log) {
+      if (inst?.ability !== "shardRain" || inst.refused || !a || a.defeated) return [];
+      const out = [];
+      for (const [x, y] of inst.tiles || []) {
+        if (y < 0 || x < 0 || y >= s.arena.map.length || x >= s.arena.map[0].length || (x === a.x && y === a.y)) continue;
+        if (H.tileAt(s, x, y).blocksMove || H.actorAt(s, x, y) || H.barrierAt(s, x, y)) continue;
+        const b = { id: "b" + (++s.seq), owner: a.id, x, y, protection: 0, duration: 2, expiresAt: a.ownerTurns + 2, concept: "berm", blocksSight: false, blocksMove: false, blocksRoute: false, passable: true, heightDelta: 1, coverFraction: 0.5, absorbsLine: false, returnFraction: 0, shardRain: true };
+        (s.barriers ||= []).push(b); out.push([x, y]);
+      }
+      if (out.length) log(s, { kind: "effect", actor: a.id, tiles: out, text: `Shard Rain: the fallen stone rises as ${out.length} berm${out.length === 1 ? "" : "s"} of ${a.name}'s.`, why: ["Each empty floor tile the line crossed becomes her berm until her second turn from now: a line that crosses a berm right beside the unit it hits deals half, and Hard Place counts it as ground she made."] });
+      return out;
+    }
+    return { graded, thornSoilAdd, turnEnd, wardBerm, upheavalMul, primed, shardRainBerms };
   })();
   function turnStartGuests(s, a, H) { Guests?.turnStart?.(s, a, H); }
   function attend(s, a, act, H, spend) { return Guests?.callAttendant?.(s, a, act, H, spend) || null; }

@@ -1245,6 +1245,7 @@
     function monsterTurnEnd(s, a) {
       if (!a.status?.infected || a.defeated) return;
       if (EM.infectNote(a).cured) { delete a.status.infected; delete a.infectLF; log(s, { kind: "monsterRule", target: a.id, tiles: [[a.x, a.y]], text: `${a.name} was healed: the infection is gone.` }); return; }
+      if (s.film?.kind === "banquet" && (typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet)?.truceHolds(s, a)) { log(s, { kind: "monsterRule", target: a.id, text: `The infection waits while the meal holds: ${a.name} loses nothing.` }); return; }   // the Chef's table (spec section 2)
       const r = EM.infectionTick(a); a.lf = r.unit.lf; a.infectLF = r.unit.infectLF; a.status = r.unit.status;
       log(s, { kind: "monsterRule", target: a.id, tiles: [[a.x, a.y]], text: `Infection: ${a.name} loses ${r.loss} LF${a.status.infected ? ` (${a.status.infected} tick${a.status.infected === 1 ? "" : "s"} left)` : ""}.` });
       if (a.lf <= 0) H.hit(s, a, a, null, 0, [`${a.name} succumbs to the infection.`], { label: "Infection", bleedOut: true });
@@ -1344,7 +1345,7 @@
       if (!at) { log(s, { kind: "deathDoor", actor: owner.id, text: "A summon answers, but there is no open ground beside the fallen." }); return; }
       const raw = summonRules.makeSummonActor(door.id, { owner: owner.id, at, durationAdd: owner.passives?.summonDurationAdd || 0, form: s.tandemForms?.[door.id] });   // Tandem T4: the form it has reached
       const summon = liveSummon(s, owner, raw);
-      summonRules.Tandem?.noteGrowth(s, summon, {});   // Tandem T4: it was out this battle
+      summonRules.Tandem?.noteGrowth(s, summon, {}); summonRules.Tandem?.applyRung?.(s, summon, log);   // Tandem T6: it arrives at its ladder rung   // Tandem T4: it was out this battle
       summon.defeated = false; summon.knockedOut = false; summon.lf = raw.lf; summon.maxLF = raw.maxLF; summon.deathDoor = null; summon.focus = null;
       summon.summon = { ...summon.summon, deathDoor: true };
       s.actors[summon.id] = summon; s.disclosures[summon.id] = {}; s.knowledge[summon.id] = {};

@@ -1,0 +1,362 @@
+{
+ "source": "Pixel Hardware Hierarchy Chart.png (NOT shipped: shows every brand; library image is the scrubbed contact sheet)",
+ "size_class": "item icon / tech card",
+ "minimum_pixel_size_px": 48,
+ "footprint": "n/a - item icons are not placed on tiles",
+ "triage": "SURGERY",
+ "system": "hardware-hierarchy",
+ "rev": "rev-2 scrub (R-20261109-02) + REV I band reconstruction (Fathom pass-3 answers)",
+ "items": {
+  "era-rack-1.png": {
+   "pixel_size": [
+    78,
+    121
+   ],
+   "sha256": "6984cb4608aaf49238f40666852a240dd5738e071805048e1fbe752d15ecf7fa",
+   "row": 0,
+   "col": 0
+  },
+  "era-rack-2.png": {
+   "pixel_size": [
+    80,
+    117
+   ],
+   "sha256": "24d03217e79684ad2d7b8e924d06ece2f9e072dd706ecf6aef093cda239214e6",
+   "row": 0,
+   "col": 1
+  },
+  "era-rack-3.png": {
+   "pixel_size": [
+    80,
+    117
+   ],
+   "sha256": "6fe7b287edfd510614d857f9cf1cc78dc3aaf65a514b9df30f748726e9675b92",
+   "row": 0,
+   "col": 2
+  },
+  "era-block-1.png": {
+   "pixel_size": [
+    169,
+    86
+   ],
+   "sha256": "c9ef642e09504701d63950bab7be62f3f4773dd8135aebe38e45210d818001c6",
+   "row": 0,
+   "col": 3
+  },
+  "era-block-2.png": {
+   "pixel_size": [
+    184,
+    88
+   ],
+   "sha256": "f82294d6e2e1ad9f706c88141d806517e924f08bb3f2caadb659d96cf9a3138c",
+   "row": 0,
+   "col": 4
+  },
+  "era-block-3.png": {
+   "pixel_size": [
+    193,
+    88
+   ],
+   "sha256": "0ccdf6c093644e5b90e8962959350e41787004a6a0d3c7920ba3e54bc405727e",
+   "row": 0,
+   "col": 5
+  },
+  "king-brick-x8.png": {
+   "pixel_size": [
+    243,
+    134
+   ],
+   "sha256": "9ff643887ed2ae9417ee123bffb6c1c5ed185f1e2aa920e2bcce6a9fa32453d0",
+   "row": 1,
+   "col": 0
+  },
+  "king-card-x4.png": {
+   "pixel_size": [
+    268,
+    127
+   ],
+   "sha256": "920c6a1b18bbfbdbedd3570a8d94ba41dd4554cf82d1c902923b76ffd8c60e68",
+   "row": 1,
+   "col": 1
+  },
+  "king-tower.png": {
+   "pixel_size": [
+    180,
+    142
+   ],
+   "sha256": "c643762a70eef1aab73bbf010bfccf4d4bf6544e24a568b8753b52c7587f39a9",
+   "row": 1,
+   "col": 2
+  },
+  "king-brick-x4.png": {
+   "pixel_size": [
+    276,
+    109
+   ],
+   "sha256": "a79b59f8d65f8fc319596455e46f18139da0d6f23f1b2a5840cf02557703de64",
+   "row": 1,
+   "col": 3
+  },
+  "artist-brick-x2.png": {
+   "pixel_size": [
+    145,
+    100
+   ],
+   "sha256": "f5f9dc8c8d352924ea52380698761e978007741c75575965e4a08ba1466d2d8c",
+   "row": 2,
+   "col": 0
+  },
+  "artist-card-x2-1.png": {
+   "pixel_size": [
+    146,
+    100
+   ],
+   "sha256": "8bea96f2270d7cb415678464b526e7a524adb83b07da3b83e26605bcc79ebbef",
+   "row": 2,
+   "col": 1
+  },
+  "artist-card-x2-2.png": {
+   "pixel_size": [
+    150,
+    99
+   ],
+   "sha256": "c6b53e54827d603a745ee95c72887eeb83aa59b60b85eca1766717655cd2a0bd",
+   "row": 2,
+   "col": 2
+  },
+  "artist-blower-x2.png": {
+   "pixel_size": [
+    157,
+    100
+   ],
+   "sha256": "2e5765bd7f01e64e5eac5e261b1c4857feb74323196a275cb43604caac901a1d",
+   "row": 2,
+   "col": 3
+  },
+  "artist-card-x2-3.png": {
+   "pixel_size": [
+    145,
+    100
+   ],
+   "sha256": "724f3ef7a348c4356b7afdc9b04e60608a2c247d6d1304844209bd0b235f8dcc",
+   "row": 2,
+   "col": 4
+  },
+  "artist-card-x4.png": {
+   "pixel_size": [
+    201,
+    95
+   ],
+   "sha256": "4182b7f62c16ed220157daf702b7c228ff342c2d5406ad7f614da5e565a6889f",
+   "row": 2,
+   "col": 5
+  },
+  "officer-card-x2-1.png": {
+   "pixel_size": [
+    130,
+    90
+   ],
+   "sha256": "72b456011cda2a13090f11c7af5e2e961f9dede1d1b4c630b794ada95c3a2713",
+   "row": 3,
+   "col": 0
+  },
+  "officer-card-1.png": {
+   "pixel_size": [
+    131,
+    60
+   ],
+   "sha256": "079ac461c37eef780edc9c495dc7b3034cb64aaba28ce41a79f31b5501749206",
+   "row": 3,
+   "col": 1
+  },
+  "officer-blower-1.png": {
+   "pixel_size": [
+    133,
+    59
+   ],
+   "sha256": "e68775a843152a3c39b5dcd234cce49da174d1b8419a2ab884214cfdd213261d",
+   "row": 3,
+   "col": 2
+  },
+  "officer-brick.png": {
+   "pixel_size": [
+    132,
+    65
+   ],
+   "sha256": "44cea67f7550e3f4816dec4af9779c680a9e37d08a3584b12771f5851cd0625a",
+   "row": 3,
+   "col": 3
+  },
+  "officer-card-2.png": {
+   "pixel_size": [
+    134,
+    62
+   ],
+   "sha256": "b2ea2b9da4b28e117e96a930f61e27baceb11acf7a99f1313fb9be9ed64a3455",
+   "row": 3,
+   "col": 4
+  },
+  "officer-blower-x2.png": {
+   "pixel_size": [
+    134,
+    89
+   ],
+   "sha256": "748068563505d352c8f97ffaf1de41ad03783f9ae72ceccf14889a8e25538959",
+   "row": 3,
+   "col": 5
+  },
+  "officer-blower-2.png": {
+   "pixel_size": [
+    129,
+    59
+   ],
+   "sha256": "773eccf73084333033fffc67e0861363c0ab2c34340bdc8a71155fb088fbc91e",
+   "row": 3,
+   "col": 6
+  },
+  "officer-card-x2-2.png": {
+   "pixel_size": [
+    132,
+    92
+   ],
+   "sha256": "1d5f3125966ad2e4e99e47fe2423a0649d92384894c5f7db92a3022b3e6876b5",
+   "row": 3,
+   "col": 7
+  },
+  "manager-card-1.png": {
+   "pixel_size": [
+    135,
+    63
+   ],
+   "sha256": "e0dc5c9db99f68914deec951157a8b6d36da4cba01a3694b5d25074be910c489",
+   "row": 4,
+   "col": 0
+  },
+  "manager-blower.png": {
+   "pixel_size": [
+    154,
+    63
+   ],
+   "sha256": "e04c1e6b0fbc2438e1d497a359e88208b35adbc14606d2ae6d8f2da5098878f9",
+   "row": 4,
+   "col": 1
+  },
+  "manager-card-2.png": {
+   "pixel_size": [
+    154,
+    66
+   ],
+   "sha256": "253e282eebfaf25420bc5b9f838c699e3542bea9ae8691f1e0081b2c575ac853",
+   "row": 4,
+   "col": 2
+  },
+  "manager-card-3.png": {
+   "pixel_size": [
+    155,
+    67
+   ],
+   "sha256": "2aabcf8d847c14139fd928baa49594b673950e2d025a4ced9edd17765703919f",
+   "row": 4,
+   "col": 3
+  },
+  "manager-block.png": {
+   "pixel_size": [
+    129,
+    62
+   ],
+   "sha256": "ae710ae64b6d4a3c8035a30c2b3d498650ac155cf0692d964944a25e46062894",
+   "row": 4,
+   "col": 4
+  },
+  "manager-board.png": {
+   "pixel_size": [
+    180,
+    66
+   ],
+   "sha256": "6fb9663844260ec667f388bb439e332065c79d3228ef71e920e2408f67ecb32f",
+   "row": 4,
+   "col": 5
+  },
+  "manager-card-4.png": {
+   "pixel_size": [
+    135,
+    65
+   ],
+   "sha256": "31e67e02c664e1bc88479336b3cab136d7e59360b3886da2c82b4d2702b92c75",
+   "row": 4,
+   "col": 6
+  },
+  "labourer-core-5.png": {
+   "pixel_size": [
+    128,
+    79
+   ],
+   "sha256": "ff5341db4ec84a009276b0c5beda168967cecec7c6acb5b3e7a775c05b023ff3",
+   "row": 5,
+   "col": 0
+  },
+  "labourer-core-3.png": {
+   "pixel_size": [
+    124,
+    80
+   ],
+   "sha256": "61e4385672df8c3d4060fb4fa939cccb1b1187ddf8ee11ed9bad25387e6f1dfb",
+   "row": 5,
+   "col": 1
+  },
+  "labourer-core-2.png": {
+   "pixel_size": [
+    133,
+    82
+   ],
+   "sha256": "e88b00fd5c5cd137d4d253416f70e6e285cb22f4f5e90323a264a8b77f34e2b0",
+   "row": 5,
+   "col": 2
+  },
+  "labourer-core-4.png": {
+   "pixel_size": [
+    129,
+    84
+   ],
+   "sha256": "a3b6d4eee48b24301e4336c644b43627c6ecb9f11b9b0d059780f74ec61cf32c",
+   "row": 5,
+   "col": 3
+  },
+  "labourer-slate-2.png": {
+   "pixel_size": [
+    134,
+    92
+   ],
+   "sha256": "dccb019c368cf1c19ba63d57502ccadddb7779a636c2e68c3c26d93d8511b484",
+   "row": 5,
+   "col": 4
+  },
+  "labourer-slate-1.png": {
+   "pixel_size": [
+    130,
+    91
+   ],
+   "sha256": "0513d1631cf3a7f5e9de2070bbd69981f9acba1bbb44b95e8858b938e2da5119",
+   "row": 5,
+   "col": 5
+  },
+  "labourer-core-1.png": {
+   "pixel_size": [
+    131,
+    80
+   ],
+   "sha256": "5e8dccf37e63e92513aec04473bf066b4a47d4ec688363bb81f463f6ca3fadf5",
+   "row": 5,
+   "col": 6
+  },
+  "labourer-card.png": {
+   "pixel_size": [
+    160,
+    77
+   ],
+   "sha256": "be09a347c1ca156b0026da16b169ec9dcf6c3a52159d2da37915ba77053e6ec1",
+   "row": 5,
+   "col": 7
+  }
+ }
+}

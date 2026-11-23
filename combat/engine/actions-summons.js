@@ -86,7 +86,7 @@
         if (score.correct) s.summonCorrectAnswers++;
         const raw = summonRules.makeSummonActor(act.summon, { owner: a.id, at, bond: score.bond, potencyMul: score.potencyMul, durationAdd: a.passives?.summonDurationAdd || 0, program: act.program, form: s.tandemForms?.[act.summon] });   // Tandem T4: the form the account says it has reached (tandem-trial.js battleStart), never one the action names
         const summon = liveSummon(s,a,raw);
-        summonRules.Tandem?.noteGrowth(s, summon, {});   // Tandem T4: it was out this battle (the account reads it at the end)
+        summonRules.Tandem?.noteGrowth(s, summon, {}); summonRules.Tandem?.applyRung?.(s, summon, log);   // Tandem T6: it arrives at its ladder rung   // Tandem T4: it was out this battle (the account reads it at the end)
         if (hasTrait(a, "attentionToDetail")) { summon.maxLF = summon.lf = Math.round(summon.maxLF * 1.25); log(s, { kind: "effect", actor: a.id, target: summon.id, text: `Attention to Detail: ${summon.name} arrives sturdier (${summon.maxLF} LF).` }); }
         a.status.imaginedRehearsal = null;
         s.actors[summon.id] = summon; s.disclosures[summon.id] = {}; s.knowledge[summon.id] = {};
@@ -120,7 +120,7 @@
         a.pf -= pf; s.seeds -= seeds;   // the purse pays: act() copies s.seeds back to the account
         const raw = summonRules.makeSummonActor(act.line, { owner: a.id, at, bond: 2, potencyMul: 1.2, durationAdd: a.passives?.summonDurationAdd || 0, form: s.tandemForms?.[act.line] });
         const summon = liveSummon(s,a,raw);
-        summonRules.Tandem?.noteGrowth(s, summon, {});   // Tandem T4: it was out this battle (the account reads it at the end)
+        summonRules.Tandem?.noteGrowth(s, summon, {}); summonRules.Tandem?.applyRung?.(s, summon, log);   // Tandem T6: it arrives at its ladder rung   // Tandem T4: it was out this battle (the account reads it at the end)
         summon.summon.turnsLeft = terms.duration + (summonRules.data.rules.bondBonusDuration || 0) + (a.passives?.summonDurationAdd || 0); summon.summon.pact = { line: act.line, owner: a.id };   // full bond: the correct-answer package (potency 1.2, bond 2, duration bonus) on the pact's own terms
         if (hasTrait(a, "attentionToDetail")) { summon.maxLF = summon.lf = Math.round(summon.maxLF * 1.25); log(s, { kind: "effect", actor: a.id, target: summon.id, text: `Attention to Detail: ${summon.name} arrives sturdier (${summon.maxLF} LF).` }); }
         a.status.imaginedRehearsal = null;

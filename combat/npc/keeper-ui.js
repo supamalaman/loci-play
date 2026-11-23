@@ -35,6 +35,9 @@
   // The Fame mile event (npc-faces hooks): "mile:fame" when this bank has a fame-milestone row and fame rose past
   // the last greeted mark, else null. Only mile:fame banks qualify, so level/discovery miles never misfire.
   const fameMileEvent = (account, rows) => (rows || []).some((l) => l.when === "mile:fame") && ((account || {}).fame || 0) > Math.max(0, (account || {}).fameMileSeen ?? 0) ? "mile:fame" : null;
+  // Bonds B1 (claude-bonds-spec, R-20261122-11): the bond ledger and its window, looked up when used (bonds/*.js load beside this file).
+  const bondMod = (file, global) => (typeof module === "object" && module.exports ? require(`../bonds/${file}`) : (typeof self !== "undefined" ? self[global] : null)) || null;
+  const BondLedger = () => bondMod("ledger.js", "ConceptCombatBondLedger"), BondUI = () => bondMod("ledger-ui.js", "ConceptCombatBondLedgerUI");
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   // Hook chips: each returns the chip's text, from the same data and the same DOM change it describes, or null (no chip).
   const HOOKS = {
@@ -190,11 +193,22 @@
     for (const [v, text] of Object.entries(MODES)) { const op = el("option", "", text); op.value = v; op.selected = v === mode; ms.append(op); }
     ms.onchange = () => { o.store.set(MODE_KEY, ms.value); mount(ov, windowId, { ...cur.o, event: null }); const next = ov.querySelector(".cc-keeper select") || ov.querySelector(".cc-keeper-off button"); if (next) next.focus(); };
     ml.append(ms); bar.append(talk, dl, ml); strip.append(bar);
+    // Bonds B1: a keeper with an authored route gets a Bonds button that opens the bond window inside the strip (bonds/ledger-ui.js).
+    // The bond chip is its own chip, never the keeper's hook (Jatayu's H04 stays reserved for his Bestiary pin): the rank by name once met.
+    const bondChip = (a) => { const BLc = BondLedger(), txt = BLc ? BLc.chipText(a, k.id) : null, box = strip.querySelector(".cc-keeper-chips"); let c = box && box.querySelector(".cc-keeper-chip[data-bond]");
+      if (!txt) { if (c) c.remove(); return; } if (!c && box) { c = el("p", "cc-keeper-chip"); c.dataset.bond = k.id; box.append(c); } if (c) c.textContent = txt; };
+    const BL = BondLedger(), BU = BondUI(), bondOpts = BL && BU && BL.routeOf(k.id) ? { keeperId: k.id, getAccount: () => cur.o.account,
+      playerChar: () => { const c = o.store && o.store.get("loci:combat:character", null); return c && typeof c.classId === "string" ? c.classId : "warden"; },   // Bonds B2a: the saved main class (ui.js CHAR_KEY, mainClass), whose unit his trust is keyed to
+      setAccount: (a) => { cur.o.account = a; if (o.onAccount) o.onAccount(a); bondChip(a); },
+      say: (text) => { const l = { id: `bond:${k.id}`, text, face: "neutral" }; S.last[ctx] = l; show(strip, k.id, l, !!cur.o.dialogueOn); } } : null;   // his answer, as a line the strip redraws on a re-mount
+    if (bondOpts) { const bb = el("button", "cc-keeper-bonds", "Bonds"); bb.type = "button"; bb.setAttribute("aria-expanded", String(BU.isOpen(k.id)));
+      bb.onclick = () => { BU.toggle(strip, bondOpts); bb.setAttribute("aria-expanded", String(BU.isOpen(k.id))); }; bar.insertBefore(bb, dl); }
     const chips = el("div", "cc-keeper-chips");
     const text = HOOKS[k.hook] && HOOKS[k.hook]({ account, ov, facts: o.facts });
     if (text) { const chip = el("p", "cc-keeper-chip", text); chip.dataset.hook = k.hook; chips.append(chip); }
     strip.append(chips);
     place(strip); cur.strip = strip; show(strip, k.id, line, !!o.dialogueOn); scheduleIdle(cur);
+    if (bondOpts) { bondChip(account); BU.mount(strip, bondOpts); }   // a re-mount (the window re-rendered) redraws an open bond window
     return strip;
   }
   // The contextual speaker strip (NPC faces S6): one portrait + one line for a battle overlay. Unlike mount it keeps
@@ -238,7 +252,7 @@
   }
   function say(event, extra) {   // extra tokens (S3: { price } for a refused buy) fill the line's {tokens}; without them the line is skipped, never holed
     const cur = S.cur; if (!cur || !cur.strip || !cur.strip.isConnected) return null;
-    if (K.BIG_BY_COUNT.has(cur.k.id) && cur.o.onSpend && !/^(err|refuse|idle|leave)$/.test(event)) cur.o.onSpend(cur.k.id, 1);   // a per-window keeper's `big` counts things done in its window (R-20261103-04)
+    if (K.BIG_BY_COUNT.has(cur.k.id) && cur.o.onSpend && !/^(err|refuse|idle|leave)$/.test(event)) { cur.o.onSpend(cur.k.id, 1); if (M.noteSpend) cur.o.account = M.noteSpend(cur.o.account, cur.k.id, 1); }   // a per-window keeper's `big` counts things done in its window (R-20261103-04); Bonds B1: the strip's copy takes the same count, so a later bond write (onAccount) does not drop it
     const line = choose(cur.k, event, cur.o.account, cur.ctx, extra); if (line) show(cur.strip, cur.k.id, line, cur.o.dialogueOn);
     return line;
   }

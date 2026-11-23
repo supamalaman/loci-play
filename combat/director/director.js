@@ -20,6 +20,7 @@
   else root.ConceptCombatDirector = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const POCKET = 5;
+  const Pocket = () => (typeof module === "object" && module.exports ? require("./pocket.js") : (typeof self !== "undefined" ? self : globalThis).ConceptCombatPocket);   // the shared stash and restore (director/pocket.js)
   // Co-star pool: the NPC roster, no player pieces, no mirror films, no office-holders.
   const COSTAR_POOL = ["arborist", "surveyor", "rainkeeper", "mason", "ecologist", "planner",
     "gardener", "actor", "supermodel", "agi", "scientist", "animalTamer", "architect",
@@ -100,15 +101,9 @@
     const cameo = Object.values(s.actors).find((u) => u.cameo?.owner === a.id && !u.defeated);
     if (cameo) { cameoId = cameo.id; cameoPos = [cameo.x, cameo.y]; cameo.x = 3; cameo.y = 1; }
     const duel = new Set([mark.id, costarId, ...(cameoId ? [cameoId] : [])]);
-    const saved = { order: s.order.slice(), turnIndex: s.turnIndex, arena: s.arena, actors: {},
-      wild: s.wild, scheduled: s.scheduled, terrainEffects: s.terrainEffects, barriers: s.barriers,
-      successionPatches: s.successionPatches, dreamSpace: s.dreamSpace || null,
-      roundEnvironmentProcessed: s.roundEnvironmentProcessed };
-    for (const [id, u] of Object.entries(s.actors)) if (!duel.has(id)) { saved.actors[id] = u; delete s.actors[id]; }
+    const saved = Pocket().stash(s, [...duel], pocketArena());
     const markPos = [mark.x, mark.y];
     mark.x = 1; mark.y = 2;
-    s.wild = []; s.scheduled = []; s.terrainEffects = []; s.barriers = []; s.successionPatches = []; s.dreamSpace = null;
-    s.arena = pocketArena();
     s.order = [mark.id, costarId, ...(cameoId ? [cameoId] : [])];   // the mark moves first: no alpha strike on the trapped
     s.turnIndex = 0;
     for (const id of s.order) if (s.actors[id]) s.actors[id].reaction = s.rules.reactionsPerRound;
@@ -126,7 +121,7 @@
   // The duel order wrapped: a new take, not a new round. Reactions reset; the
   // outside round, weather, wild and scheduled events stay frozen.
   function filmWrap(s, H) {
-    const f = s.film; if (!f) return;
+    const f = s.film; if (!f || f.kind === "banquet") return;   // a banquet wraps itself (banquet/banquet.js)
     f.turn += 1;
     for (const id of s.order) if (s.actors[id]) s.actors[id].reaction = s.rules.reactionsPerRound;
     H.log(s, { kind: "film", actor: f.owner, text: `Take ${f.turn}.` });
@@ -144,7 +139,7 @@
   // After every duel turn: CUT (the mark fell), ruin (the cast fell), or
   // nothing yet. A routed mark stays: the set is enclosed (Mala, 2026-10-19).
   function resolveCheck(s) {
-    const f = s.film; if (!f) return null;
+    const f = s.film; if (!f || f.kind === "banquet") return null;   // a banquet has no mark: never "cut"
     const { mark, costar, cameo } = duelState(s);
     if (!mark || mark.defeated) return "cut";
     const castGone = !costar || costar.defeated;
@@ -211,7 +206,7 @@
     if (s.insight?.knowledge) delete s.insight.knowledge[id];
   }
   function collapse(s, H, kind) {
-    const f = s.film; if (!f) return;
+    const f = s.film; if (!f || f.kind === "banquet") return;
     const sv = f.saved, owner = sv.actors[f.owner];
     if (kind === "cut") {
       H.log(s, { kind: "film", actor: f.owner, text: `${owner?.name || "The Director"} yells "CUT!"` });
@@ -228,19 +223,15 @@
     forgetActor(s, f.costarId, H);
     const cameo = f.cameoId ? s.actors[f.cameoId] : null;
     if (cameo && f.cameoPos) { cameo.x = f.cameoPos[0]; cameo.y = f.cameoPos[1]; delete cameo.status.trapped; }   // back to the field, clock resumes, no longer trapped
-    for (const [id, u] of Object.entries(sv.actors)) s.actors[id] = u;
+    Pocket().restore(s, sv);   // the outside battle comes back; advance() moves to the next outside actor
     if (owner) owner.tempo = 0;   // his turn ended when the cameras rolled; what is banked waits for his next turn
-    s.order = sv.order; s.turnIndex = sv.turnIndex;   // advance() moves to the next outside actor
-    s.arena = sv.arena; s.wild = sv.wild; s.scheduled = sv.scheduled; s.terrainEffects = sv.terrainEffects;
-    s.barriers = sv.barriers; s.successionPatches = sv.successionPatches; s.dreamSpace = sv.dreamSpace;
-    s.roundEnvironmentProcessed = sv.roundEnvironmentProcessed;
     s.film = null;
     H.log(s, { kind: "film", actor: f.owner, text: "The set strikes. The battle resumes." });
   }
 
   function callCut(s, a, H) {
     const f = s.film;
-    if (!f || f.owner !== a.id) return "No film of yours is shooting.";
+    if (!f || f.kind === "banquet" || f.owner !== a.id) return "No film of yours is shooting.";   // a banquet has no Call CUT
     collapse(s, H, "early");
     return null;
   }

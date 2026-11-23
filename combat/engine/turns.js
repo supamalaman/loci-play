@@ -11,6 +11,7 @@
     const Spirit = () => (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null;
     const Orders = () => (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null;
     const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
+    const Banquet = () => (typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet) || null;   // the Chef's banquet room (a kind of s.film)
     const { Auras, C, EmergentIdeas, EnemySummons, ClassRuntime, Climate, Director, EM, MaidSystems, Performers, SHADE, Stealth, Vows, actorAt, addStun, auraH, beastTick, callCompanion, companionTick, cornerAdvice, bossRules, classH, conceptName,
       currentId, dist, dreamSpaceRules, edgeUsed, hasSight, heightAt, insightRules, isMonster, key, log, monsterApply, monsterCtx, poisonTick,
       presidentContext, presidentRules, presidentUnits, processRandomEvents, progress, refreshDrowning, ritualTick, riteTick, runWildEnvironment, settleHomeward,
@@ -26,6 +27,7 @@
     const findOpp = (...args) => H.findOpp(...args);
     const visageGaze = (...args) => H.visageGaze(...args);
     const hasTrait = (...args) => H.hasTrait(...args);
+    const sapAfterHeal = (s, a, u, healed) => ((typeof module === "object" && module.exports ? require("../mythic-plants/sammu.js") : globalThis.ConceptCombatSammu) || null)?.sap(s, a, u, healed, { rules: s.rules, hasTrait: H.hasTrait, log: H.log, Injury: H.Injury });   // Juvenescent Sap (SN1a): the patch owner's pulse
     const hit = (...args) => H.hit(...args);
     const tendPlants = (...args) => H.tendPlants(...args);
     const moduleArena = (...args) => H.moduleArena(...args);
@@ -101,6 +103,7 @@
       s.order = next;
     }
     function isBeat(s) {
+      if (s.answerTurn?.active) return false;   // Tandem T5b: an extra turn from the Answer is a whole owner turn, never a beat
       const id = s.order[s.turnIndex], b = s.beats?.[id]; if (!b) return false;
       const at = s.order.map((x, i) => (x === id ? i : -1)).filter((i) => i >= 0);
       return at.length > 1 && at[b.rank] === s.turnIndex;
@@ -175,7 +178,7 @@
       H.advanceTime(s);   // day and night: phase, nightfall creatures, dawn flight (engine.js; rules.time)
       processRandomEvents(s);
       H.waterAgenda?.(s);   // Living Water: the agenda phase, after weather (engine/conditions.js)
-      H.Hires?.roundStart(s);   // a called merc or mediator arrives (engine/hires.js)
+      H.Hires?.roundStart(s); H.Greedigut?.onRound?.(s);   // a called merc or mediator arrives (engine/hires.js); Exile G1: Notice lands and the countdown ticks
       { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.roundStart?.(s, H); }   // Shaman Totem (SH2): round-based guest clocks tick here
       H.friendRound?.(s);
       H.fishRound?.(s);   // dream fish restock the water (engine/conditions.js)   // a remembered Sasquatch may come to help (engine/tamer.js)
@@ -235,6 +238,8 @@
       const a = s.actors[currentId(s)];
       if (isBeat(s)) return beatTurn(s, a);   // True Super Speed SS4: beat 2 is not an owner turn (no upkeep, ownerTurns holds)
       if (a?.concedeStall && !s.preview) { a.concedeStall = false; log(s, { kind: "parley", actor: a.id, text: `${a.name} sits out the turn (conceded in a battle of minds).` }); a.tempo = 0; ClassRuntime?.mise?.satOut?.(s, a); endTurn(s); return; }   // Mind duel: a forced stall skips the whole turn
+      if (a?.flattened && !a.defeated && !s.preview) { a.flattened = false; a.popped = true; log(s, { kind: "flattened", actor: a.id, text: `${a.name} peels itself off the ground and sits out the turn (flattened).`, why: ["Animated Body: a lethal ordinary blow flattens a cartoon instead of finishing it. Only orgonite or a dream lands in full."] }); a.tempo = 0; ClassRuntime?.mise?.satOut?.(s, a); endTurn(s); return; }   // Animated Body AB1a (R-20261122-44)
+      if (a?.popped && !s.preview) a.popped = false;   // Animated Body: this turn is its own; it can be flattened again from now on
       if (a && s.rules.soul && a.maxSoul == null) { a.maxSoul = s.rules.soul.max; if (a.soul == null) a.soul = a.maxSoul; }
       if (a?.husk) { a.tempo = 0; if (!s.preview) { log(s, { kind: "ritual", actor: a.id, text: `${a.name} is an empty husk and cannot act.` }); ClassRuntime?.mise?.satOut?.(s, a); endTurn(s); } return; }
       // Repeated-channel adaptation measures one attacker's action turn at a time.
@@ -356,7 +361,7 @@
       if (a.omen && a.ownerTurns > a.omen.expiresAfterOwnerTurn) { a.omen = null; a.omenApLoss = 0; }
       if (a.status.inebriated && a.status.inebriated.expiresAt < a.ownerTurns) { a.status.inebriated = null; log(s, { kind: "expire", actor: a.id, text: `${a.name} sobers up.` }); }
       a.tempoSpent = 0; a.actionsThisTurn = 0;
-      let firstBudget = (!s.openingTempoUsed[a.id] && Number.isFinite(s.openingTempo[a.id]) ? s.openingTempo[a.id] : H.Tourist?.is(a) ? 80 : s.rules.actionPointsPerTurn) + (a.perkApAdd || 0) - ((a.status?.exhausted?.until || 0) > s.round ? (H.hyperRules?.myol.exhaustedAp || 0) : 0);   // W3.6: vigor; W5.3: MYOL exhaustion
+      let firstBudget = (!s.openingTempoUsed[a.id] && Number.isFinite(s.openingTempo[a.id]) ? s.openingTempo[a.id] : H.Greedigut?.is(a) ? (H.Greedigut.POOL || 60) : H.Tourist?.is(a) ? 80 : s.rules.actionPointsPerTurn) + (a.perkApAdd || 0) - ((a.status?.exhausted?.until || 0) > s.round ? (H.hyperRules?.myol.exhaustedAp || 0) : 0);   // W3.6: vigor; W5.3: MYOL exhaustion; Exile G1: Greedigut's pool is 60
       if (a.status.inebriated) { firstBudget = Math.floor(firstBudget / 2); log(s, { kind: "tempo", actor: a.id, text: `${a.name} is inebriated: ${firstBudget} AP this turn.` }); }
       { const frac = H.soulFrac?.(a) ?? 1; if (frac < 1) { const next = Math.max(0, Math.round(firstBudget * frac)); if (next !== firstBudget) { log(s, { kind: "ritual", actor: a.id, text: `${a.name}'s thinning soul leaves ${next} action points this turn.` }); firstBudget = next; } } }
       s.openingTempoUsed[a.id] = true;
@@ -662,6 +667,7 @@
       if (maturePatch?.stage === 3 && maturePatch.side === a.side && !a.defeated) {
         const before = a.lf; a.lf = Math.min(a.maxLF, a.lf + 5);
         if (a.lf > before) log(s, { kind: "heal", actor: maturePatch.owner, target: a.id, tiles: [[a.x, a.y]], text: `${a.name} recovers ${a.lf - before} LF in the mature Succession patch.` });
+        if (a.lf > before && s.actors[maturePatch.owner]) sapAfterHeal(s, s.actors[maturePatch.owner], a, a.lf - before);
       }
       if (a.summon && summonRules) {
         const frozen = dreamSpaceRules && !dreamSpaceRules.summonTurnTicks(dreamSpaceRules.contains(s.dreamSpace, a.x, a.y) ? s.dreamSpace : null);
@@ -708,8 +714,9 @@
       checkDreamCollapse(s);
       checkOutcome(s);
       if (s.film && Director && !s.outcome) {   // the duel resolves the film; collapse restores the outside battle for a real outcome check
-        const r = Director.resolveCheck(s);
-        if (r) Director.collapse(s, H, r);
+        const room = s.film.kind === "banquet" ? Banquet() : Director;   // a banquet resolves itself (banquet/banquet.js)
+        const r = room.resolveCheck(s);
+        if (r) room.collapse(s, H, r);
         checkOutcome(s);
       }
       if (s.outcome) return;

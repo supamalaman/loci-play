@@ -73,8 +73,8 @@
       if (v == null) delete t[k];
       else t[k] = Array.isArray(v) ? [...v] : typeof v === "object" ? { ...v } : v;
     }
-    if (a) { a.name = f.name; if (f.winged) a.winged = true; else delete a.winged; }
-    return { name: f.name, winged: !!f.winged };
+    if (a) { a.name = f.name; if (f.winged) a.winged = true; else delete a.winged; if (f.sprite) a.sprite = f.sprite; }   // T5a: a form with its own sheet draws from it
+    return { name: f.name, winged: !!f.winged, ...(f.sprite ? { sprite: f.sprite } : {}) };
   }
   const currentForm = (a) => { const t = of(a); return t && Array.isArray(t.forms) ? t.currentForm || 1 : null; };
   const canMolt = (a) => { const n = currentForm(a); return n != null && n < Math.min(3, of(a).forms.length) && !!of(a).moltCondition; };
@@ -83,8 +83,31 @@
   const bonusPotency = (src, tgt) => { const t = of(src); return t && typeof t.bonusPotency === "number" && tgt && tgt.lf < tgt.maxLF ? t.bonusPotency : 0; };
   // What this battle did to each tandem, for the account at its end (tandem-trial.js settle): the form it reached and whether it
   // strained. Written when it is called (engine/actions-summons.js), when it strains and when it molts.
+  // Tandem T6, the technique ladder (R-20261122-15, R-20261122-66). An owned tandem with a `ladder` block arrives at the rung its
+  // account record names (s.tandemRungs, written by tandem-trial.js battleStart): practiced, clean or perfect. Clean carries
+  // ladder.cleanLendMax lent tiles; perfect also arrives with ladder.perfectStartTiles tiles already lent (marked "rung", so they
+  // name no foe). The rung is on its card and in the arrival line, so the foe can read it. A lent tandem has no rung.
+  const RUNGS = ["practiced", "clean", "perfect"];
+  const RUNG_WORDS = { practiced: "", clean: "it carries {max} lent tiles", perfect: "it carries {max} lent tiles and arrives with {start} already lent" };
+  // What its rung gives, in words ("" at practiced).
+  function rungWords(t) {
+    const L = t && t.ladder, r = t && t.rung; if (!L || !RUNGS.includes(r)) return "";
+    return RUNG_WORDS[r].replace("{max}", L.cleanLendMax).replace("{start}", L.perfectStartTiles);
+  }
+  function applyRung(s, a, log) {
+    const t = of(a), key = a && a.summon && a.summon.key, owned = !!(a && a.summon && a.summon.owner === "player" && ((s && s.unlockedSummons) || []).includes(key));
+    const rung = (s && s.tandemRungs && s.tandemRungs[key]) || (owned ? "practiced" : null);   // practiced from the Trial pass: on the account's list, no rung named
+    if (!t || !t.ladder || !RUNGS.includes(rung)) return;
+    t.rung = rung;
+    if (rung !== "practiced" && t.lend) t.lend.max = t.ladder.cleanLendMax;
+    if (rung === "perfect") a.tandemTiles = Array.from({ length: t.ladder.perfectStartTiles }, () => "rung");
+    writeLog(s, { kind: "tandem", actor: a.id, rung, text: `${a.name} arrives at the ${rung} rung${rungWords(t) ? `: ${rungWords(t)}` : ""}.`, why: ["A tandem's rung is earned in battle and shown to every side."] }, log);
+  }
+  // The different foes it has wounded this battle (its lent tiles, leaving out a perfect rung's own).
+  const foesWounded = (a) => (a.tandemTiles || []).filter((id) => id !== "rung").length;
   function noteGrowth(s, a, patch) {
     const key = a && a.summon && a.summon.key; if (!s || !key) return;
+    watch(s, a);   // T5a: from its arrival, the allies already down are not falls it witnessed
     const g = ((s.tandemGrowth ||= {})[key] ||= { form: currentForm(a) || 1, strained: false });
     Object.assign(g, patch);
   }
@@ -106,15 +129,24 @@
   // After every hit (afterHit): a tandem whose molt condition is "cornered" molts when its user is below a quarter of their LF;
   // one whose condition is "witness" molts when the unit just hit was an ally of its side (not itself) and fell. "refusal" is in
   // strain; "mastery" is counted between battles (tandem-trial.js growth), never inside one.
+  // T5a: witness counts every fall of an ally while it is out, not only one to a hit: a bleed-out, heat, an echo or a rout runs no
+  // hit that takes LF. Each molting tandem keeps the ids of its side's units that are down (tandemSeen, set when it arrives:
+  // noteGrowth); a unit down now that was not down then is a fall it saw. checkMoltTriggers runs after every hit (afterHit) and in
+  // the engine's outcome check (engine/true-forms.js checkOutcome), which nearly every defeat path ends in.
+  const fallenAllies = (s, a) => Object.values((s && s.actors) || {}).filter((u) => u && u.id !== a.id && u.side === a.side && u.category !== "bystander" && !u.escaped && !u.notArrived && (u.defeated || u.lf <= 0));   // a unit that left (went home, escaped, was taken) did not fall
+  function watch(s, a) { if (Array.isArray(a.summon?.tandem?.forms) && !Array.isArray(a.tandemSeen)) a.tandemSeen = fallenAllies(s, a).map((u) => u.id); }
   function checkMoltTriggers(s, { hitTarget, log } = {}) {
     const out = [];
     for (const a of Object.values((s && s.actors) || {})) {
       if (!a || a.defeated || !canMolt(a)) continue;
       const t = of(a), cond = t.moltCondition, u = userOf(s, a);
       if (!u) continue;   // an unbound tandem (a Trial's foe) has no user and never molts
+      const down = fallenAllies(s, a), seen = Array.isArray(a.tandemSeen) ? a.tandemSeen : (hitTarget ? down.filter((x) => x.id !== hitTarget.id) : down).map((x) => x.id);
+      const fell = down.find((x) => !seen.includes(x.id));
+      a.tandemSeen = down.map((x) => x.id);
       let reason = null;
       if (cond === "cornered" && u && !u.defeated && u.lf > 0 && u.lf < u.maxLF / 4) reason = `cornered: ${u.name} is below a quarter of their LF`;
-      else if (cond === "witness" && hitTarget && hitTarget.id !== a.id && hitTarget.side === a.side && (hitTarget.defeated || hitTarget.lf <= 0)) reason = `witness: ${hitTarget.name} fell while it was out`;
+      else if (cond === "witness" && fell) reason = `witness: ${fell.name} fell while it was out`;
       if (reason) { const r = molt(s, a, currentForm(a) + 1, reason, log); if (r.ok) out.push(r); }
     }
     return out;
@@ -148,6 +180,9 @@
     const ls = of(src) && src.summon.tandem.lend;
     if (ls && !src.defeated && tgt.side !== src.side && tgt.category !== "bystander" && tgt.id !== src.id && !(src.tandemTiles || []).includes(tgt.id) && (src.tandemTiles || []).length < ls.max) {
       src.tandemTiles = [...(src.tandemTiles || []), tgt.id];
+      // Tandem T6: only an owned tandem has a rung (applyRung), so a lent, unbound or enemy one records no climb.
+      if (src.summon.tandem.ladder && src.summon.tandem.rung) { const TA = typeof module === "object" && module.exports ? require("./tandem-answer.js") : globalThis.ConceptCombatTandemAnswer, u = userOf(s, src), n = foesWounded(src);   // Tandem T6: what the ladder reads at the end
+        noteGrowth(s, src, { foes: Math.max(n, (s.tandemGrowth && s.tandemGrowth[src.summon.key] && s.tandemGrowth[src.summon.key].foes) || 0), ...(n >= src.summon.tandem.ladder.foes && u && TA && TA.matters(s, u, ["boss", "trial"]) ? { mattered: true } : {}) }); }
       writeLog(s, { kind: "tandem", actor: src.id, target: tgt.id, lend: src.tandemTiles.length, text: `${tgt.name} lends ${src.name} a tile: ${src.tandemTiles.length} of ${ls.max}, +${lentPotency(src)} potency on its later hits.`,
         why: ["Made of what it strikes: each different foe it wounds lends it a tile."] }, log);
     }
@@ -155,7 +190,7 @@
     if (u && t.leash <= 2) {
       const echo = Math.min(rf.max, Math.floor(lost * rf.share));
       if (echo > 0) {
-        const before = u.lf; u.lf = Math.max(0, u.lf - echo);
+        const before = u.lf; u.lf = Math.max((typeof module === "object" && module.exports ? (() => { try { return require("../animated-body/animated-body.js"); } catch { return null; } })() : globalThis.ConceptCombatAnimatedBody)?.bleedFloor?.(s, u) || 0, u.lf - echo);   // Animated Body: an echo never finishes a cartoon
         writeLog(s, { kind: "tandem", actor: tgt.id, target: u.id, echo: before - u.lf, text: `The blow echoes back to ${u.name}: ${before - u.lf} LF (${u.lf}/${u.maxLF}).`,
           why: [`A close tandem shares its wounds: half of what it loses, rounded down, at most ${rf.max} a hit. An echo never echoes.`] }, log);
         if (u.lf <= 0 && finish) finish(u, src);
@@ -284,8 +319,10 @@
     const leash = now && now.leash != null ? now.leash : t.leash;
     const progHtml = now && now.program ? `<p class="cc-tandem-prog" data-program="${esc(now.program.id)}">Program: <b>${esc(now.program.name)}</b> — ${esc(now.program.text)}</p>` : "";
     const formHtml = Array.isArray(t.forms) ? `<p class="cc-tandem-form" data-form="${t.currentForm || 1}">Form ${t.currentForm || 1} of ${t.forms.length}${t.moltCondition ? ` · ${MOLT_WORDS[t.moltCondition]}` : " · its final form"}</p>` : "";
-    return `<div class="cc-tandem" data-tandem>${formHtml}<div class="cc-tandem-hex">${cells}</div><p class="cc-tandem-leash">Leash ${leash} tile${leash === 1 ? "" : "s"}${leash !== t.leash ? " (stretched)" : ""} · ${esc(t.rule)}</p><p class="cc-tandem-price">Price: ${esc(t.price)}</p>${progHtml}${now && now.pay ? `<p class="cc-tandem-pay" data-can-pay="${now.ok ? "yes" : "no"}">${esc(now.pay)}</p>` : ""}</div>`;
+    return `<div class="cc-tandem" data-tandem>${formHtml}<div class="cc-tandem-hex">${cells}</div>${t.answer ? `<p class="cc-tandem-answer" data-answer>${esc(answerLine(t.answer))}</p>` : ""}${t.rung ? `<p class="cc-tandem-rung" data-rung="${esc(t.rung)}">Rung: ${esc(t.rung)}${rungWords(t) ? ` · ${esc(rungWords(t))}` : ""}</p>` : ""}<p class="cc-tandem-leash">Leash ${leash} tile${leash === 1 ? "" : "s"}${leash !== t.leash ? " (stretched)" : ""} · ${esc(t.rule)}</p><p class="cc-tandem-price">Price: ${esc(t.price)}</p>${progHtml}${now && now.pay ? `<p class="cc-tandem-pay" data-can-pay="${now.ok ? "yes" : "no"}">${esc(now.pay)}</p>` : ""}</div>`;
   }
+  // Tandem T5b: the card names when its Answer comes and the two needs it answers (summons/tandem-answer.js cardLine).
+  const answerLine = (block) => { const TA = typeof module === "object" && module.exports ? require("./tandem-answer.js") : globalThis.ConceptCombatTandemAnswer; return TA ? TA.cardLine(block) : ""; };
 
   // Declared programs (T3, muse-tandem-spirit-spec sections 4 and 8; R-20261115-03):
   // An automatic/far tandem carries 1–3 declared programs set at call time (defaulting to the first).
@@ -451,5 +488,5 @@
     return cardHtml(t, esc, { pay: no ? `${u.name} cannot pay it now: ${no}` : `${u.name} can pay it now (${u.lf} LF; the stretch takes ${st.lf}).`, ok: !no, leash: leashOf(a), program: prog });
   }
 
-  return { unbound, stretchRefusal, menuItems, cardFor, LETTERS, HEXAGON, of, userOf, reach, outside, stretched, leashOf, shed, lentPotency, afterHit, stretch, observed, moveAllowed, strained, strain, turnStart, aimRefusal, moveRefusal, actionRefusal, responseRefusal, admission, hexagon, cardHtml, programsOf, activeProgramId, activeProgram, rewriteRefusal, rewriteProgram, programScore, moveValue, MOLT_CONDITIONS, applyForm, currentForm, damageReduction, bonusPotency, noteGrowth, molt };
+  return { RUNGS, rungWords, applyRung, foesWounded, unbound, stretchRefusal, menuItems, cardFor, LETTERS, HEXAGON, of, userOf, reach, outside, stretched, leashOf, shed, lentPotency, afterHit, stretch, observed, moveAllowed, strained, strain, turnStart, aimRefusal, moveRefusal, actionRefusal, responseRefusal, admission, hexagon, cardHtml, programsOf, activeProgramId, activeProgram, rewriteRefusal, rewriteProgram, programScore, moveValue, MOLT_CONDITIONS, applyForm, currentForm, damageReduction, bonusPotency, noteGrowth, molt, checkMoltTriggers };
 });

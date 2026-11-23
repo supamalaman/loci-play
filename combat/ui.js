@@ -45,6 +45,7 @@
   const RW = root.ConceptCombatWorkshopRewrite || null;   // W6.2: self-authorship
   const SM = root.ConceptCombatSummons, SQ = root.ConceptCombatSummonQuestions, DS = root.ConceptCombatDreamSpace, AU = root.ConceptCombatAuras;
   const OG = root.ConceptCombatOrgonite;
+  const TP = root.ConceptCombatTapes || null, TPD = root.ConceptCombatTapesDrawer || null;   // Fight Tapes FT1 (tapes.js, tapes-drawer.js)
   const PC = root.ConceptCombatSummonContracts || null;   // summon pacts (summons/contracts.js): the contract book + quizless calls
   const GF = root.ConceptCombatGaiaField;
   const ISO = root.ConceptCombatIsoView || null;   // terrain/iso-view.js: the isometric board, where an arena has a sculpted scene
@@ -227,7 +228,7 @@
     "visitor-grey": "visitor-grey", "visitor-ship": "visitor-ship", "visitor-scientist": "visitor-scientist", "warden-symbiote": "warden-symbiote", "kaiju-form": "kaiju-form", "oni-form": "oni-form", "neo-warden-dragon": "neo-warden-dragon", "neo-warden-cyberpunk": "neo-warden-cyberpunk", "neo-warden-purple-neon": "neo-warden-purple-neon",   // learned forms (2026-10-17): both face left (the default)
     "hooded-cyber-rogue": "hooded-cyber-rogue", "child-of-the-future": "child-of-the-future", "futuristic-armored-ninja": "futuristic-armored-ninja",   // Longtermism (2026-10-22): the rogue faces right; the Child faces right; the ninja reads left (default)
     "martial-artist": "martial-artist", "martial-artist-ascended": "martial-artist-ascended",   // Martial Artist (2026-10-22): base + gold ascended form
-    raven: "raven", mosaic: "mosaic",   // Raven K2: faces right in the sheet (cut-build NOTE); dodge and knockback recoil left; Mosaic (T2a summon / Ordeal)
+    raven: "raven", mosaic: "mosaic", greedigut: "greedigut",   // Raven K2: faces right in the sheet (cut-build NOTE); dodge and knockback recoil left; Mosaic (T2a summon / Ordeal)
     "goethe": "goethe", "goethe-true-form": "goethe-true-form", "goethe-ascended": "goethe-ascended",   // Goethe hot-build (2026-10-27): Young palace summon + True-Form Dream manifestation + Ascended Scholar max form (art only; no engine wiring yet)
     storm_mage: "storm_mage", tree_spirit: "tree_spirit", disheveled_politician: "disheveled_politician", astral_security: "astral_security", mesoamerican_priestess: "mesoamerican_priestess",
     celestial_astral: "celestial_astral", moonflower: "moonflower", archivist_elf: "archivist_elf", bard_elf: "bard_elf", lying_lawyer: "lying_lawyer",   // hot builds wave 4 (2026-10-23)
@@ -254,6 +255,7 @@
   SUMMON_SPRITES.push("mosaic");   // Mosaic (T2a summon / Ordeal): faces right
   SPRITE.archivist="#ddad58";SPRITE["archivist-kaiba"]="#ddad58";
   SPRITE.mosaic = "#7da8c3";
+  SPRITE.greedigut = "#e8e4d8";   // Exile G1: claude-greedigut-cut
   SPRITE["modern-artist"]="#df93d4"; SPRITE["field-botanist"]="#8fbf6a"; SPRITE.kickboxer="#d9a441"; SPRITE.fighting_coach="#c7584a"; SPRITE["fighting-coach"]="#c7584a";
   SPRITE.dream_customer="#c5a8de";
   SPRITE.customer="#d7b07a";
@@ -279,6 +281,7 @@
   SPRITE_POSES["gold-form"] = ["idle", "walk", "cast", "block", "punch", "knocked-out", "knee", "hurt", "infatuated", "aura"];   // knight condition poses
   const invTax = (s, u) => (root.ConceptCombatInjury?.gradeOf(u, "head") || 0) === 1 ? (s.rules.injury?.headWoundedObserveAp ?? 10) : 0;   // Investigate pays the Observe head-wound tax (Mala, 2026-10-31)
   const SPRITE_FACES_RIGHT = Object.fromEntries(Object.keys(SPRITE_DIR).map((sprite) => [sprite, sprite === "warden" || sprite === "agi"]));
+  SPRITE_FACES_RIGHT.greedigut = true;   // Exile G1: claude-greedigut-cut, casts mirrored to face right with the rest (R-20261116-11)
   SPRITE_FACES_RIGHT["auditor-goblin"]=true; SPRITE_FACES_RIGHT.auditor_goblin=true;   // goblin W2 rev 1 (Bulwark IN stage return, item 3): the character key draws the same right-facing sheet
   for (const key of ["treasure-hunter", "treasure_hunter", "golden-relic-hunter"]) SPRITE_FACES_RIGHT[key] = true;   // Treasure Hunter TH1: both sheets face right (eye-checked at the 1.3.568 merge, Gangway IN; tools/check-sprite-facing.mjs VERIFIED)
   for (const key of CARD_FAMILIARS) { SPRITE_FACES_RIGHT[key] = true; SPRITE[key] ||= "#e9a23b"; }   // the sheets draw them facing right (unreviewed: the Cutter's NOTE)
@@ -589,7 +592,7 @@
   // Face portraits for whoever is speaking (sprites/<folder>/face-<expression>.png; docs/conversational-cast.md).
   // faceFile falls back from the asked expression to neutral, then to null: the caller shows the battle sprite instead,
   // never someone else's face.
-  const FACE_ART = { "auditor-goblin":["neutral","happy","angry","sad","surprised"], "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "dream-frankenstein":["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"], "treasure-hunter":["neutral","happy","angry","sad","surprised"], "golden-relic-hunter":["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
+  const FACE_ART = { "auditor-goblin":["neutral","happy","angry","sad","surprised"], "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "dream-frankenstein":["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"], "treasure-hunter":["neutral","happy","angry","sad","surprised"], "golden-relic-hunter":["neutral","happy","angry","sad","surprised"], "sammu-nikitti":["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
   for (const key of ["tofu-yokai", "tofu-archer", "tofu-warden"]) FACE_ART[key] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Tofu trio (claude-bestiary-art-spec B2): the same five portraits a bark shows from heads/
   FACE_ART["brood-mite"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the mite's five portraits were cut as portrait-<x>.png, a name nothing reads; face-<x>.png are the same files (claude-bestiary-art-spec B1-a)
   FACE_ART["feathered-shaman"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Shaman's Feathered look: the cut's portrait-<x>.png land as face-<x>.png (Mala, 2026-11-11)
@@ -856,6 +859,7 @@
         <aside class="cc-side">
           <div class="cc-side-head"><b>Battle log</b><span class="cc-spacer"></span><button type="button" id="ccBestiaryBattle" title="Open monster bestiary">Bestiary</button>
             <button type="button" id="ccCopy" title="Copy the battle log as text">Copy log</button>
+            <button type="button" id="ccTapes" title="Saved fight tapes: every finished battle, newest first">Tapes</button>
             <button type="button" id="ccFx3" title="3D effects (Bastion Collapse). Off uses the 2D painter. Also off when Animation is Fast, and in the isometric view.">3D effects: Off</button>
             <button type="button" id="ccAnimation" title="Full: enlarged attack pop-up. Fast: current map effects only. 3D effects (Bastion Collapse) need Full.">Animation: Full</button>
             <button type="button" id="ccKeysBtn" title="Every battle key on one sheet (?)" aria-haspopup="dialog">? Keys</button>
@@ -2358,9 +2362,11 @@
           <p class="cc-muted">${fb.level > 0 ? `Persuasion +${fb.effects.persuasion.toFixed(2)} · Hiring Hall -${fb.effects.hallPct}%` : `Each level: persuasion +${FM.RULES.persuasionPer.toFixed(2)}, Hiring Hall -${Math.round(FM.RULES.hallPer * 100)}%`}</p>
           ${fb.unlocks.map((u) => `<p class="cc-muted">At ${u.at}: ${esc(u.what)}</p>`).join("")}
           ${BK ? `<p><button type="button" id="ccSheetBusk">Town square</button></p>` : ""}</section>` : "";
+      const rb = FM?.respectBlock ? FM.respectBlock(U.account) : null;   // Respect (FAME.md 12.6, slice R-a): beside Fame, being feared beside being liked
+      const respectHtml = rb ? `<section class="cc-gaia-regard cc-sheet-social" id="ccSheetRespect"><h3>Respect</h3><p>${esc(rb.line)}</p><p class="cc-muted">Every new boss you beat raises it; a rematch does not.</p></section>` : "";
       ov.innerHTML = `<div class="cc-card cc-sheet" role="dialog" aria-label="Character sheet"><header><div><!-- slot: a keeper's face goes here (S6 names who speaks; none until then) --><h2>Character sheet</h2><p class="cc-muted">${esc(main.name)} · Level ${U.account.level} · ${U.account.xp} XP · ${U.account.wins}/${U.account.battles} wins · ${U.account.unlocked.length} summons unlocked${titles.length ? ` · ${titles.map(esc).join(", ")}` : ""}${fb ? ` · <span id="ccSheetChip">Fame ${fb.level} · ${esc(fb.tier)}</span>` : ""}</p></div>
           <button type="button" id="ccSheetBack">Back</button><button type="button" id="ccSheetLedger">Ledger House</button></header>
-        ${fameHtml}${gaiaBlock()}<div id="ccSheetBodyWrap">${imitationBlock()}${bodyBlock()}</div><div id="ccSheetGrowth">${perksBlock()}${victoriesBlock()}${stakesBlock()}</div>${wearingCard()}</div>`;
+        ${fameHtml}${respectHtml}${gaiaBlock()}<div id="ccSheetBodyWrap">${imitationBlock()}${bodyBlock()}</div><div id="ccSheetGrowth">${perksBlock()}${victoriesBlock()}${stakesBlock()}</div>${wearingCard()}</div>`;
       const toAccount = () => { U.sheetReturnMode = null; U.mode = returnMode; showAccount(); };   // the Ledger sees the mode the sheet was opened from, never "sheet": its Close then returns there instead of stranding the player on the sheet
       $("ccSheetBack").onclick = () => { U.sheetReturnMode = null; if (returnMode === "town") return showTown(); if (returnMode === "account") return toAccount(); if (returnMode === "setup") return showSetup(); ov.hidden = true; U.mode = returnMode; render(); };
       $("ccSheetLedger").onclick = toAccount;
@@ -2982,6 +2988,7 @@
       U.s = E.create({ ...U.setupOpts, receiptId: `tourist-${Date.now()}-${seed}`, cognitive: U.account.cognitive, seeds: U.account.seeds, orgonite: { player: U.account.orgonite || 0 }, inspiration: U.setupOpts?.inspiration ?? (U.account.inspiration || 0), victories: U.setupOpts?.victories ?? (U.account.victories || {}), emissaryMemory: U.setupOpts?.emissaryMemory ?? (U.account.emissary || {}), self: U.account.self, mirror: U.account.mirror, unlockedSummons: U.account.unlocked, contracts: U.account.contracts, imitatedTraits: IM ? IM.carried(U.account) : [], gaiaBoons: GB && !U.setupOpts?.focusedDreamTest ? GB.battleOptions(GB.of(U.account).standing) : [], perkMods: A.perkMods(U.account) }); U.actions = []; U.report = null; U.answered = null; U.fxPlayer?.skip(); if (root.FX3) FX3.release(); U.fxFrame = null; U.bubbles = []; U.actionCues = {}; U.facing = {};
       if (!practice && root.ConceptCombatInjury) { const kept = U.setupOpts?.injuries ?? U.account.injuries ?? {}; for (const a of Object.values(U.s.actors)) if (a.side === "player" && kept[a.character]) a.injuries = root.ConceptCombatInjury.begin(a, a, { injuries: kept }); }   // wounds cross battles (practice bodies arrive clean)
       if (!practice && U.s.actors.player) for (const text of Loot?.speakingLines?.(U.account) || []) U.s.log.push({ round: U.s.round, kind: "announce", actor: "player", text });   // Active Jinki (J1): round 1 names each soul that speaks
+      U.tapeCards = TP ? TP.captureEntering(E, U.s) : null; U.tapeRec = { actions: [] }; U.lastTapeId = null;   // Fight Tapes FT1: the entering stat cards, once, after create and the carried wounds
       U.stakeHeld = null; U.stakeSeen = 0; U.pactSeen = 0;   // W1.5+W5.3: no held vessels, no settled wagers at battle start   // pacts: no drained codes either
       if (typeof CombatTitles !== "undefined" && U.s && !U.s.titlesAnnounced) {   // W9.5: titles are worn into battle — announced, with Heat before a crowd (no stats: honor, not armor)
         U.s.titlesAnnounced = true;
@@ -3270,7 +3277,7 @@
         if (r.confirmVow && !a.breakVow && !isAi(a.actor)) { showVowConfirm(r.confirmVow, a, r.error); return false; }
         if (r.kept) { U.s = r.state; draw(); } recordDiagnostic("Engine action rejected",r.error,a.actor,a); flashTip(r.error); return false;
       }   // kept: refused, but the state changed (contempt of court)
-      U.s = r.state; U.mode = modeAfterEngineAction(U.s); U.actions.push(a);
+      U.s = r.state; U.mode = modeAfterEngineAction(U.s); U.actions.push(a); if (TP && U.tapeRec) TP.noteAction(U.tapeRec, fxBefore, a);   // Fight Tapes: the committed action and its round
       if (a.type === "riteComplete" && U.s.actors[a.actor]?.riteAugment?.ultMul > 1 && Ceremony) { const r = Ceremony.rite("tea", {}); if (Tracks) for (const c of r.cues) Tracks.cue(c.slot, c.opts || {}); flashTip(r.beats.join(" ")); }   // Tea T1: the seal beats twice and thumps (respec's eat pattern)
       announceSystemNote(a);   // Observe teaches O3: the first successful observe of a kind notes the system, once per account
       if (U.s.outcome && U.account?.stakeEscrow && !U.account.stakeEscrow.outcome) { U.account = { ...U.account, stakeEscrow: { ...U.account.stakeEscrow, outcome: U.s.outcome.winner || "none" } }; saveAccount(); }   // decided: record it before anything below can throw
@@ -3737,7 +3744,7 @@
           runBuiltinAI(current.actor);
         }, params.fast ? 0 : 650);
       } else {
-        U.mode = d.kind === "mind" ? "mind" : d.kind === "response" ? "response" : (U.mode === "move" || U.mode === "target" ? U.mode : "menu");
+        U.mode = d.kind === "answer" ? "answer" : d.kind === "mind" ? "mind" : d.kind === "response" ? "response" : (U.mode === "move" || U.mode === "target" ? U.mode : "menu");
         render();
       }
     }
@@ -3793,7 +3800,7 @@
       try {
         const recovered = E.apply(U.s, fallback);
         if (recovered.ok) {
-          U.s = recovered.state; U.actions.push(fallback); U.mode = modeAfterEngineAction(U.s);
+          const tapeRound = U.s.round; U.s = recovered.state; U.actions.push(fallback); U.mode = modeAfterEngineAction(U.s); if (TP && U.tapeRec) TP.noteAction(U.tapeRec, { round: tapeRound }, fallback);
           store.set(LAST_KEY, { setup: U.setupOpts, actions: U.actions });
           try { render(); } catch (renderError) { console.error("Battle redraw failed after direct NPC recovery.", renderError); recordDiagnostic("Battle redraw failed after direct NPC recovery.",renderError,actor); }
           return pump();
@@ -5037,6 +5044,7 @@
       root.ConceptCombatStatus.replace(panel, HC.windowHtml(HC.knownCard(U.s, t.id, { viewer: "player", content: C, insight: INS, monsters: root.ConceptCombatEnemyDreams, wild: W?.data?.monsters, parley: PY, stance: E.stance(U.s, "player", t.id), hostileSides: E.hostileSides(U.s, t.id), markTrace: E.markTrace(U.s, "player") }), esc));
       if ((t.sprite || "").startsWith("tsukumogami")) { const face = faceFile(SPRITE_DIR[t.sprite] || t.sprite, "neutral"); if (face) panel.insertAdjacentHTML("afterbegin", `<img class="cc-unit-face" src="${face}" alt="">`); }   // the house looks back
       if (t.id === "player" && !t.soulOf) panel.insertAdjacentHTML("beforeend", gearLine());
+      if (FM?.respectTier && t.passives?.bossRespect > 0) panel.insertAdjacentHTML("beforeend", `<div class="cc-muted cc-gear-line"><b>Respect</b> ${t.passives.bossRespect} (${esc(FM.respectTier(t.passives.bossRespect))})</div>`);   // Respect (FAME.md 12.6): public, like LF
       if (PR) panel.insertAdjacentHTML("beforeend", `<div class="cc-muted cc-gear-line"><b>Beauty</b> ${PR.beautyOf(t)} · <b>Will</b> ${t.willpower ?? 10}/${t.maxWillpower ?? 10}</div>`);
       if (DB && (DB.book(U.s, t.id).owed > 0 || U.s.debtVisits?.[t.id])) { const b = DB.book(U.s, t.id); panel.insertAdjacentHTML("beforeend", `<div class="cc-muted cc-gear-line"><b>Debt</b> ${b.owed}${b.lender ? ` (${(DB.LENDERS.find((l) => l.id === b.lender) || {}).name || b.lender})` : ""}${U.s.debtVisits?.[t.id] ? " · visit due" : ""}${U.s.round <= b.frozenUntil ? " · frozen" : ""}</div>`); }
       { const downs = E.mysteryOwnView(U.s, t.side).filter((c) => c.unitId === t.id);   // Mystery tray: own side sees all, foe sees the side count only
@@ -5479,10 +5487,11 @@
     function renderCommands() {
       const s = U.s, el = $("ccCmd");
       if (s.outcome) {
-        el.innerHTML = `<div class="cc-title">Battle over</div>${s.trial?.over && courtView() ? '<button type="button" class="cc-item" data-court-command>Trial verdict ▸</button>' : ""}${(s.mirror?.resolvable || []).map(trait => `<button type="button" class="cc-item" data-trauma="${esc(trait)}">Work through: ${esc(MIR?.data?.traumas?.[trait]?.becomes?.name || trait)}</button>`).join("")}${rushButtons(s) ?? abductionButtons(s) ?? `<button type="button" class="cc-item" data-cmd="again">Play again</button><button type="button" class="cc-item" data-cmd="exit">← Library</button>`}${abductionButtons(s) ? `<button type="button" class="cc-item" data-cmd="exit">← Library (stay taken)</button>` : ""}`;
-        bindCmd(el); el.querySelector("[data-court-command]")?.addEventListener("click", openCourt); el.querySelectorAll("[data-trauma]").forEach(b => b.onclick = () => act({ type: "resolveTrauma", actor: "player", trait: b.dataset.trauma })); return;
+        el.innerHTML = `<div class="cc-title">Battle over</div>${TP && U.lastTapeId ? '<button type="button" class="cc-item" data-open-tape>Open Tape ▸</button>' : ""}${s.trial?.over && courtView() ? '<button type="button" class="cc-item" data-court-command>Trial verdict ▸</button>' : ""}${(s.mirror?.resolvable || []).map(trait => `<button type="button" class="cc-item" data-trauma="${esc(trait)}">Work through: ${esc(MIR?.data?.traumas?.[trait]?.becomes?.name || trait)}</button>`).join("")}${rushButtons(s) ?? abductionButtons(s) ?? `<button type="button" class="cc-item" data-cmd="again">Play again</button><button type="button" class="cc-item" data-cmd="exit">← Library</button>`}${abductionButtons(s) ? `<button type="button" class="cc-item" data-cmd="exit">← Library (stay taken)</button>` : ""}`;
+        bindCmd(el); el.querySelector("[data-open-tape]")?.addEventListener("click", () => openTapes(U.lastTapeId)); el.querySelector("[data-court-command]")?.addEventListener("click", openCourt); el.querySelectorAll("[data-trauma]").forEach(b => b.onclick = () => act({ type: "resolveTrauma", actor: "player", trait: b.dataset.trauma })); return;
       }
       if (U.mode === "wait") { el.innerHTML = `<div class="cc-title">Opponents act…</div><div class="cc-muted">Watch the log for what each edge did.</div>`; return; }
+      if (U.mode === "answer" && s.answerOffer && globalThis.ConceptCombatTandemAnswerPanel) { const P = globalThis.ConceptCombatTandemAnswerPanel; el.innerHTML = P.html(s, { esc }); P.wire(el, s, act); return; }   // Tandem T5b: the Answer prompt
       if (U.mode === "mind") { el.innerHTML = `<div class="cc-title">Battle of minds</div><div class="cc-muted">Argue in the window. Turn order does not exist here — only reads matter.</div>`; return; }
       if (U.mode === "response") {
         const d = s.actors[E.decider(s).actor], ro = E.responseOptions(s), safe = ro.filter((r) => r.kind === "reposition" && r.safe).length;
@@ -6560,6 +6569,23 @@
       return [head, ...U.s.log.map((e) => `R${e.round} ${e.text}${(e.why || []).map((w) => "\n    " + w).join("")}${e.stack ? `\n    STACK:\n    ${String(e.stack).split("\n").slice(0, 8).join("\n    ")}` : ""}`), ...(keys.length ? ["Key events:", ...keys] : [])].join("\n");
     }
 
+    // ── Fight Tapes FT1 (gemini-fight-tapes-coach-spec; R-20261118-03 D1, D2) ─────────────────────────
+    let tapesDrawer = null;
+    function sealTape() {
+      if (!TP || !U.s?.outcome || !U.tapeCards) return;
+      try {
+        const tape = TP.sealTape({ E, s: U.s, cards: U.tapeCards, actions: U.tapeRec?.actions || [], text: logText(),
+          practice: !!(U.s.focusedDreamTest || U.s.devPlayground || U.practiceBattle || testBattle()), scenario: SCN?.tagOf?.(U.s) ?? null, build: root.ConceptCombatVersion || null });
+        const saved = TP.save(store, TP.addTape(TP.load(store), tape));
+        if (!saved) recordDiagnostic("Fight tape not saved", "storage refused the write", "player", { tape: tape.id });
+        U.lastTapeId = saved ? tape.id : null; U.tapeCards = null;   // Open Tape only for a tape that was kept (fixed at merge, Wherry IN: a refused write left it pointing at nothing)
+      } catch (error) { console.warn("Fight tape failed", error); }
+    }
+    function openTapes(id) {
+      if (!TPD) return flashTip("Fight tapes are unavailable on this page.");
+      tapesDrawer ||= TPD.mount(host.querySelector(".cc"), { tapes: () => TP.load(store), copy: (text) => navigator.clipboard.writeText(text), download: (name, text) => downloadFile(name, text) });
+      tapesDrawer.open(id);
+    }
     // ── post-battle ───────────────────────────────────────────────────────
     function finish() {
       Promise.resolve(opts.llmBridge?.stop?.()).catch(() => {}); U.llmConnection = null;
@@ -6567,6 +6593,7 @@
       if (U.surface) { surfaceUI?.close(); surfaceUI = null; U.surface = false; }   // Forum S2: battle end clears the surface (FORUM.md Lifecycle)
       if (!U.report) {
         U.report = E.report(U.s);
+        sealTape();   // Fight Tapes FT1: one tape per finished battle (finish settles once: this branch)
         // AP-01 sage wiring: the demonstration settles win or lose, practice or not. The ladder persists on the account.
         let sageLines = [];
         if (SG && U.s.outcome) { const st = SG.settleDemo(U.s.actors, U.s.outcome, (U.s.vowsKept || []).map((k) => k.actor));
@@ -6657,7 +6684,7 @@
         if (U.packedVessels && SL && U.s.vessels) { SL.returnPouch(U.account.vessels || (U.account.vessels = { shard: 0, bead: 0, orb: 0 }), U.s.vessels); U.packedVessels = false; }   // vessel economy: unspent pouch vessels go home (packed battles only; thin-air pouches dissolve)
         if (root.ConceptCombatFruit && !testBattle() && !U.practiceBattle) { const hp = U.s.actors[U.s.modeSetup?.hero || "player"], ff = root.ConceptCombatFruit.settleFeats(U.account, { feats: U.s.fruitFeats || [], shapes: U.s.fruitShapes || [], won: U.s.outcome.winner === "player", shaped: !!(hp?.status?.hideShape && hp.status.hideShape.expiresAt > hp.ownerTurns), drained: !!U.s.fruitDrained, struck: !!U.s.fruitStruck }); U.account = ff.account; U.reward.lines.push(...ff.lines); }   // Sinkerfruit respec S1a: feats count in real battles only (off unless FR.RULES.respec)
         if (root.ConceptCombatFruit && !testBattle()) { const fs = root.ConceptCombatFruit.settleFruit(U.account, { hunterDown: !!(U.s.actors.hunter && U.s.actors.hunter.defeated), hunterName: U.s.actors.hunter?.name || "a hunter", lost: U.s.outcome.winner !== "player", submitted: !!U.s.actors.player?.submitted, bossesDown: !U.practiceBattle && U.s.outcome.winner === "player" ? Object.values(U.s.actors).filter((u) => u.boss && u.defeated && u.side !== "player").length : 0, studyNotes: U.s.fruitStudyNotes || null }); U.account = fs.account; U.reward.lines.push(...fs.lines); }   // OP1 §6-8: installments share today's tally (stall first), then the purse, the claim, the raise; Perfect Recall S6c: battle study notes land on the account
-        if (root.ConceptCombatTenancy && U.s.tenancy && !U.s.actors[U.s.tenancy.host]?.tenant?.borrowed && !testBattle() && !U.practiceBattle) { const hp = U.s.actors[U.s.tenancy.host], t = hp?.tenant, ts = root.ConceptCombatTenancy.settle(U.account, { won: U.s.outcome.winner === "player", heldBack: !!t?.heldBack, uses: t?.uses, usesMax: t?.usesMax }); U.account = ts.account; U.reward.lines.push(...ts.lines); }   // Exile tenancy (T0a): +4 a battle housed, +3 restraint
+        if (root.ConceptCombatTenancy && U.s.tenancy && !U.s.actors[U.s.tenancy.host]?.tenant?.borrowed && !testBattle() && !U.practiceBattle) { const hp = U.s.actors[U.s.tenancy.host], t = hp?.tenant, ts = root.ConceptCombatTenancy.settle(U.account, { won: U.s.outcome.winner === "player", heldBack: !!t?.heldBack, uses: t?.uses, usesMax: t?.usesMax, exorcised: !!U.s.tenancy?.exorcised }); U.account = ts.account; U.reward.lines.push(...ts.lines); }   // Exile tenancy (T0a): +4 a battle housed, +3 restraint
         if (MK && !testBattle()) { const mt = MK.tickMarket(U.account, { won: U.s.outcome.winner === "player" }); U.account = mt.account; U.reward.lines.push(...mt.lines); }   // vessel economy: the market-day turns on real battles (parts inflow, floods reset, campaign ticks, orders refresh)
         if (root.ConceptCombatFruit && U.s.actors.rival?.fruit && !testBattle() && !U.practiceBattle) { const rs = root.ConceptCombatFruit.settleRival(U.account, { fruit: U.s.actors.rival.fruit.id, defeated: root.ConceptCombatFruit.rivalBeaten(U.s.actors.rival, U.s.actors), won: U.s.outcome.winner === "player", seed: U.s.seed }); U.account = rs.account; U.reward.lines.push(...rs.lines); }   // Sinkerfruit respec S4b: beat the rival, maybe win its fruit (account/fruit.js)
         if (root.ConceptCombatFruit) { const fd = root.ConceptCombatFruit.afterBattle(U.account, { won: U.s.outcome.winner === "player", test: testBattle(), seed: U.s.seed, abroad: U.s.actors.rival?.fruit?.id || null }); if (fd.dropped) { U.account = fd.account; U.reward.lines.push(fd.line); } }   // Sinkerfruit: a won battle can surface a pooled fruit (account/fruit.js)
@@ -6676,6 +6703,7 @@
         if (!testBattle()) {   // one definition of a test battle (1.3.458 audit)
           const won = A.recordVictories(U.account, A.beatenIn(U.s, C.characters), { mode: U.s.mode, encounter: U.s.encounter, round: U.s.round, seed: U.s.seed });
           U.account = won.account; U.reward.lines.push(...won.lines);
+          if (FM?.respectLines) U.reward.lines.push(...FM.respectLines(U.account, won.fresh));   // Respect (FAME.md 12.6, slice R-a): a first win over a boss
           if (A.noteDeeds) { const dd = A.noteDeeds(U.account, boardRecord, { test: testBattle() }); U.account = dd.account; U.reward.lines.push(...dd.lines); }   // interaction perks S0: deeds, real battles only
           if (Board && boardJob) {
             const bv = Board.verify(boardJob, boardRecord);
@@ -7045,6 +7073,7 @@
     $("ccZoomIn").onclick = () => zoomStep(1);
     $("ccZoomOut").onclick = () => zoomStep(-1);
     $("ccZoomPct").onclick = () => zoomReset();
+    $("ccTapes").onclick = () => openTapes();   // Fight Tapes FT1
     $("ccCopy").onclick = async () => { if (!U.s) return; try { await navigator.clipboard.writeText(logText()); flashTip("Battle log copied."); } catch { flashTip("Couldn't reach the clipboard."); } };
     const ro = new ResizeObserver(() => { if (U.s) { layout(); draw(); } });
     ro.observe(cv.parentElement);
@@ -7053,7 +7082,7 @@
     if (params.autostart) {
       if (params.terrain) U.setupScenario = { ...(U.setupScenario || {}), ccTerrain: params.terrain };   // &terrain=oculusCourt&iso picks the arena and the camera
       showSetup(); startSafely({ loadout: params.loadout || "be", opener: params.opener || "player", encounter: params.encounter || "firstWall", setupOpts: params.setupOpts });
-      if (params.steps) { stopAi(); for (let i = 0; i < +params.steps && !U.s.outcome; i++) { const a = E.aiAction(U.s); const r = E.apply(U.s, a); if (!r.ok) break; U.s = r.state; U.actions.push(a); } U.mode = "menu"; if (U.s.outcome) finish(); else if (E.decider(U.s).actor === "player" && !params.autoplay) pump(); }
+      if (params.steps) { stopAi(); for (let i = 0; i < +params.steps && !U.s.outcome; i++) { const a = E.aiAction(U.s); const before = U.s; const r = E.apply(U.s, a); if (!r.ok) break; U.s = r.state; U.actions.push(a); if (TP && U.tapeRec) TP.noteAction(U.tapeRec, before, a); } U.mode = "menu"; if (U.s.outcome) finish(); else if (E.decider(U.s).actor === "player" && !params.autoplay) pump(); }
       if (params.pick) { const tg = E.targeting(U.s, "player", params.pick); U.mode = "target"; U.menu = "tech"; U.sel = { ability: params.pick, m: tg.m, tg, self: !!tg.selfCast }; U.announce = tg.m.tier === "ultimate"; }
       if (params.hover) U.hover = U.cursor = params.hover.split(",").map(Number);
       render();

@@ -36,6 +36,7 @@
     carapace:{name:"Carapace",category:"biology",difficulty:2,text:"Plates over the body: the first foe hit on her each round loses 3 potency."},
     stoneHide:{name:"Stone Hide",category:"biology",difficulty:2,text:"Hide like packed stone: the first Strike or contact hit a foe lands on her each turn loses 2 potency."},
     hardPlace:{name:"Hard Place",category:"values",difficulty:2,text:"She keeps the ground she made: a turn she ends on a tile she graded this battle, or on her own berm, gives her 1 ΦF, once a round."},
+    groundKeeper:{name:"Ground Keeper",category:"psychology",difficulty:2,text:"She shapes the ground before she fights on it: she grades a tile while she has no thorn soil, then lashes and quakes the foes who stand on ground she made."},
     liturgist:{name:"Liturgist",category:"psychology",difficulty:2,text:"The law first, then the body: she posts a Statute while none of hers stands, and marks as her Vessel whoever stands in it. A believer she marks is a body she may wake in."},
     citesPrecedent:{name:"Cites Precedent",category:"values",text:"Remembers witnessed techniques. When answering a visible attacker who repeats a technique you already saw them use, the reactive technique costs 0 AP. Its ΦF and reaction are still paid. Change techniques or deny sight to defeat the precedent.",open:true},
     discernment:{name:"Discernment",category:"psychology",difficulty:2,text:"Each new hidden fact personally learned through Observe or Investigate gives +5% direct damage against that enemy, up to +25% for this battle. Repeated or shared knowledge adds nothing."},
@@ -61,6 +62,9 @@
     superSpeed:      { name: "Super Speed", text: "Runs on a faster clock: +2 movement, steps cost half AP, and water does not slow them (one who cannot swim can still run across deep water, but not stop on it). Sees a shot at them coming at any range (Guard or dodge it, once a round; the dodge costs no action points, only the reaction, and reaches two tiles farther; not Strikes, fields, areas or direct hits). The first Strike after a sprint of 3 or more tiles hits harder (+1 per 2 tiles walked, up to +6; never added to a Knight's Lance Charge). Acts twice a round, half a turn each. Friction (slowed, staggered, tangled, a hurt leg, grappled) takes the speed away.", open: true, combat: { extra: { moveBudgetAdd: 2 } } },
     superDurability: { name: "Super Durability", text: "Shrugs off what would floor anyone else: all damage ×0.8.", open: true, combat: { extra: { channelDamageMul: { nigredo: 0.8, albedo: 0.8, citrinitas: 0.8, rubedo: 0.8 } } } },
     superHealing:    { name: "Super Healing", text: "Wounds close as you watch: +6 LF at the start of each turn.", open: true, combat: { extra: { healPerTurn: 6 } } },
+    // Šammu nikitti SN1a (R-20261122-38/-39): portable biology, the rule in mythic-plants/sammu.js, numbers in content.js rules.juvenescentSap.
+    // Not sold in the Lab yet: its graft waits on the discovery gate (SN1d; spec Lab record Strong 520, removal 1040).
+    juvenescentSap:  { name: "Juvenescent Sap", category: "biology", text: "Their healing renews: a heal that restores LF adds half as much again (at most +8 LF) and mends the worst injury one grade, on up to three different living people a battle (the healer included), each once.", open: true },
     weakToNigredo:   { name: "Critical weakness: impact", text: "Blunt force goes straight through the power: Nigredo ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { nigredo: 1.75 } } } },
     weakToAlbedo:    { name: "Critical weakness: piercing", text: "Fine, selective force finds the gap: Albedo ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { albedo: 1.75 } } } },
     weakToCitrinitas:{ name: "Critical weakness: propagation", text: "What spreads, gets in: Citrinitas ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { citrinitas: 1.75 } } } },
@@ -168,6 +172,9 @@
     // Biology (Mala, 2026-10-10): innate, never imitable. Who carries it: classes-data.js `magic` (kept in step by
     // tests/performers.test.mjs). It decides how a Bard's charm and a Musician's song take (kits-data.js soothe tables).
     touchedByMagic: { name: "Touched by Magic", category: "biology", text: "Made of magic, or shaped by it early. Charms meet practiced resistance in a person like this; a creature like this is drawn to them.", difficulty: 2 },
+    // Animated Body (codex-animated-body-trait-spec rev 2, AB1a; Mala 2026-11-13 R-20261113-01, made scary 2026-11-22 R-20261122-44). Rules: animated-body/animated-body.js.
+    // Lab record: reference Game-altering 1400, never grafted (what you are, like immortal; surgery.js). No carrier yet: the AB1b DEV toggle is the first.
+    animatedBody: { name: "Animated Body", category: "biology", text: "A cartoon. Ordinary blows do a quarter, and a blow that should kill only flattens it: it sits out its next turn and is back at 1 LF (a blow before it has acted again leaves it at 1 LF without a second lost turn). Orgonite (a worn charm, a Posterity crew's drill, a tower's field) or a blow struck from inside an open dream lands in full and can finish it. Once a battle, Recover also straightens one injury grade, even at full ΦF.", open: true },
     immortal:      { name: "Immortal", text: "Doesn't die the way others do. Old things that look down on mortals will speak to them.", difficulty: 4 },
     // speech (Mala, 2026-10-12): Persuasive lifts every talk-based chance by chanceAdd: Talk and coming to terms (parley.js),
     // Befriend and Frighten (insight.js resolveAction), Make the Case (class-runtime.js ROBOT). Keep the three numbers equal
@@ -360,14 +367,14 @@
   });
   const traitCategories = {
     biology: ["packStrong", "swimmer", "gills", "superStrength", "superSpeed", "superDurability", "superHealing", "weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone",
-      "dreamFragile", "supernaturalWeakness", "immortal", "catNap", "touchedByMagic",
+      "dreamFragile", "supernaturalWeakness", "immortal", "animatedBody", "catNap", "touchedByMagic",
       "survivalInstincts", "keenSenses", "twentyTwentyVision", "thinVeil", "nightSighted", "hardy", "fleetFooted", "cavalry", "heavyArmor", "plantKin", "ironStomach", "frail", "resonantVoice", "dreamTouched", "reach", "strongGrip",
       "telepathy", "telekinetic", "denseMuscle", "vegetativePropagation", "highTolerance", "robot", "ceaselessAdaptation", "insaneReflexes", "cybernetic", "distributedIntelligence", "stickyFingers", "visage", "godlyAgility", "theLook", "perfectConcentration", "adhd", "fireblooded", "territorial", "quenchable", "spiritSight", "ruleOfTheThreshold", "purified", "exoskeleton", "broodmind", "molting", "faceless", "unbearable", "hollow", "rootbound", "greenblood", "woundedLand", "takeoff", "overheat", "platform", "goldenParachute", "burnRate"   /* form traits (learned forms, 2026-10-17; formOnly) */, "aerodynamic", "lightFrame", "ascended",
       /* anime theorycraft batch, 2026-10-26 */ "ironJaw", "poisonAffinity", "crushingHands", "typedSoul", "gyoEyes", "heavyBones", "copyEye", "oneBlindSpot", "treeWalker", "vesselBody", "soulLayers", "looseFit", "vatGrown", "shockEater", "pluggedEye", "oldBlood", "deepWells", "redSliver", "automailLimb", "softSoles", "filterLungs", "openVessel", "atlasBones",
       /* feats batch, 2026-10-27 */ "packMule", "fourArms",
       /* prehensile tail PT1, 2026-11-12 */ "prehensileTail", /* Florence F2, 2026-11-15 */ "steadyHands",
       /* tsukumogami structures, 2026-10-29 */ "heavy", "rigid", "brittle", "light",
-      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory", /* the maid's Vocational form, 2026-11-15: a boss form */ "vocational", /* Chitinous Archbishop F3, 2026-11-16 */ "carapace", /* Shardback F5a, 2026-11-21 */ "stoneHide"],
+      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory", /* the maid's Vocational form, 2026-11-15: a boss form */ "vocational", /* Chitinous Archbishop F3, 2026-11-16 */ "carapace", /* Shardback F5a, 2026-11-21 */ "stoneHide", /* Šammu nikitti SN1a, 2026-11-22 */ "juvenescentSap"],
     psychology: ["discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
       "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "comparative", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
@@ -376,7 +383,7 @@
       /* the Paladin, 2026-10-31 (PALADIN.md) */ "consecrated", "faithful", "compassionate",
       /* the respec fruit, 2026-11-01 */ "fruitbound",
       /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer", /* the Treasure Hunter, TH1 */ "goldFever", /* Florence F2, 2026-11-15 */ "clinician",
-      /* Chitinous Archbishop F3, 2026-11-16 */ "liturgist", /* the Raven Messenger, K3 (re-cut of R2) */ "messenger", /* the Magistrate's bench, court M2a (1.3.572) */ "bench"],
+      /* Chitinous Archbishop F3, 2026-11-16 */ "liturgist", /* Shardback F5b, R-20261122-10 */ "groundKeeper", /* the Raven Messenger, K3 (re-cut of R2) */ "messenger", /* the Magistrate's bench, court M2a (1.3.572) */ "bench"],
     values: ["citesPrecedent", "hardPlace", "believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
       "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective",
       /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand", /* the Treasure Hunter, TH1 */ "findersKeepers", /* Florence F2, 2026-11-15 */ "doNoHarm"],
@@ -422,6 +429,7 @@
     byTheBook: { counters: ["fool", "impatient"], synergies: ["dutiful", "honest"] },
     homestead: { counters: ["restless", "impatient"], synergies: ["loyal", "stubborn", "traditionalist", "dutiful"] },
     markedGround: { counters: ["impatient", "restless"], synergies: ["dutiful", "stubborn", "proud"] },
+    groundKeeper: { counters: ["restless"], synergies: ["stubborn"] },   // Shardback F5b: she keeps to ground she made, as Hard Place does
     hardPlace: { counters: ["impatient", "restless"], synergies: ["stubborn", "proud"] },   // 1.3.573 merge (Deadwood IN): Shardback F5a's values trait keeps the ground she made, as markedGround keeps a claim (traits.test)
     awardWinningDirector: { counters: ["fool"], synergies: ["proud", "competitive", "ambitious"] },
     humanExperience: { counters: ["fool"], synergies: ["empathic", "talkative", "persuasive"] },
@@ -567,6 +575,10 @@
       {kind:"weakness",channel:"rubedo",text:"Crack the carapace: rubedo is her weak channel.",difficulty:2},
       {kind:"realization",text:"Change delivery: her Statute only taxes what she named, and the Choir only sings back what you threw. Kill the believer she marked before you kill her, or she wakes in them while the mark holds.",difficulty:2},
       {kind:"state",id:"choir",text:"A stored Choir: one caught delivery waiting to be written into her next Statute.",difficulty:2}]},
+    shardback:{traits:["stoneHide","groundKeeper","hardPlace"],obs:[
+      {kind:"tell",text:"The ground remembers her claws. While she holds Thorn, a tile she graded this battle is thorn soil: her Brier Ring bites harder there, Earth Upheaval hits a foe on it for half again, and a shot fired from it meets her Ward Field whole.",difficulty:1},
+      {kind:"weakness",channel:"citrinitas",text:"Dry the soil: citrinitas is her weak channel.",difficulty:2},
+      {kind:"realization",text:"Fight her off the ground she graded and the berms she raised. Off her graded ground her thorns lose their extra bite and her upheaval and her ward are only ordinary; off both, she gains no ΦF from where she stands.",difficulty:2}]},
     chitin_bishop:{traits:["theLook","entrainer","gentleHand"],obs:[
       {kind:"tell",text:"The dome never looks away: she Fixes one foe and the lure pulls only that one. A ranged hit on her (or an unwarded ally within 2) is the Purple Litany: whole against the Fixed foe; with no mark, half. While she holds a mark, only that foe's shot is answered.",difficulty:1},
       {kind:"weakness",channel:"albedo",text:"Name the glamour: albedo is her weak channel.",difficulty:2},
@@ -1016,6 +1028,12 @@
       { kind: "weakness", channel: "albedo", text: "Stand next to it: no firewall stops a fist.", difficulty: 1 },
       { kind: "realization", text: "The checksum eats one condition a round: bring two, or bring damage.", difficulty: 2 } ] },
 
+    // Šammu nikitti communed (SN1a, R-20261122-38/-39): her own deck replaces the generic summon one (true-forms.js communeAlly reads
+    // the species identity's insight key). Lines say only what SN1a makes true; the bloom's tell and counter arrive with SN1-bloom.
+    "commune:sammuNikitti": { traits: ["empathic", "loyal", "juvenescentSap"], obs: [
+      { kind: "tell", text: "She wards the hurt and heals them past their wounds.", difficulty: 1 },
+      { kind: "weakness", channel: "nigredo", text: "Her patches can be disturbed: one falls back to its first stage before it can heal anyone (a nurse log on wood shrugs off the first).", difficulty: 2 },
+      { kind: "realization", text: "Her sap renews each ally only once a battle: outlast three renewals, or cut her off from the hurt.", difficulty: 2 } ] },
     // summons (friends can be observed too)
     "summon:*": { traits: ["inSync"], obs: [] },
   };

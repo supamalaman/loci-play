@@ -33,7 +33,8 @@
     cornerAdvice: { name: "Corner advice", help: "Someone talks you through it: Strikes hit harder through your next turn." }, exposed: { name: "Exposed", help: "Exposed: incoming damage ×1.25 until your next turn." },
     immovable: { name: "Immovable", help: "Set: forced movement cancelled, Nigredo · impact −20%. Slows you after." }, anchor: { name: "Anchored", help: "Anchored: the next forced displacement is cancelled. Damage is not reduced." }, constrained: { name: "Held" }, prone: { name: "Prone" },
     tauntProtection: { name: "Braced against a taunt", help: "Braced against the taunt's source: their damage reduced." }, afraid: { name: "Afraid" }, standDown: { name: "Standing down" },
-    truce: { name: "Truce" }, trapped: { name: "Trapped", help: "No way off the set but through: the only exits are CUT, ruin, or the twelfth take." },
+    truce: { name: "Truce" }, hospitalityRejected: { name: "Hospitality rejected", help: "A guest refused the meal. For two rounds his stations sharpen nothing, his free preparation is off and he cannot set a table." },
+    trapped: { name: "Trapped", help: "No way off the set but through: the only exits are CUT, ruin, or the twelfth take." },
     malnote: { name: "Blessing of Malnote", help: "+1 move, ×0.85 damage taken." },
     ambush: { name: "Ambush set", help: "Anyone ending a move closer before your next turn is hit." },
     stillStance: { name: "Still Stance", help: "Held Breath: each turn you end without moving banks 1 Stillness (Deep Rest: from the second still turn); Strikes +1. A shove or a spread breaks it." },   // Ma (five concepts M1)

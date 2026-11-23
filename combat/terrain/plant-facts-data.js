@@ -1522,6 +1522,44 @@
       "source": "Wiki Bromeliaceae",
       "confidence": "likely"
      }
+    ],
+    "sammuNikitti": [
+     {
+      "id": "sammuNikitti-01",
+      "text": "Utnapishtim told it as a secret: a plant like a boxthorn, whose thorns prick your hand like a rose. That is the oldest picture of me anyone wrote down.",
+      "source": "Gilgamesh Tablet XI, tr. Maureen Gallery Kovacs, hosted by San José State University; read: https://www.sjsu.edu/people/cynthia.rostankowski/courses/HUM177AF17/Lecture%2001%20Epic%20of%20Gilgamesh%20-%20Tablet%20XI.pdf",
+      "confidence": "verified"
+     },
+     {
+      "id": "sammuNikitti-02",
+      "text": "To reach me, Gilgamesh tied heavy stones to his feet and let them drag him down to the Apsu, the deep water. He took me though I pricked his hand.",
+      "source": "Gilgamesh Tablet XI, tr. Maureen Gallery Kovacs, hosted by San José State University; read: https://www.sjsu.edu/people/cynthia.rostankowski/courses/HUM177AF17/Lecture%2001%20Epic%20of%20Gilgamesh%20-%20Tablet%20XI.pdf",
+      "confidence": "verified"
+     },
+     {
+      "id": "sammuNikitti-03",
+      "text": "He named me \"The Old Man Becomes a Young Man\". He meant to test me on an old man in Uruk first, and then eat me himself.",
+      "source": "Gilgamesh Tablet XI, tr. Maureen Gallery Kovacs, hosted by San José State University; read: https://www.sjsu.edu/people/cynthia.rostankowski/courses/HUM177AF17/Lecture%2001%20Epic%20of%20Gilgamesh%20-%20Tablet%20XI.pdf",
+      "confidence": "verified"
+     },
+     {
+      "id": "sammuNikitti-04",
+      "text": "While he bathed in a cool spring, a snake smelled my fragrance, came up silently and carried me off. As it went, it shed its skin.",
+      "source": "Gilgamesh Tablet XI, tr. Maureen Gallery Kovacs, hosted by San José State University; read: https://www.sjsu.edu/people/cynthia.rostankowski/courses/HUM177AF17/Lecture%2001%20Epic%20of%20Gilgamesh%20-%20Tablet%20XI.pdf",
+      "confidence": "verified"
+     },
+     {
+      "id": "sammuNikitti-05",
+      "text": "I renew the living. The epic never says I raise the dead, and nobody knows what real plant, if any, the poet meant. You are talking to the myth.",
+      "source": "Gilgamesh Tablet XI, tr. Maureen Gallery Kovacs, hosted by San José State University; read: https://www.sjsu.edu/people/cynthia.rostankowski/courses/HUM177AF17/Lecture%2001%20Epic%20of%20Gilgamesh%20-%20Tablet%20XI.pdf",
+      "confidence": "verified"
+     },
+     {
+      "id": "sammuNikitti-06",
+      "text": "Gilgamesh sat down and wept. All his labour, he said, had only done a good deed for the lion of the ground: the snake.",
+      "source": "Gilgamesh Tablet XI, tr. Maureen Gallery Kovacs, hosted by San José State University; read: https://www.sjsu.edu/people/cynthia.rostankowski/courses/HUM177AF17/Lecture%2001%20Epic%20of%20Gilgamesh%20-%20Tablet%20XI.pdf",
+      "confidence": "verified"
+     }
     ]
    },
    "forms": {

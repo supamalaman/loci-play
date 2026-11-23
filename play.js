@@ -19,6 +19,7 @@
     ["monkey_king", "Trickster", "Trickster with a staff.", "astral"],
     ["medusa", "Gorgon", "A gaze that holds you still.", "night"],
     ["warden", "Defender", "Walls that bend and hold.", "day"],
+    ["cyph", "Lyricist", "Bars that land, and a careful hand at the counter.", "night"],   // the 13th seat; nobody leaves (Mala, 2026-11-22, R-20261122-64)
   ];
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

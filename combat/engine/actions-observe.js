@@ -15,7 +15,39 @@
       isMonster, line, log, recordMirrorEvent, spendTempo, standFootprint, summonRules, target } = H;
     const { Cooking, Spirit, aiAction, deepLook, demonstratedTraits, moduleArena, observeTail, observedFx, report, score, scoutNoted, seededChance,
       talkCost, talkedTooFast } = K;
+    // Rigs RG1 (claude-rigs-spec 2.2): the one intent forecast. Observe's Ask and a rig's Forecast both call it, so the two cannot
+    // drift: the target takes its turn on a clone of the board with full AP, and its AI's first choice is the intent (or none).
+    function forecastIntent(s, target) {
+      target.intentRevealed = true;
+      const forecast = clone(s), turn = forecast.order.indexOf(target.id);
+      let intent = null;
+      if (turn >= 0 && target.ai !== "none") {
+        forecast.turnIndex = turn; forecast.phase = "action"; forecast.pending = null;
+        forecast.actors[target.id].tempo = Math.max(forecast.actors[target.id].tempo || 0, s.rules.actionPointsPerTurn);
+        intent = aiAction(forecast);
+      }
+      const aim = (x) => Array.isArray(x) ? ` toward (${x.join(",")})` : typeof x === "string" ? ` at ${s.actors[x]?.name || x}` : "";   // a tile, or a unit's id (an Observe or a Talk names its target by id; .join threw on it)
+      target.revealedIntent = intent ? `${intent.type}${intent.ability ? `: ${ab(intent.ability).name}` : ""}${intent.target ? aim(intent.target) : Array.isArray(intent.to) ? ` to (${intent.to.join(",")})` : ""}` : "No hostile action is forecast from the current board";
+      return target.revealedIntent;
+    }
+    // A rig's compute (its gear passive, computeAdd) is the battle's Forecasts; a Hardware holder gets one more, with a rig only.
+    const holdsHardware = (a) => a.primary === "hardware" || a.secondary === "hardware";
+    const forecastLimit = (a) => { const c = a.passives?.computeAdd || 0; return c > 0 ? c + (holdsHardware(a) ? 1 : 0) : 0; };
     const family = {
+      forecast(s, a, act) {   // Rigs RG1: spend 10 AP and one compute to read a visible foe's next move from the current board
+        const R = s.rules.forecast, t = s.actors[act.target], lim = forecastLimit(a);
+        if (!R) return "Forecast is not in these rules.";
+        if (lim <= 0) return "Forecast needs a rig in your tool slot.";
+        if ((a.forecastsUsed || 0) >= lim) return "No Forecasts left this battle.";
+        if (!t || t.defeated || t.notArrived || t.side === a.side || t.side === "bystander") return "Forecast reads a standing foe.";
+        if (!hasSight(s, a.x, a.y, t.x, t.y)) return "Forecast needs a foe you can see.";
+        if (a.tempo < R.ap) return `Forecast needs ${R.ap} action points.`;
+        { const spend = spendTempo(s, a, R.ap, "Forecast"); if (spend) return spend; }
+        a.forecastsUsed = (a.forecastsUsed || 0) + 1;
+        const intent = forecastIntent(s, t);
+        log(s, { kind: "forecast", actor: a.id, target: t.id, text: /^No hostile action/.test(intent) ? `Forecast: ${intent}.` : `Forecast: ${intent}, from the current board.`,
+          why: [`${a.name}'s rig runs ${t.name}'s own AI on a copy of this board (${a.forecastsUsed} of ${lim} this battle). Move or change the board and its choice may change.`] });
+      },
       journalFinding(s,a,act) {
         const option=H.Observation.findingNoteOptions(s,a).find(f=>f.id===act.fact);
         if(!option)return "Choose a current finding you know and have not recorded this battle.";
@@ -425,17 +457,7 @@
           if (effect.kind === "readTell") { const dr = (s.dreamRecent ||= {}); dr.tells = (dr.tells || 0) + 1; }   // ambient dreams notice read tells
           else if (effect.kind === "omen") { target.omen = { multiplier: effect.potencyMul || 0.9, expiresAfterOwnerTurn: target.ownerTurns + (effect.duration || 1) }; target.omenApLoss = effect.apLoss || 0.5; }
           else if (effect.kind === "noDeception" || effect.kind === "pointOutContradiction") { target.reaction = 0; target.noDeceptionUntil = s.round + (effect.noDeception || 1); }
-          else if (effect.kind === "revealIntent" || effect.kind === "ask") {
-            target.intentRevealed = true;
-            const forecast = clone(s), turn = forecast.order.indexOf(target.id);
-            let intent = null;
-            if (turn >= 0 && target.ai !== "none") {
-              forecast.turnIndex = turn; forecast.phase = "action"; forecast.pending = null;
-              forecast.actors[target.id].tempo = Math.max(forecast.actors[target.id].tempo || 0, s.rules.actionPointsPerTurn);
-              intent = aiAction(forecast);
-            }
-            target.revealedIntent = intent ? `${intent.type}${intent.ability ? `: ${ab(intent.ability).name}` : ""}${intent.target ? ` toward (${intent.target.join(",")})` : intent.to ? ` to (${intent.to.join(",")})` : ""}` : "No hostile action is forecast from the current board";
-          }
+          else if (effect.kind === "revealIntent" || effect.kind === "ask") forecastIntent(s, target);   // Rigs RG1: the shared forecast (Ask and Forecast)
           else if (effect.kind === "nameItChoicesRemove" || effect.kind === "nameHint") s.summonHintCount = (s.summonHintCount || 0) + (effect.nameItChoicesRemove || 1);
           else if (effect.kind === "summonActsNow" || effect.kind === "coordinate") { const ally = Object.values(s.actors).find(v => v.summon?.owner === a.id && !v.defeated); if (ally) { s.order = s.order.filter(id => id !== ally.id); s.order.splice(s.turnIndex + 1, 0, ally.id); } }
         }
@@ -535,6 +557,13 @@
             `${t.name}${t.side === a.side ? " · ally" : ""}${sees ? "" : " · unseen"}`, charge,
             sees ? `Study ${t.name}: ${shown} AP of effort, one insight point for each 10 AP.` : `${t.name} is out of your line of sight, so you cannot observe them.`);
         });
+      } },
+      forecast: { type: "forecast", drawer: "investigate", options(s, a, extra = {}) {   // Rigs RG1 (R-20261122-35): the Investigate drawer acts on any card row, so no ui.js edit
+        const lim = forecastLimit(a); if (lim <= 0 || !s.rules.forecast) return [];
+        const left = Math.max(0, lim - (a.forecastsUsed || 0)), ap = s.rules.forecast.ap;
+        return Object.values(s.actors).filter((t) => !t.defeated && !t.notArrived && t.side !== a.side && t.side !== "bystander" && hasSight(s, a.x, a.y, t.x, t.y))
+          .map((t) => judge(s, { type: "forecast", actor: a.id, target: t.id }, extra, `Forecast · ${t.name} · ${ap} AP · ${left} left`, ap,
+            `Run ${t.name}'s own AI on a copy of this board: it tells you what they mean to do next, from the current board. ${ap} AP and one of your rig's Forecasts; it sits under Investigate, so use it while you still have the AP to open that drawer, before you commit.`));
       } },
       investigate: { type: "investigate", drawer: "investigate", options(s, a, extra = {}) {
         const V = insightRules?.data?.rules?.investigate;

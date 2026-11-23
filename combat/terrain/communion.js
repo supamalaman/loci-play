@@ -7,7 +7,8 @@
 //   canCommune({ obj, familiarity, active, closed, ap, pf, dist }) → { ok, reason, profile }
 //   pickQuestion(type, seed) / scoreAnswer(questionId, choice)
 //   questionFor(obj, battleSeed)          → the plant's one question this battle, with its study note (`clue`)
-//   makeAlly(obj, { owner, side })        → the ally's identity and stats (the engine adds its turn fields)
+//   makeAlly(obj, { owner, side })        → the ally's identity and stats (the engine adds its turn fields); a species `identity` override
+//                                           (communion-data.js) supplies class, sprite, raw traits and insight key
 //   revertObject(ally)                    → the plant object it roots back into
 //   promoteToTreeant(ally, concept)       → the ally risen as a Treeant (sprite, +LF, Bark ward; engine assigns it)
 //   revertTreeant(ally)                   → the Treeant sunk back to its plant form (engine assigns it)
@@ -28,9 +29,10 @@
     const f = D.forms[sp.form]; if (!f) return null;
     const o = D.species[type] || {};
     const difficulty = Math.min(5, (o.difficulty ?? f.difficulty) + (sp.carnivorous ? R.carnivorousDifficultyAdd : 0));
-    return { type, common: sp.common, name: o.name || `${sp.common} (communed)`, form: sp.form, carnivorous: !!sp.carnivorous,
+    return { type, common: sp.common, name: o.name || `${sp.common} (communed)`, form: sp.form, carnivorous: !!sp.carnivorous, ...(sp.origin === "mythic" ? { mythic: true } : {}),
       hp: o.hp ?? f.hp, difficulty, need: difficulty, phi: R.phiBase + R.phiPerDifficulty * difficulty,
-      primary: o.primary || f.primary, secondary: o.secondary || f.secondary, aura: o.aura || f.aura, ...(o.signature ? { signature: o.signature } : {}) };
+      primary: o.primary || f.primary, secondary: o.secondary || f.secondary, aura: o.aura || f.aura, ...(o.signature ? { signature: o.signature } : {}),
+      ...(o.identity ? { identity: { ...o.identity, traits: (o.identity.traits || []).slice() } } : {}) };   // the species-profile override (Šammu nikitti SN1a)
   }
 
   function observe(familiarity = 0, invest = R.observeStep, hiker = false) {
@@ -57,6 +59,7 @@
   function pool(type) {
     const sp = V.species[type] || {};
     const fits = (q) => !q.for || (q.for.species ? q.for.species === type : q.for.form ? q.for.form === sp.form : q.for.carnivorous ? !!sp.carnivorous : true);
+    if (sp.origin === "mythic") return D.questions.filter((q) => q.for?.species === type);   // a plant of myth asks only its own question: no real botany quiz (Šammu nikitti SN1a)
     const all = D.questions.filter(fits), narrow = all.filter((q) => q.for);
     return narrow.length ? narrow.concat(all.filter((q) => !q.for)) : all;
   }
@@ -80,7 +83,9 @@
 
   function makeAlly(obj, { owner = "player", side = "player" } = {}) {
     const p = profile(obj.type);
-    return { id: `commune-${obj.id}`, name: p.name, side, controller: "ai", character: `plant-${obj.type}`, sprite: `commune-${obj.type}`,
+    const id = p.identity;   // the species-profile override (Šammu nikitti SN1a): its class, art and raw traits; ordinary plants have none
+    return { id: `commune-${obj.id}`, name: p.name, side, controller: "ai", character: id?.character || `plant-${obj.type}`, sprite: id?.sprite || `commune-${obj.type}`,
+      ...(id?.traits?.length ? { traits: id.traits.slice() } : {}), ...(id?.insight ? { insightKey: id.insight } : {}),
       primary: p.primary, secondary: p.secondary, maxLF: p.hp, lf: p.hp, x: obj.x, y: obj.y, learned: p.signature ? [p.signature] : [],
       communed: { type: obj.type, owner, aura: p.aura, object: { ...obj, status: { ...(obj.status || {}) } } } };
   }

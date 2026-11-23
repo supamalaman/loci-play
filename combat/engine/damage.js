@@ -15,6 +15,8 @@
       syncPickup, tileAt, tryDeathDoor, vegetation, wildRules, wildSnapshot } = H;
     // Holy (docs/holy.md): the fell are dream creatures, summons, the undead and demons by name (Mala 2026-11-02: Ravana and his Lanka court count, Mandodari too; his summoned horde already does) (a short anchored list, not the belief module's loose mythic regex).
     const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
+    const AB = () => (typeof module === "object" && module.exports ? (() => { try { return require("../animated-body/animated-body.js"); } catch { return null; } })() : globalThis.ConceptCombatAnimatedBody) || null;   // Animated Body AB1a (R-20261122-44)
+    const abDeps = () => ({ hasTrait: H.hasTrait, orgonite: OG(), dreamSpace: dreamSpaceRules });
     const FELL = /\b(vampire|mummy|skeleton|ghost|zombie|demon|wraith|lich|revenant|wight|ghoul|rakshasa|ravana|kumbhakarna|indrajit|surpanakha|mandodari)s?\b/i;
     const isFell = (t) => !!(t.dream || t.summoned || t.summon || t.ai === "dream" || t.ai === "summon" || FELL.test(`${t.character || ""} ${t.name || ""} ${t.monster || ""}`));
     // defined by parts installed after this one: reached through H when called
@@ -290,7 +292,9 @@
     // (10% per damaging move, once per enemy per turn, reaction eaten outright). A second roll here
     // would double the rate for the Actor (triage 2026-11-04); the Hypnotist gets the Look by holding
     // the trait, and the tests pin the shared trigger, not a new one.
+    const TandemAnswer = () => (typeof module === "object" && module.exports ? require("../summons/tandem-answer.js") : globalThis.ConceptCombatTandemAnswer);   // Tandem T5b: the Answer (summons/tandem-answer.js)
     function hit(s, src, tgt, inst, potency, why, opts = {}) {
+      const sealedHit = s.film?.kind === "banquet";   // the Chef's table is sealed: every landed hit inside is direct, with or without an inst (no guard, established guard, ward or godly agility)
       if (tgt && inst?.answeredBy?.includes(tgt.id)) { log(s, { kind: "negate", actor: src?.id, target: tgt.id, answered: true, text: `${inst.name} meets ${tgt.name}'s answer and is gone.` }); return 0; }   // My Answer Has Changed (window.js castAnswer)
       if (!opts.bleedOut && potency > 0 && ClassRuntime?.purposeSkips?.(s, src, tgt)) { log(s, { kind: "effect", actor: src?.id, target: tgt.id, text: `${src?.name || "An ally"}'s area leaves ${tgt.name} out: they share the purpose.` }); return 0; }
       if(src&&inst&&H.Contracts&&!H.Contracts.allowed(s,src,inst))return 0;
@@ -326,6 +330,7 @@
         }
         return 0;
       }
+      if (potency > 0 && TandemAnswer()?.shielded(s, tgt)) { log(s, { kind: "tandemAnswer", actor: src?.id || null, target: tgt.id, held: true, text: `${tgt.name} is held: the blow takes nothing.`, why: ["The Answer holds them at 1 LF (Tandem T5b)."] }); return 0; }   // Tandem T5b: a user waiting on the Answer, or holding (Hold), takes no damage
       if (src && potency > 0) {
         const frac = soulFrac(src);
         if (frac < 1) { potency *= frac; why = (why || []).concat([`A thinning soul weakens the blow (×${frac.toFixed(2)}).`]); }
@@ -418,7 +423,7 @@
       { const CY = s.rules.cybernetic; if (CY && potency > 0 && H.hasTrait(tgt, CY.trait)) { mult *= CY.damageMul; notes.push(`Cybernetic ×${CY.damageMul}.`); } }
       // Established Guard: the shield already halved this side. One extra ×0.8, then the flag is spent.
       { const guard = tgt.status?.establishedGuard;
-        if (guard?.ready && potency > 0 && shieldCovers(tgt, src)) {
+        if (guard?.ready && potency > 0 && !sealedHit && shieldCovers(tgt, src)) {
           const mul = guard.mul ?? 0.8;
           mult *= mul; notes.push(`Established Guard: the next directional defense ×${mul}.`);
           tgt.status.establishedGuard = null;
@@ -449,9 +454,9 @@
       const autoRules = C.rules.adaptationAutoAttune || { secondHitMultiplier: 0.75, laterHitMultiplier: 0.5, stackingFloor: 0.4 };
       const autoMultiplier = isTakeoffUnit(tgt) ? 1 : hasAdaptation && hitCount >= 3 ? autoRules.laterHitMultiplier : hasAdaptation && hitCount === 2 ? autoRules.secondHitMultiplier : 1;
       let braceMultiplier = 1, physicallyBlocked = false;
-      if (inst?.directHit && tgt.status.guard) notes.push(`Direct hit: ${tgt.name}'s guard cannot answer the unpredictable blow.`);
+      if ((inst?.directHit || sealedHit) && tgt.status.guard) notes.push(`Direct hit: ${tgt.name}'s guard cannot answer the unpredictable blow.`);
       if (inst?.bypassGuard && tgt.status.guard) notes.push(`Stored energy isn't the original hit: ${tgt.name}'s guard can't answer the release.`);
-      if (tgt.status.guard && !inst?.directHit && !inst?.bypassGuard) {
+      if (tgt.status.guard && !inst?.directHit && !sealedHit && !inst?.bypassGuard) {
         const guard = tgt.status.guard;
         if (guard.damageType) {
           if (damageType === guard.damageType && gl?.skipBrace) {
@@ -542,9 +547,10 @@
         mult *= 0.5;
         notes.push("Kou canopy shade halves Diffusion damage at this tile.");
       }
+      if (potency > 0) { const toon = AB()?.cushion(s, src, tgt, abDeps()); if (toon?.note) { mult *= toon.mul; notes.push(toon.note); } }   // Animated Body: ordinary blows ×0.25, orgonite or a dream lands in full
       // Godly Agility (biology): a rolled 25-100% of every attack and technique slides off him — unless it lands direct.
       if (potency > 0 && src && H.hasTrait(tgt, "godlyAgility")) {
-        if (inst?.directHit) notes.push("Direct hit: not even godly agility finds an angle on it.");
+        if (inst?.directHit || sealedHit) notes.push("Direct hit: not even godly agility finds an angle on it.");
         else { s.godlyN = (s.godlyN || 0) + 1;
           const slip = 0.25 + H.seededChance(`${s.seed}:godly:${tgt.id}:${s.godlyN}`) * 0.75;
           mult *= (1 - slip); notes.push(`Godly agility: ${Math.round(slip * 100)}% of the blow never touches him.`); }
@@ -552,11 +558,11 @@
       let dmg = Math.max(flatHolds ? 1 : 0, roundFn(s)(potency * mult) + (potency > 0 ? formFlat : 0)), warded = 0, wardBroke = false, wardHide = false;
       EmergentIdeas?.syncSummonWards(s);
       if (dmg > 0 && src && src.id !== tgt.id && !opts.bleedOut) H.mysteryBeforeHit?.(s, tgt, src);   // Battle Cards C2: a "before" set card (a ward) springs ahead of the ward check below
-      if (inst?.directHit && tgt.status.ward && dmg > 0) notes.push(`Direct hit: the ward cannot catch what it cannot read (${tgt.status.ward.protection} protection untouched).`);
+      if ((inst?.directHit || sealedHit) && tgt.status.ward && dmg > 0) notes.push(`Direct hit: the ward cannot catch what it cannot read (${tgt.status.ward.protection} protection untouched).`);
       if (inst?.piercing && tgt.status.ward && dmg > 0) notes.push(`Piercing: the strike passes through the ward (${tgt.status.ward.protection} protection untouched).`);
       const willThroughHide = !!(inst?.carriesWill && tgt.status.ward?.hide && dmg > 0);   // Mala 2026-11-02: Steel will goes through a borrowed hide (Hidefruit counter)
       if (willThroughHide) notes.push(`Steel will: the blow goes through the borrowed hide (${tgt.status.ward.protection} protection untouched).`);
-      if (tgt.status.ward && dmg > 0 && !inst?.directHit && !inst?.piercing && !willThroughHide) {
+      if (tgt.status.ward && dmg > 0 && !inst?.directHit && !sealedHit && !inst?.piercing && !willThroughHide) {
         const w = tgt.status.ward; const absorbed = Math.min(w.protection, dmg); warded = absorbed; wardHide = !!w.hide; wardBroke = w.protection - absorbed <= 0;
         w.protection -= absorbed; dmg -= absorbed;
         notes.push(`${w.label || "Fortress ward"} absorbs ${absorbed} (${w.protection} left).`);
@@ -607,7 +613,7 @@
           dmg = shareOf.get(tgt.id);
           sharedVictims.forEach((u, i) => {
             const share = shareOf.get(u.id), beforeShare = u.lf;
-            u.lf = Math.max(0, u.lf - share); u.lastDamageType = damageType; concentrationCheck(s, u, beforeShare - u.lf); H.Instinct.painCheck(s, u, beforeShare - u.lf);
+            u.lf = Math.max(AB()?.bleedFloor(s, u, abDeps()) || 0, u.lf - share); u.lastDamageType = damageType; concentrationCheck(s, u, beforeShare - u.lf); H.Instinct.painCheck(s, u, beforeShare - u.lf);
             if (src?.id && src.id !== u.id && beforeShare > u.lf) u.lastHit = { by: src.id, round: s.round };   // C6 retaliation: remember who hurt you
             if (potency > 0 && beforeShare > u.lf) u.ego = Math.min(1, Math.max(0, (u.ego ?? 0.5) - (mult >= 0.99 ? 0.12 : 0.03)));   // C7 ego
             if(beforeShare>u.lf) u.pain={v:Math.min(1,(u.pain?.v||0)*Math.pow(0.5,Math.max(0,s.round-(u.pain?.round||s.round)))+(beforeShare-u.lf)/(u.maxLF||30)),round:s.round};
@@ -619,6 +625,7 @@
         }
       }
       { const red = summonRules?.Tandem?.damageReduction?.(tgt) || 0; if (red > 0 && dmg > 0) { dmg = Math.max(1, dmg - red); notes.push(`Carapace: -${red} damage.`); } }   // Tandem T4: hardened carapace
+      { const toon = AB()?.spare(s, src, tgt, dmg, abDeps()); if (toon && toon.dmg !== dmg) { dmg = toon.dmg; if (toon.note) notes.push(toon.note); } }   // Animated Body: a lethal ordinary blow flattens, never finishes (the last guard before LF moves)
       const before = tgt.lf;
       if (tgt.form?.golden && bossRules) {
         const formHit = bossRules.damageForm(tgt, dmg); Object.assign(tgt, formHit.player); dmg = formHit.absorbed;
@@ -629,7 +636,8 @@
         if (left <= 0 && tgt.passive === "immortal" && !EM.sunlit(tgt.x, tgt.y, monsterCtx(s))) { left = 1; notes.push("Immortal: out of the sun, it cannot be finished."); }
         tgt.lf = Math.max(0, left);
         if (tgt.lf === 0 && tgt.passive === "reassemble") tgt.scattered = tgt.drawback === "brittle" && damageType === "nigredo";   // bones scattered by impact stay down
-      } else tgt.lf = Math.max(0, tgt.lf - dmg);
+      } else if (!H.Greedigut?.absorbs(s, src, tgt, dmg, notes)) tgt.lf = Math.max(0, tgt.lf - dmg);
+      H.Greedigut?.onHostDown?.(s, tgt);
       if (before > tgt.lf && tgt.status?.listening && src && src.side === tgt.status.listening.side) {
         delete tgt.status.listening;
         notes.push(`${tgt.name} stops listening: a blow from that side.`);
@@ -716,7 +724,7 @@
         ? { round: s.round, targetId: tgt.id, targeted: inst?.courtTarget === tgt.id, killed: false }
         : null;
       if (civilianHarm) ((s.cls ||= {}).civilianHarm ||= []).push(civilianHarm);
-      if (tgt.lf <= 0 && !tgt.defeated && !gentleSpare(s, src, tgt) && !doNoHarmSpare(s, src, tgt, before) && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt)) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
+      if (tgt.lf <= 0 && !tgt.defeated && !gentleSpare(s, src, tgt) && !doNoHarmSpare(s, src, tgt, before) && !H.States?.beforeDefeat(s, tgt, classH()) && !H.transmigrate?.(s, tgt) && !TandemAnswer()?.keepUp(s, tgt) && !(!opts.bleedOut && TandemAnswer()?.offer(s, tgt, src, log))) {   // the Tamer wakes in his vessel   // Bonds: The Retinue Rises   // Martial Artist: zenkai survival (Mala, 2026-10-22)
         tgt.defeated = true; delete tgt.status.playingDead; tgt.defeatedBy = src && src.id !== tgt.id ? src.id : null; for (const e of (H.Sealing?.onSealerDown?.(s, tgt) || [])) log(s, { kind: "seal", actor: e.foe, text: e.text });   // the killer, for the corpse (ritual burial; revenge later)   // W2.3: a dead sealer's binds drop
         if (civilianHarm) civilianHarm.killed = true;
         H.pactLeave(s, tgt);   // a pact summon falls: downed, no standing; kill the caller: the call ends
@@ -915,6 +923,7 @@
     // Per-target opposition checks: membrane and parry. Returns { potency, why, stop }.
     function targetInteractions(s, src, tgt, inst, potency) {
       const why = [];
+      if (inst && !inst.directHit && s.film?.kind === "banquet") inst = { ...inst, directHit: true };   // the Chef's table is sealed: no Membrane filters and no parry catches inside (this runs before hit())
       const mem = tgt.status.membrane;
       if (mem) {
         if (inst.directHit) why.push("Direct hit: too unpredictable for Membrane to filter; it holds.");
@@ -1053,6 +1062,7 @@
         const friendlyFire = targets.some(t => t.side === src.side);
         return { targets, why: friendlyFire ? ["This area damages terrain, so every unit in its footprint is vulnerable regardless of side."] : [] };
       })();
+      if (src && s.film?.kind === "banquet") { const B = (typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet); if (B) pack.targets = pack.targets.filter((t) => !B.pairHolds(s, src, t)); }   // the Chef's table: an accepted meal keeps the pair out of each other's areas (spec 5d G2)
       if (!src || !ClassRuntime?.purposeSkips) return pack;
       const kept = [];
       for (const t of pack.targets) {

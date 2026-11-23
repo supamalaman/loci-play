@@ -17,7 +17,8 @@
     "loci:combat:sprite-packages", "loci:combat:neon-warden-offered", "loci:combat:pace", "loci:combat:text-size", "loci:combat:follow",
     "loci:combat:zoom", "loci:combat:dialogue", "loci:combat:narration", "loci:combat:full-animation", "loci:combat:fx3",
     "loci:combat:iso-view", "loci:combat:iso-cutaway", "loci:combat:teach-mode", "loci:combat:hints:v1",
-    "loci:vignettes:phase-one", "loci:hall:v1", "loci:combat:math:graph-theory:v1", "loci:npc:keepers", "loci-mute"];
+    "loci:vignettes:phase-one", "loci:hall:v1", "loci:combat:math:graph-theory:v1", "loci:npc:keepers", "loci-mute",
+    "loci:combat:tapes:v1"];   // Fight Tapes FT1 (R-20261118-03 D1): the tape ring travels with the save; at most 20 tapes and 900 KB, so the 5 MB file holds it
   // Command pins are one key per character (ui.js pinKey): `loci:combat:pins:<character>`. They travel as a
   // prefix rule, not a static entry (triage 2026-11-04: the pins keys were left home).
   const PINS_PREFIX = "loci:combat:pins:";
@@ -31,6 +32,10 @@
   const isStr = (v) => typeof v === "string";
   const isNum = (v) => typeof v === "number" && Number.isFinite(v);
   const oneOf = (...xs) => (v) => xs.includes(v);
+  // Lazy (`=> require(`): tapes.js loads after this file on the pages; the check runs only when a file is imported.
+  const tapesNode = () => require("./tapes.js");
+  const tapes = () => (typeof module === "object" && module.exports ? (() => { try { return tapesNode(); } catch { return null; } })() : globalThis.ConceptCombatTapes) || null;
+  const isTapes = (v) => { const T = tapes(); return T ? T.isTapeList(v) : false; };
   const SHAPES = {
     [ACCOUNT_KEY]: null,   // validated by A.deserialize below, not by a predicate
     "loci:combat:profile": [isObj, "profile"],
@@ -55,6 +60,7 @@
     "loci:combat:math:graph-theory:v1": [(v) => isObj(v) && (v.completed === undefined || isArr(v.completed)), "lab mastery"],
     "loci:npc:keepers": [oneOf("full", "text", "off"), "keeper faces"],
     "loci-mute": [(v) => v === 0 || v === 1 || v === "0" || v === "1", "mute"],
+    "loci:combat:tapes:v1": [isTapes, "fight tapes"],
   };
   // -1/0/1 on dotted versions ("1.3.516" vs "1.3.509"); a missing part reads 0. Unparseable reads 0 (equal):
   // it cannot prove the file is newer, so it allows it; the account-version check below stays the real gate.

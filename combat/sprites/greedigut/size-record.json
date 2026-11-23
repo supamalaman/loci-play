@@ -1,0 +1,217 @@
+{
+ "size_class": "person",
+ "footprint": "1x1 tile",
+ "note": "Greedigut, the exile storyline's antagonist (claude-anime-exile-spec G1, R-20261115-54); ten poses, no portraits on the sheet",
+ "views": {
+  "block": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    10,
+    430,
+    268,
+    884
+   ],
+   "mirrored": false,
+   "pixel_size": [
+    249,
+    353
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    245,
+    349
+   ],
+   "sha256": "6e526c6fb1dc064099dfe8b46e3873cf84a1dd56e730fd43ef0150ba89da1905"
+  },
+  "cast-def": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    875,
+    20,
+    1215,
+    376
+   ],
+   "mirrored": true,
+   "pixel_size": [
+    302,
+    338
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    298,
+    334
+   ],
+   "sha256": "c75f87abf6ff331e6bc7d997937cbff2f098cb40b4c7a0e3991ecf3a642fb1d4"
+  },
+  "cast-off": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    500,
+    20,
+    935,
+    376
+   ],
+   "mirrored": true,
+   "pixel_size": [
+    376,
+    343
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    372,
+    339
+   ],
+   "sha256": "02e2e143e36a0195f890b976e1470c9d94128a57a09d890df276b3bb3c4d35c6"
+  },
+  "dodge": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    268,
+    430,
+    545,
+    884
+   ],
+   "mirrored": false,
+   "pixel_size": [
+    272,
+    284
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    268,
+    280
+   ],
+   "sha256": "225f6eaa0b8b6cd43fb58d06dfe54be83bb2a817aff55dd190e9ac9fe0fc6963"
+  },
+  "idle": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    10,
+    20,
+    290,
+    376
+   ],
+   "mirrored": false,
+   "pixel_size": [
+    212,
+    344
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    208,
+    340
+   ],
+   "sha256": "c727dacc456182443dd7b24e0b58eb2d04b9c788048db2dbce0e7d892b33170e"
+  },
+  "knockback": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    545,
+    430,
+    860,
+    884
+   ],
+   "mirrored": false,
+   "pixel_size": [
+    236,
+    334
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    232,
+    330
+   ],
+   "sha256": "611325b11bfe6a36b157cfcb2cbaee62f2f732428354ed3bb382fdce7dca4dfa"
+  },
+  "knocked-out": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    735,
+    620,
+    1160,
+    884
+   ],
+   "mirrored": false,
+   "pixel_size": [
+    390,
+    182
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    386,
+    178
+   ],
+   "sha256": "fa9ac2a58d4d0e692d72bb415584421be8d2815da9396859468043adb240b6db"
+  },
+  "punch": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    1205,
+    20,
+    1610,
+    376
+   ],
+   "mirrored": false,
+   "pixel_size": [
+    398,
+    331
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    394,
+    327
+   ],
+   "sha256": "796eade82a56c417eaa87d1ff19a3a798d1d11892213f7354fd686941c429bea"
+  },
+  "ultimate": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    1105,
+    430,
+    1610,
+    884
+   ],
+   "mirrored": false,
+   "pixel_size": [
+    487,
+    445
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    483,
+    441
+   ],
+   "sha256": "6d96cad410b2c2fa17086269172c3f813c21dba2282fe4956f88f57e68de7c9a"
+  },
+  "walk": {
+   "source": "Flamboyant Magician Gambler Sprite Sheet.png (source/greedigut-sheet-black.png; the black-ground regen of Greedigut Sprite.png)",
+   "box": [
+    290,
+    20,
+    560,
+    376
+   ],
+   "mirrored": false,
+   "pixel_size": [
+    238,
+    340
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    234,
+    336
+   ],
+   "sha256": "18042317249fed43920739bb519f8e883b61ea1c6bb02121386fd58def67645d"
+  }
+ }
+}

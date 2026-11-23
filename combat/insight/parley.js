@@ -269,6 +269,7 @@
     if (a.persuaded) return `${name(a)} has come to terms; they're out of the fight.`;
     if ((a.traits || []).some((tr) => (typeof tr === "string" ? tr : tr?.id) === "illusory")) return `${name(a)} is an illusion, a lure: it makes no hostile moves.`;   // the golden deer (content.js marichaDeer)
     if (standingDown(s, a)) return `${name(a)} has stood down; no hostile moves until round ${a.standDownUntil + 1}.`;   // Mind duel: losing the argument benches you too
+    { const meal = (typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet)?.pairBlocks(s, a, t); if (meal) return meal; }   // the Chef's table: an accepted meal is a truce between the guest and the host's side (banquet/banquet.js, spec 5d G1/G4)
     if (bonds()?.naturalPair(a, t)) return `${name(a)} won't raise a hand against ${name(t)}: max friendship.`;   // Bonds: natural friends never fight
     if (t.persuaded) return `${name(t)} has come to terms; the fight with them is over.`;
     const hold = s.parley?.holds?.[`${a.id}>${t.id}`];

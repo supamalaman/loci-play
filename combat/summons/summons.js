@@ -49,7 +49,7 @@
     if (!a.unlocked) return { ok: false, reason: a.by === "account" ? `${a.name} isn't in your palace yet: level up to unlock them.` : `Visit ${a.name}'s room in the memory palace first.` };
     const maxActive = battle.maxActive ?? R.maxActive, apCost = battle.apCost ?? R.actionCost, phiCost = battle.phiCost ?? R.phiCost;
     if ((battle.active || []).length >= maxActive) return { ok: false, reason: maxActive === 1 ? "Another summon is already on the field." : `Your ${maxActive} summon slots are already occupied.` };
-    if (R.oncePerEncounter && (battle.used || []).includes(id)) return { ok: false, reason: `${a.name} has already returned to the palace this battle.` };
+    if (R.oncePerEncounter && (battle.used || []).includes(id)) return { ok: false, reason: (battle.pricedCalls || []).includes(id) ? `${a.name} cannot be called this battle: a failed Trial took its call.` : `${a.name} has already returned to the palace this battle.` };   // Tandem T5a: a call price (summons/tandem-trial.js takeCall)
     if ((battle.ap ?? 100) < apCost) return { ok: false, reason: `Summoning needs ${apCost} action points.` };
     if ((battle.pf ?? 30) < phiCost) return { ok: false, reason: `Summoning needs ${phiCost} ΦF.` };
     return { ok: true, duration: a.duration, bond: a.bond };
@@ -84,7 +84,7 @@
     if (tandemBlock && Array.isArray(tandemBlock.forms) && tandemBlock.forms.length)   // Tandem T4: a molting tandem arrives in the form it has reached (the battle's tandemForms, from the account; else Form 1)
       shape = Tandem.applyForm(tandemBlock, Math.min(tandemBlock.forms.length, 3, Math.max(1, Math.floor(form) || 1)));
     return {
-      id: `summon-${id}`, name: shape.name, ...(shape.winged ? { winged: true } : {}), side: "player", controller: "ai", character: id, ...(s.sprite ? { sprite: s.sprite } : {}),   // a summon drawn from another body's art (Gaia)
+      id: `summon-${id}`, name: shape.name, ...(shape.winged ? { winged: true } : {}), side: "player", controller: "ai", character: id, ...(shape.sprite || s.sprite ? { sprite: shape.sprite || s.sprite } : {}),   // a summon drawn from another body's art (Gaia); a molting tandem's form sheet (T5a)
       summon: { key: id, owner, turnsLeft: Math.max(1, R.baseDuration + (bond === 2 ? R.bondBonusDuration : 0) + durationAdd), bond, potencyMul, ...(tandemBlock ? { tandem: tandemBlock } : {}) },   // Tandem T1: the row's tandem block rides on the actor; palace bond is untouched (R-20261114-10)
       attitude: s.attitude, weights: SD.attitudes[s.attitude].weights,
       primary: s.standIn.primary, secondary: s.standIn.secondary,

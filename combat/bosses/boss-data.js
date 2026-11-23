@@ -291,6 +291,21 @@
       },
       orb: "orbOfTheSealed",
     },
+
+    // Exile G1 (claude-anime-exile-spec §4): mechanical guardian of a sub-full tenant. Wild, not on the Boss Rush.
+    // Invulnerable: blows become tempoDebt (engine/greedigut.js). Notice is announced and lands next round. Numbers PROVISIONAL.
+    greedigut: {
+      name: "Greedigut", kind: "greedigut", omega: false, rush: false, size: { w: 1, h: 1 }, lf: 200, concepts: ["threshold", "selectivity"],
+      look: "A white-cell clerk in a pale coat; amused, never offended.",
+      teaches: "A vessel that holds needs no eviction; a bond at Full is home.",
+      abilities: {
+        notice: A({ name: "Notice", delivery: "field", range: 30, potency: 40, channel: "albedo", cost: 0, tempoCost: 30,   // no `announce`: that would make it an ultimate that spends his bar once; engine/greedigut.js announces the mark itself, every time
+         
+          mechanism: "An announced strike at the host, landing at the end of the next round. It cannot take the host from full Life Force to zero in one resolution. An ally on the marked tiles can take it; the host stepping off misses; playing dead is read as a corpse.",
+          counter: "Stand an ally on the mark, move the host off it, or play dead." }),
+      },
+      enragedUnlocks: {},
+    },
   };
 
   // Orbs: one-time transformations into a humanoid version of the boss (Mala). Form lasts 3 of your turns.

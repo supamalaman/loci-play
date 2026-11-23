@@ -29,6 +29,7 @@
   };
   // Biology traits she can graft. Left out: weaknesses (nobody buys those), what you are rather than what you have (robot,
   // immortal, touchedByMagic, dreamTouched, visage, distributedIntelligence), and form-only traits.
+  // animatedBody is left out the same way (a whole cartoon body, not a part; reference Game-altering 1400, R-20261122-44).
   const catalog = {
     survivalInstincts: 1, keenSenses: 1, nightSighted: 1, hardy: 1, ironStomach: 1, highTolerance: 1, resonantVoice: 1, plantKin: 1, twentyTwentyVision: 1, thinVeil: 1,
     fleetFooted: 2, reach: 2, cavalry: 2, vegetativePropagation: 2, stickyFingers: 2, catNap: 2, heavyArmor: 2,

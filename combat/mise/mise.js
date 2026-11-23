@@ -139,7 +139,8 @@
   }
   const rangeOf = (m, H) => m.range ?? H.C.abilities[m.ability]?.range ?? 2;
   // Culinary Training: one free Rack and Label a turn (0 AP, 0 ΦF), not on a tile where a station was redeemed this turn or the round before.
-  const freeLay = (s, a, at) => hasTraining(a) && a.status?.miseFree !== a.ownerTurns && !(at && (s.mise?.recent || {})[key(at[0], at[1])] >= s.round - 1);
+  const tableShut = (s, a) => !!a?.status?.hospitalityRejected && s.round <= a.status.hospitalityRejected.until;   // Hospitality rejected (banquet/banquet.js): no free station, no stocked_line, for two rounds
+  const freeLay = (s, a, at) => hasTraining(a) && !tableShut(s, a) && a.status?.miseFree !== a.ownerTurns && !(at && (s.mise?.recent || {})[key(at[0], at[1])] >= s.round - 1);
   function free(s, a, m, abilityId, target) {
     if (abilityId !== "rackAndLabel" || !freeLay(s, a, target || [a.x, a.y])) return;
     m.tempoCost = 0; m.cost = 0; m.miseFreeLay = true;
@@ -147,7 +148,9 @@
   }
   // stocked_line: +2 Strike potency for each station of the Chef's at full strength (ready or not; an ultimate's locked stations count 0), max +6.
   function strikeBonus(s, a, consume = false) {
-    if (!s.mise || !isChef(a)) return 0;
+    if (!isChef(a) || tableShut(s, a)) return 0;
+    if (s.film?.kind === "banquet") return s.film.stocked?.[a.id] || 0;   // at the table the stations are stashed: the count frozen when the room opened
+    if (!s.mise) return 0;
     const spent = a.status?.miseLine === a.ownerTurns ? 1 : 0;   // the fresh station this very Strike redeemed
     if (consume && spent) delete a.status.miseLine;
     const n = Math.min(3, mine(s, a.id).filter((t) => !t.lock.length && thirdsOf(s, t) >= 3 && valid(s, t)).length + spent);

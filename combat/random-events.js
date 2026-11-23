@@ -18,6 +18,7 @@
     { id: "terrain", weight: 14, label: "The terrain will shift" },
     { id: "dream", weight: 14, label: "A Dream Rift will open and send monsters" },
     { id: "visitors", weight: 6, label: "Something is coming down" },   // P1: ship + two greys, one specimen (visitors/visitors.js; table total now 106, see the archivist pins)
+    { id: "greedigut", weight: 0, label: "Greedigut is coming" },   // Exile G1: weight 0 so no-tenant hashes stay (T14); teaching scenarios force the type
   ];
   // Warfare (Mala, 2026-10-11): "the random events should be scaled up and include aggressive reinforcements". Twice
   // the checkpoints, reinforcements the likeliest event, one more arrival per wave and one more monster per pack; its
@@ -130,6 +131,8 @@
         event.heroes = hash(seed, `heroine:${point.id}`) < 0.35 ? ["superHero", "superHeroine"] : ["superHero"];
       } else if (type === "monsters") {
         event.monsters = 1 + (profile?.monsterAdd || 0) + Math.floor(hash(seed, `monster-count:${point.id}`) * 3);
+      } else if (type === "greedigut") {   // Exile G1: the guardian arrives as a wild event actor; engine/greedigut.js dresses him from his boss row on arrival
+        event.specs = [{ character: "boss-greedigut", displayName: "Greedigut", sprite: "greedigut", side: "wild", role: "greedigut" }];
       } else if (type === "weather") {
         event.weatherRoll = hash(seed, `weather:${point.id}`);
       } else if (type === "terrain") {

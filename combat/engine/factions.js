@@ -63,10 +63,21 @@
       // by everyone; the Love concept will do more with it. Sources: a max-friendship bond +3, authored `attachments`
       // ({ characterId: n } on the character), the same crew +1, each shared trait +1, each trait pair that synergizes +1 or
       // counters -1 (insight traitDynamics), a feud -2, a named rival -2. Clamped to [-5, 5].
+      // Bonds B2a (claude-bonds-spec 1.3, R-20261122-46): the player's bond with a character, by rank (rules.factions.bondValence:
+      // Close +1, Allied +2, Full Bond +3), between the player's unit and that character's own unit, never a copy, summon or clone.
+      // s.bondRanks comes from the account at battle start (spirit/orders.js carryOpts, engine/ledgers.js carryOrder); a test
+      // battle or a practice battle has none and reads 0.
+      bondValence(s, a, b) {
+        const ranks = s?.bondRanks; if (!ranks || !a || !b) return 0;
+        const other = a.id === "player" ? b : b.id === "player" ? a : null;
+        if (!other || other.id === "player" || other.clone || other.mirrorOf || other.soulOf || other.summon) return 0;
+        const rank = ranks[other.character] || 0, table = s.rules?.factions?.bondValence || [];
+        return Number.isFinite(table[rank]) ? table[rank] : 0;
+      },
       valence(s, a, b) {
         if (!a || !b || a.id === b.id) return 0;
         const ids = (u) => [...new Set((u.traits || []).map((x) => x?.id ?? x))], ta = ids(a), tb = ids(b);
-        let v = (Bonds?.maxFriends?.(a, b) ? 3 : 0) + (H.C.characters?.[a.character]?.attachments?.[b.character] || 0);
+        let v = Math.max(Bonds?.maxFriends?.(a, b) ? 3 : 0, Factions.bondValence(s, a, b)) + (H.C.characters?.[a.character]?.attachments?.[b.character] || 0);   // Bonds B2a: the larger of max friendship and the player's bond, never both (spec 1.3)
         if (Factions.crewOf(a) && Factions.crewOf(a) === Factions.crewOf(b)) v += 1;
         v += ta.filter((t) => tb.includes(t)).length;
         for (const t of ta) { const d = H.insightRules?.dynamicsOf?.(t); if (d) for (const u of tb) v += (d.synergies.includes(u) ? 1 : 0) - (d.counters.includes(u) ? 1 : 0); }
@@ -133,6 +144,7 @@
       if (s.mirror) s.mirror.salvagePicked = 0;   // SC17 salvage count starts at zero (slice 4; moved from engine.js at merge, engine cap)
       if (Array.isArray(opts.civilians)) for (const c of opts.civilians) H.Civilian.present(s, c);
       if (Array.isArray(opts.lendSummons) && s.actors.player) s.actors.player.lentSummons = opts.lendSummons.slice();   // Tandem T2b: a teaching scenario lends a summon for this battle (summons.js familiarSet)
+      if (typeof opts.answerTeach === "string" && opts.answerTeach) s.answerTeach = opts.answerTeach;   // Tandem T5b: a teaching scenario lets its lent tandem show the Answer (never written to the account)
       H.summonRules?.Trial?.battleStart(s, opts, H);   // Tandem T2c: a failed Trial's price, the free first call, and the unbound tandem of a Trial battle (summons/tandem-trial.js)
       if (typeof opts.afterCreate === "function") opts.afterCreate(s, { placeCivilian: (spec) => H.Civilian.present(s, spec) });
       if (opts.scenarioBattle === "theOpenDoor") { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.openDoor?.(s, H); }   // SH4 teaching: The Open Door starts with her table full (kept out of engine.js for the size cap)

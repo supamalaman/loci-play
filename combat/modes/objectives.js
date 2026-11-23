@@ -7,7 +7,9 @@
 // THE CLOCK (termination, docs/termination-audit.md): every objective has a deadline of at most 14 rounds (below maxRounds 40). When
 // `snap.round > deadline` the battle ends with `onDeadline` ("win" or "lose"), so a side that never understands the objective still ends the fight.
 //
-//   survive   win at the clock; early when `clear` is set and no enemy-side unit and no rift-spawned dream monster stands; with `hero` set, lose the moment the hero is down
+//   survive   win at the clock; early when `clear` is set and no enemy-side unit and no rift-spawned dream monster stands; with `hero` set, lose the moment the hero is down.
+//             With `molt` ({ tandem, form }, Tandem T5a, the Answer Trial): win the moment the player's summon `molt.tandem` stands in
+//             that form; lose when it falls or leaves the field, when no foe is left before it, or at the clock
 //   hold      win at the clock if a player unit stands in the zone and no enemy does; or at any time when no enemy stands; lose at the clock
 //             when the zone is not held ("pushed off": a loss at the clock, nobody has to be dead; the outcome carries no nonLethal flag)
 //   ward      win when the ward has escaped, or is alive at the clock, or no enemy stands; lose if the ward falls without escaping, or any named civilian falls (slice 5)
@@ -42,6 +44,14 @@
     const deadline = Math.min(MAX_DEADLINE, Number(o.deadline) || MAX_DEADLINE), over = snap.round > deadline;
     if (o.kind === "survive") {
       if (o.hero && !alive(snap.units.find((u) => u.id === (setup.hero || "player")))) return lose("You fell before the count ran out.");   // Tandem T2c, the ordeal: the hero must be the one standing (a summon holding the field is not enough)
+      if (o.molt) {   // Tandem T5a: the Answer Trial
+        const t = snap.units.find((u) => u.summon && u.summon.key === o.molt.tandem && u.side === "player");
+        if (!t || !alive(t)) return snap.round >= 1 || t ? lose("It fell before it could answer.") : null;   // before round 1 it may not stand there yet (the Trial places it at battle start)
+        if (((t.summon.tandem && t.summon.tandem.currentForm) || 1) >= o.molt.form) return win(`It reached Form ${o.molt.form}, and you are both standing.`);
+        if (!enemyStanding(snap) && !riftStanding(snap)) return lose("No foe is left to answer: it never reached its last form.");
+        if (over) return lose(`It had not reached Form ${o.molt.form} by round ${deadline}.`);
+        return null;
+      }
       if (o.clear && !enemyStanding(snap) && !riftStanding(snap)) return win("Nothing is left to wait out.");
       if (over) return o.onDeadline === "lose" ? lose(`Not clear by round ${deadline}.`) : win(`Survived to round ${deadline}.`);
       return null;
@@ -103,6 +113,8 @@
   function text(setup, snap, rules) {
     const o = objectiveOf(rules); if (!o) return "";
     const deadline = Math.min(MAX_DEADLINE, Number(o.deadline) || MAX_DEADLINE), left = Math.max(0, deadline - snap.round + 1);
+    if (o.kind === "survive" && o.molt) { const t = snap.units.find((u) => u.summon && u.summon.key === o.molt.tandem && u.side === "player");   // Tandem T5a
+      return `${rules.scenario.name || "Survive"}: ${left} round${left === 1 ? "" : "s"} left · Form ${(t && t.summon.tandem && t.summon.tandem.currentForm) || 1} of ${o.molt.form}`; }
     if (o.kind === "survive") return `${rules.scenario.name || "Survive"}: ${left} round${left === 1 ? "" : "s"} left${o.clear ? " (or clear the field)" : ""}`;
     if (o.kind === "hold") {
       const mine = snap.units.some((u) => u.side === "player" && alive(u) && inZone(setup.zone, u)), theirs = snap.units.some((u) => u.side === "enemy" && alive(u) && inZone(setup.zone, u));

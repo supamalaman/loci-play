@@ -102,7 +102,8 @@
       function bleedTick(s, a) {
         const n = bleedOf(s, a);
         if (!n || !a || a.defeated) return false;
-        a.lf = Math.max(H.summonRules?.Tandem?.unbound(a) ? 1 : 0, a.lf - n);   // Tandem T2c: a Trial's unbound tandem bleeds but is never finished
+        const toonFloor = (typeof module === "object" && module.exports ? (() => { try { return require("../animated-body/animated-body.js"); } catch { return null; } })() : globalThis.ConceptCombatAnimatedBody)?.bleedFloor?.(s, a, { hasTrait: H.hasTrait }) || 0;   // Animated Body (R-20261122-44): a cartoon bleeds but is not finished, except in an orgonite field
+        a.lf = Math.max(H.summonRules?.Tandem?.unbound(a) ? 1 : toonFloor, a.lf - n);   // Tandem T2c: a Trial's unbound tandem bleeds but is never finished
         H.log(s, { kind: "bleed", actor: a.id, amount: n, tiles: [[a.x, a.y]], text: `${a.name} bleeds from their wounds (−${n} LF).` });
         H.concentrationCheck?.(s, a, n);
         if (a.lf <= 0) {

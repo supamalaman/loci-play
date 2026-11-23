@@ -102,6 +102,7 @@
       }
     }
     { const fl = FAME ? FAME.levelFor(a) : 0; if (fl > 0) out.fameAdd = fl; }   // Fame F1 (FAME.md E1): the level reaches the engine as a passive; parley.js turns it into talk chance
+    { const rl = FAME?.respectLevel ? FAME.respectLevel(a) : 0; if (rl > 0) out.bossRespect = rl; }   // Respect (FAME.md 12.1, slice R-a): the main unit carries the threat level; R-b and R-c read it
     const held = JK?.activeGifts?.(a, Object.values(a.gear.equipped));   // J5 rework: one soul speaks (D55), unless the Choir sings
     if (held) {
       for (const [k, v] of Object.entries(held.inject)) {

@@ -33,6 +33,20 @@
       gains: { time: 4, restraint: 3 },                               // per completed battle housed; a won battle with her way open and not taken
       offer: { chance: 0.3, minBattles: 3, declineRest: 5 },          // door 1 (spec section 8): a flat chance at the start of a random battle; T1 adds the Crews standing
       exiles: { aziza: { name: "the One Who Knows the Ways", response: "hopeful", subfaction: "exiles", power: "waysBetween", uses: 2, rent: { takes: "guard", nth: 1 } } },   // one constant for the card name (cultural review pending, spec section 14)
+      greedigut: {   // Exile G1; numbers PROVISIONAL (debt 8, pool 60, countdown 2–6, Notice 40)
+        debt: 8, pool: 60, notice: 40, countdownMin: 2, countdownMax: 6,
+        ask: "Greedigut serves a removal notice: surrender the tenant, or stand the countdown.",
+        accept: "The notice is accepted. The main tenant is erased from this save.",
+        decline: "The notice is declined. He watches the clock.",
+        clock: "He is watching the clock.",
+        leave: "Greedigut's countdown ends. He leaves.",
+        skip: "He reads a corpse and skips the Notice.",
+        miss: "Notice lands on empty tiles: the host stepped off the mark.",
+        ally: "An ally takes the Notice.",
+        win: "The host is at 0 Life Force while Greedigut is present: the main tenant is exorcised.",
+        fullGate: "The vessel holds: Greedigut does not arrive.",
+        noTenant: "No tenant: Greedigut does not arrive.",
+      },
     },
     maxLF: 100, maxPF: 30, pfRegen: 3,          // LF / ΦF baseline, regen at owner turn start
     moveBudget: 3,                               // terrain movement points per move action
@@ -44,6 +58,7 @@
     maxTempoDebt: 100, maxOverclockPerAction: 100,
     cure: { maxLayers: 3, peelRounds: 3, fearAdd: 0.1 },
     actionCosts: { movePerPoint: 10, jump: 25, climb: 50, strike: 25, strikeMin: 10, strikeMax: 50, guard: 15, ability: { basic: 25, refined: 35, ultimate: 50 }, utility: 20, swap: 35 },
+    forecast: { ap: 10 },   // Rigs RG1 (claude-rigs-spec 2.2): one Forecast costs 10 AP and one compute; the handler and its card read it
     summonRoomStudyAp: 20,   // Observe teaches O2c: studying a summon's palace room; the handler and the action card both read it (action seams A3a)
     catNap: { apPerLF:5, maxHeal:8 },
     survivalInstincts: { woundedBelow: 0.4,   // Survival Instincts (docs/survival-instincts.md): numbers are provisional
@@ -127,7 +142,7 @@
           avenge: ["You took them from me. You don't get to take this too.", "I'll carry their part of this fight. Both halves, if I have to.", "They believed in me. That's twice the reason to stand."],
           protect: ["Everyone behind me is going home. That's the deal.", "If somebody has to take the hit, it's me.", "As long as I'm standing, nobody else falls."] } } },
     advice: { weight: 3, threshold: 2, max: 6 },   // states.js holdBack: per valence point from 2 up, at most 6 (Mala, 2026-10-24: "to a small degree")
-    factions: { villainHate: 2, rivalHate: 2, feuds: [["ayodhya", "lanka"]] },   // villains score hero targets ×2 (muse/factions/SPEC.md); feuds: crew pairs always at war, never on one side (docs/ramayana-faction.md)
+    factions: { villainHate: 2, rivalHate: 2, feuds: [["ayodhya", "lanka"]], bondValence: [0, 0, 0, 1, 2, 3] },   // villains score hero targets ×2 (muse/factions/SPEC.md); feuds: crew pairs always at war, never on one side (docs/ramayana-faction.md); bondValence: a player's bond by rank feeds valence (Bonds B2a, spec 1.3: Close +1, Allied +2, Full Bond +3)
     allyFavor: { chance: 60 },   // The Errand (Jambavan): a main character with allyFavors rolls a starting ally 60% of the time (else 35%), half of them the favored
     ramaWord: { aiValue: 14 },   // Rama's word (docs/rama-build.md): what the AI scores giving it, once a battle
     emergentIdeas: { proficientSummoner: { apMul: 0.5, maxActive: 2, wardProtection: 5 },
@@ -278,6 +293,10 @@
     agiNerve: { flee: 0.05, indifference: true, leaves: 0.5 },
     // reach (Mala, 2026-10-11; first named Long Legs, renamed the same day because she punches from there too): a biology trait, first carried by the Kickboxer. Strike reaches 2 tiles; Grapple still needs contact.
     strike: { potency: 6, range: 1, reach: { trait: "reach", range: 2 }, telekinetic: { trait: "telekinetic", range: 3 }, bow: { characters: ["ranger"], range: 5 } },   // bow: needs sight, and cover on the line reduces it            // no-ΦF fallback
+    // Juvenescent Sap (Šammu nikitti SN1a, R-20261122-38/-39; mythic-plants/sammu.js): a carrier's useful heal adds half the LF it
+    // actually restored (capped at `cap` and the LF still missing) and downgrades the worst injured zone one grade, on at most
+    // `recipients` distinct living recipients a battle, each once.
+    juvenescentSap: { trait: "juvenescentSap", fraction: 0.5, cap: 8, recipients: 3 },
     injury: { overflowShare: 0.25, aimAp: 10, aimMiss: 0.15, armsWoundedMult: 0.8, legsWoundedMove: 1, legsMaimedDodgeTiles: 1, legsMaimedDodgeMult: 2, headWoundedObserveAp: 10, bleedWounded: 1, bleedMaimed: 2, routMaimWeight: 1 },   // body-part injuries, head/arms/legs slice (Mala, 2026-10-27): overflow wounds at 25% maxLF; called Strike aims +10 AP/−15%; rout +5% per maimed zone while routMaimWeight is on
     // Grapple (Mala, 2026-10-11; numbers are Claude's): a Strike-menu hold on an adjacent opponent. A roll, no damage. On
     // success the target cannot move, jump, climb or dodge for the rest of this round and all of the next, and loses apCut AP.
@@ -372,6 +391,11 @@
         takeTheShape: { bonus: 12, when: ["noShape"] } },
         // Entrainer (hotbuilds W1b; the Hypnotist's AI table, HOTBUILDS.md section 2): fix the open foe, image the
         // watched one, gaze a second when two show themselves (W1c: the Crescendo is on the shelf now).
+        // Empathic tending (Šammu nikitti SN1a, R-20261122-38/-39; spec "Trait-keyed candidate logic"): an empathic carrier who holds Pioneer Patch or
+        // Nurse Log plants where a hurt ally (below half LF, within 2 of the tile) can use it, and only while none of hers stands. Carriers today: the
+        // communed Šammu and the Doctor (empathic by profile, Succession), and anyone holding a patch technique who learns Empathic by imitation; the
+        // Archivist is empathic but holds neither technique, so nothing changes for her.
+        empathic: { pioneerPatch: { bonus: 6, when: [["hurtAllyBy", 2], "noOwnPatch"] }, nurseLog: { bonus: 7, when: [["hurtAllyBy", 2], "noOwnPatch"] } },
         attentionToDetail: {statute:{bonus:7,when:["auditNoStatute",["foeNear",4]]},verify:{bonus:8,when:["auditRumour"]}},
         // Liturgist (hot-build cuts F3, the Chitinous Archbishop): post the law first, then mark who stands in it.
         liturgist: { statute: { bonus: 8, when: ["auditNoStatute"] },
@@ -381,6 +405,11 @@
           secondGaze: { bonus: 4, when: [["foesInSight", 2]] },
           allure: { bonus: 8, when: ["fixedFoeRanged"] },
           crownOfPlates: { bonus: 10, when: ["fixedFoeRanged"] } },
+        // Ground Keeper (hot-build cuts F5b, Shardback; R-20261122-10): grade first while she has no thorn soil, then lash and
+        // quake the foes who stand on it (checks in ai.js driveChecks).
+        groundKeeper: { cutSlope: { bonus: 7, when: ["noThornSoil"] },
+          lash: { bonus: 8, when: ["foeOnThornSoil"] },
+          earthUpheaval: { bonus: 10, when: [["foeOnThornSoilNear", 2]] } },
         // Clinician (hot-build cuts F2, Florence): set the field down first, then innovate on it.
         clinician: { diffuseWave: { bonus: 7, when: ["noFieldLive", ["foeNear", 5]] },
           prototype: { bonus: 6, when: ["fieldLive"] },
@@ -1722,8 +1751,26 @@
   abilities.wardField = { name: "Ward Field", tier: "refined", concepts: ["gradingDrainage", "thorn"], pairOnly: true, pairs: [["gradingDrainage", "thorn"]],
     delivery: "self", target: "self", mechanism: "Answer a shot you see coming from 2 or more tiles: a 6-point ward on yourself, and a berm rises on the open tile beside you toward the shooter for one round.",
     cost: 2, tempoCost: 10, range: 0, potency: 0, protection: 6, duration: 1, effect: "barrier", effectCategory: "conditional", reactive: true, answerOnly: true, expiry: "ownerNextTurnStart", wardLabel: "Ward Field",
-    reveal: "Ward Field answers a ranged shot from 2 or more tiles: a 6-point ward on her (rushed: half), and, if the tile beside her toward the shooter is open floor, a berm there until her next turn (a line across it to her deals half). Strikes and contact hits are not answered.",
+    reveal: "Ward Field answers a ranged shot from 2 or more tiles: a 6-point ward on her (rushed: half; whole when the shooter stands on her thorn soil, and then she cashes 1 Inspiration, once a round), and, if the tile beside her toward the shooter is open floor, a berm there until her next turn (a line across it to her deals half). Strikes and contact hits are not answered.",
     prompt: "Which tile did the ground rise on, and why that one?" };
+  // Shardback F5b (R-20261121-23; numbers R-20261122-28): Earth Upheaval is her merge A ultimate; Upheaval Now her Crescendo
+  // (its shape at half potency for 1 Inspiration); Shard Rain the Berm wheelhouse merge. Thorn soil's half again rides
+  // class-runtime damageMods (Shardback.upheavalMul); Shard Rain's berms ride resolve.js's after-technique hook.
+  abilities.earthUpheaval = { name: "Earth Upheaval", tier: "ultimate", concepts: ["gradingDrainage", "thorn"], merge: true, pairOnly: true, pairs: [["gradingDrainage", "thorn"]],
+    delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, mechanism: "Spikes burst from the ground within 2 tiles; a foe standing on thorn soil (ground she graded) takes half again.",
+    cost: 16, range: 0, potency: 16, effect: "damage", damageType: "nigredo", effectCategory: "universal", timing: "announced", announce: "The ground answers me.",
+    reveal: "Earth Upheaval drives spikes up under every foe within 2 tiles (potency 16). A foe standing on a tile she graded this battle (thorn soil) takes half again. Needs both Grading & Drainage and Thorn.",
+    price: "16 ΦF and a full ultimate bar.", counter: "Stand off the ground she cut and filled, or 3 tiles out.", teaches: "Ground that was shaped remembers who shaped it.", domains: ["action", "world"] };
+  abilities.upheavalNow = { name: "Upheaval Now", tier: "refined", concepts: ["gradingDrainage"], pairOnly: true, pairs: [["gradingDrainage", "thorn"], ["gradingDrainage", "berm"]],
+    delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, mechanism: "Earth Upheaval's spikes at half strength, paid in Inspiration: no ΦF and no full bar.",
+    cost: 0, inspirationPrice: 1, range: 0, potency: 8, effect: "damage", damageType: "nigredo", effectCategory: "universal",
+    reveal: "Upheaval Now casts Earth Upheaval's radius-2 spikes at half potency (8) for 1 Inspiration and no ΦF; thorn soil still adds half again for a holder of both Grading & Drainage and Thorn. It belongs to Shardback's two pairs.",
+    price: "1 Inspiration.", counter: "Make her spend the Inspiration elsewhere, or stand 3 tiles out.", teaches: "A shove of ground does not wait for the whole quake.", domains: ["action"] };
+  abilities.shardRain = { name: "Shard Rain", tier: "refined", concepts: ["gradingDrainage", "berm"], merge: true, pairOnly: true, pairs: [["gradingDrainage", "berm"]],
+    delivery: "line", target: "enemy", area: { shape: "line", length: 4 }, mechanism: "Rain stone shards down a line of four; each open tile they cross rises as a berm of hers for two of her turns.",
+    cost: 5, range: 4, potency: 10, effect: "damage", damageType: "nigredo", effectCategory: "conditional",
+    reveal: "Shard Rain hits every foe on a straight line of four (potency 10). Each empty floor tile the line crossed rises as her berm until her second turn from now; a line that crosses a berm right beside the unit it hits deals half to that unit. Needs the Grading & Drainage + Berm pair.",
+    price: "5 ΦF and the Berm pair: the main Grading & Drainage + Thorn pair cannot cast it.", counter: "Step off the line, and fight her away from the berms it leaves.", teaches: "What falls on the ground becomes the ground.", domains: ["action", "world"] };
   abilities.crownOfPlates = { name: "Crown of Plates", tier: "ultimate", concepts: ["glamour", "focus"], merge: true, pairOnly: true, pairs: [["glamour", "focus"]],
     delivery: "self", target: "self", area: { shape: "radius", radius: 3 }, mechanism: "The Fixed foe cannot attack on its next turn; allies within 3 gain a 6-point ward.",
     cost: 16, range: 0, potency: 0, effect: "classEffect", effectCategory: "conditional", timing: "announced", announce: "Kneel.",
@@ -2514,7 +2561,7 @@
     for (const id of ["statute", "warrant"]) if (abilities[id]?.pairs && !abilities[id].pairs.some(([p, q]) => p === "laws_of_gods_of_men" && q === "constraint")) abilities[id].pairs.push(["laws_of_gods_of_men", "constraint"]);   // F3: the Archbishop's Constraint blend keeps her law (an unused pair)
     if (abilities.statute) Object.assign(abilities.statute, { freeFirst: "turn", freeFirstFor: ["chitinous_archbishop"], reveal: `${abilities.statute.reveal} The Chitinous Archbishop's first Statute each turn is free.` });   // F3: her first Statute each turn is free (the def is shared with the Magistrate and the Goblin)
     if (abilities.cutSlope) Object.assign(abilities.cutSlope, { freeFirst: "turn", freeFirstFor: ["shardback"], reveal: `${abilities.cutSlope.reveal} Shardback's first Cut Slope each turn is free.` });   // F5a: her free first is a grading move (the def is shared with every Grading & Drainage holder)
-    if (characters.shardback) characters.shardback.traits = ["stoneHide", "hardPlace"];   // Shardback (hot-build cuts F5a): Stone Hide and Hard Place; her psychological trait comes with F5b's AI table
+    if (characters.shardback) Object.assign(characters.shardback, { traits: ["stoneHide", "groundKeeper", "hardPlace"], wheelhouse: "berm", wheelhouseEnabled: true, reserve: ["berm"], conceptPool: ["gradingDrainage", "thorn", "berm"], configs: [{ id: "shardback-1", label: "Grading & Drainage + Thorn", primary: "gradingDrainage", secondary: "thorn", reserve: ["berm"], lens: {} }, { id: "shardback-berm", label: "Grading & Drainage + Berm", primary: "gradingDrainage", secondary: "berm", reserve: ["thorn"], lens: {} }] });   // Shardback (hot-build cuts F5a, F5b): Stone Hide, Ground Keeper (R-20261122-10), Hard Place and the Berm wheelhouse
     if (characters.chitinous_archbishop) Object.assign(characters.chitinous_archbishop, { traits: ["carapace", "liturgist", "citesPrecedent"], wheelhouse: "constraint", wheelhouseEnabled: true, reserve: ["constraint"], conceptPool: ["laws_of_gods_of_men", "transmigration", "constraint"], configs: [{ id: "archbishop-main", label: "Laws + Transmigration", primary: "laws_of_gods_of_men", secondary: "transmigration", reserve: ["constraint"], lens: {} }, { id: "archbishop-vestment", label: "Laws + Constraint", primary: "laws_of_gods_of_men", secondary: "constraint", reserve: ["transmigration"], lens: {} }] });   // Chitinous Archbishop (hot-build cuts F3): Carapace, Liturgist, Cites Precedent (R-20261116-04) and the Constraint wheelhouse
     if (characters.memorialist) characters.memorialist.traits = ["steadyHands", "eulogy"];   // Memorialist (Codex, 2026-10-24): longer Roll wards + once-a-battle self-mend
     if (characters.florence_oloo) Object.assign(characters.florence_oloo, { traits: ["steadyHands", "clinician", "doNoHarm"], wheelhouse: "inference", wheelhouseEnabled: true, reserve: ["inference"], conceptPool: ["diffusion", "innovation", "inference"], configs: [{ id: "florence-main", label: "Diffusion + Innovation", primary: "diffusion", secondary: "innovation", reserve: ["inference"], lens: {} }, { id: "florence-notes", label: "Diffusion + Inference", primary: "diffusion", secondary: "inference", reserve: ["innovation"], lens: {} }] });   // Florence Oloo (hot-build cuts F2): her three traits and the Inference wheelhouse

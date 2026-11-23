@@ -96,12 +96,18 @@
     return (h >>> 0) / 4294967296;
   }
 
+  // Bonds B1 (claude-bonds-spec 1.1, R-20261122-11): the bond ledger, looked up when used (bonds/ledger.js loads before this
+  // file: web/script-manifest.json). Absent, account.bonds stays a plain object.
+  const BondLedger = () => (typeof module === "object" && module.exports ? require("../bonds/ledger.js") : (typeof self !== "undefined" ? self.ConceptCombatBondLedger : null)) || null;
+  // Investigate I5a (claude-investigate-spec 12.3): the casebook, looked up when used (account/casebook.js loads before this file).
+  const Casebook = () => (typeof module === "object" && module.exports ? require("./casebook.js") : (typeof self !== "undefined" ? self.ConceptCombatCasebook : null)) || null;
   function createAccount({ name = "Warden", unlockOrder = "benefit", seed = 0, created = null, choose = false } = {}) {
     let order = benefitOrder.map((b) => b.id);
     if (unlockOrder === "random") order = [...order.filter((id) => !benefitOrder.find((b) => b.id === id)?.starter).sort((a, b) => hash(`${seed}:${a}`) - hash(`${seed}:${b}`)), ...order.filter((id) => benefitOrder.find((b) => b.id === id)?.starter)];   // a starter has no level slot: it stays last, outside the shuffle (Raven K2)
-const account = { version: VERSION, name, created, record: CourtRecord.normalize(), xp: 0, level: 1, unlockOrder, order, unlocked: [], tandems: {}, battles: 0, wins: 0, history: [], foughtBeside: [], forms: [], perks: {}, perkPoints: 0, perkStack: [], titles: [], perkLog: [], discoveries: 0, beadSwallows: {}, stakeEscrow: null, beastSummons: [], ownedNodes: [], affinityChits: 0, namedMerges: {}, mergeLedger: [], tutorCycle: { cycle: -1, drills: 0, paid: 0 }, fame: 0, fameXp: 0, fameBy: {}, fameSeen: {}, fameIntro: false, buskCycle: { cycle: -1, busked: 0 }, marks: [], nodeStyles: {}, rewriteLog: [], schoolKeys: [], deaths: [], graduations: [], teachRights: [], declines: {}, gaps: [], rematch: {}, stillSeals: 0, sealed: null, stars: [], heirloom: null, gatelessCount: 0, doses: [], burn: 0, dopedBouts: [], headlineOwned: false, inspiration: 0, sagas: { active: null, past: [] } , tolls: [], debts: [], parts: { common: 0, uncommon: 0, rare: 0 }, orgonite: 0, vessels: { shard: 0, bead: 0, orb: 0 }, pens: [], market: null, deeds: {}, deedMemory: {}, contracts: { pacts: {}, active: null, blacklist: {}, standing: {}, log: [] } , seenSystems: {}, fruitStudyNotes: { plant: {}, structure: {} } };   // W6.1: Workshop wallet + tree   // Observe teaches O3: first-look system notes, one per kind   // Perfect Recall S6c: Locusfruit study notes by type   // vessel economy: kiln/stall ledgers (market normalizes on read)
+const account = { version: VERSION, name, created, record: CourtRecord.normalize(), xp: 0, level: 1, unlockOrder, order, unlocked: [], tandems: {}, battles: 0, wins: 0, history: [], foughtBeside: [], forms: [], perks: {}, perkPoints: 0, perkStack: [], titles: [], perkLog: [], discoveries: 0, beadSwallows: {}, stakeEscrow: null, beastSummons: [], ownedNodes: [], affinityChits: 0, namedMerges: {}, mergeLedger: [], tutorCycle: { cycle: -1, drills: 0, paid: 0 }, fame: 0, fameXp: 0, fameBy: {}, fameSeen: {}, fameIntro: false, buskCycle: { cycle: -1, busked: 0 }, marks: [], nodeStyles: {}, rewriteLog: [], schoolKeys: [], deaths: [], graduations: [], teachRights: [], declines: {}, gaps: [], rematch: {}, stillSeals: 0, sealed: null, stars: [], heirloom: null, gatelessCount: 0, doses: [], burn: 0, dopedBouts: [], headlineOwned: false, inspiration: 0, sagas: { active: null, past: [] } , tolls: [], debts: [], parts: { common: 0, uncommon: 0, rare: 0 }, orgonite: 0, vessels: { shard: 0, bead: 0, orb: 0 }, pens: [], market: null, deeds: {}, deedMemory: {}, contracts: { pacts: {}, active: null, blacklist: {}, standing: {}, log: [] } , seenSystems: {}, fruitStudyNotes: { plant: {}, structure: {} }, bonds: {} };   // W6.1: Workshop wallet + tree   // Observe teaches O3: first-look system notes, one per kind   // Perfect Recall S6c: Locusfruit study notes by type   // vessel economy: kiln/stall ledgers (market normalizes on read)
     account.stakesLedger = []; account.stakeCooldowns = {}; account.justWon = {};   // W1.5: ante ledger + cooldowns, beside the account core
     account.sageDream = { battles: 0, pvWins: 0 };   // W5.3: the Sage's dream ladder persists across demonstrations
+    account.cases = Casebook() ? Casebook().normalize() : { open: {}, closed: [], convicted: {} };   // Investigate I5a: open cases against enemy classes (account/casebook.js)
     account.exiles = {}; account.crewRep = {};   // Exile T0a: housed exiles by id, and the per-subfaction standing (empty until T1 moves it)
     if (choose || rules.familiarTokens) account.familiars = { tokens: tokensEarnedAt(1), picks: [], lastPick: null, done: false };   // a new account chooses its first familiar (S2 draws the scene)
     return { ...account, unlocked: unlocksUpTo(account, 1) };
@@ -122,7 +128,7 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
   // not been settled (summons/tandem-trial.js reads a pending record as a fail: leaving the ordeal is not a refusal). Tandem T4: a passed
   // molting tandem may also carry form (2 or 3, the form it has reached) and clean (won battles it fought unstrained in this form). A passed tandem
   // is in the palace list (`unlocked`) by its record alone, never through `order` or a level. An old save has no `tandems` key: {}.
-  const TANDEM_STATUS = ["none", "passed", "failed"];
+  const TANDEM_STATUS = ["none", "passed", "failed", "answered"];   // Tandem T5b: answered = gone for good (summons/tandem-answer.js)
   function cleanTandems(raw) {
     const out = {};
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
@@ -130,11 +136,13 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
       if (!r || typeof r !== "object") continue;
       const status = TANDEM_STATUS.includes(r.status) ? r.status : "none";
       out[id] = { status, owed: status === "failed" ? Math.max(0, Math.floor(Number(r.owed) || 0)) : 0, since: status === "failed" ? Math.max(0, Math.floor(Number(r.since) || 0)) : 0,
-        free: status === "passed" && r.free === true, pending: status !== "passed" && r.pending === true };
+        free: status === "passed" && r.free === true, pending: (status === "none" || status === "failed") && r.pending === true };
+      if ((status === "none" || status === "failed") && typeof r.call === "string" && /^[A-Za-z][\w-]{0,40}$/.test(r.call)) out[id].call = r.call;   // Tandem T5a: the summon a call price names
       if (status === "passed") {   // Tandem T4: the form an owned molting tandem has reached (2 or 3) and its clean-battle count toward a mastery molt
         const form = Math.floor(Number(r.form) || 0), clean = Math.floor(Number(r.clean) || 0);
         if (form === 2 || form === 3) out[id].form = form;
         if (clean > 0) out[id].clean = clean;
+        if (r.rung === "clean" || r.rung === "perfect") out[id].rung = r.rung;   // Tandem T6: the ladder rung it has earned (practiced when absent)
       }
     }
     return out;
@@ -182,6 +190,9 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
       history: [...account.history, { mode: result.mode || null, winner: result.winner, xp, round: result.round ?? null, scenario: result.scenario ?? null, arena: result.arena ?? null, ...(result.random ? { random: true } : {}) }].slice(-50),
       foughtBeside: [...new Set([...(account.foughtBeside || []), ...(result.foughtBeside || [])])],
     };
+    if (BondLedger()) next.bonds = BondLedger().noteBattle(next, result.foughtBeside).bonds || next.bonds;   // Bonds B1: fought beside a character you have met is one `battle` memory, once (spec 1.2)
+    const bondSettle = BondLedger() && BondLedger().settlePromises ? BondLedger().settlePromises(next, result) : null;   // Bonds B2a: every promise made before this battle is checked by its result (spec 1.4)
+    if (bondSettle) next.bonds = bondSettle.account.bonds || next.bonds;
     const lines = [`+${xp} XP`];
     if (level > before) lines.push(`Level ${level}!`);
     if (gained > 0) lines.push(`+${gained} perk point${gained === 1 ? "" : "s"}`);
@@ -193,6 +204,7 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
     if (gotTokens > 0) lines.push(`+${gotTokens} familiar token${gotTokens === 1 ? "" : "s"}`);
     const n = nextUnlock(next);
     if (n) lines.push(n.token ? `Next familiar token at level ${n.level}` : `Next familiar at level ${n.level}`);
+    if (bondSettle) lines.push(...bondSettle.lines);   // Bonds B2a: his word on the promise, in the battle's result lines
     return { account: next, xp, levelsGained: gained, unlocked: unlockedNow, lines };
   }
 
@@ -509,6 +521,8 @@ stakesLedger: Array.isArray(a.stakesLedger) ? a.stakesLedger : [], stakeCooldown
     { const v = d.victories?.paladin; if (v && migratePaladinPair(v) !== v) d.victories = { ...d.victories, paladin: migratePaladinPair(v) }; }
     d.sageDream = a.sageDream && typeof a.sageDream.battles === "number" ? { battles: a.sageDream.battles, pvWins: a.sageDream.pvWins || 0 } : { battles: 0, pvWins: 0 };   // W5.3: the Sage's dream ladder
     { const obj = (v) => v && typeof v === "object" && !Array.isArray(v) ? v : {}; d.exiles = obj(a.exiles); d.crewRep = obj(a.crewRep); }   // Exile T0a: an old save has neither; both default to empty
+    { const BL = BondLedger(); d.bonds = BL ? BL.normalize(a.bonds) : (a.bonds && typeof a.bonds === "object" && !Array.isArray(a.bonds) ? a.bonds : {}); }   // Bonds B1: an old save has none and loads with {}
+    d.cases = Casebook() ? Casebook().normalize(a.cases) : (a.cases && typeof a.cases === "object" ? a.cases : { open: {}, closed: [], convicted: {} });   // Investigate I5a: an old save has none and loads empty
     return d;
   }
   // Fold the UI's earlier localStorage profile ({ xp, level, ... }) into a new account.

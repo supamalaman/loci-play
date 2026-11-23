@@ -51,6 +51,12 @@
     // big, hardy trees: the most life, the hardest to reach
     banyan: { hp: 36, difficulty: 5, primary: "barrier", secondary: "pathway", aura: "root", name: "Banyan Elder", signature: "banyanSnare" },
     bristlecone: { hp: 38, difficulty: 5, primary: "adaptation", secondary: "inertia", aura: "root", name: "Bristlecone Ancient", signature: "millenniumGrip" },
+    // Šammu nikitti (SN1a, R-20261122-38/-39; spec SAMMU_NIKITTI.md "Mythology and identity"): the one mythic plant. Far past the plant-sized
+    // range on purpose (96 LF, over twice the Bristlecone's 38). `identity` is the species-profile override: makeAlly answers with this class,
+    // sprite and raw traits instead of plant-<type>/commune-<type> and no traits, and communeAlly builds this insight deck. Ordinary plants
+    // have no identity and keep the generic defaults.
+    sammuNikitti: { hp: 96, difficulty: 5, primary: "succession", secondary: "preservation", aura: "root", name: "Šammu nikitti",
+      identity: { character: "sammu_nikitti", sprite: "sammu-nikitti", traits: ["empathic", "loyal", "juvenescentSap"], insight: "commune:sammuNikitti" } },
     passionflower: { hp: 22, difficulty: 2, primary: "succession", secondary: "pathway", aura: "blossom", name: "Passionflower Host" },
     puya: { hp: 24, difficulty: 3, primary: "barrier", secondary: "diffusion", aura: "seed", name: "Sapphire Tower" },
     kukui: { hp: 20, difficulty: 3, primary: "sightline", secondary: "diffusion", aura: "seed", name: "Kukui Torch", signature: "kukuiTorchNuts" },
@@ -88,6 +94,10 @@
   // STUB botany questions: general plant biology, safe for any species. `for` narrows a question to a
   // form, a species, or carnivores; omitted means any plant.
   const questions = [
+    // Šammu nikitti: its only question (a mythic plant asks no real-world botany; communion.js pool keeps a mythic species to its own).
+    { id: "sammu-gift", for: { species: "sammuNikitti" }, prompt: "What does its gift promise?", choices: ["Return a dead friend", "Renew a living body", "Erase the past"], answer: 1,
+      clue: "Its gift restores the living. The thorn takes a little blood; the serpent follows the scent.",
+      explain: "In the myth it makes an old man young again; it never raises the dead. This is the epic's plant as Loci reads it, not a field identification." },
     { id: "wiliwili-drought", for: { species: "wiliwili" }, prompt: "Wiliwili drops its leaves in dry spells. This habit is called…?", choices: ["Evergreen", "Drought-deciduous", "Succulent"], answer: 1, clue: "Bare branches all through the dry months; the leaves come back with the first heavy rain.",
       explain: "Wiliwili is drought-deciduous: it sheds leaves to survive the dry season, then leafs out with rain." },
     { id: "wiliwili-wood", for: { species: "wiliwili" }, prompt: "Wiliwili's light, buoyant wood was traditionally used for…?", choices: ["Surfboards and longboards", "Stone adzes", "Fishhooks"], answer: 0, clue: "A fallen limb weighs almost nothing and floats. The old riders shaped this wood to stand on waves.",

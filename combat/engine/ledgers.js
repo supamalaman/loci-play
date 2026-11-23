@@ -16,6 +16,7 @@
       s.trust = JSON.parse(JSON.stringify(opts.orderCarry?.trust || {}));
       s.respectSeed = { ...(opts.orderCarry?.respect || {}) };
       s.deeds = {}; s.orderBattles = opts.orderCarry?.battles || 0;
+      s.bondRanks = { ...(opts.orderCarry?.bonds || {}) };   // Bonds B2a: the player's bond ranks, read by Factions.bondValence
     }
 
     // ── Contains Multitudes (content.js rules.multitudes; docs/contains-multitudes.md) ──

@@ -324,6 +324,8 @@
         if (s.mindDuel.concede) return traceAiReturn("aiDecide:L206", ({ type: "mindConcede", actor: dc.actor, choice: MindDuel.pickConcede(s) }));
         return traceAiReturn("aiDecide:L207", ({ type: "mindPick", actor: dc.actor, move: MindDuel.aiPick(s, dc.actor) }));
       }
+      if (dc.kind === "answer") { const TA = typeof module === "object" && module.exports ? require("../summons/tandem-answer.js") : globalThis.ConceptCombatTandemAnswer; return traceAiReturn("aiDecide:answer", (TA.aiChoice(s, s.actors[dc.actor]))); }   // Tandem T5b: the Answer, chosen by its AI user
+      if (dc.kind === "banquet") { const B = typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet; return traceAiReturn("aiDecide:banquet", ({ type: "banquetChoose", actor: dc.actor, choice: B.aiChoice(s, s.actors[dc.actor]) })); }   // the Chef's table: a guest chooses first
       const a = s.actors[dc.actor];
       if (dc.kind === "turn" && a.summon?.order && !a.summon.ultimateUsed && !a.defeated)
         return traceAiReturn("aiDecide:L211", ({ type: "resolveSummonUltimate", actor: a.id }));
@@ -529,7 +531,7 @@
       if (Bonds) { const bl = Bonds.blessingAction(s, a, classH()); if (bl) return traceAiReturn("aiDecide:L370", (bl)); }   // Bonds: Arantxa renews the Blessing of Malnote first
       if (dc.kind === "turn" && ClassRuntime?.mise) { const mr = ClassRuntime.mise.aiRenew(s, a, classH()) || ClassRuntime.mise.aiPrepare(s, a, classH()); if (mr && apply(s, mr, { preview: true }).ok) return traceAiReturn("aiDecide:mise", (mr)); }   // Mise en Place: a holder keeps a fading station fresh, bounded (mise/mise.js aiRenew)
       if (dc.kind === "turn" && ClassRuntime?.homology) { const ha = ClassRuntime.homology.aiAct(s, a, classH()); if (ha && apply(s, ha, { preview: true }).ok) return traceAiReturn("aiDecide:homology", (ha)); }   // Homology: a fighter with the comparative trait compares what it has witnessed, then prepares an ally (graph/homology-rules.js aiAct)
-      { const t = H.Tally?.aiAction(s, a) || H.Tally?.aiAnswer(s, a) || (a.actionsThisTurn > 0 && H.Tally?.aiSettle(s, a)); if (t) return traceAiReturn("aiDecide:L371", (t)); }   // the ledger boss chooses its offers and calls itself (engine/tally.js)
+      { const t = H.Greedigut?.aiAction(s, a) || H.Tally?.aiAction(s, a) || H.Tally?.aiAnswer(s, a) || (a.actionsThisTurn > 0 && H.Tally?.aiSettle(s, a)); if (t) return traceAiReturn("aiDecide:L371", (t)); }   // Exile G1 / the ledger boss chooses its offers and calls itself (engine/tally.js)
       if (Parley && !a.persuaded) {   // Parley: talkative NPCs still obey sealed membranes and action costs.
         const preach = (ledgerOn(s, a, "traitActs")?.preach || []).some((t) => hasTrait(a, t));   // trait acts: a believer speaks up for the faith even if not talkative
         const talkTo = Parley.npcTalkTarget(s, a, dist, preach), talk = talkTo && { type: "parley", actor: a.id, target: talkTo.id };
@@ -767,7 +769,7 @@
           if (la > 0 && (!best || o.sc + la > best.sc)) { const changed = !best || (o.sc <= best.sc && (o.cand.type !== best.cand.type || o.cand.ability !== best.cand.ability || targetKey(o.cand) !== targetKey(best.cand))); best = { sc: o.sc + la, to: o.to, cand: o.cand, harm: o.harm }; laPick = changed ? { rec: best, la, follow: lookaheadFollow } : null; }   // I2: lookahead is the reason only when it changed the pick
         }
       }
-      if (best?.to && s.rules.aiLedger?.pairVerify) {   // OFF pending Mala (Lantern, 2026-10-18: it fails the aura-raise and Director film gates; Muse's NOTE "open contract decision"). Pair verification (muse, 2026-10-18, seed 3962880737): the loop scores (move,
+      if (best?.to && s.rules.aiLedger?.pairVerify) {   // OFF until the AI Sight measure wave gives a verdict (R-20261110-55; was "pending Mala", Lantern, 2026-10-18: it fails the aura-raise and Director film gates; Muse's NOTE "open contract decision"). Pair verification (muse, 2026-10-18, seed 3962880737): the loop scores (move,
         // action) pairs but only the move executes — the action is re-decided next. If the paired
         // action is no better after the walk than before it, and the destination isn't clearly
         // better either, the move was drift on a mirage (R10's shuffle). Drop it and decide from
@@ -1157,7 +1159,7 @@
         }
       }
       if(H.waterRecovery(s,a)?.allowed && apply(s,{type:"recoverWater",actor:id},{preview:true}).ok)out.push({type:"recoverWater",actor:id});   // Water (synergy merge 1.3.379: hand-placed beside recover; the palace-summon block sits between the patch's anchors)
-      if (a.maxPF > 0 && a.pf < 6 && a.lastRecoverTurn < a.ownerTurns - s.rules.recover.cooldownTurns && a.tempo >= s.rules.actionCosts.utility) out.push({ type: "recover", actor: id });
+      if (((a.maxPF > 0 && a.pf < 6) || H.snapBackReady(s, a)) && !H.canRecover(s, a)) out.push({ type: "recover", actor: id });   // Animated Body AB1a: the shared predicate; Snap Back owed makes Recover worth a turn even at full ΦF
       if (!a.status?.overwatch && (a.reaction ?? 0) > 0 && !a.aggressive && !a.summon && a.tempo >= (s.rules.overwatch?.ap ?? 10)) out.push({ type: "overwatch", actor: id });   // Overwatch (Muse-2)
       if (a.disengageTurn !== a.ownerTurns && a.lf <= (s.rules.opportunity?.potency ?? 6) && a.tempo >= (s.rules.opportunity?.disengageAp ?? 15)
         && Object.values(s.actors).some((w) => !w.defeated && w.side !== a.side && (w.reaction ?? 0) > 0 && !H.Tourist?.is(w) && dist(s, a.x, a.y, w.x, w.y) <= H.strikeRange(s, w))
@@ -1775,7 +1777,11 @@
     const foeConcealedHere = (s, a) => Object.values(s.actors || {}).some((u) => !!u && !u.defeated && u.side !== a.side && !!u.status?.concealed && (u.status.concealed.until == null || u.status.concealed.until >= u.ownerTurns));   // the veiled read, ai.js:1687
     const ownRumorPendingHere = (s, a) => (s.rumors || []).some((r) => typeof r.id === "string" && r.id.startsWith(`rumor-${a.id}-`) && r.expiresRound > s.round);   // her own find, still live (resolve.js verify reads the same expiry)
     const noOwnRumorHere = (s, a) => !ownRumorPendingHere(s, a);
-    const driveChecks = { auditNoStatute:(s,a)=>!(s.terrainEffects||[]).some(e=>e.kind==="statute"&&e.owner===a.id&&a.ownerTurns<e.expiresAt),auditRumour:(s,a)=>s.rumors?.some(r=>r.ownerSide===a.side&&r.expiresRound>s.round), foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere, freshCatalogueTarget: freshCatalogueTargetHere, cataloguedQuarry: cataloguedQuarryHere, foeConcealed: foeConcealedHere, ownRumorPending: ownRumorPendingHere, noOwnRumor: noOwnRumorHere, fieldLive: (s, a) => !!a.substrate, noFieldLive: (s, a) => !a.substrate, statuteFoe: (s, a) => Object.values(s.actors || {}).some((u) => !!ClassRuntime?.law?.named?.(s, a, u)) };
+    const driveChecks = { hurtAllyBy:(s,a,r,cand)=>Array.isArray(cand?.target)&&Object.values(s.actors).some(u=>u.id!==a.id&&!u.defeated&&u.side===a.side&&u.lf<u.maxLF/2&&dist(s,cand.target[0],cand.target[1],u.x,u.y)<=(r??2)),noOwnPatch:(s,a)=>!(s.successionPatches||[]).some(p=>p.owner===a.id),   /* Empathic tending (Šammu nikitti SN1a): a hurt ally (below half LF) within r of the aimed tile; no patch of hers standing */ auditNoStatute:(s,a)=>!(s.terrainEffects||[]).some(e=>e.kind==="statute"&&e.owner===a.id&&a.ownerTurns<e.expiresAt),auditRumour:(s,a)=>s.rumors?.some(r=>r.ownerSide===a.side&&r.expiresRound>s.round), foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere, freshCatalogueTarget: freshCatalogueTargetHere, cataloguedQuarry: cataloguedQuarryHere, foeConcealed: foeConcealedHere, ownRumorPending: ownRumorPendingHere, noOwnRumor: noOwnRumorHere, fieldLive: (s, a) => !!a.substrate, noFieldLive: (s, a) => !a.substrate, statuteFoe: (s, a) => Object.values(s.actors || {}).some((u) => !!ClassRuntime?.law?.named?.(s, a, u)) };
+    // Ground Keeper (Shardback F5b): thorn soil is the ground she graded (a.graded, class-runtime Shardback); the checks read that map.
+    const onSoil = (a, u) => !!u && !!a.graded?.[`${u.x},${u.y}`];
+    Object.assign(driveChecks, { noThornSoil: (s, a) => !Object.keys(a.graded || {}).length, foeOnThornSoil: (s, a, _n, cand) => onSoil(a, foeAtTarget(s, a, cand)),
+      foeOnThornSoilNear: (s, a, n) => Object.values(s.actors || {}).some((u) => !u.defeated && !u.notArrived && u.side !== a.side && u.side !== "bystander" && onSoil(a, u) && dist(s, a.x, a.y, u.x, u.y) <= (n || 2)) });
     function driveWhenHolds(checks, s, a, cand, when) {
       if (when === undefined || when === null) return true;
       // A bare ["name", x] with non-string x is one tuple; any other array is a list of atoms (tuple args are never bare strings).
@@ -2017,7 +2023,7 @@
         const worth = book && held && hasTrait(a, book.trait) ? bookWorth : hasTrait(a, G.grappler.trait) ? G.ai.grapplerValue : G.ai.value;
         return (H.strongGrip(s, a)?.autoSucceed ? 1 : H.grappleChance(s, t)) * worth;
       }
-      if (cand.type === "recover") return 3;
+      if (cand.type === "recover") return H.snapBackReady(s, a) ? (H.animatedBodyRules?.()?.aiSnapBackValue ?? 3) : 3;   // Animated Body AB1a: straightening an injury grade outweighs the ΦF
       if (cand.type === "ability" && (cand.ability === "clip" || cand.ability === "juxtapose")) {   // Clip/Juxtapose value (Lantern, 2026-10-18)
         const at = cand.target, near = (u, r) => at && Math.abs(u.x - at[0]) + Math.abs(u.y - at[1]) <= r, foes = Object.values(s.actors).filter((u) => !u.defeated && u.side !== a.side && u.side !== "bystander");
         const friends = Object.values(s.actors).filter((u) => !u.defeated && u.side === a.side), free = manifest(s, a, cand.ability, cand).cost === 0 ? 1 : 0;

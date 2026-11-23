@@ -1123,6 +1123,25 @@
 .cc-keeper-chips:empty { display:none; }
 .cc-keeper-chip { margin:0; padding:4px 8px; border-left:3px solid #e9c46a; background:#e9c46a1a; font-size:max(var(--pn-text-floor), calc(12px * var(--pn-text-step))); color:#ffe9a8; }
 .cc-keeper [hidden] { display:none; }
+/* Bonds B1 (bonds/ledger-ui.js, R-20261122-11): the bond window opens inside the keeper strip, full width under the chips. */
+.cc-bond { grid-column:1 / -1; display:flex; flex-direction:column; gap:8px; margin-top:6px; padding:10px 12px; border-top:1px solid #68758b; border-radius:0 0 10px 10px; background:#0b1322; }
+.cc-bond h3 { margin:0; font-size:max(var(--pn-text-floor), calc(14px * var(--pn-text-step))); color:#e9c46a; letter-spacing:.02em; }
+.cc-bond h4 { margin:4px 0 0; font-size:max(var(--pn-text-floor), calc(12px * var(--pn-text-step))); color:#aeb3d6; text-transform:uppercase; letter-spacing:.06em; }
+.cc-bond p { margin:0; line-height:1.55; color:#f1ecd6; font-size:max(var(--pn-text-floor), calc(13px * var(--pn-text-step))); }
+.cc-bond p.cc-muted { color:#aeb3d6; }
+.cc-bond-beat { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border-left:3px solid #8fb8de; background:#8fb8de14; border-radius:6px; }
+.cc-bond-choices { display:flex; flex-wrap:wrap; gap:6px 8px; }
+.cc-bond button { padding:3px 12px; }
+.cc-bond-ask, .cc-bond-swear { align-self:flex-start; }   /* Bonds B2b: the swear button sits like the ask */
+.cc-bond-memories { margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px; font-size:max(var(--pn-text-floor), calc(13px * var(--pn-text-step))); color:#f1ecd6; line-height:1.5; }
+.cc-bond-type { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border-left:3px solid #e9c46a; background:#e9c46a12; border-radius:6px; }   /* Bonds B2a: the type choice at Close */
+.cc-bond-promises { margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px; font-size:max(var(--pn-text-floor), calc(13px * var(--pn-text-step))); color:#f1ecd6; line-height:1.5; }
+.cc-bond-promises li[data-state="broken"] b { color:#f4a6a6; }
+.cc-bond-promises li[data-state="kept"] b, .cc-bond-promises li[data-state="repaired"] b { color:#a7d7a0; }
+.cc-bond p.cc-bond-refused { color:#f4c7a6; font-style:italic; }
+.cc-bond p.cc-bond-pact { color:#e9c46a; padding-left:10px; border-left:3px solid #e9c46a; }   /* Bonds B2b: the sworn pact, in words */
+.cc-bond-memories b { color:#ffe9a8; font-weight:600; }
+.cc-bond-memories span { font-style:italic; }
 .cc-keeper-off { margin:4px 0; }
 .cc-keeper.is-swap { animation:cc-keeper-in .12s ease-out; }   /* S3: the counter swap fades in over 120 ms (spec section 4) */
 @keyframes cc-keeper-in { from { opacity:0; } }

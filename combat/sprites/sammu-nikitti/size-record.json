@@ -1,0 +1,355 @@
+{
+ "size_class": "person",
+ "footprint_tiles": [
+  1,
+  1
+ ],
+ "communal_note": "communal is wide \u2014 AD may want 2x1",
+ "pad": "4px transparent",
+ "source": "\u0160ammu Nikitti Pixel Art Reference Board.png",
+ "item_icon": "web/combat/sprites/items/sammuNikitti.png",
+ "Sheet_Triage": "SURGERY",
+ "poses": {
+  "block.png": {
+   "pixel_size": [
+    159,
+    177
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    155,
+    173
+   ],
+   "foot_point_px": [
+    79.5,
+    173
+   ],
+   "sha256": "b48837fbeaa25077caa847d4dbda8cc90071706d8bf9560a19aa657b3387264e"
+  },
+  "cast-def.png": {
+   "pixel_size": [
+    209,
+    187
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    205,
+    183
+   ],
+   "foot_point_px": [
+    104.5,
+    183
+   ],
+   "sha256": "804447222cbfdf2ae191734e26dd51e682c9385eb41bb3adeadbd7743a473570"
+  },
+  "cast-off.png": {
+   "pixel_size": [
+    222,
+    186
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    218,
+    182
+   ],
+   "foot_point_px": [
+    111.0,
+    182
+   ],
+   "sha256": "19c7d8252ce9a037681c7155fac9a1629c16d0c44a1e3e3a04ea78e85bebe8dd"
+  },
+  "cast.png": {
+   "pixel_size": [
+    222,
+    186
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    218,
+    182
+   ],
+   "foot_point_px": [
+    111.0,
+    182
+   ],
+   "sha256": "19c7d8252ce9a037681c7155fac9a1629c16d0c44a1e3e3a04ea78e85bebe8dd"
+  },
+  "communal.png": {
+   "pixel_size": [
+    515,
+    225
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    511,
+    221
+   ],
+   "foot_point_px": [
+    257.5,
+    221
+   ],
+   "sha256": "d3bf4fc5f60c3b12b26832819c97d28bbc233fa22ae3e94aaf62c6c4a26d9e11"
+  },
+  "dodge.png": {
+   "pixel_size": [
+    222,
+    169
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    218,
+    165
+   ],
+   "foot_point_px": [
+    111.0,
+    165
+   ],
+   "sha256": "499c146cc1c6d7c37569cbe9c30d7bdba9100820e236c44b7ac16a749220c1bb"
+  },
+  "face-angry.png": {
+   "pixel_size": [
+    284,
+    177
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    280,
+    173
+   ],
+   "foot_point_px": [
+    142.0,
+    173
+   ],
+   "sha256": "725c9ce040ecbd4e5e6b86fd804e701b11eb7855208d7c67f0f2022fcae7fa64"
+  },
+  "face-happy.png": {
+   "pixel_size": [
+    259,
+    177
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    255,
+    173
+   ],
+   "foot_point_px": [
+    129.5,
+    173
+   ],
+   "sha256": "07b18a95a5a150191f997d5c86e3591cfe63fd7de4bc89a3704c2a1f249a31dc"
+  },
+  "face-neutral.png": {
+   "pixel_size": [
+    284,
+    177
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    280,
+    173
+   ],
+   "foot_point_px": [
+    142.0,
+    173
+   ],
+   "sha256": "398b4460d53965b627b9acbe29fca6d64b1c3ce48b960a9056ca7eaf8f39ff5c"
+  },
+  "face-sad.png": {
+   "pixel_size": [
+    262,
+    177
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    258,
+    173
+   ],
+   "foot_point_px": [
+    131.0,
+    173
+   ],
+   "sha256": "b0773cdc68a9473ef101c2cd1e20930d27bec5d15c7ff2bcd6728d8e77175b6d"
+  },
+  "face-surprised.png": {
+   "pixel_size": [
+    275,
+    177
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    271,
+    173
+   ],
+   "foot_point_px": [
+    137.5,
+    173
+   ],
+   "sha256": "264765407c0d1dc84decab8b8cbed16f3a0b7e73a3e96f48efb3bbf2331e927d"
+  },
+  "idle.png": {
+   "pixel_size": [
+    141,
+    194
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    137,
+    190
+   ],
+   "foot_point_px": [
+    70.5,
+    190
+   ],
+   "sha256": "5b87bec6f9e7dd083c9f0a818f28b762ee85029d35e59d626d8dcb4e818d434f"
+  },
+  "knockback.png": {
+   "pixel_size": [
+    134,
+    164
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    130,
+    160
+   ],
+   "foot_point_px": [
+    67.0,
+    160
+   ],
+   "sha256": "18cc9b2079e1a9b9bce9d517f0e10de4b7ffef8feb35a70f0d09f2accc46734d"
+  },
+  "knocked-out.png": {
+   "pixel_size": [
+    234,
+    95
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    230,
+    91
+   ],
+   "foot_point_px": [
+    117.0,
+    91
+   ],
+   "sha256": "27d44d5fa0b53cf14a223bb77b114c0a5e9cda9d245a8b374b36cf69f10e66b2"
+  },
+  "mundane.png": {
+   "pixel_size": [
+    249,
+    218
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    245,
+    214
+   ],
+   "foot_point_px": [
+    124.5,
+    214
+   ],
+   "sha256": "dd37620cd6ae7682ffceebaf269cbd0e5a85a1f9c941e4abf8251e67dc041739"
+  },
+  "punch.png": {
+   "pixel_size": [
+    238,
+    185
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    234,
+    181
+   ],
+   "foot_point_px": [
+    119.0,
+    181
+   ],
+   "sha256": "d211ec88c048693d051330e69182a55a6a62636397abef3502a82910b169e779"
+  },
+  "transform.png": {
+   "pixel_size": [
+    549,
+    223
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    545,
+    219
+   ],
+   "foot_point_px": [
+    274.5,
+    219
+   ],
+   "sha256": "29b01d27736d4c7050131e9a732177d28322275ce7e206a4f1f153b184ca3522"
+  },
+  "ultimate.png": {
+   "pixel_size": [
+    339,
+    186
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    335,
+    182
+   ],
+   "foot_point_px": [
+    169.5,
+    182
+   ],
+   "sha256": "25c4d78bfa807621e3977698abcf987ebf91f79882d669c3d23f7bdc1c91bd32"
+  },
+  "walk.png": {
+   "pixel_size": [
+    166,
+    193
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    162,
+    189
+   ],
+   "foot_point_px": [
+    83.0,
+    189
+   ],
+   "sha256": "3dd0cca6553c1460f0d83f5e25e2fa1b29785a3b537f7c70a471abe8d8766d6a"
+  },
+  "items/sammuNikitti.png": {
+   "pixel_size": [
+    249,
+    218
+   ],
+   "alpha_bounds": [
+    4,
+    4,
+    245,
+    214
+   ],
+   "foot_point_px": [
+    124.5,
+    214
+   ],
+   "sha256": "dd37620cd6ae7682ffceebaf269cbd0e5a85a1f9c941e4abf8251e67dc041739"
+  }
+ },
+ "recut": "2026-11-16, Garboard CU: full recut from the board (qa-evidence/cut-sammu.py)"
+}

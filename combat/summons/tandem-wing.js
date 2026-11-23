@@ -20,13 +20,13 @@
   function rowHtml(v) {
     const t = SD.summons[v.id].tandem;
     return `<section class="cc-hall-offer cc-tandem-row" data-tandem-row="${esc(v.id)}" data-status="${esc(v.status)}">
-      <div class="cc-pick-stage"><img src="combat/sprites/${esc(v.id)}/idle.png" alt="${esc(v.name)}" style="max-height:96px;image-rendering:pixelated"></div>
+      <div class="cc-pick-stage"><img src="combat/sprites/${esc(SD.summons[v.id].sprite || v.id)}/idle.png" alt="${esc(v.name)}" style="max-height:96px;image-rendering:pixelated"></div>
       <div><h3>${esc(v.name)} <small class="${BADGE[v.status] || "cc-muted"}" data-tandem-status>${esc(v.label)}</small></h3>
-        <p class="cc-muted">Its Trial is an ordeal of ${esc(v.quality)}.</p>
+        <p class="cc-muted">Its Trial is ${esc(v.kindName || "an ordeal")} of ${esc(v.quality)}.</p>
         ${Tandem.cardHtml(t, esc)}
         <p data-tandem-terms>${esc(v.terms)}</p>
         <p data-tandem-detail><b>${esc(v.detail)}</b></p>
-        <div class="cc-row"><button type="button" class="cc-primary" data-tandem-begin="${esc(v.id)}" ${v.canBegin ? "" : "disabled"} title="${esc(v.canBegin ? `Begin: survive ${v.rounds} rounds` : v.reason)}">Begin the Trial</button>
+        <div class="cc-row"><button type="button" class="cc-primary" data-tandem-begin="${esc(v.id)}" ${v.canBegin ? "" : "disabled"} title="${esc(v.canBegin ? v.begin || `Begin: survive ${v.rounds} rounds` : v.reason)}">Begin the Trial</button>
           ${v.canBegin ? "" : `<small class="cc-muted" data-tandem-why>${esc(v.reason)}</small>`}</div></div>
     </section>`;
   }

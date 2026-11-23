@@ -15,6 +15,7 @@
       schedule, setPatchStage, settleDeferredCharge, settleHomeward, strikeTarget, structures, surfaceAt, syncPresidentUnit, target, tileAt, unitAt, vegetation, visageGaze, waterAt,
       wildRules } = H;
     const seededChance = (...args) => H.seededChance(...args);   // late binding: queries installs after resolve
+    const sapAfterHeal = (s, a, u, healed) => ((typeof module === "object" && module.exports ? require("../mythic-plants/sammu.js") : globalThis.ConceptCombatSammu) || null)?.sap(s, a, u, healed, { rules: s.rules, hasTrait: H.hasTrait, log: H.log, Injury: H.Injury });   // Juvenescent Sap (SN1a): a carrier's useful heal
 
     // Bastion Collapse (Mala and Muse, 2026-10-15): count the boundaries within the area's reach of the caster, at most
     // fold.cap: each barrier and each ward (consumed), each solid wall tile or blocking object (counted, left standing),
@@ -76,7 +77,7 @@
       if(inst.aim && !dreamCanReach(s,a,inst,...inst.aim)) { log(s,{kind:"dreamSpace",actor:a.id,text:`${inst.name} is stopped by the sealed dream.`}); inst.refused = true; return; }
       inst = { ...inst, tiles: inst.tiles.filter(([x,y])=>dreamCanReach(s,a,inst,x,y)), targets: (inst.targets || []).filter(id=>!s.actors[id] || dreamCanReach(s,a,inst,s.actors[id].x,s.actors[id].y)) };
       const beforeDream = s.dreamSpace?.region ? clone(s) : null;
-      try { return resolveDreamAbility(s,a,inst); } finally { if(beforeDream) keepDreamPositions(s,beforeDream); Performers?.afterTechnique(s,a,inst,classH()); if(!s.preview) ClassRuntime?.attendantPulse?.(s,a,inst,classH()); H.Tally?.afterResolve(s,a,inst); if(!s.preview) H.Longtermism?.afterTechnique(s,a,inst); }
+      try { return resolveDreamAbility(s,a,inst); } finally { if(beforeDream) keepDreamPositions(s,beforeDream); Performers?.afterTechnique(s,a,inst,classH()); ClassRuntime?.shardback?.shardRainBerms?.(s,a,inst,H,log); if(!s.preview) ClassRuntime?.attendantPulse?.(s,a,inst,classH()); H.Tally?.afterResolve(s,a,inst); if(!s.preview) H.Longtermism?.afterTechnique(s,a,inst); }
     }
     function resolveScribedEffects(s,a,inst){
       let recipients=(inst.targets||[]).map(id=>s.actors[id]||(s.wild||[]).find(w=>w.id===id)).filter(t=>t&&!t.defeated&&(t.side!==a.side||inst.target==="ally")&&(inst.delivery==="line"||!H.Instinct.hidden(a,t)));   // a committed single-target hit passes over a lying foe
@@ -123,7 +124,7 @@
       // every boss effect to damage/guard. If the adapter ever preserves custom effects,
       // prefer inst.effect === "visage".
       if (inst.ability === "boss_emissary_unbearableVisage") { visageGaze(s, a, inst.tiles); return; }
-      { const t = H.Tally?.resolve(s, a, inst, why); if (t === true) return; if (t) inst = t; }   // the ledger boss, matched by id (engine/tally.js)   // terrifying is biology now (visage trait, turns.js)
+      { const t = H.Greedigut?.resolve(s, a, inst, why) || H.Tally?.resolve(s, a, inst, why); if (t === true) return; if (t) inst = t; }   // Exile G1 Notice; the ledger boss, matched by id (engine/tally.js)   // terrifying is biology now (visage trait, turns.js)
       if (inst.ability === "bastionCollapse" && ab(inst.ability)?.fold) inst = bastionFold(s, a, inst, why);   // Bastion Collapse: the boundaries in reach set its weight
       if (inst.effect === "imaginedRehearsal") {
         a.status.imaginedRehearsal = { label: "Pictured arrival", owner: a.id, hints: C.rules.imagination.rehearsalHints, expiresAt: a.ownerTurns + 1 };
@@ -185,7 +186,7 @@
         const ally=inst.targets?.map(id=>s.actors[id]).find(u=>u && !u.defeated && u.side===a.side);
         const crafts=(x)=>x&&(x.primary==="craftsmanship"||x.secondary==="craftsmanship"),wellMade=(u)=>CRAFT&&(crafts(a)||crafts(u))?CRAFT.wellMadeTurns:0;
         const protect=(u,amount)=>{u.status.ward={label:"Preservation",owner:u.id,protection:Math.max(u.status.ward?.protection || 0,Math.round(amount*inst.mult)),expiresAt:u.ownerTurns+1+wellMade(u)};log(s,{kind:"preservation",actor:a.id,target:u.id,text:`${u.name} gains ${u.status.ward.protection} Preservation ward ${wellMade(u)?"that is well made and holds a turn longer [opp-craft-makes-it-keep]":"until their next turn"}.`});};
-        const heal=(u,amount)=>{const old=u.lf;const sv=ClassRuntime?.Teleology?.servingHeal(s,a,u);if(sv)log(s,{kind:"teleology",actor:a.id,target:u.id,text:sv.note});u.lf=Math.min(u.maxLF,u.lf+Math.round(amount*inst.mult*(sv?.mult||1)));log(s,{kind:"heal",actor:a.id,target:u.id,text:`${a.name} restores ${u.lf-old} LF to ${u.name}.`});};
+        const heal=(u,amount)=>{const old=u.lf;const sv=ClassRuntime?.Teleology?.servingHeal(s,a,u);if(sv)log(s,{kind:"teleology",actor:a.id,target:u.id,text:sv.note});u.lf=Math.min(u.maxLF,u.lf+Math.round(amount*inst.mult*(sv?.mult||1)));log(s,{kind:"heal",actor:a.id,target:u.id,text:`${a.name} restores ${u.lf-old} LF to ${u.name}.`});sapAfterHeal(s,a,u,u.lf-old);};
         if(inst.effect==="archivistIndex")for(const u of present.filter(u=>u.side!==a.side)){index(u);ClassRuntime?.hunterIndexed?.(s,a,u);}   // H2: her Index Entry names the Quarry (Archive does not: spec 6 names Index Entry and Observe only)
         if(inst.effect==="archivistArchive")for(const u of present.filter(u=>u.side!==a.side))index(u);
         if(inst.effect==="archivistArchive"&&ab(inst.ability)?.allyCharge)for(const u of present.filter(u=>u.side===a.side&&u.id!==a.id)){const max=s.rules.ultimateChargeMax||100,old=u.ultimateCharge||0;u.ultimateCharge=Math.min(max,old+ab(inst.ability).allyCharge);if(u.ultimateCharge>old)log(s,{kind:"charge",actor:a.id,target:u.id,text:`${u.name} listens: +${u.ultimateCharge-old} ultimate charge.`});}   // Jambavan's Counsel of the Ages
@@ -500,7 +501,8 @@
       }
       if(inst.effect==="overgrowth"){
         const onTiles=new Set((inst.tiles||[]).map(([x,y])=>x+","+y));
-        const foes=Object.values(s.actors).filter(u=>!u.defeated&&u.side!==a.side&&onTiles.has(u.x+","+u.y));
+        const meal=s.film?.kind==="banquet"?(typeof module==="object"&&module.exports?require("../banquet/banquet.js"):globalThis.ConceptCombatBanquet):null;   // the Chef's table: an accepted guest is not rooted by her host's side (spec 5d G2)
+        const foes=Object.values(s.actors).filter(u=>!u.defeated&&u.side!==a.side&&onTiles.has(u.x+","+u.y)&&!meal?.pairHolds(s,a,u));
         resolveAbility(s,a,{...inst,effect:"damage"});
         let rooted=0,seeded=0;
         for(const u of foes){const t=s.actors[u.id]; if(!t||t.defeated) continue; t.status.entangled={lostMove:99,expiresAt:t.ownerTurns+1}; rooted++;}
@@ -1306,6 +1308,7 @@
       const current = direction === "current";
       if (!current) n = H.fruitPushBonus?.(s, a, t, n, direction) ?? n;   // Sinkerfruit (respec S2b1): Mainspring
       if (H.hasTrait?.(t, "packStrong") && (t.states?.relicGold || t.relicBrokeRound === s.round)) { n = Math.max(0, n - 1); if (n === 0) return; }   // Treasure Hunter (TH1), Pack Strong: carrying treasure (or the blow that just cracked the gold, this round) shortens a knock by 1; the gold breaks inside the hit, before this runs
+      if (s.film?.kind === "banquet" && a && (typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet)?.pairHolds(s, a, t)) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `The meal holds: ${t.name} is not moved.` }); return; }   // the Chef's table, spec 5d G3
       if (bossRules?.formImmovable?.(t)) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name}'s exoskeleton doesn't budge.` }); return; }   // learned forms: Exoskeleton
       if (t.boss && bossRules?.displacementBlocked(t)) { log(s, { kind:"resist", actor:a.id, target:t.id, tiles:footprint(t), text:`${t.name} holds its ground against the ${direction}.`, why:["The boss rules make this massive body immune to displacement."] }); return; }
       if (t.form?.golden) { log(s, { kind: "resist", actor: a.id, target: t.id, tiles: [[t.x,t.y]], text: `${t.name} hovers beyond the ${direction}.`, why: ["The Integrated Self ignores forced movement."] }); return; }

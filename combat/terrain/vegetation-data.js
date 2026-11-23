@@ -14,7 +14,7 @@
 //   portfolio   ~/plant-photography-portfolio (also lists ti, bird of paradise and monstera)
 //
 // origin (2026-10-10): "endemic" | "indigenous" (both Native Hawaiian) | "canoe" (Polynesian-introduced) | "tropical"
-// (introduced ornamental) | "temperate". Used by plant communion and the hiker rule's plant count; it changes no combat number.
+// (introduced ornamental) | "temperate" | "mythic" (a plant of myth, no real binomial; never planted by a biome: Šammu nikitti, 2026-11-22). Used by plant communion and the hiker rule's plant count; it changes no combat number.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatVegetation = factory();
@@ -127,6 +127,11 @@
       trait: null, note: "Lilikoi. Vigorous woody vine grown as a shrub mass; intricate flowers, butterfly host." },
     puya: { common: "Puya", sci: "Puya alpestris", form: "shrub", sources: ["sprites"], sheet: "puya", origin: "temperate", verify: true, stages: 3,
       trait: null, note: "Sapphire tower. Spiky bromeliad rosette with a tall hummingbird-pollinated spike; spines noted, no object behavior yet." },
+    // Šammu nikitti (SN1a, R-20261122-38/-39): a MYTHIC plant, not a real species (Gilgamesh Tablet XI, Kovacs translation hosted by
+    // sjsu.edu). Never in a biome palette or ordinary planting: it stands only where a scenario or (later, SN1c) the rare site puts it.
+    // Its communed body (96 LF, class sammu_nikitti, three traits) is the species-profile override in communion-data.js.
+    sammuNikitti: { common: "Šammu nikitti", sci: "unidentified (mythic)", form: "shrub", sources: ["myth:GilgameshXI"], sheet: "sammu", origin: "mythic", hp: 24, stages: 3,
+      trait: null, note: "The plant of Tablet XI, 'like a boxthorn', fetched from the deep water; a snake took it. Map art is the cut's mundane pose." },
   };
 
   // ── non-plant destructibles (site furniture) ─────────────────────────────

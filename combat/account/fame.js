@@ -14,6 +14,8 @@
 //   award(account, events, ctx)                 { account, pts, level, lines, rows }; ctx.battles is the clock (default account.battles)
 //   add(account, pts, source)                   { account, pts, level, levelUp }: busk and any future source
 //   migrate(account)                            the four keys, idempotent; an old save's Fame was all busking
+//   bossesBeaten / respectLevel / respectTier   Respect (section 12, slice R-a): distinct `boss-*` keys in account.victories -> level 0..5
+//   respectBlock(account), respectLines(a, fresh)  the sheet line; the results lines for a first win over a boss
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatFame = factory();
@@ -165,5 +167,31 @@
     if (present.desk) unlocks.push({ at: 3, what: "the second slot on the desk shelf" });
     return { level, tier: tierName(level), xp, need: cost, next: cost == null ? null : tierName(level + 1), by, effects: { persuasion: fx.persuasion, hallPct: fx.hallPct }, unlocks };
   }
-  return { RULES, cap, levelFor, need, tierName, effects, eventsFrom, add, award, migrate, sheetBlock };
+  // ── Respect: your threat level (slice R-a; FAME.md section 12; R-20261121-32) ──
+  // Derived, never stored: the number of distinct bosses in the victory ledger (account.js recordVictories keys every boss `boss-<id>`), so a rematch
+  // or a boss-rush repeat only raises that entry's count. No decay. It reaches the main unit as the passive `bossRespect` (loot.js passives); the AI
+  // and the random encounters do not read it yet (slices R-b and R-c), so no line here promises an effect. Not `respect`: Spirit Orders owns that key.
+  const RESPECT = { at: [1, 2, 4, 6, 9], tiers: ["Unremarked", "Noted", "Marked", "Feared", "Dreaded", "Nemesis"] };
+  RULES.respect = RESPECT;
+  const bossesBeaten = (account) => Object.keys(account?.victories || {}).filter((k) => /^boss-./.test(k)).length;
+  const respectFor = (n) => RESPECT.at.filter((k) => n >= k).length;
+  const respectLevel = (account) => respectFor(bossesBeaten(account));
+  const respectTier = (level) => RESPECT.tiers[Math.max(0, Math.min(RESPECT.tiers.length - 1, Math.floor(level) || 0))];
+  const plural = (n) => `${n} boss${n === 1 ? "" : "es"} beaten`;
+  // The sheet's Respect line (FAME.md 12.6): level, tier, bosses beaten and the count for the next level (none past the top).
+  function respectBlock(account) {
+    const beaten = bossesBeaten(account), level = respectFor(beaten), next = RESPECT.at[level] ?? null, tier = respectTier(level);
+    return { level, tier, beaten, next, line: `Respect ${level} · ${tier} · ${plural(beaten)}${next == null ? " · the top" : ` · next at ${next}`}` };
+  }
+  // Results lines after the ledger is written: `fresh` is recordVictories' list of classes beaten for the first time. Only a new boss speaks; the first
+  // boss ever also explains what Respect is.
+  function respectLines(account, fresh = []) {
+    const added = (fresh || []).filter((k) => /^boss-./.test(String(k))).length;
+    if (!added) return [];
+    const b = respectBlock(account), lines = [];
+    if (b.beaten === added) lines.push("Respect is how much your enemies fear you. Every new boss you beat raises it; a rematch does not.");
+    lines.push(`Respect ${b.level}: ${b.tier}. ${plural(b.beaten)}${b.next == null ? "." : `; next at ${b.next}.`}`);
+    return lines;
+  }
+  return { RULES, cap, levelFor, need, tierName, effects, eventsFrom, add, award, migrate, sheetBlock, bossesBeaten, respectLevel, respectTier, respectBlock, respectLines };
 });

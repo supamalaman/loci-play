@@ -1,0 +1,199 @@
+{
+  "size_class": "person",
+  "world_height": 1.0,
+  "minimum_pixel_size_px": 96,
+  "runtime_consumed": false,
+  "source": "source/Instar Pupa Form Sprite Sheet.png",
+  "poses": {
+    "idle": {
+      "canvas": [
+        242,
+        189
+      ],
+      "content_w": 233,
+      "content_h": 180,
+      "foot": [
+        121.5,
+        184
+      ]
+    },
+    "walk": {
+      "canvas": [
+        264,
+        182
+      ],
+      "content_w": 253,
+      "content_h": 172,
+      "foot": [
+        131.5,
+        177
+      ]
+    },
+    "dodge": {
+      "canvas": [
+        182,
+        216
+      ],
+      "content_w": 173,
+      "content_h": 207,
+      "foot": [
+        90.5,
+        212
+      ]
+    },
+    "knockback": {
+      "canvas": [
+        217,
+        166
+      ],
+      "content_w": 208,
+      "content_h": 155,
+      "foot": [
+        108.0,
+        161
+      ]
+    },
+    "punch": {
+      "canvas": [
+        284,
+        185
+      ],
+      "content_w": 276,
+      "content_h": 175,
+      "foot": [
+        142.0,
+        180
+      ]
+    },
+    "cast-off": {
+      "canvas": [
+        285,
+        179
+      ],
+      "content_w": 273,
+      "content_h": 169,
+      "foot": [
+        144.5,
+        174
+      ]
+    },
+    "cast": {
+      "canvas": [
+        266,
+        238
+      ],
+      "content_w": 257,
+      "content_h": 229,
+      "foot": [
+        133.5,
+        233
+      ]
+    },
+    "block": {
+      "canvas": [
+        286,
+        208
+      ],
+      "content_w": 278,
+      "content_h": 199,
+      "foot": [
+        143.0,
+        204
+      ]
+    },
+    "knocked-out": {
+      "canvas": [
+        261,
+        124
+      ],
+      "content_w": 252,
+      "content_h": 116,
+      "foot": [
+        130.0,
+        120
+      ]
+    },
+    "ultimate": {
+      "canvas": [
+        287,
+        258
+      ],
+      "content_w": 278,
+      "content_h": 250,
+      "foot": [
+        143.0,
+        254
+      ]
+    },
+    "portrait-neutral": {
+      "canvas": [
+        287,
+        280
+      ],
+      "content_w": 279,
+      "content_h": 272,
+      "foot": [
+        143.5,
+        276
+      ]
+    },
+    "portrait-happy": {
+      "canvas": [
+        284,
+        279
+      ],
+      "content_w": 276,
+      "content_h": 270,
+      "foot": [
+        142.0,
+        275
+      ]
+    },
+    "portrait-angry": {
+      "canvas": [
+        285,
+        271
+      ],
+      "content_w": 277,
+      "content_h": 263,
+      "foot": [
+        142.5,
+        267
+      ]
+    },
+    "portrait-sad": {
+      "canvas": [
+        284,
+        270
+      ],
+      "content_w": 276,
+      "content_h": 261,
+      "foot": [
+        142.0,
+        266
+      ]
+    },
+    "portrait-surprised": {
+      "canvas": [
+        288,
+        282
+      ],
+      "content_w": 280,
+      "content_h": 274,
+      "foot": [
+        144.0,
+        278
+      ]
+    }
+  },
+  "idle_alpha_size_px": [
+    233,
+    180
+  ],
+  "content_height_px": 180,
+  "foot_point_px": [
+    121.5,
+    184
+  ],
+  "note": "world_height 1.0 (person) by default: no consumer or class names this figure yet; the consumer slice sets it."
+}

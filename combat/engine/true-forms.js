@@ -11,6 +11,7 @@
     const spiritGone = (s, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(s, u, H); };   // SP-05: every exit refreshes the roster
     const { Communion, Director, Vows, actorAt, addStun, barrierAt, beginRound, bossRules, currentId, dist, dreamSpaceRules, hasTrait, inside, insightRules, log,
       mirrorRules, modeRules, presidentRules, presidentUnits, recordBattleMirrorOutcome, startTurn, summonRules, summonSnapshot, tileAt, Tsukumogami, footprint, vegetation } = H;
+    const Banquet = () => (typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet) || null;   // the Chef's banquet room (a kind of s.film)
     // defined by parts installed after this one: reached through H when called
     const hit = (...args) => H.hit(...args);
     const apply = (...args) => H.apply(...args);
@@ -353,11 +354,12 @@
     }
     function advance(s) {
       if (s.outcome) { H.Tourist?.settle(s,H.touristH()); return; }
+      if (s.answerTurn) { const TA = typeof module === "object" && module.exports ? require("../summons/tandem-answer.js") : globalThis.ConceptCombatTandemAnswer; if (TA?.turn(s) === "start") { startTurn(s); return; } }   // Tandem T5b: One more turn begins before the order moves on
       for (let i = 0; i < s.order.length; i++) {
         s.turnIndex += 1;
         if (s.turnIndex >= s.order.length) {
           if (s.film && Director) {
-            s.turnIndex = 0; Director.filmWrap(s, H);
+            s.turnIndex = 0; if (s.film.kind === "banquet") Banquet()?.wrap(s, H); else Director.filmWrap(s, H);   // a banquet is one pass: its wrap collapses the room
             if (!s.film) { checkOutcome(s); if (s.outcome) return; continue; }   // a max-takes wrap collapsed the film: collapse restored the outside turn index, so keep advancing from there
             if (s.outcome) return;
           }
@@ -426,10 +428,10 @@
       const ally = { ...raw, ai: "ally", pf: s.rules.maxPF, maxPF: s.rules.maxPF, ultimateCharge: 0, level: a.level || 1, xp: 0, proficiency: a.proficiency || 1, reserve: [], reserveSlots: 0, pendingSwap: null, lens: {},
         reaction: s.rules.reactionsPerRound, moved: false, acted: false, tempo: 0, tempoCapacity: 0, bankedTempo: 0, tempoDebt: 0, tempoSpent: 0, actionsThisTurn: 0, guardUsedThisTurn: false,
         ownerTurns: 0, lastRecoverTurn: -99, status: { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null }, inventory: [], inventoryCapacity: 0,
-        passives: {}, traits: [], conditions: {}, lanyardUsed: false, bristleconeUsed: false, lastDamageType: null, defeated: false };
+        passives: {}, traits: (raw.traits || []).slice(), conditions: {}, lanyardUsed: false, bristleconeUsed: false, lastDamageType: null, defeated: false };
       s.arena.objects = s.arena.objects.filter(o => o.id !== obj.id);
       s.actors[ally.id] = ally; s.disclosures[ally.id] = {}; s.knowledge[ally.id] = {}; s.observedAbilities[ally.id] = [];
-      if (insightRules) { const deck = insightRules.buildDeck({ key: "summon:*", kind: "summon" }, { seed: s.seed }); s.insight.decks[ally.id] = deck; s.insight.knowledge[ally.id] = insightRules.spawnKnowledge(deck); }
+      if (insightRules) { const deck = insightRules.buildDeck(raw.insightKey ? { key: raw.insightKey, kind: "commune" } : { key: "summon:*", kind: "summon" }, { seed: s.seed }); s.insight.decks[ally.id] = deck; s.insight.knowledge[ally.id] = insightRules.spawnKnowledge(deck); }   // a species identity brings its own deck and raw traits (Šammu nikitti SN1a)
       for (const other of Object.values(s.actors)) if (other.id !== ally.id && other.side !== ally.side) {
         s.knowledge[other.id] ||= {}; s.knowledge[other.id][ally.id] ||= { secondary: false, lens: false, abilities: {} };
         s.knowledge[ally.id][other.id] = { secondary: false, lens: false, abilities: {} };
@@ -574,6 +576,7 @@
       rootFallenPlants(s);
       collapseFallenStructures(s);
       H.summonRules?.Trial?.keep(s, log);   // Tandem T2c: a Trial's unbound tandem is never out of the fight, whatever path took it down
+      H.summonRules?.Tandem?.checkMoltTriggers(s, { log });   // Tandem T5a: a fall by any path (a bleed, heat) is witnessed; a user cornered by a price
       H.astralDeathLink?.(s);   // the death-link resolves before the outcome is read: a fallen soul takes its body
       H.Instinct?.autoEnd(s);   // Survival Instincts: a lie ends when its side has no other standing unit; first, before any branch below can end the battle
       if (s.outcome) return;

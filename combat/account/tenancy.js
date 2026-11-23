@@ -81,6 +81,10 @@
   // After a completed real battle (win or lose; an abandoned battle logs nothing): +time to every housed exile, +restraint to the main tenant on a
   // win in which her way was open and not taken (a logged hold-back and no use spent). An idle tenant, one never castable, earns only the time.
   function settle(account, report = {}) {
+    if (report.exorcised) {   // Exile G1: Greedigut won (the host at 0 LF while he was present, or an accepted notice): the main tenant is erased for this save; the rest settle as usual
+      const ex0 = exorcise(account), rest = housed(ex0.account).length ? settle(ex0.account, { ...report, exorcised: false, won: false }) : { account: ex0.account, lines: [], moves: [] };
+      return { account: rest.account, lines: [ex0.line, ...rest.lines].filter(Boolean), moves: rest.moves, exorcised: true };
+    }
     const ids = housed(account), main = ids[0], g = R().gains, lines = [], moves = [];
     let e = { ...ex(account) };
     for (const id of ids) {
@@ -99,5 +103,13 @@
     return { account: { ...account, exiles: e }, lines, moves };
   }
 
-  return { rungOf, trackerLine, housed, mainTenant, battleOpts, offerFor, accept, decline, settle };
+  // Exile G1 T8: Greedigut's win (host at 0 LF while he is present, or an accepted surrender) erases the main tenant
+  // for this save only. Crew standing and approach-halving are T2. Other housed exiles stay.
+  function exorcise(account) {
+    const id = mainTenant(account); if (!id) return { account, line: "" };
+    const e = { ...ex(account) }; delete e[id];
+    return { account: { ...account, exiles: e }, line: `${nameOf(id)} is erased from this save.` };
+  }
+
+  return { rungOf, trackerLine, housed, mainTenant, battleOpts, offerFor, accept, decline, settle, exorcise };
 });

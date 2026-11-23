@@ -220,8 +220,10 @@
  function turnStart(s,a,H){
   const b=status(a).bleed;
   let drained=0;   // ward ruling (Muse-2): report the drain so recovery-disturbance sees internal damage too
-  if(b&&active(b,a)&&!a.defeated){
-   const drain=Math.min(a.lf,b.drain||2);a.lf-=drain;drained=drain;
+  const toonFloor=(typeof module === "object" && module.exports ? (() => { try { return require("../animated-body/animated-body.js"); } catch { return null; } })() : globalThis.ConceptCombatAnimatedBody)?.bleedFloor?.(s,a,{hasTrait:H.hasTrait})||0;   // Animated Body (R-20261122-44): a status bleed never finishes a cartoon outside an orgonite field
+  if(b&&active(b,a)&&!a.defeated&&(typeof module==='object'&&module.exports?require('../banquet/banquet.js'):globalThis.ConceptCombatBanquet)?.truceHolds(s,a)){b.until+=1;H.log(s,{kind:'bleed',actor:a.id,text:`${a.name}'s wound does not burn down while the meal holds.`});}   // the Chef's table: an accepted pair's wounds wait (spec section 2)
+  else if(b&&active(b,a)&&!a.defeated&&a.lf>toonFloor){
+   const drain=Math.min(a.lf-toonFloor,b.drain||2);a.lf-=drain;drained=drain;
    H.log(s,{kind:'bleed',actor:a.id,amount:drain,tiles:[[a.x,a.y]],text:`${a.name} bleeds (${drain} LF${b.until>a.ownerTurns?`, ${b.until-a.ownerTurns} more turns`:"; the bleeding stops"}.`});
    if(a.lf<=0&&!a.defeated)H.hit(s,s.actors[b.owner]||a,a,null,0,[`${a.name} bleeds out.`],{label:'Bleed',bleedOut:true});   // drained to 0 is defeated through hit()'s defeat block, not left standing (a capped battle otherwise; wizard-kit pre-screen)
   }

@@ -19,6 +19,8 @@
 //   foes.look: { classId: { name?, sprite? } }         the drawn foe's name and sprite folder for this scenario (The Vocation: the maid's Vocational form, R-20261115-63)
 //   houses: "always"                                    rules.houses.chance becomes { default: 1 } for this battle
 //   foes: { fixed: [], unbound: summonId, at: [[x, y]] }           a tandem's Trial (Tandem T2c): the only foe is that tandem, unbound; without `at` it arrives where a called summon would, within 2 tiles of the player; never rolled (chainOnly), begun from the Tandem wing
+//   plants: [{ type, at: [x, y] }...]                   a vegetation species or object made on that tile by the game's own maker, replacing any object
+//                                                      there; a tile off the map, in wall or water, or under a unit drops the scenario (no silent substitute; Šammu nikitti SN1a)
 //   chainOnly: true                                    never drawn by the Random Encounter roll (scenarios.js candidates)
 //   objective.exact: true                              the deadline is not moved by the tier; objective.hero: true (survive) loses the moment the hero is down
 //   lendTenant: exileId                                 the exile lodges with the player at Guest for this battle only, borrowed: it settles nothing (Exile T0a: Aziza)
@@ -226,6 +228,21 @@
       },
     },
 
+    // The Spring That Walks (Šammu nikitti SN1a, R-20261122-38/-39; teaching scenario, Mala's 2026-11-02 rule): the mythic plant stands on the
+    // canal's west bank with a stump beside it (spec site overlay: plant (5,5), stump (5,4), Ranger (13,5), Medusa (13,3), the third spawn empty).
+    // Study it, answer its one question, and she walks beside you: she wards and heals, and her sap renews. Tier 3 only, so the plant stays a rare
+    // sight (the 1/1000 discovery site and keeping the root are SN1c); nothing here grants an item, a root or an account record.
+    sammuSpring: { id: "sammuSpring", name: "The Spring That Walks", minTier: 3, weight: 1,
+      arenas: ["canalGarden"], quiet: true,
+      foes: { fixed: ["ranger", "medusa"], at: [[13, 5], [13, 3]], holdTurns: 1 },
+      plants: [{ type: "sammuNikitti", at: [5, 5] }, { type: "stump", at: [5, 4] }],
+      objective: { kind: "classic" },
+      text: {
+        open: "Something like a boxthorn grows by the canal, where the old story says it should not. Study it from Observe, answer what it asks, and it may walk beside you.",
+        mid: { when: { round: 3 }, text: "If she answers you, she tends the hurt first. A wounded friend near her heals more than once." },
+        result: { player: "The canal runs on, and the far bank is yours.", enemy: "The water closes over the place where she grew.",
+          none: "Nobody gives way. The plant by the canal keeps its secret." } } },
+
     // ── Slice 4: break and salvage (SCENARIOS.md section 9 row 4; modes/objectives.js) ──
     breakTheSluice: { id: "breakTheSluice", name: "Break the Sluice", minTier: 2, weight: 1,   // SC16
       arenas: ["canalGarden"],
@@ -347,7 +364,7 @@
       objective: { kind: "hold", deadline: 6, onDeadline: "lose" },
       text: {
         open: "The ground between you is three tiles wide. Hold it. The cheaper first step toward a named destination is the lesson.",
-        mid: { when: { round: 3 }, text: "The ones still walking toward the ground are the ones who heard you." },
+        mid: { when: { round: 3 }, text: "The foe is still walking toward the ground." },
         result: { player: "The ground is yours.", enemy: "You were pushed off the ground.",
           none: "Nobody holds the ground when the clock stops." } } },
 
@@ -486,6 +503,29 @@
         mid: { when: { round: 3 }, text: "Spread its blows: a foe it has already wounded lends nothing new. Keep it close; pulled past its leash, it strains and every tile falls away." },
         result: { player: "Three foes down. The pattern held, and the lend ends with the battle.", enemy: "The pieces scattered before the pattern was whole. Keep it close and spread its blows.",
           none: "The rounds run out with the pattern unfinished." } } },
+    theAnswer: { id: "theAnswer", name: "The Answer", minTier: 2, weight: 1,   // teaching the Answer (Tandem T5b, muse-tandem-spirit-spec; R-20261122-14, R-20261122-59): the Mosaic is lent and named to teach (answerTeach), against one Oni, a boss (foes.boss), so the battle matters. Nothing is written to the account (a lent Answer is marked lent; tandem-trial.js spendNow skips it).
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["boss-oni"], boss: { "boss-oni": "oni" }, at: [[7, 3]] },
+      lend: ["mosaic"],
+      answerTeach: "mosaic",
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "One Oni, a boss, and the Mosaic lent to you for this battle: call it from your summons and keep it out. A tandem you own can answer once ever, in a battle that matters: when a blow would end you, it holds you on the brink and offers its two needs. The Mosaic's are Hold and End it. Here it only teaches: the lend ends with the battle, and your own tandems are untouched.",
+        mid: { when: { round: 3 }, text: "If the Oni's blow would end you, the Mosaic waits on your word. Hold keeps you standing and unharmed for the rest of the round. End it downs the Oni once it is under a quarter of its life. Whichever need you name, the tandem is gone; asking nothing keeps it, and the blow falls." },
+        result: { player: "The Oni is down. Had the Mosaic answered, a tandem you own would now be gone for good.", enemy: "The Oni wins. Next time keep the Mosaic out, so it can answer.",
+          none: "The rounds run out with the Oni still standing." } } },
+    theGlassHall: { id: "theGlassHall", name: "The Glass Hall", minTier: 2, weight: 1,   // Tandem T6 bound place (R-20261122-15, R-20261122-66): a named-rule scenario authored from an existing arena (the Ice Court, whose sheet cracks and gives way) and the classic objective, no engine. The Mosaic is lent; three different foes, so the clean rung's condition is on the board. The named rule is the Mosaic's own third fragment (strain sheds every tile).
+      arenas: ["iceCourt"],
+      foes: { fixed: ["soldier", "kickboxer", "student"], at: [[6, 2], [6, 4], [7, 3]] },
+      lend: ["mosaic"],
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "The Glass Hall. Call the Mosaic from your summons: it is lent to you here if it is not yet yours. The rule of this hall is the Mosaic's own: pulled past its leash, it strains, and every shard it carries falls away. Wound three different foes without it straining, and a Mosaic of your own would climb to its clean rung.",
+        mid: { when: { round: 3 }, text: "Keep it close and spread its blows. One strain and every shard is gone, and the clean battle with it. A clean Mosaic of your own that does this in a boss fight or a Trial climbs to perfect." },
+        result: { player: "Three foes down in the Glass Hall. A lent Mosaic climbs nothing, and the lend ends with the battle; a Mosaic of your own climbs here as anywhere.", enemy: "The hall stays broken. Keep it close: a strain sheds every shard.",
+          none: "The rounds run out with the pattern unfinished." } } },
     foolsGold: { id: "foolsGold", name: "Fool's Gold", minTier: 2, weight: 1,   // teaching the Treasure Hunter (TH1c, cursor-treasure-hunter-spec "Teaching scenario"; R-20261115-26): he is the one foe on an open map with at least 4 pickups (the terrace's own). Gold: engine/states.js relicClaim (x0.25 taken until a blow lands, states.relicGold), dropTreasure (the cracking blow drops it beside him); Finder's Keepers: engine/factions.js, his first Inspiration from a foe taking his drop. Uncatalogued, no SC number; tier 2 like the other concept lessons
       arenas: ["terraceGarden"],
       foes: { fixed: ["treasure_hunter"] },
@@ -560,6 +600,50 @@
         open: "The Tandem wing lends you the Instar for this battle: call it from your summons. It arrives as a Larva and keeps within 3 tiles of you. It grows by need, not by a meter: if one of your allies falls while it is out, it molts into its Pupa.",
         mid: { when: { round: 3 }, text: "As a Pupa its carapace takes 4 off every hit, and half of what it loses, at most 3 a hit, echoes to you. Fall below a quarter of your health and it molts into its Imago, which flies. A molt never goes back." },
         result: { player: "The three are down. The lend ends with the battle, and the Instar keeps no form it reached.", enemy: "Your foes broke you before it could grow. Next time call another ally beside it: an ally falling while it is out is what makes it molt.",
+          none: "The rounds run out." } } },
+    theInstarsAnswer: { id: "theInstarsAnswer", name: "The Instar's Answer", minTier: 1, weight: 1, chainOnly: true,   // the Instar's Trial (Tandem T5a, muse-tandem-spirit-spec slice 5; R-20261121-29, R-20261121-31, R-20261121-33): never rolled, begun from the Tandem wing; an Answer Trial of Trust. The numbers are the row's (summons-data.js instar.tandem.trial; a test pins that they agree). Appended last so the termination sixths keep their members (C11).
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier", "student", "wizard"], at: [[6, 2], [6, 4], [7, 3]], bound: "instar" },   // bound: the Instar fights beside the player from the start (summons/tandem-trial.js placeBound)
+      companion: { character: "archivist", lf: 6 },   // the frail companion who is meant to fall: it starts at 6 LF; its fall, while the Instar is out, is the first molt
+      quiet: true,
+      objective: { kind: "survive", deadline: 8, onDeadline: "lose", exact: true, hero: true, molt: { tandem: "instar", form: 3 } },
+      text: {
+        open: "The Instar stands bound beside you as a Larva, and a frail companion stands with you. It grows only by need: when an ally falls while it is out, it becomes a Pupa; then, as a Pupa, when your health drops below a quarter, it becomes the Imago. Bring it to the Imago within 8 rounds with you both standing. If it falls, you fall, or the rounds run out, your next battle starts one summon short.",
+        mid: { when: { round: 4 }, text: "Round four. Safety will not grow it. It answers need, and the need has to be real." },
+        result: { player: "It reached the Imago, and you are both standing. The Instar takes its room in your palace, its first call free; it answers as a Larva, and from now on the form it reaches is kept.", enemy: "It did not reach the Imago. Your next battle starts one summon short, and the Trial opens again after that battle.",
+          none: "The count ends with nothing settled." } } },
+    greedigutLesson: { id: "greedigutLesson", name: "The Removal Notice", minTier: 2, weight: 1,   // teaching Greedigut (Exile G1): he arrives at the opening against a Guest tenant; the countdown bounds the fight. Appended last so earlier ids keep their place; T0a's last-pin stays.
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier"], at: [[7, 3]] },   // one foe, so the classic objective has someone to beat; the lesson ends when he leaves (engine/greedigut.js leave)
+      lendTenant: "aziza",
+      force: { opening: { type: "greedigut" } },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "Someone asks for a room, and a clerk in a pale coat serves a removal notice for her. You stand the countdown: he marks you with a Notice that lands at the end of the next round. Step off the mark, put an ally on it, or play dead, and when his time runs out he leaves. Blows on him become debt, never wounds. Fall while he is here and your tenant is exorcised.",
+        mid: { when: { round: 2 }, text: "He is watching the clock. The number is never shown. Blows on him become debt, never wounds." },
+        result: { player: "He leaves. The countdown bounded him.", enemy: "You fell while he was here: your tenant is exorcised.",
+          none: "The rounds run out with the notice still open." } } },
+    herGround: { id: "herGround", name: "Her Ground", minTier: 2, weight: 1,   // teaching Shardback's thorn soil (hot-build cuts F5b, cursor-hotbuilds-cuts-spec section 5; R-20261122-28): she grades, then fights on what she graded. Appended last so the termination sixths keep their members (C11); tier 2 so the pinned tier-1 lists stay as they are
+      arenas: ["quarryLedge"],
+      foes: { fixed: ["shardback"], at: [[8, 5]], holdTurns: 2 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "Shardback holds the quarry floor, and she reshapes it before she fights. Every tile she cuts or fills becomes thorn soil: her briers bite harder there, her Earth Upheaval hits anyone standing on it for half again, and a shot fired from it meets her ward whole.",
+        mid: { when: { round: 3 }, text: "Look where you stand. Ground she graded is hers; fight her from open turf, off the berms she raised." },
+        result: { player: "Shardback is down. The ground goes back to being ground.", enemy: "She won on ground she made. Next time keep off the tiles she graded and make her come to you.",
+          none: "The rounds run out." } } },
+    whatTheyMeanToDo: { id: "whatTheyMeanToDo", name: "What They Mean to Do", minTier: 2, weight: 1,   // teaching Rigs RG1 (claude-rigs-spec section 3, "Read the room"; that id is taken by the crew lesson, so this one has its own): an Officer rig is lent for this battle (lendGear; never an unlock). Appended last so the termination sixths keep their members (C11)
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier", "student"], at: [[7, 3], [4, 5]] },   // both in sight of the spawn (the pillars hide (6,2) and (6,4)), so the first turn can Forecast
+      lendGear: { id: "officer-card-1", passive: { computeAdd: 2 } },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "You carry an Officer rig for this battle: two Forecasts (three if you hold Hardware), under Investigate at the start of your turn. Forecast shows what a foe means to do next. Use it before you commit.",
+        mid: { when: { round: 3 }, text: "A Forecast is their own plan, run on the board as it stands. Move first or change the board, and the plan can change with it." },
+        result: { player: "Both are down. The rig goes back where it came from.", enemy: "They did what they meant to. Next time Forecast before you step in.",
           none: "The rounds run out." } } },
   };
 

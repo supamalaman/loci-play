@@ -97,12 +97,11 @@
         log(s, { kind: "act", actor: a.id, text: `${a.name} cowers: nowhere left to run, so they cover up (Guard until their next turn start).` });
       },
       recover(s, a) {
-        if (a.tempo < s.rules.actionCosts.utility) return `Recover needs ${s.rules.actionCosts.utility} action points.`;
-        if (a.lastRecoverTurn >= a.ownerTurns - s.rules.recover.cooldownTurns) return "Recover can't be used on consecutive turns.";
-        if (a.pf >= a.maxPF) return "ΦF is already full.";
+        const no = H.canRecover(s, a); if (no) return no;   // Animated Body AB1a: one predicate for the handler and the AI (Snap Back may Recover at full ΦF)
         spendTempo(s, a, s.rules.actionCosts.utility, "Recover"); a.lastRecoverTurn = a.ownerTurns;
         const before = a.pf; a.pf = Math.min(a.maxPF, a.pf + s.rules.recover.amount);
         log(s, { kind: "act", actor: a.id, text: `${a.name} recovers ${a.pf - before} ΦF (${a.pf}/${a.maxPF}). Not again next turn.` });
+        const snap = H.snapBack(s, a); if (snap) log(s, { kind: "heal", actor: a.id, target: a.id, text: snap.text, why: ["Animated Body: once a battle, a Recover straightens one injury grade (worst first, then legs, arms, head)."] });
       },
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-turn.js)`);

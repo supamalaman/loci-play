@@ -45,6 +45,17 @@
         { type: "ability", actor: actorId, ability: ability.id, target: target.at },
         `${ability.m.name} → (${target.at.join(",")}) · ${ability.m.tempoCost} AP`);
     }
+    // Qualifier Q2a: the engine's "act" cards (strike, throw, Battle Card, item, Recover, vow, set intent, aura) join the list,
+    // each under the card row's own label. A row the card marks off is never offered, and offer re-checks preview anyway.
+    // The built-in AI's candidates are computed once and shared by every card. An E without actionOptions gets today's list.
+    if (typeof E.actionOptions === "function") {
+      let rows = [];
+      try {
+        const candidates = typeof E.aiCandidates === "function" ? E.aiCandidates(state, actorId) : undefined;
+        rows = E.actionOptions(state, actorId, "act", { candidates });
+      } catch (_) { /* a card that throws: keep the hand-built rows only */ }
+      for (const row of rows) if (!row.off) offer(row.act, row.label);
+    }
     const unit = state.actors[actorId];
     if (unit?.tempo >= state.rules.actionCosts.guard && !unit.guardUsedThisTurn) offer({ type: "guard", actor: actorId }, `Guard · ${state.rules.actionCosts.guard} AP`);
     if (unit?.tempo > 0) offer({ type: "stall", actor: actorId }, `Stall and bank up to ${Math.min(unit.tempo, state.rules.maxBankedActionPoints)} AP`);

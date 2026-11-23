@@ -279,13 +279,15 @@
       gentle_hand: { trigger: "the first lethal blow she lands on a foe", effect: { sparedAt: 1 }, bound: "once per foe per battle; the win stays non-lethal", counter: "Hit the spared foe again: the hand stays itself only once." },
       purple_litany: { trigger: "a ranged hit from 2 or more tiles on her, or an unwarded ally within 2", effect: { dome: 8, offTempo: true }, bound: "one reaction a round; primed only against a Fixed foe", counter: "Swap who shoots, or close inside 2 tiles." },
     }, "chitin-bishop"),
-    // Shardback F5a (R-20261121-23): Cut Slope and Place Fill come back to her (R-20261114-56; the Engineer keeps Regrade and Drainage Plan). Brief until F5b adds her merge.
-    shardback: B(["cutSlope", "placeFill", "lash", "brierRing"], { primaryBasic: "cutSlope", primaryRefined: "placeFill", secondaryBasic: "lash", secondaryRefined: "brierRing" }, {
+    // Shardback F5a (R-20261121-23): Cut Slope and Place Fill come back to her (R-20261114-56; the Engineer keeps Regrade and Drainage Plan).
+    // F5b: Earth Upheaval (merge A) completes the kit and the build goes live; Shard Rain (the Berm wheelhouse merge) and Upheaval Now (her Crescendo) ride her pairs.
+    shardback: B(["cutSlope", "placeFill", "lash", "brierRing", "earthUpheaval"], { primaryBasic: "cutSlope", primaryRefined: "placeFill", secondaryBasic: "lash", secondaryRefined: "brierRing" }, {
+      ground_keeper: { trigger: "she chooses a technique (her AI table)", effect: { traitDrive: "groundKeeper" }, bound: "grading while she has no thorn soil; Lash and Earth Upheaval at a foe standing on it", counter: "Stay off the ground she graded and the table has nothing to aim at." },
       stone_hide: { trigger: "a Strike or contact hit from a foe lands on her, the first since her turn began", effect: { potencyLess: 2 }, bound: "once per turn of hers; foes only; Strikes and contact hits only", counter: "Open with a cheap touch, or hit her from range." },
       hard_place: { trigger: "she ends her turn on a tile she graded this battle or on her own berm", effect: { phi: 1 }, bound: "once per round", counter: "Drive her off the ground she made." },
       thorn_soil: { trigger: "her Brier Ring grows a thorn on a tile she graded this battle", effect: { thornDamageAdd: 2 }, bound: "her own graded tiles only; needs both her concepts", counter: "Fight her off the ground she cut and filled." },
       ward_field: { trigger: "a ranged hit from 2 or more tiles on her", effect: { ward: 6, berm: 1 }, bound: "one reaction a round; rushed is half the ward", counter: "Close inside 2 tiles, or strike." },
-    }, "creature-combat", "brief"),
+    }, "creature-combat"),
     eldritch: B(["annotate", "redact", "survey", "verify"], { primaryBasic: "annotate", primaryRefined: "redact", secondaryBasic: "survey", secondaryRefined: "verify" }, {}, "eldritch", "brief"),
     // The Treasure Hunter (TH1; Discovery + Extraction, crew street): the four live techniques and, since TH1b, his two merges: Idol Claim (the pair's merge ultimate)
     // and Relic Path (the merge technique of his wheelhouse blend, Discovery + Alternate Pathway: a reserve merge, as the Auditor Goblin's Ledger of Debts is). Live:

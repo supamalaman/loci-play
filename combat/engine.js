@@ -42,7 +42,7 @@
   else root.ConceptCombat = factory(Observation, Tourist, root.ConceptCombatPostures, root.ConceptCombatPresident, Sight, Belief, GraphLive, ClassRuntime, root.ConceptCombatDirector, RandomEvents, Climate, Auras, Parley, Bonds, Vows, MaidSystems, Workflow, UtilityAI, Communion, Traps, Tsukumogami, Imitation, EmergentIdeas, EnemySummons, MindDuel, root.ConceptCombatConversion, root.ConceptCombatCourtroom, root.ConceptCombatDispatch, root.ConceptCombatPresence, root.ConceptCombatDebt, root.ConceptCombatSealing, root.ConceptCombatVisitors, (root.ConceptCombatBuild && root.ConceptCombatBuild.version) || "dev");
 })(typeof self !== "undefined" ? self : this, function (Observation = null, Tourist = null, Postures = null, President = null, Sight = null, Belief = null, GraphLive = null, ClassRuntime = null, Director = null, RandomEvents = null, Climate = null, Auras = null, Parley = null, Bonds = null, Vows = null, MaidSystems = null, Workflow = null, UtilityAI = null, Communion = null, Traps = null, Tsukumogami = null, Imitation = null, EmergentIdeas = null, EnemySummons = null, MindDuel = null, Conversion = null, Courtroom = null, Dispatch = null, Presence = null, Debt = null, Sealing = null, Visitors = null, BUILD = "dev") {
   // The engine's parts, in install order (web/combat/engine/). Node requires them; the pages load them as scripts first.
-  const ENGINE_PARTS = ["charge","ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","tenancy","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
+  const ENGINE_PARTS = ["charge","ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","tenancy","greedigut","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
     ? require("./engine/" + name + ".js") : globalThis.ConceptCombatEngineParts[name.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase())]), Affinity = typeof module === "object" && module.exports ? require("./vows/affinity.js") : globalThis.ConceptCombatAffinity, VK = typeof module === "object" && module.exports ? require("./vows/vowkit.js") : globalThis.CombatVowKit;   // W4.5-6: vow-drive audit + declaration kit
 
 
@@ -222,6 +222,7 @@
         let specs = [];
         if (event.type === "ally") specs = [{ character: event.character, side: "player", role: "ally" }];
         if (event.type === "visitors" && Visitors) specs = Visitors.specs(event);
+        if (event.specs) specs = event.specs;
         if (event.type === "reinforcements") specs = event.characters.map(character => ({ character, side: "enemy", role: "reinforcement" }));
         if (event.type === "supervillain") specs = [
           { character: "super_villain", displayName: "Super Villain", sprite: "super-villain", loadout: { primary: "deception", secondary: "pathway" }, traits: ["genius"], side: "villain", role: "supervillain", arrivesRound: event.round },   // shared villain faction (was a singleton side per event)
@@ -272,7 +273,7 @@
       const cost = H.summonPhiAdd(actor, dreamSpaceRules ? dreamSpaceRules.summonCost(field, base) : base);
       const profile = { ...(EmergentIdeas ? EmergentIdeas.summonProfile(actor, cost) : { ...cost, wardProtection: 0 }), maxActive: summonRules?.data.rules.maxActive ?? 1 };
       if (field && actor?.widenedPalace) profile.maxActive += 1;   // Widened Palace dream slot
-      return { ...profile, ...(summonRules?.Trial?.freeCall(s, actor, key) ? { apCost: 0, phiCost: 0, freeCall: true } : {}), active: Object.values(s.actors).filter(u => EmergentIdeas?.summonerOf(u) === id && EmergentIdeas.summonPresent(u)).map(u => u.id) };
+      return { ...profile, ...summonRules?.Trial?.profile(s, actor, key), active: Object.values(s.actors).filter(u => EmergentIdeas?.summonerOf(u) === id && EmergentIdeas.summonPresent(u)).map(u => u.id) };
     }
     // summonQuestionHints lives in engine/queries.js (moved whole for O2c: engine.js is at its cap).
     function summonReadiness(s, id, summon, unlocked = s.unlockedSummons || []) {
@@ -292,7 +293,7 @@
         participants: [{ id: "player", character: "warden", side: "player", at: [3, 3] }, { id: "student", character: "student", side: "enemy", at: [8, 3] }, { id: "soldier", character: "soldier", side: "enemy", at: [9, 5] }] };
     }
     function liveSummon(s,owner,raw) {
-      const summon = {...owner,...raw,side:owner.side,sprite:raw.character,form:null,formCooldownUntil:0,traits:[],ai:"summon",controller:"ai",pf:s.rules.maxPF,maxPF:s.rules.maxPF,
+      const summon = {...owner,...raw,side:owner.side,sprite:raw.sprite||raw.character,form:null,formCooldownUntil:0,traits:[],ai:"summon",controller:"ai",pf:s.rules.maxPF,maxPF:s.rules.maxPF,
         ultimateCharge:0,level:owner.level,xp:0,proficiency:owner.proficiency,reserve:[],reserveSlots:0,pendingSwap:null,lens:{},reaction:s.rules.reactionsPerRound,
         moved:false,acted:false,tempo:0,tempoCapacity:0,bankedTempo:0,tempoDebt:0,tempoSpent:0,actionsThisTurn:0,guardUsedThisTurn:false,
         ownerTurns:0,lastRecoverTurn:-99,status:{guard:null,ward:null,parry:null,membrane:null,anchor:null,stun:null,entangled:null},inventory:[],inventoryCapacity:0,
@@ -332,7 +333,7 @@
         const aware = Traps.known(unit, tp);
         if (s.preview) continue;
         tp.spent = true; tp.trips = (tp.trips || 0) + 1;
-        const before = unit.lf; unit.lf = Math.max(0, unit.lf - tp.potency);
+        const before = unit.lf; unit.lf = Math.max(H.toonFloor?.(s, unit) || 0, unit.lf - tp.potency);
         unit.pain = { v: Math.min(1, (unit.pain?.v || 0) + (before - unit.lf) / (unit.maxLF || 30)), round: s.round };
         (s.trapLog ||= []).push({ victim: unit.id, x, y, aware, dmg: before - unit.lf, helpless });
         const verb = helpless ? (unit.routed ? "runs straight into a hidden trap" : "is thrown onto a hidden trap") : aware ? "walks into a known trap" : "triggers a hidden trap";

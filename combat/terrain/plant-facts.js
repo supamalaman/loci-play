@@ -8,7 +8,8 @@
 //   sceneMs(opener, fact)               → ms the card stays up
 //   banks(type)                         → the eligible facts for a species (its own bank, else its form's), in order
 //   notes(plantFacts, type)             → { bank, heard, n, N, cycles }   what the player has heard of a species (S2, the Codex shelf), from `ever` and `seen`
-//   species()                           → the species with a bank of their own, in data order
+//   species(plantFacts)                 → the species with a bank of their own, in data order; a mythic plant (Šammu nikitti SN1a) only once
+//                                         this record has heard one of its facts, so the Codex never lists it to a player who has not met it
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./plant-facts-data.js"), require("./communion.js"));
   else root.ConceptCombatPlantFacts = factory(root.ConceptCombatPlantFactsData, root.ConceptCombatCommunion);
@@ -64,6 +65,6 @@
     const heard = bank.filter((f) => legacy || ever.has(f.id) || seen.has(f.id)).map((f) => f.id);
     return { bank, heard, n: heard.length, N: bank.length, cycles };
   }
-  const species = () => Object.keys(D.facts);
+  const species = (plantFacts = null) => Object.keys(D.facts).filter((t) => !C.profile(t)?.mythic || notes(plantFacts, t).n > 0);
   return { rules: R, data: D, banks, pick, markHeard, sulk, sceneMs, notes, species };
 });

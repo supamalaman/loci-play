@@ -1538,6 +1538,7 @@
     "beatTheDrums": { "riders": ["state:break", "offered-by-state"], "requires": { "signature": true } },
     "nagapashaShot": { "riders": ["state:grant:target", "bind", "thematic:rama+lakshmana"] },
     "shakti": { "riders": ["class:shakti", "thematic:lakshmana"] },
+    "notice": { "riders": ["delayed:next-round-end", "host-mark", "full-to-zero-guard"], "source": "boss:greedigut" },
     "nikumbhila": { "riders": ["state:grant", "channel-2-turns", "empower"], "requires": { "pairs": [["deception", "constraint"]] } },
     "readTheOmens": { "riders": ["reveal-observation"] },
     "counsel": { "riders": ["state:grant:target", "conditional-ward", "thematic:ravana"], "requires": { "pairs": [["inference", "harmony"]] } },
@@ -3213,7 +3214,11 @@
     crownOfPlates: {riders:["class:bishop","announced"]},
     domeHarmonic: {riders:["class:bishop"]},
     // Shardback F5a: Ward Field is a Purple Litany-shaped reactive ward that also raises a one-round berm toward the shooter.
-    wardField: {riders:["barrier","reactive","ward"]}
+    wardField: {riders:["barrier","reactive","ward"]},
+    // Shardback F5b: Earth Upheaval (merge A), Upheaval Now (her Crescendo, paid in Inspiration), Shard Rain (the Berm merge; leaves berms).
+    earthUpheaval: {riders:["class:shardback","announced"]},
+    upheavalNow: {riders:["class:shardback","inspirationPrice"]},
+    shardRain: {riders:["class:shardback","barrier"]}
   });
   TECHNIQUE_IDS = Object.keys(PARTS).sort();
   const clone = x => x == null ? null : JSON.parse(JSON.stringify(x));

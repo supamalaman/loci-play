@@ -23,10 +23,17 @@
       presidentRules, presidentUnits, rangeEnvelope, recordMirrorEvent, refreshDrowning, revealDreamSummons, riteDiscount, roundFn, saveWildWorld, settleHomeward,
       spendTempo, standFootprint, strikeTarget, summonQuestions, summonRules, summonProfile, summonReadiness, summonSnapshot, syncPickup, syncPresidentUnit, target, tileAt, unitAt, vegetation, wildRules,
       wildSnapshot } = H;
+    // Tandem T5b, Reach them: the free tile nearest the named unit that its user may be carried to (summons/tandem-answer.js), or null.
+    function answerSpot(s, u, t) {
+      const occupied = new Set(Object.values(s.actors).filter((x) => !x.defeated && x.id !== u.id).flatMap((x) => H.footprint(x).map(([fx, fy]) => `${fx},${fy}`))), blocked = H.arrivalBlocked?.(s);
+      if (blocked) for (const k of blocked) occupied.add(k);
+      return H.summonRules?.placeSummon ? H.summonRules.placeSummon(H.moduleArena(s.arena), [t.x, t.y], occupied, null) : null;
+    }
     const sealedNext = () => (typeof module === "object" && module.exports ? require("../sealed-next.js") : globalThis.ConceptCombatSealedNext);
     const DreamData = () => (typeof module === "object" && module.exports ? require("../dream/dream-data.js") : globalThis.ConceptCombatDreamData) || null;   // O2a: a dream monster's teaches for the observe result
     const Dream = () => (typeof module === "object" && module.exports ? require("../dream/dream.js") : globalThis.ConceptCombatDream) || null;   // O2b: naming the dream from Rituals
     const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
+    const Banquet = () => (typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet) || null;   // the Chef's banquet room (a kind of s.film)
     // defined by parts installed after this one: reached through H when called
     const aiAction = (...args) => H.aiAction(...args);
     const candidates = (...args) => H.candidates(...args);
@@ -205,7 +212,11 @@
       const start = s.log.length;
       const err = (error) => ({ ok: false, error, state });
       H.settleHolds(s, null, true);   // holds set by hand or loaded from a save get their tiles recorded before the action moves anyone
-      if (s.outcome && action.type === "resolveTrauma") {
+      if (s.answerOffer && !s.outcome) {   // Tandem T5b: the Answer waits on its user before anything else is taken (summons/tandem-answer.js)
+        const TA = typeof module === "object" && module.exports ? require("../summons/tandem-answer.js") : globalThis.ConceptCombatTandemAnswer;
+        if (action.type !== "tandemAnswer") return err(`${s.actors[s.answerOffer.user]?.name || "The user"} must answer first: name the need, or let the blow fall.`);
+        const r = TA.choose(s, s.actors[action.actor], action, { log, hit, spot: answerSpot, gone: (st, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(st, u, H); } }); if (r) return err(r);
+      } else if (s.outcome && action.type === "resolveTrauma") {
         const r = handlers.resolveTrauma(s, s.actors.player, action); if (r) return err(r);
       } else if (s.phase === "response") {
         if (action.type !== "respond" && action.type !== "revealIntent") return err("Waiting for a defensive response.");
@@ -223,13 +234,18 @@
           : MindDuel.applyConcede(s, action.actor, action.choice, { log, Parley });
         if (r) return err(r);
         if (s.phase !== "mind") checkOutcome(s);   // while the concession menu holds the duel open, no outcome yet
+      } else if (s.film?.kind === "banquet" && s.film.phase === "choice" && Banquet()?.chooser(s)) {   // the Chef's table: the guest chooses before anyone acts; nothing else is taken (banquet/banquet.js)
+        if (action.type !== "banquetChoose") return err("Choose: accept the meal or reject hospitality.");
+        const a = s.actors[action.actor], B = Banquet(); if (!a || !B) return err("There is no meal to choose.");
+        const r = B.choose(s, a, action, { log }); if (r) return err(r);
       } else {
         if (action.actor !== currentId(s) && action.type !== "callCut") return err(`It is ${s.actors[currentId(s)].name}'s turn.`);
         const a = s.actors[action.actor] || (action.type === "callCut" ? s.film?.saved.actors[action.actor] : null);   // a filming Director acts from the stash
         if (!a) return err(`It is ${s.actors[currentId(s)].name}'s turn.`);
         if(a.status?.verse?.freeAp&&action.type!=="discardVerse"&&action.type!=="callCut"&&!(action.type==="ability"&&action.ability===a.status.verse.id))return err("Deliver the Freestyle line now, or discard it; its action is already paid.");
         const contractError=H.Contracts?.before(s,a,action);if(contractError)return err(contractError);
-        { const stateError = H.States?.refuses(s, a, action); if (stateError) return err(stateError); }   // States: a gate holds this act (engine/states.js)
+        { const stateError = H.States?.refuses(s, a, action); if (stateError) return err(stateError); }
+        { const tableError = Banquet()?.refuses(s, a, action, C); if (tableError) return err(tableError); }   // the Chef's table: no summons, dreams, stations or talk inside   // States: a gate holds this act (engine/states.js)
         if (H.Instinct.lying(a) && !["standUp", "stall", "end"].includes(action.type)) return err("Stand up first (10 AP).");   // Survival Instincts: a lying unit only stands, ends its turn, or waits (engine/instinct.js)
         const point = typeof action.target === "string" ? s.actors[action.target] : Array.isArray(action.target) ? {x:action.target[0],y:action.target[1]} : action.to ? {x:action.to[0],y:action.to[1]} : null;
         if (!["ability","fullCourtPress"].includes(action.type) && point && !dreamSame(s,a.x,a.y,point.x,point.y)) return err("The sealed Dream Space blocks that interaction.");

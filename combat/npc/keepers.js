@@ -34,7 +34,7 @@
     rama: { name: "Rama", role: "Town Hall", windows: ["townHall"], art: std("rama"), voice: "calm, formal, fair", lines: "rama", hook: "H02", perk: null, wired: true, slice: "S0",
       rematch: ["firstWall", "gapCourt", "rosterScrimmage", "warfare", "bossRush"] },   // the public Town Hall encounters a loss is remembered for (the secret ones never are)
     sita: { name: "Sita", role: "Home", windows: ["home"], art: std("sita"), voice: "gentle, practical", lines: "sita", hook: "H03", perk: null, wired: true, slice: "S1" },
-    jatayu: { name: "Jatayu", role: "The Archive", windows: ["archive", "bestiary", "traitWeb", "studioRoster", "studioSheet", "crewWall", "artLibrary"], art: std("jatayu"), voice: "old, exact, patient", lines: "jatayu", hook: "H04", perk: null, wired: true, slice: "S1" },
+    jatayu: { name: "Jatayu", role: "The Archive", windows: ["archive", "bestiary", "traitWeb", "studioRoster", "studioSheet", "crewWall", "artLibrary", "bondLedger"], art: std("jatayu"), voice: "old, exact, patient", lines: "jatayu", hook: "H04", perk: null, wired: true, slice: "S1" },
     tallyman: { name: "The Tallyman", role: "Ledger House", windows: ["ledgerHouse"], art: std("neo-warden-tallyman", "portrait-{x}.png"), voice: "courteous, exact, a little grim", lines: "tallyman", hook: "H05", perk: null, wired: true, owes: true, slice: "S1", counters: { shop: "pioneer", gear: "smith", kiln: "talisman", stall: "kaikeyi" } },
     pioneer: { name: "Pioneer", role: "Field shop", windows: ["ledgerHouse"], art: std("pioneer"), voice: "cheerful, practical", lines: "pioneer", hook: "H06", perk: "P1", wired: true, slice: "S3" },
     smith: { name: "The Smith", role: "Gear and repair", windows: ["ledgerHouse"], art: std("smith"), voice: "terse, proud of the work", lines: "smith", hook: "H07", perk: "P2", wired: true, slice: "S5" },   // placeholder name (D6); faces landed by the Cutter (S5): he speaks at the Ledger House Gear counter
@@ -82,6 +82,7 @@
     narratorWindow: w("arantxa", "ui.js:2056", [], "S4"), dispatch: w("chief", "law/dispatch.js:45", [], null, "radio voice only (decision D9)"),
     saveBroken: w(null, "ui.js:1329", ["showSaveBroken"], null, "system overlay (broken save guard, 2026-11-03): plain words about the player's data, no keeper"), firstPick: w(null, "ui.js:1340", ["showFirstPick"], null, "its own scene (Familiar S2, 2026-11-03): the first-launch familiar choice"),
     enemyBubbles: w("served", "ui.js:3883", ["showDialogueFrom"], null, "already served: speakers.js heads"),
+    bondLedger: w("jatayu", "bonds/ledger-ui.js:mount", [], "S1"),   // Bonds B1 (claude-bonds-spec, R-20261122-11): the Bonds window opens inside Jatayu's strip from its Bonds button, no show* function
     museum: w("museumKeeper", "ui.js:showMuseum", ["showMuseum"], "S6"),   // Museum M2: the town door's panel; keeper unnamed (M9)
     familiarPicker: w("contextual", "ui.js:showFamiliarPicker", ["showFamiliarPicker"], "S6"),   // Familiar S3 (codex-familiar-s3-build rev 1): the familiar collection, opened from the field and from the battle's Familiars command; like the summon card, S6 names who speaks
   };

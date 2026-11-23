@@ -389,12 +389,17 @@
     // Rules in summons/tandem.js; hexagon, rule and numbers as Mala approved them (R-20261115-03).
     mosaic: { name: "The Mosaic",
       tandem: { user: "any", leash: 2,
-        rule: "Made of what it strikes: each different foe it wounds lends it a tile, +1 potency on its later hits, up to 3 tiles.",
+        rule: "Made of what it strikes: each different foe it wounds lends it a tile, +1 potency on its later hits, up to 3 tiles (4 once it has climbed to clean).",
         price: "To stretch its leash to 4 tiles through its next turn, its user pays 4 LF, and must have more than 4 to pay it.",
         hexagon: { power: "A", speed: "C", leash: "E", stamina: "C", precision: "B", growth: "B" },
         lend: { max: 3, potency: 1 }, stretch: { lf: 4, leash: 4 }, reflect: { share: 0.5, max: 3 },
+        answer: { matters: ["boss", "trial"], needs: ["hold", "end"] },
+        // Tandem T6, its technique ladder (R-20261122-15, R-20261122-66): practiced from its Trial pass; clean = `foes` different foes wounded
+        // in one battle without straining (it then carries cleanLendMax tiles); perfect = the same in a battle that matters (it also arrives
+        // with perfectStartTiles tiles already lent). Rules in summons/tandem.js applyRung and summons/tandem-trial.js settle.
+        ladder: { foes: 3, cleanLendMax: 4, perfectStartTiles: 1 },   // Tandem T5b, the Answer (R-20261122-14, R-20261122-59): Hold, End it
         fragments: ["Its leash is 2 tiles: past that, an order fails and it strains.",
-          "Each different foe it wounds lends it a tile, up to 3, and every tile adds to its later hits.",
+          "Each different foe it wounds lends it a tile, up to 3 (4 once it has climbed to clean), and every tile adds to its later hits.",
           "Strain breaks its pattern: pulled past its leash, every tile falls away."],
         // Its Trial (T2c; R-20261115-03, R-20261115-42; summons/tandem-trial.js): an ordeal. Survive `rounds` rounds against it unbound.
         // A fail takes price.lf LF at the start of the next battle; a retry opens after `retryAfter` finished battles.
@@ -417,6 +422,7 @@
         rule: "Delegation: an automatic servant that ranges up to 8 tiles and executes its declared program without reflection.",
         price: "It cannot adapt mid-turn: its program is public to foes and can only be rewritten at its user's turn start.",
         hexagon: { power: "D", speed: "C", leash: "A", stamina: "B", precision: "C", growth: "B" },
+        answer: { matters: ["boss", "trial"], needs: ["reach", "moreTurn"] },   // Tandem T5b, the Answer (R-20261122-14, R-20261122-59): Reach them, One more turn
         programs: [
           { id: "harryWeakest", name: "Harry the Weakest", text: "Pursue and strike the hostile unit with the lowest remaining LF." },
           { id: "guardUser", name: "Guard User", text: "Stay within 2 tiles of its user and strike any foe that comes that close." },
@@ -447,11 +453,13 @@
         price: "To stretch its leash to 5 tiles through its next turn, its user pays 3 LF, and must have more than 3 to pay it.",
         hexagon: { power: "D", speed: "D", leash: "C", stamina: "B", precision: "C", growth: "A" },
         stretch: { lf: 3, leash: 5 },
+        answer: { matters: ["boss", "trial"], needs: ["reach", "hold"] },   // Tandem T5b, the Answer (R-20261122-14, R-20261122-59): Reach them, Hold
         moltCondition: "witness",
         currentForm: 1,
         forms: [
           {
             form: 1,
+            sprite: "instar-larva",
             name: "The Instar (Form I: Larva)",
             leash: 3,
             rule: "Larva: it keeps within 3 tiles of its user; outside them an order fails and it strains.",
@@ -467,6 +475,7 @@
           },
           {
             form: 2,
+            sprite: "instar-pupa",
             name: "The Instar (Form II: Pupa)",
             leash: 2,
             rule: "Pupa: its carapace takes 4 off each hit it suffers (never below 1), and as a close tandem half of what it loses, at most 3 a hit, echoes to its user.",
@@ -484,6 +493,7 @@
           },
           {
             form: 3,
+            sprite: "instar-imago",
             name: "The Instar (Form III: Imago)",
             leash: 4,
             rule: "Imago: it flies (3 more move, half the AP a step, one move a step whatever the ground), and its hits on a wounded foe gain 3 potency.",
@@ -504,9 +514,13 @@
           "Its leash is 3 tiles: a larval spirit that clings close to its summoner.",
           "Witnessing an ally's fall shatters its larval form, triggering an irreversible molt into its pupal carapace.",
           "It is slow and fragile in this form, and nothing yet guards it: wound it now, before it molts."
-        ]
+        ],
+        // Its Trial (T5a; R-20261121-29, R-20261121-31, R-20261121-33; summons/tandem-trial.js): an Answer Trial of Trust. It fights bound
+        // beside its user from Form I; pass when it reaches Form `goal.form` within `rounds` rounds with both standing. A fail costs one
+        // summon call at the next battle start (the summon called most recently, else the Raven); a retry opens after `retryAfter` battles.
+        trial: { kind: "answer", quality: "Trust", rounds: 8, goal: { form: 3 }, price: { calls: 1 }, retryAfter: 1, scenario: "theInstarsAnswer" }
       },
-      source: "Tandem wing (the Instar, T4)", attitude: "vigilant",
+      source: "Tandem wing (the Instar, T4; its Answer Trial, T5a)", sprite: "instar-larva", attitude: "vigilant",   // T5a: each form has its own sheet (instar-larva, -pupa, -imago; the claude-instar-*-cut shelves); applyForm sets the folder
       standIn: { primary: "succession", secondary: "plasticity" },
       proposed: { primary: "Succession", secondary: "Plasticity", reserve: null, personal: null },
       signature: { name: "Successive Ecdysis", status: "spec", mechanism: "Molts in stages when need conditions fire (witnessing ally fall, user cornered below 25% LF).",

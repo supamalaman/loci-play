@@ -41,7 +41,7 @@
     const cap = R.fundCap ?? 24;
     const want = amount ?? R.skimLf ?? 6;
     const far = typeof H.dist === "function" && tgt && H.dist(s, a.x, a.y, tgt.x, tgt.y) > 1;
-    if (!tgt || tgt.defeated || tgt.side === a.side || far) {
+    if (!tgt || tgt.defeated || tgt.side === a.side || far || H.Greedigut?.is(tgt)) {   // Exile G1: Greedigut takes no Life Force, so there is no present to skim
       log(s, { kind: "effect", actor: a.id, text: `${a.name} reaches, and the present is not in hand.` });
       return 0;
     }

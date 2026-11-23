@@ -329,7 +329,9 @@
     const trust = JSON.parse(JSON.stringify(account?.trust || {}));
     const respect = {};
     for (const [k, v] of Object.entries(account?.respect || {})) { const h = halve(v); if (h) respect[k] = h; }
-    return { trust, respect, battles: account?.battles || 0 };
+    const bonds = {};   // Bonds B2a: the player's bond ranks from Close up, for the valence source (engine/factions.js bondValence)
+    for (const [id, r] of Object.entries(account?.bonds || {})) if (r && Number.isFinite(r.rank) && r.rank >= 3) bonds[id] = Math.min(5, Math.floor(r.rank));
+    return { trust, respect, battles: account?.battles || 0, bonds };
   }
   function settleOrders(account, s) {
     const lines = [], respect = {};
@@ -337,7 +339,8 @@
       const v = clamp5(((s.respectSeed || {})[k] || 0) + ((s.deeds || {})[k] || 0));
       if (v) respect[k] = v;
     }
-    if (Object.keys(respect).length) lines.push(`Respect settles: ${Object.entries(respect).map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${v}`).join(", ")}.`);
+    // The player reads this as Esteem: Respect is the boss-earned threat level (FAME.md 12.12, R-20261110-10, R-20261121-32); the key stays `respect`.
+    if (Object.keys(respect).length) lines.push(`Esteem settles: ${Object.entries(respect).map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${v}`).join(", ")}.`);
     return { account: { ...account, trust: JSON.parse(JSON.stringify(s.trust || {})), respect }, lines };
   }
 

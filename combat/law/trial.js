@@ -483,5 +483,5 @@
     return out;
   }
 
-  return { TRIAL, FORMS, COUNSEL, GRADES, SEV, GLOSSARY, openTrial, countsFromEvidence, countsFromMarks, countsFromRules, unitsFromBattle, debriefedSubjects, legalPlays, play, endTrial, retry, witnessPool, callWitness, testimonyWeight };
+  return { TRIAL, FORMS, COUNSEL, GRADES, SEV, MARK_SEV, GLOSSARY, openTrial, countsFromEvidence, countsFromMarks, countsFromRules, unitsFromBattle, debriefedSubjects, legalPlays, play, endTrial, retry, witnessPool, callWitness, testimonyWeight };
 });

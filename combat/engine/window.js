@@ -75,7 +75,7 @@
       (s.pending.answers ||= []).push({ defender: d.id, ability: opt.ability });
     }
     function reactiveOptions(s, d, inst, truth = false) {
-      const R = RD(s); if (!R?.enabled || !d || d.defeated || inst.directHit || inst.quickened || inst.audienceOnly || !(d.reaction > 0)) return [];
+      const R = RD(s); if (!R?.enabled || !d || d.defeated || inst.directHit || s.film?.kind === "banquet" || inst.quickened || inst.audienceOnly || !(d.reaction > 0)) return [];   // the Chef's table: no reaction inside
       if (!inst.announced && !seesItComing(s, d, inst)) return [];
       const atk = s.actors[inst.owner], out = [], shown = shownDelivery(s, d, inst, truth);   // the delivery the defender believes (truth: what it would see unfooled)
       const targeted = opponentsOn(s, atk, inst.tiles, false).some((u) => u.id === d.id);
@@ -121,7 +121,7 @@
     // Opened by the ability handler (actions.js) for an unannounced attack. False when nobody can answer it. Previews skip
     // it, except the AI's answer model (s.answerPreview, engine/ai.js), which plays out the answer it expects.
     function openReactionWindow(s, a, inst, d) {
-      const R = RD(s); if (!R?.enabled || (s.preview && !s.answerPreview) || inst.announced || inst.deception || inst.audienceOnly || inst.quickened || inst.directHit) return false;
+      const R = RD(s); if (!R?.enabled || (s.preview && !s.answerPreview) || inst.announced || inst.deception || inst.audienceOnly || inst.quickened || inst.directHit || s.film?.kind === "banquet") return false;   // the Chef's table: no window opens inside
       const eff = d.effect === "prototype" ? inst.effect : d.effect, tgt = ["prototype", "recombine"].includes(d.effect) ? inst.target : d.target;   // Innovation: judge a copy by what it became (its manifest), not the slot
       if (d.timing === "delayed" || !(inst.potency > 0) || (eff !== "damage" && d.effect !== "recombine") || !["enemy", "tile"].includes(tgt)) return false;   // an attack aimed at a unit, or at tiles you stand on
       const targets = opponentsOn(s, a, inst.tiles, false);
@@ -204,7 +204,9 @@
       const auditPrimed=opt.ability==="objection" && d.status?.auditPrimed?.until>d.ownerTurns;
       const sunPrimed = opt.ability === "sunWard" && !!H.States?.sunWardPrimed?.(s, d, attack);   // Sun Ward, primed (Treasure Hunter TH1b): the shooter stands on a tile his own live Survey rumor names, so the ward is whole
       if (sunPrimed) log(s, { kind: "respond", actor: d.id, target: attack.owner, ability: opt.ability, primed: true, text: `${d.name} had ${s.actors[attack.owner]?.name}'s tile marked: the Sun Ward meets ${attack.name} whole.`, why: ["Sun Ward, primed: the shooter stands on a tile his own live Survey rumor names, so the ward is not rushed."] });
-      const caught = perfect || crescendoAnswer || fixedPrimed || auditPrimed || sunPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
+      const wardPrimed = opt.ability === "wardField" && !!ClassRuntime?.shardback?.primed(s, d, s.actors[attack?.owner]);   // Ward Field, primed (Shardback F5b, the Cash): the shooter stands on her thorn soil, so the ward is whole and she cashes 1 Inspiration
+      if (wardPrimed) { log(s, { kind: "respond", actor: d.id, target: attack.owner, ability: opt.ability, primed: true, text: `${s.actors[attack.owner]?.name} shoots from ground ${d.name} graded: the Ward Field meets ${attack.name} whole.`, why: ["Ward Field, primed: the shooter stands on her thorn soil (a tile she graded this battle), so the ward is not rushed, and she cashes 1 Inspiration (once a round)."] }); H.Inspiration.cash(s, d, "My ground."); }
+      const caught = perfect || crescendoAnswer || fixedPrimed || auditPrimed || sunPrimed || wardPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
       if(opt.ability==="objection"){ClassRuntime.auditor.sustain(s,d,attack,{...opt,caught},H);delete d.status.auditPrimed;}
       if (opt.ability === "plateChoir") ClassRuntime.law.choirSustain(s, d, attack, { ...opt, caught }, H);   // F3: store the Choir; tax a named attacker
       if (opt.ability === "wardField") ClassRuntime?.shardback?.wardBerm(s, d, s.actors[attack?.owner], H, log);   // F5a: the berm rises toward the shooter
@@ -230,7 +232,7 @@
       if (inst.submissionFinish) return d.reaction > 0 && !d.soulless ? [{ kind: "breakHold", apCost: s.rules.submission.finishBreakAp }] : [];   // Submission finish: break the hold, or submit
       if((d.lastTechniqueConcept==="focus"||d.focus?.earned)&&d.focus&&d.focus.target!==inst.owner)return [];
       if(d.status.attention&&d.status.attention.target!==inst.owner)return [];
-      if (inst.directHit) return [];   // Drunken Monkey Style: too unpredictable to answer — no guard, no dodge
+      if (inst.directHit || s.film?.kind === "banquet") return [];   // the Chef's table, or Drunken Monkey Style: too unpredictable to answer — no guard, no dodge
       const freeRead = d.freeReactionVs === inst.owner;
       const reactive = inst.convene ? [] : reactiveOptions(s, d, inst);
       if (s.pending?.reactive && !nothingSudden(s, d, inst)) return reactive;   // unannounced: only a reactive technique answers it (a blurred speedster answers it in full: SS2)

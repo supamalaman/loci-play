@@ -17,6 +17,19 @@
     // ── queries for UI / AI ────────────────────────────────────────────────
     // Orgonite 2b (merged 1.3.563, moved out of engine.js summonProfile for the size cap): a worn charm's
     // summonPhiAdd raises the ΦF a summon costs.
+    // Animated Body AB1a (R-20261122-44): the one Recover predicate (actions-turn.js handler, ai.js candidate) and the Snap Back repair.
+    const AB = () => (typeof module === "object" && module.exports ? (() => { try { return require("../animated-body/animated-body.js"); } catch { return null; } })() : globalThis.ConceptCombatAnimatedBody) || null;
+    const abDeps = () => ({ hasTrait: H.hasTrait, injury: H.Injury, downgrade: H.Injury?.downgrade });
+    function canRecover(s, a) {
+      const ab = AB(); if (ab) return ab.canRecover(s, a, abDeps());
+      if (a.tempo < s.rules.actionCosts.utility) return `Recover needs ${s.rules.actionCosts.utility} action points.`;
+      if (a.lastRecoverTurn >= a.ownerTurns - s.rules.recover.cooldownTurns) return "Recover can't be used on consecutive turns.";
+      return a.pf >= a.maxPF ? "ΦF is already full." : null;
+    }
+    const snapBack = (s, a) => AB()?.snapBack(s, a, abDeps()) || null;
+    const animatedBodyRules = () => AB()?.RULES || null;
+    const toonFloor = (s, a) => AB()?.bleedFloor(s, a, { hasTrait: H.hasTrait }) || 0;   // engine.js traps (size-capped core: one call)
+    const snapBackReady = (s, a) => !!AB()?.snapBackReady(s, a, abDeps());
     function summonPhiAdd(actor, cost) {
       const extraPhi = actor?.passives?.summonPhiAdd || 0;
       return extraPhi ? { ...cost, phiCost: (cost.phiCost || 0) + extraPhi } : cost;
@@ -107,12 +120,17 @@
     }
     function decider(s) {
       if (s.outcome) return null;
+      if (s.answerOffer) return { actor: s.answerOffer.user, kind: "answer" };   // Tandem T5b: the Answer holds the battle until its user chooses (summons/tandem-answer.js)
       if (s.phase === "response") return { actor: s.pending.defenders[s.pending.responded.length], kind: "response" };
       if (s.phase === "mind" && s.mindDuel) {   // Mind duel: the concession waits on its loser; picks wait on the player first, then whoever is left
         const du = s.mindDuel;
         if (du.concede) return { actor: du.concede.by, kind: "mind" };
         if ([du.a, du.b].includes("player") && !du.picks.player) return { actor: "player", kind: "mind" };
         return { actor: [du.a, du.b].find((id) => !du.picks[id]) || du.a, kind: "mind" };
+      }
+      if (s.film?.kind === "banquet" && s.film.phase === "choice") {   // the Chef's table: a guest's open choice holds the room (banquet/banquet.js)
+        const B = typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet;
+        const g = B?.chooser(s); if (g) return { actor: g, kind: "banquet" };
       }
       return { actor: currentId(s), kind: "turn" };
     }
@@ -345,6 +363,6 @@
         participants: [{ id: "player", character: "warden", side: "player", at: [3,3] }, { id: "student", character: "student", side: "enemy", at: [9,3] }],
         loadouts: { player: { primary: "barrier", secondary: "imagination", reserve: ["elasticity"], traits: ["fullBeliever"] } } };
     }
-    return { summonPhiAdd, decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, actionOptions, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints, freeFirstFree, fixedFoe, fixedFoes, dreamReadiness, proficientSummonerTestOptions };
+    return { canRecover, snapBack, snapBackReady, animatedBodyRules, toonFloor, summonPhiAdd, decider, moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, actionOptions, seededChance, beliefSummonCandidate, actorLook, innovationManifest, foldAt, riteDraws, freshBody, inspiredPay, summonQuestionHints, freeFirstFree, fixedFoe, fixedFoes, dreamReadiness, proficientSummonerTestOptions };
   })();
 });

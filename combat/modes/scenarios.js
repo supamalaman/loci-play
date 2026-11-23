@@ -254,7 +254,7 @@
   // Authored events (SCENARIOS.md 3.4; slice 2). `force` swaps the rolled event at a checkpoint for an authored one (random-events.js create
   // with force/checkpoints) and drops the arrivals the rolled event had brought; `wild` lays a field wild form on the map at the start.
   // The authored event's arrivals are placed by the engine's own eventParticipantsFor (ctx.eventParticipantsFor), so they stand where a rolled one would.
-  const AUTHORABLE = ["visitors", "weather", "terrain", "dream", "monsters", "supervillain"];   // event types whose fill needs nothing but the seed
+  const AUTHORABLE = ["visitors", "weather", "terrain", "dream", "monsters", "supervillain", "greedigut"];   // event types whose fill needs nothing but the seed
   function authorEvents(out, S, seed, ctx) {
     let result = out;
     const RE = ctx.RandomEvents;
@@ -327,6 +327,22 @@
     return result;
   }
 
+  // Šammu nikitti SN1a: authored plants and objects on named tiles (the record's `plants`). Null when a tile cannot take one, so the
+  // scenario is dropped rather than placed somewhere else.
+  function placeScenarioPlants(arena, plants, participants, ctx) {
+    if (!arena?.map || !ctx.V?.makeObject) return null;
+    const h = arena.map.length, w = (arena.map[0] || "").length, stood = new Set((participants || []).filter((p) => p.at).map((p) => K(...p.at)));
+    let objects = (arena.objects || []).slice();
+    for (const [i, p] of plants.entries()) {
+      const [x, y] = p.at || [];
+      if (!(x >= 0 && y >= 0 && x < w && y < h) || "#~".includes(arena.map[y][x]) || stood.has(K(x, y))) return null;
+      const obj = ctx.V.makeObject(p.type, x, y, `-scenario-${i + 1}`);
+      if (!obj) return null;
+      objects = objects.filter((o) => !(o.x === x && o.y === y)).concat([obj]);
+    }
+    return { ...arena, objects };
+  }
+
   function apply(base, id, seed, ctx = {}) {
     const S = SCENARIOS[id]; if (!S || !base) return base;
     if (S.wreckLesson && (!ctx.G || !ctx.V?.placeCruiseWreck)) return base;
@@ -340,14 +356,16 @@
     if (groups && groups.length < S.foes.groups) return base;   // too few crews that can stand apart: the roll stays as it was
     const fixedList = !rolled && !warfare && !S.foes.groups && Array.isArray(S.foes.fixed) ? S.foes.fixed.filter((id) => typeof id === "string" && id) : [];   // teaching (SC22+): exact characters, no draw; loadouts and tiles ride E.create defaults and spawns
     const fixed = fixedList.length ? fixedList : null;
-    const unbound = !rolled && !warfare && !groups && !fixed && typeof S.foes.unbound === "string" ? S.foes.unbound : null;   // Tandem T2c: the only foe is that tandem, unbound; the engine stands it on the field (summons/tandem-trial.js place)
+    const unbound = !rolled && !warfare && !groups && !fixed && typeof S.foes.unbound === "string" ? S.foes.unbound : null;
+    const boundTandem = !rolled && !warfare && !groups && typeof S.foes.bound === "string" ? S.foes.bound : null;   // Tandem T5a: an Answer Trial; the tandem fights bound beside the player (summons/tandem-trial.js placeBound)   // Tandem T2c: the only foe is that tandem, unbound; the engine stands it on the field (summons/tandem-trial.js place)
     const sideOf = (character) => (groups ? groups.find((g) => g.ids.includes(character)).crew : "enemy");
     const ids = warfare ? [] : groups ? groups.flatMap((g) => g.ids) : fixed ? fixed.slice() : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((p) => p.character) : unbound ? [] : pickFoes(S, base, seed, tier, ctx).ids;
     let n = warfare ? (base.participants || []).filter((p) => p.side === "enemy").length : ids.length, maxLF = LF_BY_COUNT[n];
-    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF, ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF, ...(S.foes?.traits?.[character] ? { traits: S.foes.traits[character].slice() } : {}), ...(S.foes?.look?.[character]?.name ? { name: S.foes.look[character].name } : {}), ...(S.foes?.look?.[character]?.sprite ? { sprite: S.foes.look[character].sprite } : {}), ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) }));   // foes.traits: a scenario grants a class a trait (Spilled Pot); foes.aggressive: Hostage Hall
+    const foes = warfare ? [] : rolled ? (base.participants || []).filter(isFoe).slice(0, S.count ? S.count[1] : 4).map((f) => ({ ...f, maxLF, ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) })) : ids.map((character, i) => ({ id: `random-foe-${i + 1}`, character, side: sideOf(character), at: null, maxLF, ...(S.foes?.traits?.[character] ? { traits: S.foes.traits[character].slice() } : {}), ...(S.foes?.boss?.[character] ? { boss: S.foes.boss[character] } : {}), ...(S.foes?.look?.[character]?.name ? { name: S.foes.look[character].name } : {}), ...(S.foes?.look?.[character]?.sprite ? { sprite: S.foes.look[character].sprite } : {}), ...(S.foes?.aggressive ? { aggressive: true, posture: "aggressive" } : {}) }));   // foes.traits: a scenario grants a class a trait (Spilled Pot); foes.aggressive: Hostage Hall
     const others = warfare ? base.participants : (base.participants || []).filter((p) => !/^random-foe-/.test(p.id));
     let out = warfare ? { ...base } : { ...base, participants: [others[0], ...foes, ...others.slice(1)] };   // the player first, the foes, then the ally and event arrivals (the engine's order)
     if (S.quiet && !warfare) out = { ...out, participants: (out.participants || []).filter((p) => !p.eventActor && p.id !== "random-ally-1"), randomEventSchedule: (out.randomEventSchedule || []).filter((e) => e.type === "weather"), scenario: { ...(out.scenario || {}), ally: null } };   // teaching: a quiet duel — no ally, no event arrivals; weather stands
+    if (S.companion && !warfare) out = { ...out, participants: [...out.participants, { id: "random-ally-1", character: S.companion.character, side: "player", startingLF: S.companion.lf }] };   // Tandem T5a: the frail companion of the Instar's Trial, beside the player (place puts the ally there); it starts at `lf`, below its usual maximum (a class passive that lowers the maximum cannot drive it under 0)
     if (groups) {   // a melee: events that bring in other opponents are dropped with their arrivals (the Powers That Be rule, themed-battles.js KEEP_EVENTS)
       const keep = (e) => e.type === "weather" || e.type === "ally", gone = new Set((out.randomEventSchedule || []).filter((e) => !keep(e)).flatMap((e) => e.actorIds || []));
       out = { ...out, participants: out.participants.filter((p) => !gone.has(p.id)), randomEventSchedule: (out.randomEventSchedule || []).filter(keep) };
@@ -396,13 +414,21 @@
       out.scenario = { ...out.scenario, ally: "archivist", theyOpen: false };
     }
     if (S.object && out.arenaData) out = { ...out, arenaData: placeScenarioObject(out.arenaData, S.object, out.participants) };   // SC16 sluice
+    if (Array.isArray(S.plants) && S.plants.length) { const arena = placeScenarioPlants(out.arenaData, S.plants, place(out.participants, out.arenaData, ctx), ctx); if (!arena) return base; out = { ...out, arenaData: arena }; }   // SN1a: The Spring That Walks
     if (S.salvage?.minPickups && out.arenaData) out = { ...out, arenaData: ensureSalvagePickups(out.arenaData, seed, S.salvage.minPickups, ctx) };   // SC17 contested scrap
     // Ward slice (SC11–SC14): Tourist via the engine's opts.tourist spawn; civilians via opts.civilians placed after create (engine afterCreate).
     if (S.tourist) out = { ...out, tourist: true };
     if (unbound) { const taken = new Set((out.participants || []).filter((p) => p.at).map((p) => K(...p.at)));
       out = { ...out, startingActor: "player", tandemTrial: { summon: unbound, at: S.foes.at?.[0] ? foeSpot(out.arenaData, ctx, taken, S.foes.at[0]) : null, rounds: S.objective.deadline } }; }
+    if (boundTandem) out = { ...out, startingActor: "player", tandemTrial: { summon: boundTandem, at: null, rounds: S.objective.deadline, bound: true } };
     if (S.lendTenant) out = { ...out, tenant: { id: S.lendTenant, coherence: ctx?.rules?.tenancy?.rungs?.[1]?.from ?? 20, borrowed: true } };   // Exile T0a: the exile lodges for this battle only (engine/tenancy.js; ui.js keeps it and settles nothing)
-    if (Array.isArray(S.lend) && S.lend.length) out = { ...out, lendSummons: S.lend.slice() };   // Tandem T2b: summons lent to the player for this battle (engine/factions.js)
+    if (Array.isArray(S.lend) && S.lend.length) out = { ...out, lendSummons: S.lend.slice() };
+    if (typeof S.answerTeach === "string" && S.answerTeach) out = { ...out, answerTeach: S.answerTeach };   // Tandem T5b: the lent tandem may show the Answer here; nothing is written to the account
+    if (S.lendGear?.passive) {   // Rigs RG1: a piece of gear lent for this battle only; its passive is laid over the player's own gear passives, nothing is owned
+      const P = out.loadouts?.player || {}, pass = { ...(P.passives || {}) };
+      for (const [k, v] of Object.entries(S.lendGear.passive)) pass[k] = (pass[k] || 0) + v;
+      out = { ...out, loadouts: { ...(out.loadouts || {}), player: { ...P, passives: pass } } };
+    }   // Tandem T2b: summons lent to the player for this battle (engine/factions.js)
     if (Array.isArray(S.civilians) && S.civilians.length) {
       const taken = new Set((out.participants || []).filter((p) => p.at).map((p) => K(...p.at)));
       const mids = S.civilians.some((c) => c.middle) ? middleSpots(out.arenaData, ctx, S.civilians.filter((c) => c.middle).length, taken) : [];
@@ -440,7 +466,7 @@
     const rules = { ...(out.rules || {}), scenario: spec };
     if (S.houses === "always" && ctx.rules?.houses) rules.houses = { ...ctx.rules.houses, chance: { default: 1 } };
     const sc = out.scenario, terrain = sc?.terrain || arenaName(out.arenaData, out.arenaData?.id, ctx);
-    const title = unbound ? `The Trial: ${S.name} · ${terrain} · you move first` : `Random scenario: ${S.name} · ${terrain} · ${n} opponent${n === 1 ? "" : "s"}${sc?.ally ? ` · with ${ctx.characters?.[sc.ally]?.name || sc.ally}` : ""} · ${sc?.theyOpen ? "they move first" : "you move first"}`;
+    const title = unbound || boundTandem ? `The Trial: ${S.name} · ${terrain} · you move first` : `Random scenario: ${S.name} · ${terrain} · ${n} opponent${n === 1 ? "" : "s"}${sc?.ally ? ` · with ${ctx.characters?.[sc.ally]?.name || sc.ally}` : ""} · ${sc?.theyOpen ? "they move first" : "you move first"}`;
     const done = { ...out, title, mode: objective.kind === "classic" ? (S.mode || "classic") : "scenario", scenarioBattle: S.id, rules,
       theme: { id: `scenario-${S.id}`, title: S.name, text: S.text.open, mid: S.text.mid.text, result: { ...S.text.result } } };
     return done;
