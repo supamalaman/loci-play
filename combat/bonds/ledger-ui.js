@@ -7,7 +7,7 @@
 // Bonds B2a (R-20261122-46): the type choice at Close, the promises he holds you to (with "Own the break" on a broken one),
 // and his last no with the reason he gave. A refusal is saved like any write (it is recorded on the record).
 // Bonds B2b (R-20261122-69, R-20261122-70): the pact in words once sworn ("Pact: sworn with Jatayu ...", no halves shown: the call
-// and the vouch arrive with B4 and B6), the "Swear the pact" button while the pact talk is remembered and no pact stands, and
+// arrives with B4; the vouch is a trial play since B6), the "Swear the pact" button while the pact talk is remembered and no pact stands, and
 // Allied and Full Bond on the same ask button. The rank shows on the keeper chip (ledger.js chipText); no new chip.
 //   mount(strip, { keeperId, getAccount(), setAccount(a), say(line), playerChar() }) → the panel, or null when the keeper has no route
 //   (playerChar: the player's main class id, for his trust read; Bonds B2a)
@@ -27,6 +27,7 @@
     const pb = route.beats.find((b) => m.id.startsWith(`${id}:${b.id}:`));
     if (pb) return `${pb.title}: ${{ broken: "broken", owned: "you owned the break", repaired: "mended" }[m.id.slice(`${id}:${pb.id}:`.length)] || m.kind}`;
     if (m.kind === "battle") return route.battleTitle || "Fought beside you";
+    if (m.kind === "hearing") return route.hearingTitle || "At your hearing";   // Bonds B6: spoke for you, or declined
     return m.kind;
   }
 

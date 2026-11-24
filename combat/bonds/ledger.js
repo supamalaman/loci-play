@@ -19,7 +19,10 @@
 // opens at Close and is a talk (the third memory); a choice with `pact` offers the pact in the same answer, and the pact can be
 // offered again from the window while none stands (offerPact). He says no to the pact for the same reasons he says no to a
 // rank (refusalOf). Beat 6, the map, is a promise beat that opens at Allied; its kept promise is the fourth memory. The pact
-// stores its two halves (call, vouch) for B4 and B6; nothing reads them yet, and the window shows the pact in words only.
+// stores its two halves (call, vouch); the call half waits on B4, and the window shows the pact in words only.
+// Bonds B6 (claude-bonds-spec 1.9, R-20261123-06, R-20261123-07): the vouch half is read. vouchesFor lists each Full Bond whose
+// pact includes it (carried into a battle by spirit/orders.js carryOpts); noteHearing writes one `hearing` memory when the
+// player was tried and their bond was asked (account.js settleCourt, from the battle's trial ledger), spoke or declined.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./ledger-data.js"));
   else root.ConceptCombatBondLedger = factory(root.ConceptCombatBondRoutes);
@@ -222,8 +225,37 @@
     }
     return next;
   }
+  // Bonds B6: a Full Bond whose pact includes the vouch. `honest` is the route's (R-20261123-07: Jatayu is honest for the vouch
+  // only; his battle traits do not change); `broken` is refusalOf's own test, a promise to him still broken and not repaired.
+  function vouchesFor(account) {
+    const out = [], bonds = account && account.bonds && typeof account.bonds === "object" ? account.bonds : {};
+    for (const id of Object.keys(bonds)) {
+      const route = routeOf(id), rec = recordOf(account, id);
+      if (!route || !rec || rec.rank < TOP || !rec.pact || rec.pact.vouch !== true) continue;
+      const h = route.hearing || {};
+      out.push({ id, name: route.name, honest: route.honest === true, broken: rec.promises.some((p) => p.state === "broken"),
+        lines: { vouched: str(h.vouched), broken: str(h.broken), saw: str(h.saw) } });
+    }
+    return out;
+  }
+  // Bonds B6: the `hearing` memory (spec 1.4: "they spoke for you, or declined"). One per trial a bond was asked in, keyed by the
+  // battle it happened in, so a second settle of the same battle writes nothing (the credit rule). A lent vouch (a teaching
+  // scenario's) writes nothing. → { account, lines }
+  function noteHearing(account, dockets) {
+    let next = account; const lines = [];
+    for (const d of Array.isArray(dockets) ? dockets : []) {
+      const v = d && d.accused === "player" && d.vouch;
+      if (!v || v.lent || !str(v.id)) continue;
+      const route = routeOf(v.id), h = (route && route.hearing) || {};
+      if (!route) continue;
+      const line = v.answer === "declined" ? str(h.declinedMemory) || "You asked, and I would not speak. The register keeps that too." : str(h.vouchedMemory) || "I spoke for you at the hearing.";
+      const r = credit(next, v.id, { id: `${v.id}:hearing:${nat(next && next.battles)}`, kind: "hearing", line });
+      if (r.ok) { next = r.account; lines.push(`${route.name}: "${line}"`); }
+    }
+    return { account: next, lines };
+  }
   // The keeper chip (H04): the rank by name, once met.
   const chipText = (account, id) => { const rec = recordOf(account, id), route = routeOf(id); return route && rec && rec.rank >= 1 ? `Bond with ${route.name}: ${rankName(rec.rank)}${rec.type ? ` · ${rec.type}` : ""}` : null; };
 
-  return { RANKS, TOP, KINDS, FLOOR, CHECKS, routeOf, normalize, recordOf, rankName, introduce, credit, answer, openBeat, refusalOf, askState, ask, chooseType, pactState, offerPact, ownBreak, settlePromises, noteBattle, chipText };
+  return { RANKS, TOP, KINDS, FLOOR, CHECKS, routeOf, normalize, recordOf, rankName, introduce, credit, answer, openBeat, refusalOf, askState, ask, chooseType, pactState, offerPact, ownBreak, settlePromises, noteBattle, chipText, vouchesFor, noteHearing };
 });

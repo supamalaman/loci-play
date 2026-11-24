@@ -145,6 +145,8 @@
       if (Array.isArray(opts.civilians)) for (const c of opts.civilians) H.Civilian.present(s, c);
       if (Array.isArray(opts.lendSummons) && s.actors.player) s.actors.player.lentSummons = opts.lendSummons.slice();   // Tandem T2b: a teaching scenario lends a summon for this battle (summons.js familiarSet)
       if (typeof opts.answerTeach === "string" && opts.answerTeach) s.answerTeach = opts.answerTeach;   // Tandem T5b: a teaching scenario lets its lent tandem show the Answer (never written to the account)
+      if (opts.lendVouch && typeof opts.lendVouch === "object" && typeof opts.lendVouch.id === "string") s.bondVouches = [...(s.bondVouches || []).filter((v) => v.id !== opts.lendVouch.id), { ...opts.lendVouch, lent: true }];   // Bonds B6 teaching: a pact lent for this battle (nothing is written to the account; account.js settleCourt skips it)
+      if (opts.stageHearing) H.Courtroom?.stageHearing?.(s, H, opts.stageHearing);   // Bonds B6 teaching: court opens on the player before the first round (law/courtroom.js stageHearing)
       H.summonRules?.Trial?.battleStart(s, opts, H);   // Tandem T2c: a failed Trial's price, the free first call, and the unbound tandem of a Trial battle (summons/tandem-trial.js)
       if (typeof opts.afterCreate === "function") opts.afterCreate(s, { placeCivilian: (spec) => H.Civilian.present(s, spec) });
       if (opts.scenarioBattle === "theOpenDoor") { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.openDoor?.(s, H); }   // SH4 teaching: The Open Door starts with her table full (kept out of engine.js for the size cap)

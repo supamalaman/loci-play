@@ -20,6 +20,9 @@
 })(typeof self !== "undefined" ? self : this, function (I, A, AN, TR, MINT, MK, JK, JS, JV, FAME) {
   // S7: lazy — loot.js loads before the keeper scripts in the page; Node tests require it here.
   const perksNode = () => require("./keeper-perks.js");   // `=> require(` marks it lazy for the engine-parts walk (merge fix, Bulwark IN)
+  const instrumentsNode = () => require("../workshop/instruments.js");   // JI1 (Resonant Heirlooms): leaf-pure helper; lazy like keeper-perks
+  const INS = () => (typeof module === "object" && module.exports) ? instrumentsNode()
+    : (typeof self !== "undefined" ? self : globalThis).ConceptCombatWorkshopInstruments;
   const perks = () => (typeof module === "object" && module.exports) ? perksNode()
     : (typeof self !== "undefined" ? self : globalThis).ConceptCombatKeeperPerks;
   function roll(seed, tag) {
@@ -113,6 +116,16 @@
       if (Object.keys(held.arts).length) out.soulArts = held.arts;
       const lent = JK?.artIds?.(held.arts) || [];
       if (lent.length) out.soulArtIds = lent;
+      // Resonant Heirlooms JI1: the speaking instrument's performance rights ride a separate
+      // instrumentFocus record (id, tier, soul) plus instrumentArtIds. soulArtIds are never
+      // overwritten: both sources must survive (spec: contact table, ability availability).
+      const instruments = INS();
+      const focus = instruments?.focusFor?.(a, held.held, JK) || [];
+      if (focus.length) {
+        out.instrumentFocus = focus;
+        const granted = instruments.artIdsFor(focus);
+        if (granted.length) out.instrumentArtIds = granted;
+      }
     }
     return out;
   }

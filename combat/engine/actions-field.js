@@ -1,5 +1,5 @@
 "use strict";
-// Actions, the field family: touristPhoto, touristExit, touristDepart, callCut, placeTrap, disarm, plantOrgonite, mendVerb, tendVerb, salvageVerb, chooseVerse, discardVerse, dismissUlaula.
+// Actions, the field family: touristPhoto, touristExit, touristDepart, callCut, placeTrap, disarm, plantOrgonite, mendVerb, tendVerb, salvageVerb, chooseVerse, discardVerse, dismissUlaula, harvest.
 // Split out of actions.js on 2026-11-11 (tools/split-actions.mjs, action seams A2; the map is tools/action-families.json,
 // the lookup docs/action-families.md). Not a module in its own right and not in engine.js's ENGINE_PARTS: actions.js
 // installs it with the host object H and K, the names actions.js has in its own scope (K.handlers is the action table).
@@ -115,8 +115,36 @@
         bm.red = null;
         log(s, { kind: "martial", actor: a.id, text: `${a.name} lets the red go out.` });
       },
+      harvest(s, a, act) {   // SN1b: take the dormant Šammu nikitti root. 30 AP and 10 LF, adjacent, pack room;
+        const SH = typeof module === "object" && module.exports ? require("../mythic-plants/sammu.js") : globalThis.ConceptCombatSammu;   // resolve.js and turns.js read the same module the same way
+        if (!SH) return "The harvest is unavailable.";
+        const obj = (s.arena.objects || []).find((o) => o.id === act.object);
+        const bad = SH.harvestError(s, a, obj); if (bad) return bad;
+        return SH.applyHarvest(s, a, obj, { spendTempo, log }) || undefined;
+      },
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-field.js)`);
     Object.assign(K.handlers, family);
+    // Action seams card (R-20261110-46): harvest, one row per adjacent living Šammu root. Card in
+    // drawer "observe": SN1c's site UI sends these rows from the observe menu (`if (it.id === "harvest")`).
+    // No menu change and no ui.js in this slice.
+    const harvestCards = {
+      harvest: { type: "harvest", drawer: "observe", options(s, a, extra = {}) {
+        const SH = typeof module === "object" && module.exports ? require("../mythic-plants/sammu.js") : globalThis.ConceptCombatSammu;
+        if (!SH) return [];
+        const rows = [];
+        for (const o of (s.arena.objects || [])) {
+          if (o.kind !== "plant" || o.type !== "sammuNikitti" || o.dead || !(o.hp > 0)) continue;
+          if (Math.max(Math.abs(a.x - o.x), Math.abs(a.y - o.y)) > 1) continue;
+          const act = { type: "harvest", actor: a.id, object: o.id };
+          const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+          rows.push({ act, label: `Harvest Šammu nikitti → (${o.x},${o.y})`, cost: 30, off: !pv.ok, why: pv.ok ? "" : pv.error, help: "Take the dormant root: 30 AP, 10 LF, one mouthful in the pack." });
+        }
+        return rows;
+      } },
+    };
+    H.actionCards ||= {};
+    for (const type of Object.keys(harvestCards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-field.js)`);
+    Object.assign(H.actionCards, harvestCards);
   })();
 });

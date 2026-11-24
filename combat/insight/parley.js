@@ -74,6 +74,7 @@
   const fallenAllies = (s, t) => Object.values(s.actors || {}).filter((u) => u.id !== t.id && u.side === t.side && u.defeated
     && !u.escaped && !u.noXp && !u.persuaded && !u.leaveReason).length;
   function willingness(s, t, speaker = null) {
+    if (has(t, "noMasters")) return { add: 0, unforgiving: true, fallen: 0, note: `${name(t)} serves no master and treats with none: they'd rather fight to the end.` };   // No Masters (Eldritch F6): no terms, ever
     const fallen = fallenAllies(s, t), loyal = has(t, "loyal");
     const B = bonds(), friend = B && Object.values(s.actors || {}).find((u) => u.id !== t.id && u.side === t.side && u.defeated && !u.escaped && !u.persuaded && B.maxFriends(t, u));
     if (friend) return { add: 0, unforgiving: true, fallen, note: `${name(t)} will never forgive what happened to ${name(friend)}: they'd rather fight to the end.` };   // max friendship
@@ -285,6 +286,7 @@
     if (!a || a.defeated) return out;
     for (const t of Object.values(s.actors)) {
       if (t.side === a.side || t.defeated) continue;
+      if (has(t, "noMasters")) continue;   // No Masters (Eldritch F6): no terms row is ever offered her
       if (standingDown(s, t) && !t.persuaded && !locked(s, a.id, t.id) && !language(a, t)) {
         const w = willingness(s, t, a), add = listeningAdd(s, a, t);
         const note = [w.note, add ? `Listening: +${Math.round(add * 100)}` : ""].filter(Boolean).join("; ");

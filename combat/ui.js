@@ -228,7 +228,7 @@
     "visitor-grey": "visitor-grey", "visitor-ship": "visitor-ship", "visitor-scientist": "visitor-scientist", "warden-symbiote": "warden-symbiote", "kaiju-form": "kaiju-form", "oni-form": "oni-form", "neo-warden-dragon": "neo-warden-dragon", "neo-warden-cyberpunk": "neo-warden-cyberpunk", "neo-warden-purple-neon": "neo-warden-purple-neon",   // learned forms (2026-10-17): both face left (the default)
     "hooded-cyber-rogue": "hooded-cyber-rogue", "child-of-the-future": "child-of-the-future", "futuristic-armored-ninja": "futuristic-armored-ninja",   // Longtermism (2026-10-22): the rogue faces right; the Child faces right; the ninja reads left (default)
     "martial-artist": "martial-artist", "martial-artist-ascended": "martial-artist-ascended",   // Martial Artist (2026-10-22): base + gold ascended form
-    raven: "raven", mosaic: "mosaic", greedigut: "greedigut",   // Raven K2: faces right in the sheet (cut-build NOTE); dodge and knockback recoil left; Mosaic (T2a summon / Ordeal)
+    raven: "raven", mosaic: "mosaic", greedigut: "greedigut", triumvirate_hero: "triumvirate_hero",   // Raven K2: faces right in the sheet (cut-build NOTE); dodge and knockback recoil left; Mosaic (T2a summon / Ordeal)
     "goethe": "goethe", "goethe-true-form": "goethe-true-form", "goethe-ascended": "goethe-ascended",   // Goethe hot-build (2026-10-27): Young palace summon + True-Form Dream manifestation + Ascended Scholar max form (art only; no engine wiring yet)
     storm_mage: "storm_mage", tree_spirit: "tree_spirit", disheveled_politician: "disheveled_politician", astral_security: "astral_security", mesoamerican_priestess: "mesoamerican_priestess",
     celestial_astral: "celestial_astral", moonflower: "moonflower", archivist_elf: "archivist_elf", bard_elf: "bard_elf", lying_lawyer: "lying_lawyer",   // hot builds wave 4 (2026-10-23)
@@ -255,7 +255,8 @@
   SUMMON_SPRITES.push("mosaic");   // Mosaic (T2a summon / Ordeal): faces right
   SPRITE.archivist="#ddad58";SPRITE["archivist-kaiba"]="#ddad58";
   SPRITE.mosaic = "#7da8c3";
-  SPRITE.greedigut = "#e8e4d8";   // Exile G1: claude-greedigut-cut
+  SPRITE.greedigut = "#e8e4d8";
+  SPRITE.triumvirate_hero = "#2f7d4a";   // hot builds trio T3a: claude-triumvirate-cut (green, gold and red)   // Exile G1: claude-greedigut-cut
   SPRITE["modern-artist"]="#df93d4"; SPRITE["field-botanist"]="#8fbf6a"; SPRITE.kickboxer="#d9a441"; SPRITE.fighting_coach="#c7584a"; SPRITE["fighting-coach"]="#c7584a";
   SPRITE.dream_customer="#c5a8de";
   SPRITE.customer="#d7b07a";
@@ -281,7 +282,8 @@
   SPRITE_POSES["gold-form"] = ["idle", "walk", "cast", "block", "punch", "knocked-out", "knee", "hurt", "infatuated", "aura"];   // knight condition poses
   const invTax = (s, u) => (root.ConceptCombatInjury?.gradeOf(u, "head") || 0) === 1 ? (s.rules.injury?.headWoundedObserveAp ?? 10) : 0;   // Investigate pays the Observe head-wound tax (Mala, 2026-10-31)
   const SPRITE_FACES_RIGHT = Object.fromEntries(Object.keys(SPRITE_DIR).map((sprite) => [sprite, sprite === "warden" || sprite === "agi"]));
-  SPRITE_FACES_RIGHT.greedigut = true;   // Exile G1: claude-greedigut-cut, casts mirrored to face right with the rest (R-20261116-11)
+  SPRITE_FACES_RIGHT.greedigut = true;
+  SPRITE_FACES_RIGHT.triumvirate_hero = true;   // trio T3a: claude-triumvirate-cut's directional poses face right as drawn (its NOTE, Facing)   // Exile G1: claude-greedigut-cut, casts mirrored to face right with the rest (R-20261116-11)
   SPRITE_FACES_RIGHT["auditor-goblin"]=true; SPRITE_FACES_RIGHT.auditor_goblin=true;   // goblin W2 rev 1 (Bulwark IN stage return, item 3): the character key draws the same right-facing sheet
   for (const key of ["treasure-hunter", "treasure_hunter", "golden-relic-hunter"]) SPRITE_FACES_RIGHT[key] = true;   // Treasure Hunter TH1: both sheets face right (eye-checked at the 1.3.568 merge, Gangway IN; tools/check-sprite-facing.mjs VERIFIED)
   for (const key of CARD_FAMILIARS) { SPRITE_FACES_RIGHT[key] = true; SPRITE[key] ||= "#e9a23b"; }   // the sheets draw them facing right (unreviewed: the Cutter's NOTE)
@@ -1360,7 +1362,7 @@
     // The town (Mala, 2026-10-17; docs/town-hub.md). Each door or side-menu entry opens a screen the classic menu already
     // had; the classic menu's panels open one at a time from here, with a way back to the town.
     const TOWN_NAV = [{ id: "scenarios", label: "▦ Town Hall · battles" }, { id: "character", label: "♙ Home · character" }, { id: "index", label: "▤ The Archive" },
-      { id: "account", label: "⚖ Ledger House · kit & purse" }, { id: "hall", label: "✉ Hiring Hall · mercs, mediators" }, { id: "museum", label: "▣ The Museum · cherished gear" }, { id: "board", label: "▤ Notice board · missions" }, { id: "threat", label: "☰ Threat leaderboard" }, { id: "lab", label: "⚗ The Lab" }, { id: "codex", label: "§ The Magistrate's Codex" }, { id: "workshop", label: "✦ Workshop · three benches" }, { id: "school", label: "✎ School · drills" }, { id: "square", label: "🎩 Town square · busk" }, { id: "classic", label: "☷ Classic menu" }];
+      { id: "account", label: "👜 Ledger House · kit & purse" }, { id: "courthouse", label: "⚖ Courthouse · laws, cases" }, { id: "hall", label: "✉ Hiring Hall · mercs, mediators" }, { id: "museum", label: "▣ The Museum · cherished gear" }, { id: "board", label: "▤ Notice board · missions" }, { id: "threat", label: "☰ Threat leaderboard" }, { id: "lab", label: "⚗ The Lab" }, { id: "codex", label: "§ The Magistrate's Codex" }, { id: "workshop", label: "✦ Workshop · three benches" }, { id: "school", label: "✎ School · drills" }, { id: "square", label: "🎩 Town square · busk" }, { id: "classic", label: "☷ Classic menu" }];
     function openFromTown(id) {
       leaveTown();
       if (id === "account") { U.mode = "setup"; return showAccount(); }
@@ -1372,6 +1374,7 @@
       if (id === "museum") return showMuseum();
       if (id === "board") return showBoard();
       if (id === "codex") return showCodex();
+      if (id === "courthouse") return showCourthouse();   // Investigate I5b: the Courthouse door (claude-investigate-spec 12.1)
       U.menuView = "classic";
       U.setupPanels = { deck: U.setupPanels.deck, scenarios: id === "scenarios", character: id === "character", index: id === "index", threat: id === "threat" };
       U.focusPanel = ["scenarios", "character", "index", "threat"].includes(id) ? id : null;   // a town door opens its own room (Mala, 2026-10-27: "all three of these open the same window")
@@ -1540,6 +1543,19 @@
       $("ccPracticeTrial")?.addEventListener("click", () => root.ConceptCombatPracticeTrial?.mount(ov, { back: () => { showCodex(); $("ccPracticeTrial")?.focus(); } }));   // M0 practice trial (claude-magistrate-court-spec 1.4): writes nothing
       $("ccCodexBack").onclick = () => showSetup(); $("ccCodexBack").focus();
       mountKeeper(ov, "codex", refused ? { event: "refuse" } : {});   // the Magistrate (S4a): the reserved slot in .cc-codex-head, above the dropdown sections
+    }
+    // The Courthouse (Investigate I5b; claude-investigate-spec 12.2): Laws, Open cases, Closed cases. No keeper of its
+    // own until the NPC faces shelf names a judge (keepers.js exemption); the mount call is still made so the window
+    // is placed in the keeper ledger like every other show* panel.
+    function showCourthouse(note = "") {
+      U.mode = "setup"; const ov = $("ccOverlay"); ov.hidden = false;
+      const CH = root.ConceptCombatCourthouseUI;
+      if (!CH) { ov.innerHTML = `<div class="cc-card"><p>The Courthouse is closed.</p><button type="button" id="ccCourthouseBack">← Back</button></div>`; $("ccCourthouseBack").onclick = () => showSetup(); return; }
+      ov.innerHTML = `<div class="cc-card cc-town-hall cc-courthouse"><div class="cc-codex-head"><h2>Courthouse · Laws and open cases</h2></div>`
+        + `${note ? `<p class="cc-hall-note" role="status">${esc(note)}</p>` : ""}${CH.panel(U.account)}`
+        + `<div class="cc-row"><button type="button" class="cc-primary" id="ccCourthouseBack">← Back to town</button></div></div>`;
+      $("ccCourthouseBack").onclick = () => showSetup(); $("ccCourthouseBack").focus();
+      mountKeeper(ov, "courthouse", {});
     }
     // The trait laboratory (Mala, 2026-10-17/18; account/surgery.js, docs/trait-lab.md): graft biology traits for Seeds into
     // three surgery slots, remove traits at a steep price, and wake up Woozy for the next battle.
@@ -6703,6 +6719,12 @@
         if (!testBattle()) {   // one definition of a test battle (1.3.458 audit)
           const won = A.recordVictories(U.account, A.beatenIn(U.s, C.characters), { mode: U.s.mode, encounter: U.s.encounter, round: U.s.round, seed: U.s.seed });
           U.account = won.account; U.reward.lines.push(...won.lines);
+          if (root.ConceptCombatCasebook) {   // Investigate I5b (12.3, 12.5 Refresh): a real battle that ends with a breach and no verdict opens a case per enemy class; test battles never open one
+            for (const r of root.ConceptCombatCasebook.fromBattle(U.s, U.account.battles || 0, C.characters)) {
+              const f = root.ConceptCombatCasebook.file(U.account, r); U.account = f.account;
+              if (f.ok) U.reward.lines.push(`The court opens a case: ${r.name}, ${r.crimes.length} crime${r.crimes.length === 1 ? "" : "s"} · awaits a verdict.`);
+            }
+          }
           if (FM?.respectLines) U.reward.lines.push(...FM.respectLines(U.account, won.fresh));   // Respect (FAME.md 12.6, slice R-a): a first win over a boss
           if (A.noteDeeds) { const dd = A.noteDeeds(U.account, boardRecord, { test: testBattle() }); U.account = dd.account; U.reward.lines.push(...dd.lines); }   // interaction perks S0: deeds, real battles only
           if (Board && boardJob) {

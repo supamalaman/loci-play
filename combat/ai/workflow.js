@@ -30,7 +30,8 @@
     traditionalist: { persistence: 1.0, prepare: 0.5, understand: -0.5 }, craftsmansMindset: { prepare: 1.4, persistence: 1.2, pressure: -0.3 }, robotSympathizer: { understand: 0.8, pressure: -0.2 }, robotHater: { pressure: 0.8, understand: -0.4 }, ambitious: { pressure: 1.2, exploit: 0.8, support: -0.5 },
     animalLover: { support: 0.6, pressure: -0.3 }, animalHater: { pressure: 0.5, support: -0.3 }, petFighting: { summon: 1.5, pressure: 0.3 },
     believer: { prepare: 0.8, summon: 1.5 }, devoutBeliever: { prepare: 1.0, summon: 1.8 }, fullBeliever: { summon: 2.2 },
-    homestead: { protect: 1.2, persistence: 0.8 }, markedGround: { prepare: 1.0, persistence: 0.6 }, hardPlace: { position: 0.8, persistence: 0.6 }   /* 1.3.573 merge (Deadwood IN): F5a Shardback's values trait (traits.test); her psychological table is F5b's */,   // the Pioneer's: hold home ground, set the line and keep it
+    homestead: { protect: 1.2, persistence: 0.8 }, markedGround: { prepare: 1.0, persistence: 0.6 }, hardPlace: { position: 0.8, persistence: 0.6 },   /* 1.3.573 merge (Deadwood IN): F5a Shardback's values trait (traits.test); her psychological table is F5b's */   // the Pioneer's: hold home ground, set the line and keep it
+    noMasters: { pressure: 1.2, persistence: 1.0 },   // Eldritch Intruder F6: serves no master, hunts the guardian (traits.test goal weights)
     awardWinningDirector: { pressure: 1.2, prepare: 0.8 },   // prestige wants a stage: film the piece that matters
     humanExperience: { understand: 1.0, support: 0.8 }, methodActing: { prepare: 0.8, exploit: 0.6 },   // has lived enough to read the room; studies the part, then uses it
     hoarder: { hoard: 2.0, position: 0.4 },

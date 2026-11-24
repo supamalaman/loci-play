@@ -281,6 +281,11 @@
     }, "chitin-bishop"),
     // Shardback F5a (R-20261121-23): Cut Slope and Place Fill come back to her (R-20261114-56; the Engineer keeps Regrade and Drainage Plan).
     // F5b: Earth Upheaval (merge A) completes the kit and the build goes live; Shard Rain (the Berm wheelhouse merge) and Upheaval Now (her Crescendo) ride her pairs.
+    triumvirate_hero: B(["commonGround", "unambiguousReferent", "shareTheLoad", "supportNetwork", "unionOfCrowns"], { primaryBasic: "commonGround", primaryRefined: "unambiguousReferent", secondaryBasic: "shareTheLoad", secondaryRefined: "supportNetwork" }, {   // trio T3a (R-20261122-72, R-20261122-76): Union of Crowns' load half; its objective half and Triangle Ward are T3b
+      the_triangle: { trigger: "an ally's discounted Common Ground step toward the tile he named ends within 2 of him", effect: { joinLinks: true }, bound: "only while his own Share the Load or Support Network links are up; lasts as long as his links have left; allies only; not an ally already sharing a load; Support Network's 3-ally limit holds", counter: "Push him or the ally apart, or wait out his links." },
+      first_ground: { trigger: "his first Common Ground each turn", effect: { freeFirst: "turn" }, bound: "once per turn of his", counter: "None: it is a discount, not a guarantee; the tile still needs an ally within 5." },
+      collaborative: { trait: "collaborative", trigger: "he chooses a technique (his AI table)", effect: { traitDrive: "collaborative" }, bound: "Common Ground and Support Network with two allies near; Share the Load with an ally below half", counter: "Isolate him: with no allies near, the table has nothing to weigh." },
+    }, "triumvirate_hero"),
     shardback: B(["cutSlope", "placeFill", "lash", "brierRing", "earthUpheaval"], { primaryBasic: "cutSlope", primaryRefined: "placeFill", secondaryBasic: "lash", secondaryRefined: "brierRing" }, {
       ground_keeper: { trigger: "she chooses a technique (her AI table)", effect: { traitDrive: "groundKeeper" }, bound: "grading while she has no thorn soil; Lash and Earth Upheaval at a foe standing on it", counter: "Stay off the ground she graded and the table has nothing to aim at." },
       stone_hide: { trigger: "a Strike or contact hit from a foe lands on her, the first since her turn began", effect: { potencyLess: 2 }, bound: "once per turn of hers; foes only; Strikes and contact hits only", counter: "Open with a cheap touch, or hit her from range." },
@@ -288,7 +293,12 @@
       thorn_soil: { trigger: "her Brier Ring grows a thorn on a tile she graded this battle", effect: { thornDamageAdd: 2 }, bound: "her own graded tiles only; needs both her concepts", counter: "Fight her off the ground she cut and filled." },
       ward_field: { trigger: "a ranged hit from 2 or more tiles on her", effect: { ward: 6, berm: 1 }, bound: "one reaction a round; rushed is half the ward", counter: "Close inside 2 tiles, or strike." },
     }, "creature-combat"),
-    eldritch: B(["annotate", "redact", "survey", "verify"], { primaryBasic: "annotate", primaryRefined: "redact", secondaryBasic: "survey", secondaryRefined: "verify" }, {}, "eldritch", "brief"),
+    eldritch: B(["annotate", "redact", "survey", "verify", "voidScream"], { primaryBasic: "annotate", primaryRefined: "redact", secondaryBasic: "survey", secondaryRefined: "verify" }, {
+      unreadable_flesh: { trigger: "a foe Observes her, the first time each battle", effect: { observeStepAdd: 1 }, bound: "first look a battle; her own Observe is unaffected", counter: "Observe once, then read freely." },
+      hunter_of_wardens: { trigger: "she chooses a technique (her AI table)", effect: { traitDrive: "hunterOfWardens" }, bound: "Surveys what is hidden, Redacts the broken, +10 against Greedigut", counter: "Hide nothing; keep Greedigut off the field." },
+      no_masters: { trigger: "anyone comes to terms with her", effect: { refuseTerms: true }, bound: "terms, offers and persuasion all refuse", counter: "None: fight her." },
+      ossified_ward: { trigger: "a ranged hit from 2 or more tiles on her", effect: { ward: 8, brittle: 1 }, bound: "one reaction a round; rushed is half the ward, whole vs Greedigut", counter: "Close inside 2 tiles, or strike." },
+    }, "eldritch"),
     // The Treasure Hunter (TH1; Discovery + Extraction, crew street): the four live techniques and, since TH1b, his two merges: Idol Claim (the pair's merge ultimate)
     // and Relic Path (the merge technique of his wheelhouse blend, Discovery + Alternate Pathway: a reserve merge, as the Auditor Goblin's Ledger of Debts is). Live:
     // the roster-ready gate (tests/class-build.test.mjs) applies. Sun Ward (answer-only) and Second Claim (his Crescendo) are pair-gated in content.js, outside the kit of six.

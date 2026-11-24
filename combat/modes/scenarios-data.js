@@ -634,6 +634,16 @@
         mid: { when: { round: 3 }, text: "Look where you stand. Ground she graded is hers; fight her from open turf, off the berms she raised." },
         result: { player: "Shardback is down. The ground goes back to being ground.", enemy: "She won on ground she made. Next time keep off the tiles she graded and make her come to you.",
           none: "The rounds run out." } } },
+    jailersSniff: { id: "jailersSniff", name: "The Jailer's Sniff", minTier: 2, weight: 1,   // teaching the Eldritch Intruder's hunt (hot-build cuts F6, cursor-hotbuilds-cuts-spec section 6): she reads you, then hits what she read. Appended after herGround so the termination sixths keep their members (C11); tier 2 so the pinned tier-1 lists stay as they are
+      arenas: ["quarryLedge"],
+      foes: { fixed: ["eldritch"], at: [[8, 5]], holdTurns: 2 },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "The Eldritch Intruder sniffs for a jailer, and it has decided you will do. Observe her and she still reads you back: her first look at you costs more. Verify a rumour and her next Cipher refined ignores one ward; let her scream and the cone stands revealed.",
+        mid: { when: { round: 3 }, text: "Name it aloud: albedo is her weak channel. She answers ranged shots with Ossified Ward — whole only against Greedigut, half against you." },
+        result: { player: "The Intruder is down. Nothing hunts you now.", enemy: "It read you, then it hit what it read. Next time name it aloud early, and do not stand where it screamed.",
+          none: "The rounds run out." } } },
     whatTheyMeanToDo: { id: "whatTheyMeanToDo", name: "What They Mean to Do", minTier: 2, weight: 1,   // teaching Rigs RG1 (claude-rigs-spec section 3, "Read the room"; that id is taken by the crew lesson, so this one has its own): an Officer rig is lent for this battle (lendGear; never an unlock). Appended last so the termination sixths keep their members (C11)
       arenas: ["punchbowlRim"],
       foes: { fixed: ["soldier", "student"], at: [[7, 3], [4, 5]] },   // both in sight of the spawn (the pillars hide (6,2) and (6,4)), so the first turn can Forecast
@@ -645,6 +655,18 @@
         mid: { when: { round: 3 }, text: "A Forecast is their own plan, run on the board as it stands. Move first or change the board, and the plan can change with it." },
         result: { player: "Both are down. The rig goes back where it came from.", enemy: "They did what they meant to. Next time Forecast before you step in.",
           none: "The rounds run out." } } },
+    friendWhoTestified: { id: "friendWhoTestified", name: "The Friend Who Testified", minTier: 2, weight: 1,   // teaching the vouch (Bonds B6, claude-bonds-spec 1.9 and beat 4; R-20261123-06, R-20261123-07): Jatayu's pact is lent for this battle and a Magistrate opens court on the player before the first round over one staged charge (law/courtroom.js stageHearing). The count is not a true act, so honest Jatayu speaks. Nothing is written to the account
+      arenas: ["gardenCourt"],
+      foes: { fixed: ["magistrate"], at: [[7, 3]] },
+      lendVouch: { id: "jatayu", name: "Jatayu", honest: true, broken: false },
+      stageHearing: { by: "magistrate", count: { grade: "witnessed", severity: 1, real: false, label: "the missing map" } },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "The Magistrate calls court before a blow is struck: you are charged over the missing map. Jatayu's pact is lent to you for this battle. In the courtroom, Vouch has him speak for your character: favor +2, and the charge keeps its grade. Once a trial, never on a sworn count, and an honest friend refuses when a promise to him stands broken or he saw the act.",
+        mid: { when: { round: 3 }, text: "When the court adjourns, the Magistrate is an ordinary foe. A pact of your own vouches the same way at any trial where you are the accused, and the Bonds window remembers whether he spoke." },
+        result: { player: "The Magistrate is down. A lent pact writes nothing; a Full Bond of your own would remember this hearing.", enemy: "The Magistrate wins. Next time, let Jatayu speak before the charge is heard out.",
+          none: "The rounds run out with the Magistrate still standing." } } },
   };
 
   return { SCENARIOS, LAW };

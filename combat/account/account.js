@@ -474,7 +474,13 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
   // victory entry that still names the old pair is re-slotted by this one function (the account's victory ledger, ui.js's saved characters, the campaign loadout use it or its twin).
   const migratePaladinPair = (c) => (c && c.primary === "interposition" && c.secondary === "strategic_commitment" ? { ...c, primary: "solfeggio" } : c);
   function settleCourt(account, state, options) {
-    return CourtRecord.settle(account, state, { stripLevels, unlocksUpTo, perkMenu: rules.perkMenu }, options);
+    const out = CourtRecord.settle(account, state, { stripLevels, unlocksUpTo, perkMenu: rules.perkMenu }, options);
+    // Bonds B6 (claude-bonds-spec 1.4, 1.9): a bond asked to vouch at the player's trial is a `hearing` memory, spoken or declined.
+    // The same gate as the court record (record.js settle): no test, practice or unfinished battle writes one; a lent vouch never does.
+    const BL = BondLedger();
+    if (!BL || !BL.noteHearing || options?.test || options?.practice || !state?.outcome) return out;
+    const heard = BL.noteHearing(out.account, state.trialLedger || []);
+    return heard.lines.length ? { ...out, account: heard.account, lines: [...out.lines, ...heard.lines] } : out;
   }
 
   function serialize(account) { return JSON.stringify(account); }

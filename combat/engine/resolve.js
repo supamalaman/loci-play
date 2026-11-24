@@ -16,6 +16,7 @@
       wildRules } = H;
     const seededChance = (...args) => H.seededChance(...args);   // late binding: queries installs after resolve
     const sapAfterHeal = (s, a, u, healed) => ((typeof module === "object" && module.exports ? require("../mythic-plants/sammu.js") : globalThis.ConceptCombatSammu) || null)?.sap(s, a, u, healed, { rules: s.rules, hasTrait: H.hasTrait, log: H.log, Injury: H.Injury });   // Juvenescent Sap (SN1a): a carrier's useful heal
+    const INS = () => (typeof module === "object" && module.exports ? (() => { try { return require("../workshop/instruments.js"); } catch { return null; } })() : globalThis.ConceptCombatWorkshopInstruments) || null;   // Resonant Heirlooms JI1
 
     // Bastion Collapse (Mala and Muse, 2026-10-15): count the boundaries within the area's reach of the caster, at most
     // fold.cap: each barrier and each ward (consumed), each solid wall tile or blocking object (counted, left standing),
@@ -191,10 +192,96 @@
         if(inst.effect==="archivistArchive")for(const u of present.filter(u=>u.side!==a.side))index(u);
         if(inst.effect==="archivistArchive"&&ab(inst.ability)?.allyCharge)for(const u of present.filter(u=>u.side===a.side&&u.id!==a.id)){const max=s.rules.ultimateChargeMax||100,old=u.ultimateCharge||0;u.ultimateCharge=Math.min(max,old+ab(inst.ability).allyCharge);if(u.ultimateCharge>old)log(s,{kind:"charge",actor:a.id,target:u.id,text:`${u.name} listens: +${u.ultimateCharge-old} ultimate charge.`});}   // Jambavan's Counsel of the Ages
         // Trophy Eye fires on Cross Reference too (spec 3a): pending evaluated per foe like beforeStrike; the spend rides hit()'s shared afterHit (verified: Used sets with no explicit call).
-        if(inst.effect==="archivistReference")for(const u of present.filter(u=>u.side!==a.side)){const known=knowledge[u.id]?.revealed?.length || s.insight.decks[u.id]?.cards.filter(c=>c.open).length || 0;let pot=inst.potency*inst.mult*(1+Math.min(5,known)*.1);const why=[`Cross Reference: ${known} known entries, bonus capped at 50%.`];if(a?.trophyEyePending)a.trophyEyePending=null;const eye=ClassRuntime?.trophyEyeOf?.(s,a,u);if(eye){a.trophyEyePending=u.id;pot+=eye.effect.potencyAdd;why.push(`Trophy Eye: +${eye.effect.potencyAdd} potency (bigger game).`);}hit(s,a,u,inst,pot,why);ClassRuntime?.hunterBloodTrail?.(s,a,u);}   // H2: on her Quarry it lays the Blood Trail
+        if(inst.effect==="archivistReference")for(const u of present.filter(u=>u.side!==a.side)){const known=knowledge[u.id]?.revealed?.length || s.insight.decks[u.id]?.cards.filter(c=>c.open).length || 0;let pot=inst.potency*inst.mult*(1+Math.min(5,known)*.1);const why=[`Cross Reference: ${known} known entries, bonus capped at 50%.`];if(a?.trophyEyePending)a.trophyEyePending=null;const eye=ClassRuntime?.trophyEyeOf?.(s,a,u);if(eye){a.trophyEyePending=u.id;pot+=eye.effect.potencyAdd;why.push(`Trophy Eye: +${eye.effect.potencyAdd} potency (bigger game).`);}const lf0=u.lf;hit(s,a,u,inst,pot,why);ClassRuntime?.hunterCatalogued?.(s,a,u,u.lf<lf0,{Inspiration:H.Inspiration});ClassRuntime?.hunterBloodTrail?.(s,a,u);}   // H2: on her Quarry it lays the Blood Trail; H3c: Catalogued
         if(inst.effect==="archivistWard" && ally)protect(ally,inst.potency);
         if(inst.effect==="archivistHeal" && ally)heal(ally,inst.potency);
         if(inst.effect==="archivistShelter"){const helped=present.filter(u=>u.side===a.side);if(!helped.includes(a))helped.push(a);for(const u of helped){heal(u,16);protect(u,12);}}   // radius tiles exclude d=0 (targeting.js), so the caster is never "present": shelter her explicitly. "All living allies within 3" includes her, and the AI already values it that way.
+        return;
+      }
+      // Resonant Heirlooms JI1: the five basic performances plus Tune. Each branch reads the committed
+      // manifest (targets/tiles already validated, costs already paid) and resolves native payloads.
+      if (inst.effect === "tuneStrings") {
+        const f = INS()?.focusOf(a);
+        log(s, { kind: "effect", actor: a.id, ability: inst.ability, text: `${a.name} tunes the ${f ? f.id : "instrument"}: one charge held until the start of ${a.name}'s second subsequent turn.`, why: ["Tune the Strings: a refined performance consumes the charge, or the player pays 1 Inspiration instead."] });
+        return;
+      }
+      if (inst.effect === "erhuWanderingNote" || inst.effect === "erhuAnswerAche") {   // JI1c: Answer the Ache is the same heal-and-steady at its refined value (14)
+        const t = s.actors[inst.targets[0]];
+        if (!t || t.defeated || t.side !== a.side) { log(s, { kind: "miss", actor: a.id, text: `${inst.name} has no living ally to carry.` }); return; }
+        const before = t.lf;
+        t.lf = Math.min(t.maxLF, t.lf + Math.round(inst.potency * inst.mult));
+        const healed = t.lf - before;
+        log(s, { kind: "heal", actor: a.id, target: t.id, text: `${a.name} restores ${healed} LF to ${t.name}.` });
+        INS()?.credit(s, inst.instrumentPaid?.perf, healed, H);   // JI1c True Performance: actual healing only (capped at missing LF above)
+        const steadied = H.Injury?.stabilize ? H.Injury.stabilize(s, a, t) : null;   // native TEND bookkeeping: stops bleeding, keeps grades; poison/curse/death untouched
+        sapAfterHeal(s, a, t, healed);
+        if (!steadied && healed <= 0) log(s, { kind: "note", actor: a.id, target: t.id, text: `${t.name} is already whole: the note steadies nothing.` });
+        return;
+      }
+      if (inst.effect === "guzhengCrossingStrings") {
+        H.clearField(s, a, inst.tiles);
+        const recipients = areaRecipients(s, a, inst, inst.tiles, true);   // opponents only: no friendly splash
+        const targets = recipients.targets.filter((t) => t.side !== a.side && !t.defeated);
+        if (!targets.length) log(s, { kind: "miss", actor: a.id, text: `${inst.name} finds no hostile in the ring.` });
+        let struck = 0;
+        for (const t of targets) {
+          const dealt = strikeTarget(s, a, t, inst, inst.potency * inst.mult, [`Crossing Strings: the near field answers (${inst.potency} Nigredo).`].concat(recipients.why || []));
+          if (dealt > 0) struck++;
+        }
+        settleDeferredCharge(s, a, inst, struck);
+        applyTerrainDamage(s, a, inst);
+        return;
+      }
+      if (inst.effect === "guzhengThousandBridges") {   // JI1c: radius 2, 8 Nigredo to current hostiles, then shove each one actually hurt 1 tile away
+        H.clearField(s, a, inst.tiles);
+        const recipients = areaRecipients(s, a, inst, inst.tiles, true);
+        const targets = recipients.targets.filter((t) => t.side !== a.side && !t.defeated);
+        if (!targets.length) log(s, { kind: "miss", actor: a.id, text: `${inst.name} finds no hostile on the bridges.` });
+        let struck = 0;
+        const hurt = [];
+        for (const t of targets) {
+          const before = t.lf;
+          strikeTarget(s, a, t, inst, inst.potency * inst.mult, [`A Thousand Bridges: the strings span the field (${inst.potency} Nigredo).`].concat(recipients.why || []));
+          const lost = Math.max(0, before - t.lf);
+          if (lost > 0) { struck++; hurt.push(t); INS()?.credit(s, inst.instrumentPaid?.perf, lost, H); }   // True Performance: LF actually lost, before any collision
+        }
+        for (const t of hurt) if (!t.defeated && !s.outcome) knock(s, a, t, 1, inst, "push");   // native knock: Anchor, braces and collisions keep their outcomes; a fully stopped hit shoves no one
+        settleDeferredCharge(s, a, inst, struck);
+        return;   // spec: a space-maker, not an extra terrain hit (no applyTerrainDamage)
+      }
+      if (inst.effect === "ruanStayTogether") {   // JI1c: ward 8 and one native Anchor on the caster and one distinct living ally, each on its own clock
+        const ally = s.actors[inst.targets[0]];
+        if (!ally || ally.defeated || ally.side !== a.side || ally.id === a.id) { log(s, { kind: "miss", actor: a.id, text: `${inst.name} needs another living ally to stand with.` }); return; }
+        for (const u of [a, ally]) {
+          u.status.ward = { label: "Stay Together", owner: u.id, protection: Math.round(inst.potency * inst.mult), expiresAt: u.ownerTurns + 1, ...(inst.instrumentPaid?.perf ? { perf: inst.instrumentPaid.perf } : {}) };
+          u.status.anchor = { label: "Stay Together", owner: a.id, expiresAt: u.ownerTurns + 1 };
+        }
+        log(s, { kind: "effect", actor: a.id, target: ally.id, text: `${a.name} and ${ally.name} stay together: a ward of ${ally.status.ward.protection} and one held ground each.`, why: ["Two paid protections on two clocks, not an area immunity; refresh replaces at normal value."] });
+        return;
+      }
+      if (inst.effect === "guqinQuietLine") {
+        const t = s.actors[inst.targets[0]];
+        if (!t || t.defeated || t.side !== a.side) { log(s, { kind: "miss", actor: a.id, text: `${inst.name} has no living ally to hold.` }); return; }
+        t.status.ward = { label: "Quiet Line", owner: t.id, protection: Math.round(inst.potency * inst.mult), expiresAt: t.ownerTurns + 1 };
+        log(s, { kind: "effect", actor: a.id, target: t.id, text: `${a.name} holds ${t.name} in a Quiet Line: absorbs ${t.status.ward.protection} LF damage until ${t.name}'s next turn.`, why: ["Native ward clock: replaces rather than adds."] });
+        const mem = INS()?.cash(s, a, H);   // spend the Guqin memory, but only when it actually heals
+        const amt = mem ? Math.min(mem.amount || 0, t.maxLF - t.lf, 6) : 0;
+        if (amt > 0) {
+          const before = t.lf;
+          t.lf = Math.min(t.maxLF, t.lf + amt);
+          INS().spendCash(s, mem.key);
+          INS().closeWard(s, mem.wardId);   // the cash closes its source ward to further deposits, even with protection left
+          log(s, { kind: "heal", actor: a.id, target: t.id, text: `${a.name} spends the banked silence: +${t.lf - before} LF to ${t.name} (${amt} cashed).`, why: ["Quiet Line cash: stored prevention becomes finite healing; no recursion, no second cash-out."] });
+          sapAfterHeal(s, a, t, t.lf - before);
+        }
+        return;
+      }
+      if (inst.effect === "ruanSteadyMeasure") {
+        const t = s.actors[inst.targets[0]];
+        if (!t || t.defeated || t.side !== a.side) { log(s, { kind: "miss", actor: a.id, text: `${inst.name} has no living ally to steady.` }); return; }
+        t.status.ward = { label: "Steady Measure", owner: t.id, protection: Math.round(inst.potency * inst.mult), expiresAt: t.ownerTurns + 1 };
+        t.status.anchor = { label: "Steady Measure", owner: a.id, expiresAt: t.ownerTurns + 1 };   // native one-use Anchor: the next forced displacement spends it; damage still applies
+        log(s, { kind: "effect", actor: a.id, target: t.id, text: `${a.name} steadies ${t.name}: a ward of ${t.status.ward.protection} and one held ground against displacement.`, why: ["Native Anchor consumption, not the Rooted condition; refresh replaces at normal value."] });
         return;
       }
       if (inst.effect === "anotherWayHome") {
@@ -715,8 +802,19 @@
             return;
           }
           const wardLabel = ab(inst.ability)?.wardLabel;   // a self ward with its own name (Sun Ward, Treasure Hunter TH1b); the Fortress lens otherwise
-          a.status.ward = { label: wardLabel || "Fortress ward", owner: a.id, protection: Math.round(inst.protection * detailMul), expiresAt: a.ownerTurns + dur };
-          log(s, { kind: "effect", actor: a.id, text: `${a.name} is warded: absorbs ${a.status.ward.protection} LF damage for ${dur} owner turns.`, why: [`${wardLabel ? `${wardLabel}: a ward on yourself.` : "Fortress lens: +protection, no placement range."}${detailMul > 1 ? " Attention to Detail ×1.25." : ""}`] });
+          const held = inst.ability === "guqinUnbrokenListening" && inst.targets?.[0] && s.actors[inst.targets[0]] && inst.targets[0] !== a.id ? s.actors[inst.targets[0]] : null;   // JI1: an own-turn Listening may hold an ally (targeting.js); the ward runs on the holder's clock
+          if (held) {
+            if (held.defeated || held.side !== a.side) { log(s, { kind: "miss", actor: a.id, text: `${inst.name} has no living ally to hold.` }); return; }
+            held.status.ward = { label: wardLabel || "Fortress ward", owner: held.id, protection: Math.round(inst.protection * detailMul), expiresAt: held.ownerTurns + dur };
+          } else a.status.ward = { label: wardLabel || "Fortress ward", owner: a.id, protection: Math.round(inst.protection * detailMul), expiresAt: a.ownerTurns + dur };
+          if (inst.ability === "guqinUnbrokenListening") {   // Resonant Heirlooms JI1: a refined performance. Consume Tune (or the explicitly offered Inspiration), then tag the ward as a memory source.
+            const paid = inst.instrumentPaid || INS()?.consumeRefined(s, a, H, inst) || { paid: "none" };   // JI1c: own-turn casts paid at commit (actions-technique.js); an answer pays here
+            INS()?.tagWard(s, a, (held || a).status.ward);
+            if (paid.perf) (held || a).status.ward.perf = paid.perf;   // JI1c True Performance: this ward's actual prevention credits its cast (damage.js)
+            log(s, { kind: "effect", actor: a.id, ability: inst.ability, text: `${a.name} listens unbroken (${paid.paid === "inspiration" ? "1 Inspiration instead of Tune" : paid.paid === "tune" ? "Tune consumed" : "no charge held"}): what the ward stops, the Guqin remembers, up to 6.`, why: ["Unbroken Listening: tagged actual prevention banks Guqin memory; replacing the ward overwrites, never a parallel ledger."] });
+          }
+          if (held) log(s, { kind: "effect", actor: a.id, target: held.id, text: `${a.name} holds ${held.name} in ${wardLabel}: absorbs ${held.status.ward.protection} LF damage until ${held.name}'s next turn.`, why: [`${wardLabel}: a ward on an ally, on the native ward clock (it replaces, never adds).${detailMul > 1 ? " Attention to Detail ×1.25." : ""}`] });
+          else log(s, { kind: "effect", actor: a.id, text: `${a.name} is warded: absorbs ${a.status.ward.protection} LF damage for ${dur} owner turns.`, why: [`${wardLabel ? `${wardLabel}: a ward on yourself.` : "Fortress lens: +protection, no placement range."}${detailMul > 1 ? " Attention to Detail ×1.25." : ""}`] });
         } else {
           const [x, y] = inst.tiles[0];
           const wall={ id: "b" + (++s.seq), owner: a.id, x, y, protection: Math.round(inst.protection * detailMul), duration: dur, expiresAt: a.ownerTurns + dur, concept: "barrier", counterFraction: inst.counterFraction };
@@ -840,7 +938,7 @@
           if (!r.truth) { log(s, { kind: "verify", actor: a.id, tiles: [[tx, ty]], text: `${a.name} verifies (${tx},${ty}): a dead end. Nothing was ever there.`, why: ["False rumors clear; the field keeps its secrets."] }); return; }
           const found = [];
           for (const t of (s.traps || []).filter((t) => !t.spent && t.x === tx && t.y === ty && t.ownerSide !== a.side)) { learnTrap(t); found.push("a buried trap, now known to your whole side"); }
-          for (const u of Object.values(s.actors).filter((u) => veiled(u) && u.x === tx && u.y === ty)) { unveil(u, "verified"); found.push(`${u.name}, revealed`); }
+          for (const u of Object.values(s.actors).filter((u) => veiled(u) && u.x === tx && u.y === ty)) { unveil(u, "verified"); found.push(`${u.name}, revealed`); if (hasTrait(a, "hunterOfWardens")) { a.cipherBreak = { foe: u.id }; log(s, { kind: "effect", actor: a.id, target: u.id, text: `${a.name} reads ${u.name} truly: a Cipher break waits on ${u.name} — her next Cipher refined ignores one ward.`, why: ["Cipher break: a Verified rumour about this foe means her next Cipher refined ignores one ward on him."] }); } }
           if(found.length)H.scoutNoted(s,a,`verified:${tx},${ty}`);
           log(s, { kind: "verify", actor: a.id, tiles: [[tx, ty]], text: `${a.name} verifies (${tx},${ty}): ${found.length ? `true — ${found.join("; ")}.` : "true once, but the find moved on."}`, why: ["Verified finds become usable; the concealed may still have moved."] });
           ClassRuntime?.auditor.verified(s,a,r,found,classH());
@@ -858,6 +956,32 @@
           log(s, { kind: "reveal", actor: a.id, text: `${a.name} shouts Eureka: everything hidden within ${F.eurekaRadius} stands revealed${revealed.length ? ` (${revealed.join(", ")})` : " (traps only)"}.`, why: ["Total survey costs total exposure: your own concealment breaks too."] });
           return;
         }
+      }
+      if (inst.effect === "voidScream") {   // Eldritch F6 merge A: announced cone of three; reveals hidden things, hits, and marks every foe hit with a Cipher break
+        const revealed = [];
+        for (const t of (s.traps || []).filter((t) => !t.spent && t.ownerSide !== a.side && (inst.tiles || []).some(([x, y]) => x === t.x && y === t.y))) { H.Observation.recordFact(s, a, { id: `trap:${s.traps.indexOf(t)}:${t.owner}:${t.x},${t.y}`, kind: "trap", index: s.traps.indexOf(t), owner: t.owner, at: [t.x, t.y], text: `Screamed-out trap at (${t.x},${t.y}).` }, inst.effect); for (const u of Object.values(s.actors).filter((u) => !u.defeated && u.side === a.side)) (u.trapSeen ||= {})[`${t.x},${t.y}:${t.ownerSide || "?"}`] = true; revealed.push("a buried trap"); }
+        for (const u of Object.values(s.actors || {}).filter((u) => !u.defeated && u.side !== a.side && (inst.tiles || []).some(([x, y]) => x === u.x && y === u.y))) {
+          if (u.status?.concealed) { H.Observation.recordFact(s, a, { id: `location:${u.id}:${u.x},${u.y}:${s.round}`, kind: "location", subject: u.id, at: [u.x, u.y], text: `${u.name} is revealed at (${u.x},${u.y}).` }, "voidScream"); delete u.status.concealed; log(s, { kind: "reveal", actor: a.id, target: u.id, tiles: [[u.x, u.y]], text: `${u.name} is revealed: Void Scream.` }); revealed.push(u.name); }
+          hit(s, a, u, inst, (inst.potency || 0) * (inst.mult || 1), [`${a.name} screams ${u.name} down the cone.`]);
+          if (!u.defeated) { a.cipherBreak = { foe: u.id }; revealed.push(`${u.name}, broken`); }
+        }
+        log(s, { kind: "reveal", actor: a.id, tiles: inst.tiles, text: `${a.name} screams: the cone stands revealed${revealed.length ? ` (${revealed.join("; ")})` : ""}.`, why: ["Void Scream: hidden traps and concealed foes in the cone stand revealed; every foe it hits carries a Cipher break against her next Cipher refined."] });
+        return;
+      }
+      if (inst.effect === "amberSpine") {   // Eldritch F6 merge: raise one spine tile of hers on open floor within 4
+        const [tx, ty] = inst.tiles[0] || [];
+        const blocked = tx == null || unitAt(s, tx, ty) || barrierAt(s, tx, ty) || (tileAt(s, tx, ty)?.blocksMove ?? true);
+        if (blocked) { log(s, { kind: "effect", actor: a.id, text: `${a.name} raises no spine: (${tx},${ty}) is not open floor.`, why: ["Amber Spine needs an open tile within 4."] }); return; }
+        s.barriers.push({ id: "b" + (++s.seq), owner: a.id, x: tx, y: ty, concept: "amberSpine", duration: 2, expiresAt: a.ownerTurns + 2, passable: true, blocksMove: false, blocksSight: false, coverFraction: 0 });
+        log(s, { kind: "effect", actor: a.id, tiles: [[tx, ty]], text: `${a.name} raises a spine at (${tx},${ty}): foes pay +1 move point a step onto it, and ending a turn on it feeds her 1 ΦF.`, why: ["Amber Spine: the tile stands until her second turn from now."] });
+        return;
+      }
+      if (inst.effect === "noticePrey") {   // Eldritch F6 Crescendo: mark one foe prey; her next hit on it lands +4, then the mark is spent
+        const t = s.actors[inst.targets[0]];
+        if (!t || t.defeated) { log(s, { kind: "miss", actor: a.id, text: `${inst.name} has no living target.` }); return; }
+        t.prey = { by: a.id, bonus: 4 };
+        log(s, { kind: "effect", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${a.name} notices ${t.name}: her next hit on ${t.name} lands +4.`, why: ["Notice Prey: the mark spends on her first hit on the marked foe."] });
+        return;
       }
       if (inst.effect === "recombine") {   // Innovation: each part re-resolves through the normal damage path (cover, barriers, channels all apply), at the copying tax
         const t = s.actors[inst.targets[0]] || (s.wild || []).find((w) => w.id === inst.targets[0]);
@@ -916,7 +1040,7 @@
         MaidSystems.invalidateMaintenance(s, inst.aim[0], inst.aim[1]);
       if (inst.effect === "tenant") { H.tenantResolve?.(s, a, inst); return; }   // Exile tenancy: a lent power (engine/tenancy.js)
       if (inst.effect === "fruit") { H.fruitResolve?.(s, a, inst); return; }   // Sinkerfruit techniques (engine/fruit.js)
-      if (ClassRuntime && inst.effect === "classEffect") { ClassRuntime.resolve(s, a, inst, {...classH(),Factions:H.Factions,Parley:H.Parley}); return; }   // ClassRuntime
+      if (ClassRuntime && inst.effect === "classEffect") { ClassRuntime.resolve(s, a, inst, {...classH(),Factions:H.Factions,Parley:H.Parley,Inspiration:H.Inspiration}); return; }   // ClassRuntime
       if (inst.effect === "hexScreen") {   // the Cyborg form's ward (docs/brain-chip.md): replaced, never added to
         const reach = ab(inst.ability).radius || 1, held = Object.values(s.actors).filter((u) => !u.defeated && u.side === a.side && dist(s, a.x, a.y, u.x, u.y) <= reach);
         for (const u of held) u.status.ward = { label: "Hex Screen", owner: a.id, protection: inst.protection, expiresAt: a.ownerTurns + 1 };
@@ -994,7 +1118,10 @@
           const pierced = cover.length && ClassRuntime?.Martial?.piercingRead?.(s, a);
           const coverFactor = pierced ? 1 : cover.reduce((factor, c) => factor * (1 - c.fraction), 1);
           const coverWhy = cover.length ? [`Partial cover reduces this line hit by ${Math.round((1 - coverFactor) * 100)}% (${cover.map((c) => c.name).join(" + ")}).`] : [];
+          const lf0 = t.lf;   // JI1c: the LF this line hit actually took (True Performance, Three Notes' stun)
           const dealt = strikeTarget(s, a, t, inst, terrainPotency * coverFactor, why.concat(lineArea?.why || [],focusWhy,coverWhy));
+          if (inst.instrumentPaid?.perf && t.side !== a.side) INS()?.credit(s, inst.instrumentPaid.perf, Math.max(0, lf0 - t.lf), H);   // True Performance: hostile LF actually lost
+          if (inst.ability === "pipaThreeNotesOneCut" && lf0 - t.lf > 0 && !t.defeated && !s.outcome) addStun(s, a, t, ab(inst.ability)?.stunOnSurvive || 10);   // JI1c: one hit; a survivor that actually lost LF takes the native 10 AP stun (resists and timing are addStun's)
           for (const c of cover.filter((c) => c.wall)) { const own = s.actors[c.wall.owner], comp = H.compositionEdge(own), dfl = comp?.op.kind === "enableEdge" ? C.opposition.find((e) => e.id === comp.op.edge) : null;
             const caught = terrainPotency * c.fraction; c.wall.protection -= caught; if (c.wall.protection <= 0) s.barriers = s.barriers.filter((x) => x !== c.wall);
             if (dfl?.op.fraction && !own.defeated && !a.defeated) hit(s, own, a, null, caught * dfl.op.fraction * (1 - (H.shooterCover?.(s, a, t.x, t.y) || 0)), [`The ${conceptName(own.primary)} + ${conceptName(own.secondary)} composition returns ${Math.round(dfl.op.fraction * 100)}% of what the rushed wall caught [${comp.id}].`], { label: `Deflected ${inst.name}`, edge: comp.op.edge, damageType: inst.damageType }); }

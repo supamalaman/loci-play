@@ -226,7 +226,10 @@
     }
     function availableAbilities(s, id, opts = {}) {
       const a = s.actors[id];
-      const ids = abilitiesOf(a);   // includes anything learned by watching, for every class (tests/learned.test.mjs)
+      // Resonant Heirlooms JI1: instrument arts ride the separate passives.instrumentArtIds record
+      // (soulArtIds are never overwritten). Granted here, beside the loadout list, so menus, the AI
+      // and reactive answers see them; engine.js abilitiesOf stays at its size cap untouched.
+      const ids = [...new Set([...abilitiesOf(a), ...((a.passives?.instrumentArtIds || []).filter((x) => ab(x)))])];   // includes anything learned by watching, for every class (tests/learned.test.mjs)
       return ids.map((abId) => {
         const m = manifest(s, a, abId);
         const mastered = !!s.rules.mastery && (a.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === s.rules.mastery.trait);

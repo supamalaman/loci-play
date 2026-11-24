@@ -16,6 +16,7 @@
     // Holy (docs/holy.md): the fell are dream creatures, summons, the undead and demons by name (Mala 2026-11-02: Ravana and his Lanka court count, Mandodari too; his summoned horde already does) (a short anchored list, not the belief module's loose mythic regex).
     const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
     const AB = () => (typeof module === "object" && module.exports ? (() => { try { return require("../animated-body/animated-body.js"); } catch { return null; } })() : globalThis.ConceptCombatAnimatedBody) || null;   // Animated Body AB1a (R-20261122-44)
+    const INS_JI1 = () => (typeof module === "object" && module.exports ? (() => { try { return require("../workshop/instruments.js"); } catch { return null; } })() : globalThis.ConceptCombatWorkshopInstruments) || null;   // Resonant Heirlooms JI1
     const abDeps = () => ({ hasTrait: H.hasTrait, orgonite: OG(), dreamSpace: dreamSpaceRules });
     const FELL = /\b(vampire|mummy|skeleton|ghost|zombie|demon|wraith|lich|revenant|wight|ghoul|rakshasa|ravana|kumbhakarna|indrajit|surpanakha|mandodari)s?\b/i;
     const isFell = (t) => !!(t.dream || t.summoned || t.summon || t.ai === "dream" || t.ai === "summon" || FELL.test(`${t.character || ""} ${t.name || ""} ${t.monster || ""}`));
@@ -301,6 +302,7 @@
       potency=H.Contracts?.specialize(s,src,tgt,inst,potency)??potency;
       if (src?.redInk && potency > 0) { potency += 2; why = (why || []).concat(["Red Ink burns in the blood: +2 potency."]); }   // W9.4: the rented strength hits first
       { const lent = potency > 0 ? summonRules?.Tandem?.lentPotency(src) : 0; if (lent) { potency += lent; why = (why || []).concat([`${src.name}'s lent tiles: +${lent} potency.`]); } }   // Tandem T2b: made of what it strikes
+      if (src && potency > 0 && tgt?.prey?.by === src.id) { potency += tgt.prey.bonus; why = (why || []).concat([`${src.name} has noticed ${tgt.name}: +${tgt.prey.bonus} potency.`]); delete tgt.prey; }   // Notice Prey (Eldritch F6): her next hit on the marked foe lands +4, then the mark is spent
       { const bonus = potency > 0 ? (summonRules?.Tandem?.bonusPotency?.(src, tgt) || 0) : 0; if (bonus) { potency += bonus; why = (why || []).concat([`${src.name}'s form potency: +${bonus} potency.`]); } }   // Tandem T4: form strike bonus
       // A bleed-out skips the who-may-hit gates: the wound was dealt when the bleed was applied, this only finishes it.
       if (!opts.bleedOut && H.Tourist?.is(src) && src.id !== tgt?.id) return 0;
@@ -358,7 +360,13 @@
         const spined = wildRules.data.monsters[tgt.kind]?.poison;
         if (spined && src && s.actors[src.id] === src && !src.defeated && potency > 0 && (!inst || inst.delivery === "contact" || inst.ability === "strike" || inst.effect === "strike")) applyPoison(s, src, wildRules.data.monsters[tgt.kind], tgt.id, "touched");
         for (const ev of r.events) log(s, { kind: ev.kind, actor: src?.id || null, target: tgt.id, amount: ev.amount, text: ev.text, why: causes });
-        const actual=s.wild.find(u=>u.id===tgt.id);if(actual)Performers?.afterHit(s,src,actual,amount,classH());
+        const actual=s.wild.find(u=>u.id===tgt.id);
+        const hurt = r.events.find((ev) => ev.kind === "wildHurt");
+        if (hurt) {
+          const remaining = actual ? `${actual.lf}/${actual.maxLF}` : `0/${tgt.maxLF}`;
+          log(s, { kind: "damage", actor: src ? src.id : null, target: tgt.id, at: [tgt.x, tgt.y], amount: hurt.amount, lfLost: hurt.amount, ability: inst && inst.ability, text: `${opts.label || (inst ? inst.name : "Hit")} → ${tgt.name}: ${hurt.amount} LF (${remaining}).`, why: causes });
+        }
+        if(actual)Performers?.afterHit(s,src,actual,amount,classH());
         ClassRuntime?.spendTrophyEye?.(s, src, amount);   // Trophy Eye: this branch returns before ClassRuntime.afterHit
         checkOutcome(s); return amount;
       }
@@ -568,6 +576,12 @@
         notes.push(`${w.label || "Fortress ward"} absorbs ${absorbed} (${w.protection} left).`);
         if (w.protection <= 0) { tgt.status.ward = null; notes.push("The ward breaks."); }
         else if (w.gazeCover) { tgt.status.ward = null; notes.push("The projected gaze spends itself on the one shot."); }   // W1c cover: a projection stops one shot even when it has protection to spare
+        // Resonant Heirlooms JI1: a tagged Guqin ward banks its actual prevention (up to 6) as memory.
+        if (warded > 0 && w.guqin && !w.guqin.closed) {
+          const banked = INS_JI1()?.bank(s, w.guqin, warded, H);
+          if (banked > 0) notes.push(`Unbroken Listening remembers ${banked} of it.`);
+        }
+        if (warded > 0 && w.perf && tgt.side === s.actors?.[w.perf.caster]?.side) INS_JI1()?.credit(s, w.perf, warded, H);   // JI1c True Performance: a refined ward's actual prevention credits its cast (not the 6 bank cap, not closed by a cash)
       }
       const collageWard=activeTerrainEffect(s,"pastedFragment",tgt.x,tgt.y);
       if(collageWard?.fragment?.kind==="wallProtection10"&&dmg>0){const absorbed=Math.min(collageWard.fragment.value?.protection||10,dmg);dmg-=absorbed;collageWard.fragment.value.protection=(collageWard.fragment.value.protection||10)-absorbed;notes.push(`Pasted wall fragment absorbs ${absorbed} damage (${collageWard.fragment.value.protection} protection remains).`);if(collageWard.fragment.value.protection<=0)s.terrainEffects=s.terrainEffects.filter(e=>e!==collageWard);}

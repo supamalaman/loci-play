@@ -8,6 +8,7 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatOrders = factory();
 })(typeof self !== "undefined" ? self : this, function () {
+  const BondLedger = () => { try { if (typeof module === "object" && module.exports) return require("../bonds/ledger.js"); } catch {} return (typeof self !== "undefined" ? self.ConceptCombatBondLedger : null); };   // Bonds B6
   const Spirit = () => { try { if (typeof module === "object" && module.exports) return require("./spirit.js"); } catch {} return (typeof self !== "undefined" ? self.ConceptCombatSpirit : null); };
   const ROLES = ["strike", "screen", "scout", "admin", "focus"];
   const R = (s) => s.rules?.orders || {};
@@ -331,7 +332,8 @@
     for (const [k, v] of Object.entries(account?.respect || {})) { const h = halve(v); if (h) respect[k] = h; }
     const bonds = {};   // Bonds B2a: the player's bond ranks from Close up, for the valence source (engine/factions.js bondValence)
     for (const [id, r] of Object.entries(account?.bonds || {})) if (r && Number.isFinite(r.rank) && r.rank >= 3) bonds[id] = Math.min(5, Math.floor(r.rank));
-    return { trust, respect, battles: account?.battles || 0, bonds };
+    const BL = BondLedger(), vouches = BL && BL.vouchesFor ? BL.vouchesFor(account) : [];   // Bonds B6: a Full Bond whose pact includes the vouch (law/courtroom.js vouchersFor)
+    return { trust, respect, battles: account?.battles || 0, bonds, vouches };
   }
   function settleOrders(account, s) {
     const lines = [], respect = {};

@@ -97,6 +97,7 @@
     mercy: "The gradient: a clean player who loses on points pays the debt only; titles and clean sheets go to the proven.",
     sword: "The Executioner's Sword: a death verdict made touchable. Dodge it with a free reaction and a severed limb — or hope the holder's heart dispels it.",
     retrial: "A guilty count re-opened on genuinely new evidence. Twice per trial, never for feelings.",
+    vouch: "Someone bound to you by a sworn pact speaks to your character, not to the act. It moves favor a little, never a count's grade, and an honest friend will not lie for you.",
   };
   const unit = (t, id) => t.units[id];
   const isAlive = (u) => !!u && u.alive !== false && !u.defeated;
@@ -125,6 +126,7 @@
       representation: { defense: "self", prosecution: "self" },
       claimed: {}, suspects: {}, log: [], over: false, verdicts: null,
       ...(opts.debriefed ? { debriefed: [...opts.debriefed] } : {}),
+      ...(opts.vouchers?.length ? { vouchers: opts.vouchers.map((v) => ({ ...v })) } : {}),   // Bonds B6: who may vouch for the accused (law/courtroom.js vouchersFor)
     };
     for (const side of ["defense", "prosecution"]) {
       const want = opts.representation?.[side] || "self";
@@ -218,6 +220,7 @@
     if (side === "defense" && FORMS[t.form].karmic && !c.restituted) moves.push("restitute");
     if (side === "defense" && !t.pleaUsed) moves.push("finalPlea");
     if (side === "defense" && lawyer(t, side)) moves.push("objection", "perjury");
+    if (side === "defense" && t.vouchers?.length && !t.vouch && c.grade !== "sworn") moves.push("vouch");   // Bonds B6: once a trial, never on a sworn count
     if (c.victimId && isAlive(unit(t, c.victimId)) && !c.absolved) moves.push("absolve");
     return moves;
   }
@@ -366,6 +369,30 @@
         if (groundTruth(c) && mark !== "collapsed-alibi") return { ok: false, error: "true testimony is not perjury, however inconvenient" };
         delete t.suspects[move.witnessId];
         swing(dir * TRIAL.perjuryFavor, `Perjury! ${unit(t, move.witnessId).name} is EXPOSED, stammering, undone. Failed testimony punished.`, ["Mirrors the class spec's Perjury."], "Perjury is a crime against the court itself — that's why exposing it swings the whole room, not just the count.");
+        break;
+      }
+      case "vouch": {
+        // Bonds B6 (claude-bonds-spec 1.9, R-20261123-07): a Full Bond with a pact that includes the vouch speaks to the
+        // accused's character, not to the act. Its own branch, not the evidence one: favor moves by the exhibit base at an
+        // ally's credibility (round(3 x 0.5) = 2) and no count's grade changes. Once a trial, never on a sworn count, and an
+        // honest friend declines when a promise to them stands broken or they saw the act; a decline moves nothing and is
+        // remembered (courtroom.js applyVerdicts puts t.vouch on the trial ledger; account.js settleCourt writes the memory).
+        if (side !== "defense") return { ok: false, error: "Only the defense can ask someone to vouch." };
+        const v = (t.vouchers || [])[0];   // one route today (Jatayu); the court queues a bare move, so the first bond speaks
+        if (!v) return { ok: false, error: "No one with a sworn pact can vouch for the accused here." };
+        if (t.vouch) return { ok: false, error: "Vouch is spent: once per trial." };
+        if (c.grade === "sworn") return { ok: false, error: "No one can vouch past a sworn count: the accused said it in public." };
+        const saw = groundTruth(c) && Object.values(t.units).some((u) => u.id !== t.accusedId && u.character === v.id && eligible(u, c.actRound));
+        const why = v.honest ? (v.broken ? "broken" : saw ? "saw" : null) : null;
+        t.vouch = { id: v.id, name: v.name, answer: why ? "declined" : "vouched", ...(why ? { why } : {}), count: c.id, ...(v.lent ? { lent: true } : {}) };
+        if (why) {
+          const line = v.lines?.[why] || (why === "broken" ? "Not while a promise to me stands broken." : "I was there. I will not say I was not.");
+          say(t, `${v.name} is asked to vouch for the accused, and will not: "${line}" The room does not move.`, ["An honest friend does not lie for you."], "A character witness is only worth what their honesty is worth: the one who will not lie is the one worth hearing.");
+          if (t.form === "courtroom") t.log.at(-1).speaker = { side };
+          break;
+        }
+        const pts = Math.max(1, Math.round(TRIAL.exhibitBase * credibility({ side: "ally" })));   // courtroom-ui.js names the same number (exhibitBase x 0.5)
+        swing(pts, `${v.name} speaks for the accused, not for the act: "${v.lines?.vouched || "I know them. Weigh that."}" Favor +${pts}; ${c.label} stays ${c.grade.toUpperCase()}.`, ["A vouch weighs like an interested witness, and changes no count's grade."], "Character testimony says who someone is, not what they did: courts let it lean the room, never prove the act.");
         break;
       }
       case "end": say(t, `${side === "defense" ? "Defense rests" : "Prosecution rests"} on ${c.label}: it stands as graded (${c.grade.toUpperCase()}).`);

@@ -73,6 +73,33 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   }
 
   const waterTiles = (w) => { const out = []; w.arena.map.forEach((r, y) => [...r].forEach((c, x) => { if (["w", "~"].includes(c)) out.push([x, y]); })); return out; };
+  // UW1 (cursor-underwater-spawn-spec, R-20261123-32): diveDeep is the sunken BD1 pocket when it exists; the helper
+  // accepts those tiles now, the appear/summon test waits on BD1 (Decision 3).
+  function diveDeepTiles(w) {
+    const extra = Array.isArray(w.diveDeep) ? w.diveDeep : [];
+    return extra.filter((at) => Array.isArray(at) && inside(w.arena, at[0], at[1]));
+  }
+  function wetCell(w, x, y) {
+    if (!inside(w.arena, x, y)) return false;
+    if (["w", "~"].includes(w.arena.map[y][x])) return true;
+    return diveDeepTiles(w).some(([dx, dy]) => dx === x && dy === y);
+  }
+  function underwaterSpawnTiles(w, kind) {
+    const open = (x, y) => !unitAt(w, x, y) && !wildAt(w, x, y);
+    const pools = [], shallows = [];
+    w.arena.map.forEach((r, y) => [...r].forEach((c, x) => {
+      if (!open(x, y)) return;
+      if (c === "~") pools.push([x, y]);
+      else if (c === "w") shallows.push([x, y]);
+    }));
+    for (const [x, y] of diveDeepTiles(w)) {
+      if (open(x, y) && !pools.some(([px, py]) => px === x && py === y)) pools.push([x, y]);
+    }
+    if (kind === "kraken") return pools;
+    const edge = pools.filter(([x, y]) => DIRS.some(([dx, dy]) => w.arena.map[y + dy]?.[x + dx] === "w"));
+    if (edge.length) return edge;
+    return shallows;
+  }
   function spawn(w, kind, at, reason, metadata = {}) {
     const def = W.monsters[kind]; w.spawnCounts ||= {};
     const serial = (w.spawnCounts[kind] || 0) + 1; w.spawnCounts[kind] = serial;
@@ -92,10 +119,13 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     const w = clone(world), def = W.monsters[kind];
     if (!def || def.form !== "unit") return { world: w, events: [], error: "Only unit-form monsters can be summoned." };
     if (!canAppear(w, kind)) return { world: w, events: [], error: "That monster is already present or the wild side is full." };
-    if (!Array.isArray(at) || !walkable(w, at[0], at[1]) || unitAt(w, at[0], at[1]) || wildAt(w, at[0], at[1]))
+    const occupied = !Array.isArray(at) || unitAt(w, at[0], at[1]) || wildAt(w, at[0], at[1]);
+    if (def.waterOnly) {
+      if (occupied || !wetCell(w, at[0], at[1]))
+        return { world: w, events: [], error: `The ${def.name.toLowerCase()} must be called into water.` };
+    } else if (occupied || !walkable(w, at[0], at[1])) {
       return { world: w, events: [], error: "Choose an open, walkable tile for the monster." };
-    if (def.waterOnly && !["w", "~"].includes(w.arena.map[at[1]]?.[at[0]]))
-      return { world: w, events: [], error: `The ${def.name.toLowerCase()} must be called into water.` };
+    }
     const event = spawn(w, kind, at, reason, { summoned: true, summonerId, side: "wild" });
     return { world: w, events: [event] };
   }
@@ -153,6 +183,15 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
         w.wet[K(x, y)] = w.round + 3;
         const f = active(w, "brushfire"); if (f && K(x, y) in f.tiles) { delete f.tiles[K(x, y)]; events.push({ kind: "fireOut", at: [x, y], text: `Fire doused at (${x},${y}).` }); }
       }
+    } else if (item === "dewJar" || item === "bluebellJar") {
+      const x = at[0], y = at[1];
+      if (inside(w.arena, x, y)) {
+        w.wet[K(x, y)] = w.round + 3;
+        const f = active(w, "brushfire"); if (f && K(x, y) in f.tiles) { delete f.tiles[K(x, y)]; events.push({ kind: "fireOut", at: [x, y], text: `Fire doused at (${x},${y}).` }); }
+      }
+    } else if (item === "sweetBait" || item === "sunflowerJar" || item === "marigoldJar") {
+      w.bait.push({ x: at[0], y: at[1], untilRound: w.round + 3 });
+      if (canAppear(w, "feralPig")) { const e = edgeTileNear(w, at); if (e) events.push(spawn(w, "feralPig", e, "drawn by the bait")); }
     } else if (item === "borate") {
       const o = objAt(w, ...at) || null;
       const st = S.bridgeAt(w.arena, ...at);
@@ -501,14 +540,19 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
   function frontier(w, m) {
     const def = W.monsters[m.kind], out = new Map();
     const row = (W.fields || {})[m.kind] || null, sp = (row && row.spread) || {};
-    const shade = sp.shadeSkip ? VR.shadeTiles(w.arena) : new Set();
+    const bonus = sp.mode === "bonus" ? (sp.bonus || {}) : null;   // L1 (bryophyte): spread as data
+    if (bonus && (w.round - (m.born ?? 0)) % (sp.every || 1) !== 0) return [];   // spreads every Nth round only
+    const shade = sp.shadeSkip || (bonus && bonus.shade != null) ? VR.shadeTiles(w.arena) : new Set();
     const onto = sp.onto || [",", "m"];
     for (const k of Object.keys(m.tiles)) {
       const [x, y] = P(k);
       for (const [dx, dy] of DIRS) {
         const nx = x + dx, ny = y + dy, nk = K(nx, ny);
         if (!inside(w.arena, nx, ny) || nk in m.tiles || out.has(nk)) continue;
-        if (sp.mode === "fuel") {
+        if (bonus) {
+          const f = bonusChance(w, sp, bonus, shade, nx, ny);
+          if (f > 0) out.set(nk, { at: [nx, ny], chance: Math.min(1, f) });
+        } else if (sp.mode === "fuel") {
           const c = isFuel(w, nx, ny) * (def.biomeMul[w.arena.archetype] ?? 1);
           if (c > 0) out.set(nk, { at: [nx, ny], chance: Math.min(1, c) });
         } else {
@@ -520,6 +564,25 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       }
     }
     return [...out.values()].sort((a, b) => (K(...a.at) < K(...b.at) ? -1 : 1));
+  }
+  // L1 (bryophyte): a "bonus" spread row. A tile takes base + each bonus it earns (shade, wet or beside water,
+  // a hard tile); `onto` limits the tile chars; `only` names the bonuses a tile must earn at least one of.
+  function bonusChance(w, sp, bonus, shade, x, y) {
+    const ch = w.arena.map[y][x], t = D.terrain[ch] || {}, k = K(x, y);
+    const water = (cx, cy) => inside(w.arena, cx, cy) && ["w", "~"].includes(w.arena.map[cy][cx]);
+    if (t.blocksMove || objAt(w, x, y)?.blocksMove || (sp.onto ? !sp.onto.includes(ch) : water(x, y))) return 0;   // water itself only when `onto` names it
+    const has = {
+      shade: shade.has(k),
+      wet: (w.wet[k] ?? -1) >= w.round || water(x, y) || DIRS.some(([dx, dy]) => water(x + dx, y + dy)),
+      hard: (t.tags || []).includes("hard"),
+    };
+    if (sp.only && !sp.only.some((b) => has[b])) return 0;
+    return Object.keys(has).reduce((c, b) => c + (has[b] ? bonus[b] || 0 : 0), sp.base || 0);
+  }
+  function actSpread(w, m, events) {
+    const row = W.fields[m.kind], sp = row.spread;
+    const opts = frontier(w, m).filter((f) => roll(w, m.id, "grow:" + K(...f.at)) < f.chance).slice(0, sp.perRound ?? 1);
+    for (const f of opts) { m.tiles[K(...f.at)] = 0; events.push({ kind: "fieldGrow", field: m.kind, at: f.at, text: `${row.label} grows onto (${f.at.join(",")}).` }); }
   }
   function actFire(w, m, events) {
     const def = W.monsters.brushfire;
@@ -550,7 +613,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       if (u) { u.status = u.status || {}; const held = u.status.entangled, heldCut = typeof held === "number" ? held : held?.lostMove || 0; if (heldCut < def.entangle.lostMove) u.status.entangled = def.entangle.lostMove; events.push({ kind: "entangle", target: u.id, at: [x, y], text: `${u.id} is tangled in creeper: −${def.entangle.lostMove} move next turn.` }); }
       const o = objAt(w, x, y); if (o && o.material === "plant" && !o.protected) { const r = VR.damageObject(w.arena, o.id, def.smother, {}); w.arena = r.arena; events.push(...r.events); }
     }
-    const opts = frontier(w, m).filter((f) => roll(w, m.id, "grow:" + K(...f.at)) < f.chance).slice(0, def.growPerRound);
+    const opts = frontier(w, m).filter((f) => roll(w, m.id, "grow:" + K(...f.at)) < f.chance).slice(0, W.fields.creeper.spread.perRound);
     for (const f of opts) { m.tiles[K(...f.at)] = 0; events.push({ kind: "creeperGrow", at: f.at, text: `Creeper grows onto (${f.at.join(",")}).` }); }
   }
 
@@ -666,9 +729,9 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       if (w.round >= dr.round && water.length) { const shore = water.map(([x, y]) => DIRS.map(([dx, dy]) => [x + dx, y + dy])).flat().filter(([x, y]) => walkable(w, x, y) && !unitAt(w, x, y) && !wildAt(w, x, y));
         const spot = shore.length ? shore[Math.floor(roll(w, "ducks", "shore") * shore.length)] : null;
         tryKind("ducks", "nearWater", spot, "a feral flock comes up from the water"); } }
-    { const pr = W.monsters.porgy.appear[0], open = waterTiles(w).filter(([x, y]) => !unitAt(w, x, y) && !wildAt(w, x, y));
-      if (w.round >= pr.round && open.length) tryKind("porgy", "inWater", open[Math.floor(roll(w, "porgy", "where") * open.length)], "a salema rises in the shallows"); }
-    { const kr = W.monsters.kraken.appear[0], open = waterTiles(w).filter(([x, y]) => !unitAt(w, x, y) && !wildAt(w, x, y));
+    { const pr = W.monsters.porgy.appear[0], open = underwaterSpawnTiles(w, "porgy");
+      if (w.round >= pr.round && open.length) tryKind("porgy", "inWater", open[Math.floor(roll(w, "porgy", "where") * open.length)], "a salema flickers under the water"); }
+    { const kr = W.monsters.kraken.appear[0], open = underwaterSpawnTiles(w, "kraken");
       if (w.round >= kr.round && open.length) tryKind("kraken", "inWater", open[Math.floor(roll(w, "kraken", "where") * open.length)], "a kraken rises from the deep"); }
     for (const kind of ["wolf", "moa", "sasquatch", "chicken", "tiger"]) { const r = W.monsters[kind].appear[0];
       if (w.round >= r.round && r.biomes.includes(w.arena.archetype)) tryKind(kind, "roundAtLeast", edgeTileNear(w, [w.arena.map[0].length - 1, Math.floor(w.arena.map.length / 2)], kind), kind === "wolf" ? "a howl, and a feral dog trots in" : kind === "moa" ? "a moa stalks in and settles on a nest" : kind === "chicken" ? "a rooster crows, and a feral flock struts in" : kind === "tiger" ? "the grass goes still, and a tiger slips in" : "something huge steps out of the treeline"); }
@@ -689,7 +752,7 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
       if (m.suspended) continue;                     // held in a capture ritual's chant (engine.js C18)
       if (m.form === "unit") actUnit(w, m, events);
       else if (m.kind === "flashFlood") actFlood(w, m, events);
-      else { const act = (((W.fields || {})[m.kind] || {}).act); if (act === "fire") actFire(w, m, events); else if (act === "creeper") actCreeper(w, m, events); }
+      else { const act = (((W.fields || {})[m.kind] || {}).act); if (act === "fire") actFire(w, m, events); else if (act === "creeper") actCreeper(w, m, events); else if (act === "spread") actSpread(w, m, events); }
     }
     events.push(...fleeing(w));
     if (w.allowAppearances !== false) events.push(...appearances(w));
@@ -722,5 +785,5 @@ const TERRAIN = typeof module === "object" && module.exports ? (process.env.LOCI
     return { seed, round, arena, units: units.map((u) => ({ ...u })), wild: [], wet: {}, treated: [], bait: [], recent: {}, spawnCounts: {} };
   }
 
-  return { newWorld, useItem, telegraph, environmentPhase, appearances, summonMonster, randomEventWave, clearTiles, hurtMonster, frontier, floodPath, data: W };
+  return { newWorld, useItem, telegraph, environmentPhase, appearances, summonMonster, randomEventWave, clearTiles, hurtMonster, frontier, floodPath, underwaterSpawnTiles, data: W };
 });

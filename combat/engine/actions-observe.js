@@ -122,11 +122,17 @@
         ClassRuntime?.hunterObserved?.(s, a, t);   // H2: her Observe names the Quarry when there is none (Investigate shares the tail above, not this line)
         if (insightRules) {
           const investBase = Math.max(10, Math.min(50, Math.floor((act.invest || 20) / 10) * 10));
-          const invest = hasTrait(a, "directorsVision") ? Math.max(5, investBase - 5) : investBase;   // Director's Vision: studies cost 5 less
+          let invest = hasTrait(a, "directorsVision") ? Math.max(5, investBase - 5) : investBase;   // Director's Vision: studies cost 5 less
           const detail = a.focus?.target === t.id && (a.focus.expiresAt ?? 0) > a.ownerTurns && a.focus.detail;   // retained detail: +1 point free
           if (a.tempo < invest + woundTax && !free) return `Observe needs ${invest + woundTax} action points.`;
           if (!hasSight(s, a.x, a.y, t.x, t.y)) return "You need a clear line of sight to Observe.";
           if (!s.insight.decks[t.id]) return `${t.name} has no observable traits: there is nothing to Observe.`;   // arrivals without a deck: refuse cleanly instead of throwing (A3b: previews run at render)
+          const fleshKey = `${a.id}>${t.id}`;
+          if (hasTrait(t, "unreadableFlesh") && !(s.unreadableMet || {})[fleshKey]) {   // Unreadable Flesh (Eldritch F6): the first paid Observe against her each battle costs one more step
+            if (a.tempo < invest + 10 + woundTax && !free) return `${t.name} will not stay read: this first look costs one more step (${invest + 10 + woundTax} AP).`;
+            invest += 10; (s.unreadableMet ||= {})[fleshKey] = true;
+            log(s, { kind: "observe", actor: a.id, target: t.id, text: `${t.name} will not stay read: this first look costs one more step.`, why: ["Unreadable Flesh: the first Observe against her each battle costs +10 AP."] });
+          }
           const bySubject = H.Observation.knowledge(s,a,true);
           const know = bySubject[t.id] || insightRules.spawnKnowledge(s.insight.decks[t.id]);
           // Perfect Memory (the Cyborg form): what he has already Observed stays known. Looking again at a subject with

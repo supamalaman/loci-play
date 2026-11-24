@@ -70,6 +70,7 @@
     appeal: ["Appeal for leniency", "Ask the court for favor. Appeals fare worse under the Magistrate."],
     end: ["Rest", "Let the count stand as graded."],
     finalPlea: ["Final plea", "Move favor once per trial. Sworn counts can turn it against you."],
+    vouch: ["Vouch", `Your Full Bond speaks for your character: favor +${Math.max(1, Math.round(TR.TRIAL.exhibitBase * 0.5))}, never a count's grade. Once per trial, not on a sworn count; an honest friend may refuse.`],   // Bonds B6 (law/trial.js vouch)
   };
 
   function liveView(s, actorId, cost, portrait) {
@@ -80,7 +81,8 @@
     const queued = side === "defense" ? tr.queuedDefense : tr.queued;
     const active = t.counts.find((count) => count.status === "open");
     const actions = tr.over || t.over ? [] : TR.legalPlays(t, side).map((move) => {
-      const [label, reason] = moves[move] || [move, ""];
+      const [label, reason0] = moves[move] || [move, ""];
+      const reason = move === "vouch" && t.vouchers?.[0]?.name ? reason0.replace("Your Full Bond", t.vouchers[0].name) : reason0;   // Bonds B6: name who would speak
       const refusal = move === "evidence" && !TR.witnessPool(t, side, active).length ? "No eligible witness for this count." :
         (s.actors[actorId]?.tempo ?? 0) < cost ? `Needs ${cost} AP.` : "";
       return { move, label: `${label} · ${cost} AP`, off: !!refusal, help: refusal || reason };

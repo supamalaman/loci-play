@@ -26,7 +26,7 @@
     gemini: ["complementarity", "resonance"], wizard: ["pipeline", "selectivity"], jujutsu_sorcerer: ["reciprocal_obligation", "boundary"], super_hero: ["load_distribution", "interposition"], esker: ["interposition", "berm"],
     super_heroine: ["tension", "elasticity"], super_villain: ["dependency", "deception"], defective_machine: ["fault_tolerance", "resonance"], teleporter: ["adjacency", "threshold"],
     mutant_boar: ["plasticity", "inertia"], boarman: ["leverage", "elasticity"], anime_protagonist: ["plasticity", "elasticity"], barbarian: ["threshold", "elasticity"], clockwork: ["pipeline", "timing"], rogue: ["pruning", "extraction"], hooded_cyber_rogue: ["longtermism", "stealth"], medusa: ["sightline", "constraint"], magistrate: ["laws_of_gods_of_men", "threshold"], cleric: ["reciprocal_obligation", "complementarity"], steam_walker: ["inertia", "threshold"], ornithopter: ["section", "adjacency"], engineer: ["gradingDrainage", "load_distribution"], origamist: ["adjacency", "tension"],
-    mma_fighter: ["leverage", "constraint"], kickboxer: ["timing", "leverage"], odysseus: ["strategic_commitment", "pathway"], president: ["legitimacy", "strategic_commitment"], detective: ["inference", "selectivity"], maid: ["selectivity", "extraction"], paladin: ["solfeggio", "strategic_commitment"],
+    mma_fighter: ["leverage", "constraint"], kickboxer: ["timing", "leverage"], odysseus: ["strategic_commitment", "pathway"], president: ["legitimacy", "strategic_commitment"], triumvirate_hero: ["cooperative_principle", "load_distribution"], detective: ["inference", "selectivity"], maid: ["selectivity", "extraction"], paladin: ["solfeggio", "strategic_commitment"],
     big_game_hunter: ["discovery", "indexing"], treasure_hunter: ["discovery", "extraction"], hypebeast: ["diffusion", "deception"], ranger: ["pathway", "inference"], tech_billionaire: ["adjacency", "dependency"], oil_billionaire: ["extraction", "diffusion"], doctor: ["succession", "inference"], animalTamer: ["resonance", "transmigration"], modern_artist: ["hardware", "software"], cyph: ["lyricism", "selectivity"], general: ["delegation", "timing"], bastet: ["focus", "elasticity"], ninja: ["stealth", "threshold"], police_officer: ["legitimacy", "constraint"], thief: ["stealth", "deception"], monkey_king: ["deception", "leverage"], hanuman: ["aeronautics", "elasticity"], jambavan: ["indexing", "delegation"], rama: ["strategic_commitment", "focus"], lakshmana: ["boundary", "interposition"], sita: ["imagination", "preservation"], hypnotist: ["focus", "imagination"], florence_oloo: ["diffusion", "innovation"], chitinous_archbishop: ["laws_of_gods_of_men", "transmigration"], chitin_bishop: ["glamour", "focus"], shardback: ["gradingDrainage", "thorn"], eldritch: ["cipher", "discovery"], ravana: ["extraction", "delegation"], kumbhakarna: ["inertia", "timing"], indrajit: ["deception", "constraint"], mandodari: ["inference", "harmony"], surpanakha: ["glamour", "plasticity"], jatayu: ["interposition", "timing"], director: ["boundary", "delegation"], mangaka: ["collage", "innovation"], aviator_hero: ["aeronautics", "inertia"], jiang_qing: ["glamour", "legitimacy"], starfarer: ["settlement", "sightline"], pioneer: ["sightline", "boundary"], martial_artist: ["bird_mountain", "adaptation"], memorialist: ["preservation", "longtermism"], hot_pot_berserker: ["antifragility", "hospitality"], chef: ["mise_en_place", "hospitality"], seedkeeper: ["longtermism", "succession"], ferryman: ["pathway", "reciprocal_obligation"], pearl_diver: ["swale", "stealth"], teal_eel: ["boundary", "preservation"], remora_adventurer: ["leverage", "extraction"], orgonite_trooper: ["longtermism", "hardware"], leviathan_suit: ["longtermism", "cybernetic_ecology"], scale_firmware: ["imagination", "hardware"], white_jacket_gunner: ["software", "longtermism"], bronze_admin: ["delegation", "longtermism"], horned_suit: ["imagination", "delegation"], shaman: ["threshold", "hospitality"] };
 
   // Content overrides. kind = runtime handler for "classEffect"; extra = damage-path extras keyed by ability id.
@@ -118,6 +118,7 @@
     batchRender: X("artistBatch", {target:"enemy",range:5}),
     compileTheCanvas: X("artistCompile", {target:"enemy",range:6}),
     apex: X("hunterApex", {target:"enemy",range:1}),   // Big Game Hunter merge (spec H3b section 9): her finisher on the adjacent Quarry
+    plantedFeet: X("hunterPlant", { target: "self", range: 0, cost: 0, tempoCost: 0 }),   // H3c: held only while she is Charged with Inspiration to spend (syncPlanted keeps it in `learned`)
     orgoniteLance: X("suitLance", {target:"enemy",range:4}),
     dreamCircuit: X("suitCircuit", {target:"self",range:0}),
     dreamForge: X("suitForge", {target:"enemy",range:5}),
@@ -355,7 +356,7 @@
     secondNature: X("buff", { target: "self", range: 0, buff: "specialized" }), everywhereAtOnce: D({ target: "enemy", delivery: "line", range: 7 }),
     perfectMoment: D({ target: "enemy", delivery: "line", range: 5 }), duet: D({ target: "self", delivery: "field", range: 0, area: { shape: "radius", radius: 2 } }),
     grandFormula: D({ target: "enemy", delivery: "line", range: 6 }), bindingOath: X("law", { target: "self", range: 0, radius: 3, terms: "noUltimate", penalty: 12, turns: 2 }),
-    shoulderTheWorld: X("share", { target: "self", range: 0, radius: 3, cap: 99, turns: 2 }), grappleLine: D({ target: "enemy", delivery: "line", range: 5 }),
+    shoulderTheWorld: X("share", { target: "self", range: 0, radius: 3, cap: 99, turns: 2 }), unionOfCrowns: X("share", { target: "self", range: 0, radius: 4, cap: 15, turns: 2 }), grappleLine: D({ target: "enemy", delivery: "line", range: 5 }),   // unionOfCrowns: trio T3a, Union of Crowns, the load half (R-20261122-76)
     redundantSystems: X("buff", { target: "self", range: 0, buff: "failover" }), greatLever: D({ target: "enemy", delivery: "contact", range: 1, needs: "fulcrum", throwTiles: 3 }),
     judgmentOfGods: X("lawgiver", { target: "tile", range: 3 }),   // Laws of Gods of Men: the guilty only (law/law.js)
     lastStand: X("guardArea", { target: "self", range: 0, radius: 3, uses: 9, mul: 0.7, turns: 1 }), totalDependence: X("dependence", { target: "self", range: 0, radius: 4, turns: 2 }),
@@ -695,16 +696,34 @@
   const hunterForcedMove = (s, mover, unit, H) => {
     const c = unit?.status?.charged;
     if (!c || s?.preview || !isHunter(unit) || !mover || mover.side === unit.side || c.planted) return;
-    unit.status.charged = null;
+    unit.status.charged = null; syncPlanted(s, unit);   // H3c: nothing left to plant
     H?.log?.(s, { kind: "effect", actor: unit.id, target: mover.id, text: `${mover.name} moves ${unit.name}: her Charge is knocked loose.`, why: ["Charged is lost when an enemy moves her (a shove, a throw, a swap)."] });
   };
   // The x1.5 itself (damageMods, every hit): her Strike or Cross Reference on the Quarry while Charged; spent by that hit.
   const hunterChargedMod = (s, src, tgt, inst, H) => {
     const c = hunterChargedOf(s, src);
     if (!c || !tgt || tgt.id !== c.quarry || !["strike", "crossReference"].includes(inst?.ability)) return null;
-    if (!s.preview) src.status.charged = null;
+    if (!s.preview) { src.status.charged = null; syncPlanted(s, src); }   // H3c: a spent Charge takes Planted Feet out of her list at once
     return { mul: CHARGE(H).mul, note: `Charged: x${CHARGE(H).mul} on her Quarry; the charge is spent.` };
   };
+  // The join (merge spec H3c, sections 10 and 11; R-20261123-18). Catalogued: Cross Reference or Apex that lands (takes LF) on
+  // her Quarry with `known`+ known observations cashes +1 Inspiration through the ledger's cash (once a round, nothing at the cap).
+  const BGH = (s) => s?.rules?.bigGameHunter || { catalogued: { known: 3, line: "Catalogued." }, ai: { apexCharged: 8, plantedFeet: 4, plantedNear: 3 } };
+  const hunterCatalogued = (s, a, u, landed, H) => {
+    if (!landed || !isHunter(a) || a.defeated || !u || hunterQuarryOf(s, a)?.id !== u.id) return 0;
+    const R = BGH(s).catalogued; if (hunterKnownCount(s, a, u) < R.known) return 0;
+    const got = H?.Inspiration?.cash?.(s, a, R.line) || 0; if (got) syncPlanted(s, a); return got;
+  };
+  // Planted Feet: in her list only while she could press it (Charged, not yet planted, 1 Inspiration), like Pass a Class.
+  const canPlant = (s, a) => { const c = hunterChargedOf(s, a); return !!c && !c.planted && (a.inspiration || 0) >= (s.rules.inspiration?.crescendoCost ?? 1); };
+  function syncPlanted(s, a) {
+    if (!isHunter(a)) return;
+    const should = canPlant(s, a), holds = (a.learned || []).includes("plantedFeet");
+    if (should && !holds) (a.learned ||= []).push("plantedFeet"); else if (!should && holds) a.learned = a.learned.filter((id) => id !== "plantedFeet");
+  }
+  // An enemy within n holding a technique that moves her (knockback, pull, or the Plot Twist swap): what Planted Feet answers.
+  const moverNear = (s, a, n, H) => Object.values(s.actors).some((u) => !u.defeated && u.side !== a.side && u.side !== "bystander" && H.dist(s, a.x, a.y, u.x, u.y) <= n
+    && (H.abilitiesOf?.(u) || []).some((id) => id === "plotTwist" || (H.C?.abilities?.[id]?.knockback || 0) > 0 || (H.C?.abilities?.[id]?.pull || 0) > 0));
   // Every hit goes through here (damage.js strikeTarget): the mark, the ambush, and what cover does to an arrow.
   function beforeStrike(s, src, tgt, inst, potency, H) {   // the Hot Pot Berserker's bank first, then everyone else's
     let hp = HotPot.beforeStrike(s, src, tgt, inst, potency);
@@ -1484,7 +1503,25 @@
     const end = route[route.length - 1];
     return manh(end, g.tile) < manh(route[0], g.tile) ? 10 : 0;
   }
-  function commonGroundSpend(s, a, route) { if (commonGroundOff(s, a, route)) s.commonGround[a.id].used = true; }
+  function commonGroundSpend(s, a, route, H) { if (!commonGroundOff(s, a, route)) return; s.commonGround[a.id].used = true; triangleJoin(s, a, s.commonGround[a.id], route, H); }
+  // The triangle (hot builds trio T3a, African Triumvirate Hero; R-20261111-19, R-20261122-72): while the hero who named the Common Ground
+  // tile has his own Share the Load or Support Network links up (the share record's `by`), an ally whose discounted Common Ground step ends
+  // within `rules.triangle.radius` of him (the battle's distance rule) joins those links: every member's share lists the newcomer, and the
+  // newcomer's share lasts as long as the hero's has left. No join for an ally that already holds a share of its own, or when the links are
+  // full (Support Network's `max` allies).
+  function triangleJoin(s, a, g, route, H) {
+    const T = s.rules.triangle, hub = g && g.by ? s.actors[g.by] : null, L = hub?.status?.loadShare;
+    if (!T || !hub || hub.defeated || hub.character !== T.of || hub.id === a.id || hub.side !== a.side) return;
+    if (!L || L.by !== hub.id || L.until < hub.ownerTurns || L.members.includes(a.id) || !L.members.includes(hub.id)) return;
+    if (a.status?.loadShare && a.status.loadShare.until >= a.ownerTurns) return;   // its own share (Shore Up, another's links) is never overwritten
+    if (L.max != null && L.members.length >= L.max + 1) return;   // Support Network: up to `max` allies beside him
+    const end = route[route.length - 1], [ex, ey] = Array.isArray(end) ? end : [end.x, end.y];
+    if (!H?.dist || H.dist(s, ex, ey, hub.x, hub.y) > T.radius) return;
+    const members = [...L.members, a.id];
+    for (const id of L.members) { const u = s.actors[id]; if (u?.status?.loadShare) u.status.loadShare = { ...u.status.loadShare, members }; }
+    st(a).loadShare = { members, cap: L.cap, by: hub.id, ...(L.max != null ? { max: L.max } : {}), until: a.ownerTurns + Math.max(1, L.until - hub.ownerTurns) };
+    H?.log?.(s, { kind: "effect", actor: a.id, text: `${a.name} steps toward the ground ${hub.name} named, ends beside him, and joins the triangle: hits on any of the ${members.length} are split across all.` });
+  }
   function purposeMoveOff(s, a, route) {
     const p = purposeOf(s);
     if (!p?.tile || !p.members[a.id] || p.members[a.id].served === s.round || !route || route.length < 2) return 0;
@@ -1702,13 +1739,10 @@
       if (!occ || occ.id !== q.id) return fail("Apex falls on the Quarry alone: aim at her marked foe.");
       return { ok: true, tiles: [[q.x, q.y]], targets: [q.id] };
     }
-    if (w.kind === "hunterApex") {   // Big Game Hunter merge (spec H3b section 9): the living Quarry, adjacent, both concepts on
-      const q = hunterQuarryOf(s, a);
-      if (!q) return fail("Apex needs a living Quarry: name one with Index Entry first.");
-      if (H.dist(s, a.x, a.y, q.x, q.y) > 1) return fail("Apex needs the Quarry beside her, within her Strike reach.");
-      const occ = H.actorAt(s, tx, ty);
-      if (!occ || occ.id !== q.id) return fail("Apex falls on the Quarry alone: aim at her marked foe.");
-      return { ok: true, tiles: [[q.x, q.y]], targets: [q.id] };
+    if (w.kind === "hunterPlant") {   // H3c: Planted Feet, once per Charge (the second copy of the Apex check above was dead code, removed)
+      const c = hunterChargedOf(s, a);
+      if (!c) return fail("Planted Feet holds a Charge: catch your Quarry with Read the Charge first.");
+      if (c.planted) return fail("Your feet are already planted for this Charge.");
     }
     if(w.kind === "cyphService" && (a.status?.cyphStock ?? 3) <= 0) return fail("Cyph's three service portions are spent.");
     if(["cyphBar","cyphPocket","cyphFinal","cyphCurated"].includes(w.kind)) {
@@ -2051,7 +2085,7 @@
       case "commonGround": {
         const allies = coopNear(s, a, H, 5).sort((p, q) => H.dist(s, tx, ty, p.x, p.y) - H.dist(s, tx, ty, q.x, q.y)).slice(0, 2);
         s.commonGround = s.commonGround || {};
-        for (const u of allies) s.commonGround[u.id] = { tile: [tx, ty], round: s.round, used: false };
+        for (const u of allies) s.commonGround[u.id] = { tile: [tx, ty], round: s.round, used: false, by: a.id };   // by: the triangle (trio T3a) reads who named it
         say(`${a.name} names (${tx},${ty}). ${allies.map((u) => u.name).join(" and ")} ${allies.length === 1 ? "has" : "have"} the first step toward it for 10 fewer AP.`, ["The two allies nearest the tile, within 5. Once this round. The cost stays at least 5."]);
         break;
       }
@@ -2106,6 +2140,11 @@
         for(const u of [tgt,...others]) if(!u.defeated) H.hit(s,a,u,inst,inst.potency*(inst.mult||1),["One stored program run on a bounded batch; each run resolves as an ordinary hit."],{label:inst.name});
         say(`${a.name} runs the held program on ${1+others.length} target${others.length?"s":""}; the program buffer is spent.`,["Batch Render maps one instruction over at most three inputs."]);break;
       }
+      case "hunterPlant": {   // H3c: the Crescendo's Inspiration is spent by the ledger (actions-technique crescendoArm); this holds the Charge
+        const c = hunterChargedOf(s, a); if (!c || c.planted) break;
+        c.planted = true; syncPlanted(s, a);
+        say(`${a.name} plants her feet: the Charge holds against any shove, throw or swap until she spends it or it lapses.`); break;
+      }
       case "hunterApex": {   // Big Game Hunter merge (spec H3b section 9): 10 +10% per known observation, no cap; a surviving Quarry cannot Conceal (the H2 Blood Trail mark). Trophy Eye per spec 3a (any damaging hit: Strike, Cross Reference, Apex), evaluated like beforeStrike and the Cross call site; the spend rides hit()'s shared afterHit.
         const q = hunterQuarryOf(s, a);
         if (!tgt || tgt.defeated || !q || tgt.id !== q.id) { say(`${a.name}'s Apex finds no quarry: the marked foe is gone.`); break; }
@@ -2113,9 +2152,13 @@
         let pot = Math.round(inst.potency * (1 + known * 0.1) * (inst.mult || 1));
         const why = [`Apex: 10 base, ${known} known observation${known === 1 ? "" : "s"} (+${known * 10}%, no cap).`];
         if (a?.trophyEyePending) a.trophyEyePending = null;   // a mark left by a blow that never landed does not carry to this one
+        const ch = hunterChargedOf(s, a);   // H3c: Charged x1.5 on the blow, before Trophy Eye's flat add (spec section 9); the charge is spent
+        if (ch && ch.quarry === q.id) { pot = Math.round(pot * CHARGE(H).mul); why.push(`Charged: x${CHARGE(H).mul} on her Quarry; the charge is spent.`); if (!s.preview) { a.status.charged = null; syncPlanted(s, a); } }
         const eye = trophyEyeOf(s, a, q);
         if (eye) { a.trophyEyePending = q.id; pot += eye.effect.potencyAdd; why.push(`Trophy Eye: +${eye.effect.potencyAdd} potency (bigger game).`); }
+        const lf0 = q.lf;
         H.hit(s, a, q, inst, pot, why, { label: "Apex" });
+        hunterCatalogued(s, a, q, q.lf < lf0, H);   // H3c: Catalogued
         if (!q.defeated) hunterBloodTrail(s, a, q);
         say(`${a.name}'s catalogue closes on ${q.name}: the greatsword falls once.`); break;
       }
@@ -2347,7 +2390,7 @@
       case "read": if (tgt) { st(a).openingRead = { target: tgt.id, until: until(2) }; say(`${a.name} reads ${tgt.name}'s next opening.`); } break;
       case "ma": Ma.resolve(s, a, w, H); break;   // Ma (five concepts M1): Leave Space, Held Breath, The Space Between
       case "share": { const members = near(s, a, w.radius, H, "ally").slice(0, (w.max || 9) + 1).map((u) => u.id);
-        for (const id of members) st(H.actor(s, id)).loadShare = { members, cap: w.cap, until: H.actor(s, id).ownerTurns + w.turns };
+        for (const id of members) st(H.actor(s, id)).loadShare = { members, cap: w.cap, by: a.id, ...(w.max != null ? { max: w.max } : {}), until: H.actor(s, id).ownerTurns + w.turns };   // by, max: the triangle (trio T3a) joins only its caster's own links, up to max
         say(`${a.name} links ${members.length} units: hits on any are split across all${w.cap < 99 ? ` (up to ${w.cap} each)` : ""}.`, ["Distribution changes local stress, not total force."]); break; }
       case "rescue": if (tgt) { const spot = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [tgt.x + dx, tgt.y + dy]).filter(([x, y]) => free(s, x, y, H)).sort((p, q) => H.dist(s, a.x, a.y, ...p) - H.dist(s, a.x, a.y, ...q))[0];
         if (spot) { a.x = spot[0]; a.y = spot[1]; } st(tgt).intercept = { by: a.id, uses: 1, mul: 1, until: tgt.ownerTurns + 1 }; say(`${a.name} races to ${tgt.name} and covers them.`); } break;
@@ -3336,6 +3379,7 @@
     if (s.rules.circuit && S(s).circuits) { sampleCircuits(s, H); circuitTurn(s, a, H); }   // Cybernetic Ecology: expiry and Network ticks
     if (s.rules.droneTowers && !a.defeated) for (const o of towersOf(s, a)) { towerFire(s, a, o, H); if (a.defeated || s.outcome) break; }   // Agent Swarm: each tower fires as his turn starts
     syncCenter(s, a);   // Tech Billionaire: Raise a Data Center is in his list only while he could press it
+    syncPlanted(s, a);   // Big Game Hunter H3c: Planted Feet is in her list only while she is Charged with Inspiration to spend
     recoveryTick(s, a, H);   // Doctor: a patient's recovery moves a stage as its turn starts
     { const holds = (a.learned || []).includes("makeTheCase"), should = hasT(a, "robotSympathizer") && !a.defeated;   // the talk is a sympathizer's, whoever they are
       if (should && !holds) (a.learned ||= []).push("makeTheCase"); else if (!should && holds) a.learned = a.learned.filter((id) => id !== "makeTheCase"); }
@@ -3557,7 +3601,11 @@
     const T = st(a), threatened = (u) => foes.some((f) => H.dist(s, u.x, u.y, f.x, f.y) <= 5);
     const tgt = cand.target && H.actorAt(s, cand.target[0], cand.target[1]);
     switch (w.kind) {
-      case "hunterApex": return 0;   // H3b: the AI does not cast Apex yet (NOTE, Certified; H3c's apex row prices it). Fixed at the 1.3.565 merge (Stanchion IN): the shelf patch had pasted the cast block here, where `inst` does not exist, so scoring Apex threw.
+      case "hunterApex": { const c = hunterChargedOf(s, a), q = hunterQuarryOf(s, a);   // H3c: priced only while Charged with the Quarry adjacent (rules.bigGameHunter.ai); uncharged it stays unpriced as in H3b
+        if (!c || !q || c.quarry !== q.id || tgt?.id !== q.id || H.dist(s, a.x, a.y, q.x, q.y) > 1) return 0;
+        const blow = Math.round(Math.round((H.C?.abilities?.apex?.potency ?? 10) * (1 + hunterKnownCount(s, a, q) * 0.1)) * CHARGE(H).mul) + (trophyEyeOf(s, a, q)?.effect?.potencyAdd || 0);   // the handler's own numbers (case "hunterApex" above)
+        return blow + BGH(s).ai.apexCharged; }   // a class technique's value is its whole AI price (ai.js classEffect branch): the blow, plus the row's +8
+      case "hunterPlant": return canPlant(s, a) && moverNear(s, a, BGH(s).ai.plantedNear, H) ? BGH(s).ai.plantedFeet : 0;   // H3c: hold the Charge when someone can move her
       case "artistDeploy": return artistTool(s,a,H) ? 0 : nearestFoe<=7 ? 3 : 0;
       case "artistCalibrate": return 2;
       case "artistRaster": return 4;
@@ -3881,7 +3929,7 @@
 
   const CLASS_NAMES = { auditor_goblin: "Auditor Goblin", shaman: "Shaman", big_game_hunter: "Big Game Hunter", agent_swarm: "Agent Swarm", rapper:"Rapper", musician:"Musician", bard:"Bard", jazz_musician:"Jazz Musician", knight: "Knight", pharaoh: "Pharaoh", daedalus: "Daedalus", samurai: "Samurai", gemini: "Gemini", wizard: "Wizard", jujutsu_sorcerer: "Jujutsu Sorcerer",
     super_hero: "Super Hero", esker: "Esker", super_heroine: "Super Heroine", super_villain: "Super Villain", defective_machine: "Defective Machine", teleporter: "Teleporter", clockwork: "Clockwork",
-    magistrate: "Magistrate", mutant_boar: "Mutant Boar", boarman: "Boarman", animalTamer: "Animal Tamer", anime_protagonist: "Anime Protagonist", mma_fighter: "MMA Fighter", kickboxer: "Kickboxer", hypebeast: "Hypebeast", treasure_hunter: "Treasure Hunter", ranger: "Ranger", tech_billionaire: "Tech Billionaire", oil_billionaire: "Oil Billionaire", doctor: "Doctor", odysseus: "Odysseus", president: "President", detective: "Detective", modern_artist: "Modern Artist", cyph: "Cyph", maid: "Maid", general: "General", bastet: "Bastet", ninja: "Ninja", police_officer: "Police Officer", thief: "Thief", monkey_king: "Monkey King", hanuman: "Hanuman", jambavan: "Jambavan", rama: "Rama", lakshmana: "Lakshmana", sita: "Sita", hypnotist: "The Hypnotist", florence_oloo: "Florence Oloo", chitinous_archbishop: "Chitinous Archbishop", chitin_bishop: "Chitin Bishop", shardback: "Shardback", eldritch: "Eldritch Intruder", ravana: "Ravana", kumbhakarna: "Kumbhakarna", indrajit: "Indrajit", mandodari: "Mandodari", surpanakha: "Surpanakha", jatayu: "Jatayu", director: "Director", actor: "Actor", barbarian: "Barbarian", paladin: "Paladin", rogue: "Rogue", hooded_cyber_rogue: "Cyber Punk Rogue", medusa: "Medusa", cleric: "Cleric", steam_walker: "Steam Walker", ornithopter: "Ornithopter", engineer: "Engineer", origamist: "Origamist", mangaka: "Mangaka", aviator_hero: "Aviator Hero", jiang_qing: "Jiang Qing", starfarer: "Starfarer", pioneer: "Pioneer", martial_artist: "Ascending Martial Artist", memorialist: "Memorialist", hot_pot_berserker: "Hot Pot Berserker", chef: "Chef", seedkeeper: "Seedkeeper", ferryman: "Ferryman", pearl_diver: "Pearl Diver", orgonite_trooper: "Orgonite Trooper", leviathan_suit: "Leviathan Suit", scale_firmware: "Scale Firmware", white_jacket_gunner: "White-Jacket Gunner", bronze_admin: "Bronze Administrator", horned_suit: "Horned Suit", teal_eel: "Teal Eel", remora_adventurer: "Remora Adventurer" };
+    magistrate: "Magistrate", mutant_boar: "Mutant Boar", triumvirate_hero: "African Triumvirate Hero", boarman: "Boarman", animalTamer: "Animal Tamer", anime_protagonist: "Anime Protagonist", mma_fighter: "MMA Fighter", kickboxer: "Kickboxer", hypebeast: "Hypebeast", treasure_hunter: "Treasure Hunter", ranger: "Ranger", tech_billionaire: "Tech Billionaire", oil_billionaire: "Oil Billionaire", doctor: "Doctor", odysseus: "Odysseus", president: "President", detective: "Detective", modern_artist: "Modern Artist", cyph: "Cyph", maid: "Maid", general: "General", bastet: "Bastet", ninja: "Ninja", police_officer: "Police Officer", thief: "Thief", monkey_king: "Monkey King", hanuman: "Hanuman", jambavan: "Jambavan", rama: "Rama", lakshmana: "Lakshmana", sita: "Sita", hypnotist: "The Hypnotist", florence_oloo: "Florence Oloo", chitinous_archbishop: "Chitinous Archbishop", chitin_bishop: "Chitin Bishop", shardback: "Shardback", eldritch: "Eldritch Intruder", ravana: "Ravana", kumbhakarna: "Kumbhakarna", indrajit: "Indrajit", mandodari: "Mandodari", surpanakha: "Surpanakha", jatayu: "Jatayu", director: "Director", actor: "Actor", barbarian: "Barbarian", paladin: "Paladin", rogue: "Rogue", hooded_cyber_rogue: "Cyber Punk Rogue", medusa: "Medusa", cleric: "Cleric", steam_walker: "Steam Walker", ornithopter: "Ornithopter", engineer: "Engineer", origamist: "Origamist", mangaka: "Mangaka", aviator_hero: "Aviator Hero", jiang_qing: "Jiang Qing", starfarer: "Starfarer", pioneer: "Pioneer", martial_artist: "Ascending Martial Artist", memorialist: "Memorialist", hot_pot_berserker: "Hot Pot Berserker", chef: "Chef", seedkeeper: "Seedkeeper", ferryman: "Ferryman", pearl_diver: "Pearl Diver", orgonite_trooper: "Orgonite Trooper", leviathan_suit: "Leviathan Suit", scale_firmware: "Scale Firmware", white_jacket_gunner: "White-Jacket Gunner", bronze_admin: "Bronze Administrator", horned_suit: "Horned Suit", teal_eel: "Teal Eel", remora_adventurer: "Remora Adventurer" };
   // ── The Emissary's memory (docs/emissary.md, "What it remembers") ──
   // memory: { classId: { met, won } } from the account. No memory: the seeded random roll it always was (roll("")).
   // With memory it weighs the kits it has worn against you plus one it has not (seeded): one Thompson guess each,
@@ -3960,6 +4008,21 @@
     }
     return { graded, thornSoilAdd, turnEnd, wardBerm, upheavalMul, primed, shardRainBerms };
   })();
+  const Eldritch = (() => {
+    const spineAt = (s, x, y) => (s.barriers || []).find((b) => b.concept === "amberSpine" && b.x === x && b.y === y);
+    // F6: each foe who ends its turn standing on her spine feeds her 1 ΦF.
+    function turnEnd(s, a, log) {
+      if (!a || a.defeated) return;
+      const sp = spineAt(s, a.x, a.y);
+      if (!sp) return;
+      const her = s.actors[sp.owner];
+      if (!her || her.defeated || her.side === a.side || !hasTr(her, "hunterOfWardens")) return;
+      const cap = her.maxPF ?? her.pf + 1, old = her.pf;
+      her.pf = Math.min(cap, her.pf + 1);
+      if (her.pf > old) log(s, { kind: "effect", actor: her.id, target: a.id, tiles: [[a.x, a.y]], text: `${a.name} ends its turn on her spine: Amber Spine, +1 ΦF to ${her.name}.`, why: ["Amber Spine: each foe ending its turn on her spine feeds her 1 ΦF."] });
+    }
+    return { turnEnd, spineAt };
+  })();
   function turnStartGuests(s, a, H) { Guests?.turnStart?.(s, a, H); }
   function attend(s, a, act, H, spend) { return Guests?.callAttendant?.(s, a, act, H, spend) || null; }
   function attendantPulse(s, a, inst, H) { Guests?.pulse?.(s, a, inst, H); }
@@ -3967,5 +4030,5 @@
     if (tgt && tgt.defeated) Guests?.onOwnerFell?.(s, tgt, H);   // the host falls: every guest leaves
     else Guests?.onHit?.(s, tgt, H);   // the Spirit Raven: any hit ends it
   }
-  return { holyOf, auditor: Auditor, price, law: Law, ma: Ma, shardback: Shardback, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, spendTrophyEye, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan, attend, attendantPulse, commonGroundOff, commonGroundSpend, purposeMoveOff, purposeMoveSpend, coopApOff, coopMark, purposeWatch, purposeSkips, referentFollow, noMoreTrim, turnStep, hunterBloodTrail, hunterIndexed, hunterKnownCount, hunterObserved, hunterQuarryOf, hunterChargedOf, hunterForcedMove, hunterParried, trophyEyeOf };
+  return { holyOf, auditor: Auditor, price, law: Law, ma: Ma, shardback: Shardback, eldritch: Eldritch, turnCost, aeroForce, AERO, dropFragment, pasteStolen, stolenPasteEnds, aiVeto, cartOf, emissaryKit, EMISSARY_MEMORY_CAP, performers:Performers, stealth:Stealth, actor:Actor, builds: CB, Martial, Teleology, mise: Mise, homology: Homology, prepared, CLASS_NAMES, moveMods, flies, onEntry, FLIGHT, sightHeightBonus, aiValue, aiValueShared, wire, pairsFor, isRanger, hasBow, signed, openingRead, moved, trailOf, interceptOf, beforeStrike, bowBlocked, quarryOf, STUDY, isStudent, rankOf, DOCTOR, triage, ROBOT, isRobot, caseOdds, OIL, slickAt, priceOf, PLATFORM, isPlatformOwner, centerOf, centerFell, syncCenter, centers, towersOf, strikeable, towerFire, relayOrigins, relayFor, sampleCircuits, circuitOf, platformOf, linkOf, isHype, believes, hypeOf, turnBudget, observed, CLERIC, pledgeOf, pledgeKept, congregationApplies, available, beforeAbility, beforeMove, target, resolve, redirect, damageMods, afterHit, spendTrophyEye, resistKnock, turnStart, roundEnd, CLASS_PAIRS, ROGUE, isRogue, isEngineer, isStructure, gradeResisted, steerShove, objectDamagePlan, attend, attendantPulse, commonGroundOff, commonGroundSpend, purposeMoveOff, purposeMoveSpend, coopApOff, coopMark, purposeWatch, purposeSkips, referentFollow, noMoreTrim, turnStep, hunterBloodTrail, hunterIndexed, hunterKnownCount, hunterObserved, hunterQuarryOf, hunterChargedOf, hunterCatalogued, hunterForcedMove, hunterParried, trophyEyeOf };
 });

@@ -31,7 +31,7 @@
     { id: "hall", name: "The Hiring Hall", sprite: "objects/building-apartment", at: [8, 2], size: 4, opens: "hall", verb: "Merc contracts and letters of safe conduct" },
     { id: "museum", name: "The Museum", sprite: "objects/building-museum", at: [15, 14], size: 4, opens: "museum", verb: "Cherished gear, kept safe on plinths" },   // M6: staged-art/museum-review cut rescaled to 256 px (4x4); south-east of the plaza, west of the row houses; [15,8] sat on Arantxa's tile
     { id: "garden", name: "Garden", sprite: "objects/park-garden", at: [14, 2], size: 4 },
-    { id: "manor", name: "Manor", sprite: "objects/house-manor", at: [19, 8], size: 4 },
+    { id: "courthouse", name: "Courthouse", sprite: "objects/building-courthouse", at: [19, 8], size: 4, opens: "courthouse", verb: "Laws and open cases" },   // Investigate I5b (claude-investigate-spec 12.1, Decision 11): the Courthouse takes the Manor's lot; the Manor is retired from the map
     { id: "rowhouses", name: "Row Houses", sprite: "objects/house-rowhouse", at: [19, 14], size: 4 },
     { id: "suburban", name: "House", sprite: "objects/house-suburban", at: [2, 14], size: 4 },
     { id: "pond", name: "Pond", sprite: "objects/park-pond", at: [8, 20], size: 4 },

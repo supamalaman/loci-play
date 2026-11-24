@@ -787,7 +787,8 @@
       { strength: "Controls without contact: a hold by sight line alone.", weakness: "Break the line (berm, wall, smoke, a reflection) and the hold is gone." },
       { weakTo: "Berm and Barrier breaking sight lines; reflective water.", strongAgainst: "Melee approaches across open ground.", strongWith: "Focus fixing one target.", bypass: "Contact (no need to touch).", negate: "Movement while the line holds.", neutral: "Units out of sight." },
       { origin: "Grok roster (Sixfold codex), fleshed out by Claude 2026-10-08", art: "medusa", status: "playable",
-        kit: ["glare", "fixInPlace", "set", "petrify", "stoneGarden"], rules: "classes/class-runtime.js (gaze + hold)" }),
+        kit: ["glare", "fixInPlace", "set", "petrify", "stoneGarden"], rules: "classes/class-runtime.js (gaze + hold)",
+        serpentBearer: true }),   // SN1b (Coracle BD, 2026-11-23; spec cursor-sammu-nikitti-item-spec T8): ecology tag, not a trait; her living snakes steal the harvested mouthful
     // Magistrate (Mala, 2026-10-12): the law's boundary made flesh. Writes statute zones, serves warrants, and
     // punishes every crossing; her merge draws a gate-line the guilty cannot pass.
     magistrate: C("magistrate", "Magistrate", ["Laws of Gods of Men", "Threshold"], ["Laws of Gods of Men", "Threshold", "Legitimacy"],
@@ -984,6 +985,20 @@
       { origin: "Hot-build cuts (HOTBUILDS.md section 4); the 2026-11-14 cut; kin to the Archbishop", art: "chitin-bishop", wheelhouse: "resonance", crew: "arcane", status: "playable",
         existingAbilities: { primaryBasic: "shimmer", primaryRefined: "allure", secondaryBasic: "focus", secondaryRefined: "deepFocus" },
         kit: ["shimmer", "allure", "focus", "deepFocus", "crownOfPlates"], rules: "engine/window.js Purple Litany (twin of Fixed Gaze); class-runtime Crown of Plates, Dome Harmonic, Allure only pulls the Fixed foe; engine/damage.js Gentle Hand; The Look rides the shared actor.js trigger; Second Gaze rides her pair (the W7 Crescendo)" }),
+    // African Triumvirate Hero (hot builds trio T3a, claude-hotbuilds-trio-spec section 4; R-20261111-19, R-20261122-72): crew court ("a legend
+    // whose fight is an office": a triumvir is an office held by three). Cooperative Principle + Load Distribution is a new pair; wheelhouse Legitimacy.
+    // T3a: the class, kit, traits, the triangle, free Common Ground, Observe, the AI table and Union of Crowns' load half (R-20261122-76). Its
+    // shared-objective half, Triangle Ward, Three Seats and Open Council are T3b.
+    triumvirate_hero: C("triumvirate_hero", "African Triumvirate Hero", ["Cooperative Principle", "Load Distribution"], ["Cooperative Principle", "Load Distribution", "Legitimacy"],
+      [["the_triangle", "While his own Share the Load or Support Network links are up, an ally whose cheaper Common Ground step toward the tile he named ends within 2 of him joins the links (not an ally already sharing someone's load, and never past Support Network's 3 allies)."],
+       ["first_ground", "His first Common Ground each turn is free: once per turn of his, and the tile still needs an ally within 5."],
+       ["collaborative", "He chooses as one of three: Common Ground with two allies near and a foe in reach, Share the Load when an ally is low, Support Network with two allies near."]],
+      { primaryBasic: "Common Ground: name a tile; the two allies nearest it within 5 take their first step toward it for 10 fewer AP this round (his first each turn is free).", primaryRefined: "Unambiguous Referent: name an enemy an ally can see; that ally's next attack follows it.", secondaryBasic: "Share the Load: hits on linked units within 2 are split evenly.", secondaryRefined: "Support Network: link up to 3 allies within 3; each link carries at most 15 of a hit." },
+      "Union of Crowns: announce it, \"Three crowns, one people.\"; for 2 rounds he and every ally within 4 are linked and a hit on any of them splits evenly across all of them standing, each link carrying at most 15 of it. Needs both concepts.",
+      { strength: "Three stand as one: a blow on any of them is carried by all, and an ally who answers his Common Ground and ends beside him joins the links.", weakness: "The crown spreads the blow; it does not shrink it. An area that hits every link gains nothing from the split, and a push that keeps an ally away leaves it outside." },
+      { weakTo: "Area techniques and fields (a hit on every link is shared into the same total); pushes and pulls that keep allies apart.", strongAgainst: "Single-target burst on one ally; duelists who focus the weakest.", strongWith: "Melee allies who want to stand together; anyone who can use a cheaper first step.", bypass: "None.", negate: "None.", neutral: "A foe who never attacks a linked unit." },
+      { origin: "Mala's sheet (African Triumvirate Hero Sprite Sheet.png, 2026-11-11); Thole TC's trio spec, rev 2", art: "triumvirate_hero", status: "playable",
+        kit: ["commonGround", "unambiguousReferent", "shareTheLoad", "supportNetwork", "unionOfCrowns"], rules: "classes/class-runtime.js triangleJoin; content.js rules.triangle, traitDrive collaborative; engine/ai.js alliesNear, allyLow" }),
     shardback: C("shardback", "Shardback", ["Grading & Drainage", "Thorn"], ["Grading & Drainage", "Thorn", "Berm"],
       [["ground_keeper", "She shapes the ground before she fights on it: she grades while she has no thorn soil, then lashes and quakes the foes who stand on it."],
        ["stone_hide", "The first Strike or contact hit a foe lands on her each turn is 2 weaker."],
@@ -998,15 +1013,17 @@
         existingAbilities: { primaryBasic: "cutSlope", primaryRefined: "placeFill", secondaryBasic: "lash", secondaryRefined: "brierRing" },
         kit: ["cutSlope", "placeFill", "lash", "brierRing", "earthUpheaval"], rules: "F5a: engine/damage.js Stone Hide; class-runtime Shardback (graded tiles, thorn soil, Hard Place, the Ward Field berm); engine/window.js Ward Field (twin of Purple Litany); content.js her free first Cut Slope; invasionPool and greedigutEnemy tags (content.js). F5b: class-runtime damageMods (thorn soil x1.5 for Earth Upheaval and Upheaval Now), Shard Rain berms (resolve.js after-technique hook), Ward Field primed and cashed (engine/window.js); Ground Keeper's table (content.js traitDrive, ai.js driveChecks); Shard Rain and Upheaval Now ride her pairs, not the kit" }),
     eldritch: C("eldritch", "Eldritch Intruder", ["Cipher", "Discovery"], ["Cipher", "Discovery", "Alternate Pathway"],
-      [["unreadable_flesh", "Planned (F6): the first Observe against it each battle costs one more step."],
-       ["ossified_ward", "Planned (F6): a ranged hit from 2 or more tiles is half blocked and leaves a brittle tile, once per round; against Greedigut the catch is whole."]],
+      [["unreadable_flesh", "The first Observe against it each battle costs one more step."],
+       ["hunter_of_wardens", "It hunts the guardian above all: +10 on attacks that target Greedigut while he stands."],
+       ["no_masters", "It serves no master and treats with none: no terms are ever offered it, and coming to terms refuses."],
+       ["ossified_ward", "A ranged hit from 2 or more tiles is answered by Ossified Ward: an 8-point ward (rushed, half; whole against Greedigut or a foe she marked as prey, even rushed) and a brittle tile where she stands, once per round."]],
       { primaryBasic: "Annotate: write a note into a foe's code.", primaryRefined: "Redact: strike a line out.", secondaryBasic: "Survey: look for what is hidden.", secondaryRefined: "Verify: test what it found." },
-      "Void Scream (planned, F6): announce it; a cone that reveals hidden things and breaks the cipher on all it hits. Needs both concepts.",
-      { strength: "Planned (F6): it reads you before it hits you, and it hunts the guardian above all.", weakness: "Name it aloud; with no Greedigut on the field, you are the prey." },
+      "Void Scream: announce it; a cone of three (potency 12) that reveals hidden things and breaks the cipher on all it hits. Amber Spine is the Cipher + Pathway merge; Notice Prey (1 Inspiration) is her Crescendo. Needs both concepts.",
+      { strength: "It reads you before it hits you, and it hunts the guardian above all.", weakness: "Name it aloud; with no Greedigut on the field, you are the prey." },
       { weakTo: "Albedo: name it aloud.", strongAgainst: "Hidden foes and wards.", strongWith: "Nothing: it hunts alone.", bypass: "None.", negate: "None.", neutral: "A field with nothing hidden." },
-      { origin: "Hot-build cuts (HOTBUILDS.md section 6); the 2026-11-14 cut; natural enemy of Greedigut (Mala, 2026-11-14)", art: "eldritch", wheelhouse: "pathway", crew: "cosmic",
+      { origin: "Hot-build cuts (HOTBUILDS.md section 6); the 2026-11-14 cut; natural enemy of Greedigut (Mala, 2026-11-14)", art: "eldritch", wheelhouse: "pathway", crew: "cosmic", status: "playable",
         existingAbilities: { primaryBasic: "annotate", primaryRefined: "redact", secondaryBasic: "survey", secondaryRefined: "verify" },
-        kit: ["annotate", "redact", "survey", "verify"], rules: "roster only (F1); invasionPool and greedigutEnemy tags (content.js); its hot build is F6" }),
+        kit: ["annotate", "redact", "survey", "verify", "voidScream"], rules: "F6: Hunter of Wardens' table (content.js traitDrive, ai.js driveChecks); Void Scream (merge A) completes the kit, Notice Prey rides her pairs, Amber Spine rides Cipher + Pathway; Ossified Ward answers in engine/window.js (whole vs Greedigut, R-20261122-68); No Masters refuses in insight/parley.js; Unreadable Flesh taxes the first Observe (actions-observe.js); invasionPool and greedigutEnemy tags (content.js)" }),
     // Lakshmana (Mala, 2026-10-24; docs/lakshmana-build.md): crew ayodhya, Rama's brother; Boundary + Interposition is a new pair.
     lakshmana: C("lakshmana", "Lakshmana", ["Boundary", "Interposition"], ["Boundary", "Interposition", "Reciprocal Obligation"],
       [["felled_not_slain", "Once a battle the blow that would kill him leaves him felled at 1 LF (no acts, x0.25 taken, 2 turns); a heal of 10 or more, like Sanjeevani, raises him at once."],
@@ -1378,7 +1395,7 @@
       { strength: "The ground it stands on is settled law: nothing passes, nothing moves it.", weakness: "The law ends at its reach: outrange it or go around." },
       { weakTo: "Ranged teams and propagation that seeps around set gates.", strongAgainst: "Melee rushes that must come through the gate.", strongWith: "The thread above the gate.", bypass: "Walk around; the gate is wide, not everywhere.", negate: "Pull it off its post (good luck); go around.", neutral: "Slow sieges: it stands while you wait." },
       { existingAbilities: { primaryBasic: "fenceLine", primaryRefined: "closedDomain", secondaryBasic: "anchor", secondaryRefined: "immovable" }, origin: "Muse Berry BD hot-build 2026-10-29 (Boundary + Inertia; unused pair)", art: "tofu-warden" }),
-    // Hermes (Muse Berry BD hot-build, 2026-10-29): the messenger. Joins every quarrel by arriving first with everyone else's news. Cosmic crew: mythology is another genre.
+    // Hermes (Muse Berry BD hot-build, 2026-10-29): the messenger. Joins every quarrel by arriving first with everyone else's news. Divinity crew, the gods' standing (Reputation R1a, R-20261123-10; was Cosmic).
     hermes: C("hermes", "Hermes", ["Conjunction", "Diffusion"], ["Conjunction", "Diffusion", "Threshold"],
       [["winged_sandals", "+1 movement; Hermes never takes fall damage."],
        ["herald", "Allies Hermes passes adjacent to during movement gain +1 movement until their next turn, once per ally per round."]],

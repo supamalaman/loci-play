@@ -13,6 +13,8 @@
     const { CRAFT, CRAFT_OWN, ClassRuntime, Courtroom, DIRS, Director, MaidSystems, Performers, Postures, Vows, ab, abilitiesOf, actorAt, applyEntryEffects, barrierAt, borrowedCharges,
       chargeUltimate, classH, conceptName, declaredRange, dist, dreamSpaceRules, hasDeception, hasSight, hasTrait, heightAt, inside, insightRules, log, manifest, moveRefusal,
       ownerOfConcept, presidentContext, presidentEffects, presidentRules, presidentUnits, rangeEnvelope, spendTempo, syncPresidentUnit, target, tileAt } = H;
+    const INS = () => (typeof module === "object" && module.exports ? (() => { try { return require("../workshop/instruments.js"); } catch { return null; } })() : globalThis.ConceptCombatWorkshopInstruments) || null;   // Resonant Heirlooms JI1
+    const INS_ART = { has: (id) => !!(id && INS()?.ART_INSTRUMENT?.[id]) };   // JI1c: read from instruments.js ART_INSTRUMENT, the one list (a hand list here missed new arts)
     const { barsTooFast, holdFireRefusal, openResponseWindow, resolveAbility, sealedNext } = K;
     const family = {
       ability(s, a, act, internal) {   // MY-02: prepaid authority rides the internal 4th arg (verified card-consumption only); a smuggled public field buys nothing
@@ -36,13 +38,20 @@
         if (a.status?.crownEntranced && (a.status.crownEntranced.until == null || a.status.crownEntranced.until >= a.ownerTurns) && ((ab(act.ability)?.potency || 0) > 0 || ab(act.ability)?.effect === "damage")) return "Entranced: you cannot attack until the hold ends.";   // Crown of Plates: cannot attack; move, Guard and support stay open
         if (act.ability === "crownOfPlates") { const live = (f) => { const t = f && s.actors?.[f.target]; return t && !t.defeated && (f.expiresAt ?? 99) > (a.ownerTurns ?? 0); }; if (!live(a.focus) && !live(a.focusSecond)) return "Crown of Plates needs a foe you have Fixed."; }   // preview-visible (repeats #8): beforeAbility is skipped when s.preview
         if (a.status?.sealed && ab(act.ability)?.tier !== "basic") return `${ab(act.ability)?.name || act.ability} is sealed (${a.status.sealed.by || "debt"}): techniques and ults are closed; basics remain.`;   // W1.3: confiscation binds
-        if (!abilitiesOf(a).includes(act.ability)) return "That ability isn't available with this loadout.";
+        if (!abilitiesOf(a).includes(act.ability) && !(a.passives?.instrumentArtIds || []).includes(act.ability)) return "That ability isn't available with this loadout.";   // JI1: instrument arts are granted by the focus record, beside the loadout list
         { const sea = H.fruitBlocked?.(s, a, act.ability, act) || H.tenantBlocked?.(s, a, act.ability, act); if (sea) return sea; }   // Sinkerfruit: damped by water, soaking or cuffs
         { const held = H.Tally?.heldReason(s, a, act.ability); if (held) return held; }   // collateral (engine/tally.js)
         if (Vows) { const no = Vows.gate(s, a, "ability", ab(act.ability), act, { log }); if (no) return no; }   // Vows: Single Mind, Burned Bridge; breakVow elects the breach
         if (Vows && act.ability === "audition") { const no = Vows.validate("role", act.vow, a, s.rules.inspiration, s); if (no) return no; }   // role vows ride the audition
         const m = manifest(s, a, act.ability, act);
         { const no = holdFireRefusal(s, a, m.target === "enemy"); if (no) return no; }
+        // Resonant Heirlooms JI1: Tune the Strings validates its source/turn rules here (the target gate
+        // runs them again, but the tempo gate below must see the free first Tune before it charges).
+        if (act.ability === "tuneStrings") { const no = INS()?.check(s, a, act.ability, act); if (no) return no; if (INS()?.tuneFree(s, a)) m.tempoCost = 0; }
+        // A refined instrument performance may explicitly spend 1 Inspiration instead of Tune (spec: the
+        // Inspiration bend of preparation). The flag rides the manifest into resolve, beside the act.
+        // Generic across instrument arts (not one line per refined): each future refined needs no new line here.
+        if (act.instrumentInspiration && INS_ART.has(act.ability)) m.instrumentInspiration = true;
         if (ab(act.ability)?.answerOnly) return `${m.name} answers; it cannot be cast.`;   // answer-only techniques (Fixed Gaze) never commit own-turn (triage 2026-11-04)
         { const cres = ab(act.ability)?.crescendo; if (cres) m.crescendo = cres; }   // the manifest is fresh: carry the def's Crescendo bend on it (engine.js is at its size cap)
         { const no = H.Inspiration.crescendoRefuses(s, a, m); if (no) return no; }   // a Crescendo technique needs its Inspiration and only one is in force (ledgers.js)
@@ -151,6 +160,13 @@
         if (m.oncePerBattle) (a.onceBattle ||= {})[act.ability] = true;   // J6: once-per-battle stamp at commit
         if (freeFirst === "turn") (a.freeTurns ||= {})[act.ability] = a.ownerTurns;   // free-first stamp at commit (previews run on a clone, so this never leaks)
         if (freeFirst === "battle") (a.freeBattle ||= {})[act.ability] = true;
+        // Resonant Heirlooms JI1: the Tune charge lands at commit (the resolve branch only logs it).
+        // tuneFree is re-read here because the manifest-time zeroing and this stamp must agree.
+        if (act.ability === "tuneStrings") { const I = INS(); if (I) I.takeTune(s, a, I.tuneFree(s, a)); }
+        // JI1c: an own-turn refined performance pays its Tune (or the offered 1 Inspiration) here, at commit, so a
+        // cast that later misses or fizzles refunds nothing; the paid record rides the manifest into resolve,
+        // carrying the True Performance tally. Listening pays here too; its resolve branch reads the record.
+        if (INS_ART.has(act.ability) && INS()?.ART_INSTRUMENT[act.ability].tier === "refined") m.instrumentPaid = INS().consumeRefined(s, a, H, m) || { paid: "none" };
         if (freeFirst === "substrate") delete a.substrate;   // Florence (F2): the substrate stamp is spent by the Innovation copy it fed
         if (!s.preview && a.character === "florence_oloo" && ["diffuseWave", "concentrationGradient"].includes(act.ability)) a.substrate = true;   // Florence (F2): a Diffusion field she placed is the substrate her next Innovation reads
         if (CRAFT) {   // practice and care bookkeeping (the manifest above already read the stacks this use benefits from)
@@ -278,6 +294,10 @@
           const extras=Object.values(s.actors).filter(t=>!t.defeated&&t.side!==a.side&&t.id!==inst.targets[0]&&hasSight(s,a.x,a.y,t.x,t.y)).map(t=>({id:t.id,visible:true}));
           const audience=Postures?.resolve({character:a.character,concept:"deception",ability:act.ability,event:"techniqueResolved",eligible:extras,manyFaces:a.lens.deception==="manyFaces"});
           if(audience){inst.audienceOnly=true;inst.audienceIds=audience.recipients;inst.audienceTempo=audience.tempo;log(s,{kind:"posture",actor:a.id,target:inst.targets[0],text:audience.log,why:["The named target alone receives the actual technique; the audience receives a response window to look away."]});return openResponseWindow(s,a,inst,d);}
+        }
+        if (act.ability === "redact" && a.cipherBreak && inst.targets?.includes(a.cipherBreak.foe)) {   // Cipher break (Eldritch F6): her next Cipher refined ignores one ward on the marked foe
+          inst.breakWard = true; inst.breakWardFoe = a.cipherBreak.foe; delete a.cipherBreak;
+          log(s, { kind: "effect", actor: a.id, target: inst.breakWardFoe, text: `${a.name}'s Redact carries a Cipher break: no ward on ${s.actors[inst.breakWardFoe]?.name || "the marked foe"} rises against it.`, why: ["Cipher break: a Verified rumour about this foe means her next Cipher refined ignores one ward."] });
         }
         if (m.effect !== "cure" && !inst.audienceOnly && H.openReactionWindow(s, a, inst, d)) return;   // reactive defense: a seen ranged attack can be answered (window.js)
         ClassRuntime?.referentFollow?.(s, a, inst, { hasSight, log });

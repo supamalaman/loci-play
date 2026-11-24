@@ -67,6 +67,7 @@
     ledgerHouse: w("tallyman", "ui.js:1681", ["showAccount"], "S1"),
     threatBoard: w("ravana", "ui.js:1234", ["showSetup"], "S2"), contractBoard: w("hermes", "ui.js:1083", ["showBoard"], "S2"),
     hiringHall: w("jambavan", "ui.js:1100", ["showHall"], "S1"), codex: w("magistrate", "ui.js:1119", ["showCodex"], "S4"),
+    courthouse: w(null, "ui.js:showCourthouse", ["showCourthouse"], null, "no judge named yet (Investigate I5b; the keeper slot waits on the NPC faces shelf)"),
     scribingDesk: w("freemason", "legacy/workshop-ui.js:4", [], "S4"), lab: w("madScientist", "ui.js:1157", ["showLab"], "S5"),
     sheet: w("contextual", "ui.js:showSheet", ["showSheet"], "S6"),   // Fame F3a: the character sheet has no keeper of its own; S6 (the overlay resolver) names who speaks there (FAME.md 10.2 The sheet + 10.8 slicing row; differs from 10.6's exemption wording, disclosed in the shelf NOTE)
     roomOfTrials: w("contextual", "summons/room-of-trials.js:mount", [], "S6"),

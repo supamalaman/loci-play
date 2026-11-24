@@ -274,6 +274,7 @@
       // that ends its move beside a house it can use is worth `site` more (siege and hold both start there).
       // A bonus, not the flow of the battle (Mala, 2026-10-15): only units within `notice` tiles care about the house.
       ai: { horizon: 4, apValue: 0.3, site: 3, pull: 0.3, notice: 3, strikeMul: 0.5, breakMul: 1 } },
+    triangle: { of: "triumvirate_hero", radius: 2 },   // the triangle (hot builds trio T3a, R-20261122-72): an ally ending its Common Ground step within 2 of him joins his links (class-runtime.js triangleJoin)
     dataCenter: { of: "tech_billionaire", inspiration: 1, range: 3, hp: 36, cover: 0.5, sightHeight: 1,
       creditPerTurn: 1,                      // extra takeoff credit each AGI turn (so 2 a turn instead of 1)
       spawn: { lf: 140, credit: 2 },         // the AGI's body if the center was up when it got out
@@ -362,6 +363,11 @@
     // compassApOff: a move that ends on a pickup he has surveyed costs this much less AP, once per mark (movement money, never under its floor).
     // idolStepTiles: Idol Claim's free step is one move of at most this many tiles that ends nearer the nearest pickup he has surveyed, the round it is cast.
     // relicPathTurns: a laid Relic Path lasts until his first move, or this many of his turn starts. ai: what his AI scores each technique (damage scale).
+    // The Big Game Hunter's join (merge spec H3c, sections 10 and 11; R-20261123-18). catalogued: Cross Reference or Apex landing on
+    // her Quarry with at least `known` known observations cashes +1 Inspiration (the ledger's cash: once a round, at the cap nothing),
+    // with `line`. ai: what her AI scores (damage scale, class-runtime aiValue): Apex while Charged with the Quarry adjacent, and
+    // Planted Feet while Charged with an enemy that can move her (a knockback, pull or swap technique) within `plantedNear`.
+    bigGameHunter: { catalogued: { known: 3, line: "Catalogued." }, ai: { apexCharged: 8, plantedFeet: 4, plantedNear: 3 } },
     treasureHunter: { compassApOff: 10, idolStepTiles: 3, relicPathTurns: 2, secondClaimsPerBattle: 1,
       ai: { survey: 6, idolClaimPerPickup: 5, idolClaimCap: 12, relicPath: 6, secondClaim: 5, nearTiles: 6 } },
     // AI ledgers (least-used build, 2026-10-12): score() prices what previews can't show. Threat: protection is worth
@@ -410,7 +416,15 @@
         groundKeeper: { cutSlope: { bonus: 7, when: ["noThornSoil"] },
           lash: { bonus: 8, when: ["foeOnThornSoil"] },
           earthUpheaval: { bonus: 10, when: [["foeOnThornSoilNear", 2]] } },
+        // Hunter of Wardens (hot-build cuts F6, the Eldritch Intruder): survey what is hidden, redact the broken,
+        // and every anti-Greedigut candidate carries +10 while he stands (checks in ai.js driveChecks).
+        hunterOfWardens: { survey: { bonus: 6, when: ["foeConcealed"] },
+          redact: { bonus: 8, when: ["cipherFoeBroken"] },
+          voidScream: { bonus: 10, when: ["foeIsGreedigut"] } },
         // Clinician (hot-build cuts F2, Florence): set the field down first, then innovate on it.
+        collaborative: { commonGround: { bonus: 6, when: [["alliesNear", 2], ["foeNear", 6]] },   // trio T3a (spec section 4): the Triumvirate Hero's table, keyed by his techniques
+          shareTheLoad: { bonus: 8, when: ["allyLow", ["foeNear", 5]] },
+          supportNetwork: { bonus: 6, when: [["alliesNear", 2], ["foeNear", 6]] } },
         clinician: { diffuseWave: { bonus: 7, when: ["noFieldLive", ["foeNear", 5]] },
           prototype: { bonus: 6, when: ["fieldLive"] },
           recombine: { bonus: 6, when: ["fieldLive"] } },
@@ -1771,6 +1785,38 @@
     cost: 5, range: 4, potency: 10, effect: "damage", damageType: "nigredo", effectCategory: "conditional",
     reveal: "Shard Rain hits every foe on a straight line of four (potency 10). Each empty floor tile the line crossed rises as her berm until her second turn from now; a line that crosses a berm right beside the unit it hits deals half to that unit. Needs the Grading & Drainage + Berm pair.",
     price: "5 ΦF and the Berm pair: the main Grading & Drainage + Thorn pair cannot cast it.", counter: "Step off the line, and fight her away from the berms it leaves.", teaches: "What falls on the ground becomes the ground.", domains: ["action", "world"] };
+  // The Eldritch Intruder (hot-build cuts F6; cursor-hotbuilds-cuts-spec section 6; R-20261122-68 whole catch vs Greedigut).
+  // Ossified Ward is her reactive, a Purple Litany-shaped ward on herself that leaves a brittle tile; whole against
+  // Greedigut (or a foe she marked as prey), rushed half otherwise (engine/window.js). Void Scream is her merge A ultimate;
+  // Amber Spine her Alternate Pathway merge; Notice Prey her Crescendo (the mark rides the target, paid out in damage.js).
+  abilities.ossifiedWard = { name: "Ossified Ward", tier: "refined", concepts: ["cipher", "discovery"], pairOnly: true, pairs: [["cipher", "discovery"]],
+    delivery: "self", target: "self", mechanism: "Answer a shot you see coming from 2 or more tiles: an 8-point ward on herself, and a brittle tile of hers where she stands until her next turn, once a round. Strikes and contact hits are not answered.",
+    cost: 2, tempoCost: 10, range: 0, potency: 0, protection: 8, duration: 1, effect: "barrier", effectCategory: "conditional", reactive: true, answerOnly: true, expiry: "ownerNextTurnStart", wardLabel: "Ossified Ward",
+    reveal: "Ossified Ward answers a ranged shot from 2 or more tiles: an 8-point ward on her (rushed: half; whole against Greedigut or a foe she marked as prey, even rushed), and a brittle tile where she stands until her next turn, once a round.",
+    prompt: "Which shot did the ward rise against, and whose guardian fired it?" };
+  abilities.voidScream = { name: "Void Scream", tier: "ultimate", concepts: ["cipher", "discovery"], merge: true, pairOnly: true, pairs: [["cipher", "discovery"]],
+    delivery: "field", target: "enemy", area: { shape: "cone", length: 3 }, mechanism: "Scream down a cone of three: hidden things stand revealed, and every foe it hits carries a Cipher break against her next Cipher refined.",
+    cost: 16, range: 4, potency: 12, effect: "voidScream", damageType: "albedo", effectCategory: "universal", timing: "announced", announce: "It screams with no mouth.",
+    reveal: "Void Scream is announced: a cone of three (potency 12) that reveals hidden traps and concealed foes, and marks every foe it hits with a Cipher break — her next Cipher refined ignores one ward on a marked foe. Needs both Cipher and Discovery.",
+    price: "16 ΦF and a full ultimate bar.", counter: "Have nothing hidden; spread out of the cone.", teaches: "Being seen can hurt more than being hit.", domains: ["others", "action"] };
+  abilities.amberSpine = { name: "Amber Spine", tier: "refined", concepts: ["cipher", "pathway"], merge: true, pairOnly: true, pairs: [["cipher", "pathway"]],
+    delivery: "tile", target: "tile", area: { shape: "single" }, mechanism: "Raise a spine tile of hers on an open tile within 4: a foe's step onto it costs 1 more move point, and each foe who ends its turn standing on her spine feeds her 1 ΦF.",
+    cost: 5, range: 4, potency: 0, effect: "amberSpine", effectCategory: "conditional",
+    reveal: "Amber Spine raises one spine tile within 4 (open floor only). Foes pay +1 move point a step onto it; each foe ending its turn on her spine feeds her 1 ΦF. The tile stands until her second turn from now. Needs the Cipher + Alternate Pathway pair.",
+    price: "5 ΦF and the Alternate Pathway pair.", counter: "Step around the spine; do not end turns on it.", teaches: "The ground she claims pays her.", domains: ["action", "world"] };
+  abilities.noticePrey = { name: "Notice Prey", tier: "refined", concepts: ["cipher", "discovery"], pairOnly: true, pairs: [["cipher", "discovery"]],
+    delivery: "signal", target: "enemy", area: { shape: "single" }, mechanism: "Mark one foe within 5 as prey: her next hit on the marked foe lands +4. Greedigut, where he stands, is the mark's first choice.",
+    cost: 0, inspirationPrice: 1, range: 5, potency: 0, effect: "noticePrey", effectCategory: "conditional",
+    reveal: "Notice Prey marks one foe within 5 as prey for 1 Inspiration and no ΦF: her next hit on the marked foe lands +4, then the mark is spent. Greedigut, where he stands, is the mark's first choice.",
+    price: "1 Inspiration.", counter: "Break line of sight before she marks; the mark spends on her first hit.", teaches: "To be noticed by it is to be hunted.", domains: ["others", "action"] };
+  // African Triumvirate Hero (hot builds trio T3a, R-20261122-76): Union of Crowns, the load half. For 2 rounds every ally within 4 joins his
+  // links (a share, as Shoulder the World is; each link carries at most 15 of a hit). The shared-objective half (the AP discount and areas
+  // skipping allies) is T3b.
+  abilities.unionOfCrowns = { name: "Union of Crowns", tier: "ultimate", concepts: ["cooperative_principle", "load_distribution"], merge: true, pairOnly: true, pairs: [["cooperative_principle", "load_distribution"]],
+    delivery: "self", target: "self", area: { shape: "radius", radius: 4 }, mechanism: "For 2 rounds he and every ally within 4 are linked: a hit on any of them is split evenly across all of them standing, each link carrying at most 15 of it.",
+    cost: 16, range: 0, potency: 0, effect: "classEffect", effectCategory: "conditional", timing: "announced", announce: "Three crowns, one people.",
+    reveal: "Union of Crowns links the African Triumvirate Hero and every ally within 4 for 2 rounds: a hit on any linked unit is split evenly across all of them standing, and each link carries at most 15 of a hit. Needs both Cooperative Principle and Load Distribution.",
+    price: "16 ΦF and a full ultimate bar.", counter: "An area that hits every link gains nothing from the split; pull allies out of reach before he announces.", teaches: "Three crowns carry one blow.", domains: ["others", "defense"] };
   abilities.crownOfPlates = { name: "Crown of Plates", tier: "ultimate", concepts: ["glamour", "focus"], merge: true, pairOnly: true, pairs: [["glamour", "focus"]],
     delivery: "self", target: "self", area: { shape: "radius", radius: 3 }, mechanism: "The Fixed foe cannot attack on its next turn; allies within 3 gain a 6-point ward.",
     cost: 16, range: 0, potency: 0, effect: "classEffect", effectCategory: "conditional", timing: "announced", announce: "Kneel.",
@@ -1789,6 +1835,89 @@
     reveal: "This sustains actual summoned presences: it cannot call, clone or revive anyone.",
     price: "50 AP, 16 ΦF and full ULT; another use may replace wards but cannot extend the same incarnation again.",
     counter: "Defeat or separate summons before the image forms; strip wards or wait out their finite lifetime.", teaches: "Possibility becomes useful through bounded commitment, not unlimited wish fulfillment." };
+
+  // Resonant Heirlooms JI1 (codex-jinki-instruments-hotbuild-spec, R-20261113-06): Tune plus the five
+  // basic performances and Guqin's refined reactive ward (JI1c adds the other four refineds below). Granted through passives.instrumentArtIds
+  // (never concept pairs, never learned): abilitiesOf unions them, the pair filter lets them pass.
+  // Basics cost 25 AP / 4 ΦF, refineds 35 / 6, Tune 10 / 0 with the first success per battle free.
+  abilities.tuneStrings = { name: "Tune the Strings", tier: "basic", concepts: ["harmony"],
+    delivery: "self", target: "self", area: { shape: "single" }, cost: 0, tempoCost: 10, range: 0, potency: 0, effect: "tuneStrings", effectCategory: "conditional", instrument: "tune",
+    mechanism: "Spend one owner turn's tuning: hold one tuned charge on the speaking instrument until the start of your second subsequent turn. The first successful Tune each battle costs 0 AP.",
+    newEffect: "instrument tuned charge (s.instruments); a refined performance consumes it, or the player pays 1 Inspiration instead.",
+    reveal: "Tune the Strings readies the speaking instrument: one charge, kept until the start of your second turn after, no refresh. Once per owner turn; a failed Tune spends nothing.",
+    price: "10 AP, 0 ΦF (first success free each battle); once per owner turn.", counter: "Break the instrument, silence the player, or outlast the charge.",
+    teaches: "A tuned string answers once.", domains: ["action", "self"] };
+  abilities.erhuWanderingNote = { name: "Wandering Note", tier: "basic", concepts: ["harmony"],
+    delivery: "signal", target: "ally", area: { shape: "single" }, cost: 4, tempoCost: 25, range: 3, potency: 8, effect: "erhuWanderingNote", effectCategory: "conditional", instrument: "erhu",
+    mechanism: "Heal 8 LF on one living same-side actor in signal range, self included; steady bleeding without downgrading grades. A full-LF unwounded actor is refused.",
+    newEffect: "native heal plus Injury.stabilize on body-zone bleeding; poison, curse and death are untouched.",
+    reveal: "The Erhu's note carries what the ally cannot: 8 LF and steady bleeding.",
+    price: "25 AP, 4 ΦF.", counter: "Deny the healer's line, or burst faster than paid healing.", teaches: "I can carry the note you cannot.", domains: ["action", "support"],
+    prompt: "Whose wounds does the note carry?" };
+  abilities.guzhengCrossingStrings = { name: "Crossing Strings", tier: "basic", concepts: ["resonance"],
+    delivery: "field", target: "self", area: { shape: "radius", radius: 1 }, cost: 4, tempoCost: 25, range: 0, potency: 6, damageType: "nigredo", effect: "guzhengCrossingStrings", effectCategory: "conditional", instrument: "guzheng",
+    mechanism: "6 Nigredo damage to current hostiles within 1 tile, no shove, no friendly splash, no wall penetration.",
+    newEffect: "hostiles-only field damage through the generic area path; the shove is the refined art's (A Thousand Bridges).",
+    reveal: "The Guzheng turns a crowded near field into room to move: 6 to hostiles within 1.",
+    price: "25 AP, 4 ΦF.", counter: "Spread outside the ring.", teaches: "Leave room for the last string.", domains: ["action", "world"] };
+  abilities.guqinQuietLine = { name: "Quiet Line", tier: "basic", concepts: ["preservation"],
+    delivery: "signal", target: "ally", area: { shape: "single" }, cost: 4, tempoCost: 25, range: 3, potency: 8, effect: "guqinQuietLine", effectCategory: "conditional", instrument: "guqin",
+    mechanism: "Ward 8 on one living same-side actor in signal range, self included; then cash the Guqin memory for up to 6 additional LF healing, capped at missing LF. Memory is spent only when it heals.",
+    newEffect: "native ward plus a finite stored-prevention cash; no prevention-healing-prevention recursion.",
+    reveal: "The Guqin holds the silence, then spends it: a ward of 8, and the banked quiet as healing.",
+    price: "25 AP, 4 ΦF.", counter: "Pressure the Guqin before its ward prevents anything: no prevention, no cash.", teaches: "Hold. The silence is working.", domains: ["action", "support"],
+    prompt: "Whose silence does the line hold?" };
+  abilities.pipaNeedlePluck = { name: "Needle Pluck", tier: "basic", concepts: ["resonance"],
+    delivery: "line", target: "enemy", area: { shape: "single" }, cost: 4, tempoCost: 25, range: 4, potency: 12, damageType: "albedo", effect: "damage", effectCategory: "conditional", instrument: "pipa",
+    mechanism: "12 Albedo damage down a line to one hostile in 4. Not inherently piercing: Guard, ward and line counters apply.",
+    newEffect: "generic line damage; the instrument source is the only new gate.",
+    reveal: "The Pipa answers with one clean note: 12 Albedo down the line.",
+    price: "25 AP, 4 ΦF.", counter: "Break the shot's line.", teaches: "One clean note.", domains: ["action"],
+    prompt: "What does the needle find?" };
+  abilities.ruanSteadyMeasure = { name: "Steady Measure", tier: "basic", concepts: ["inertia"],
+    delivery: "signal", target: "ally", area: { shape: "single" }, cost: 4, tempoCost: 25, range: 3, potency: 4, duration: 1, effect: "ruanSteadyMeasure", effectCategory: "conditional", instrument: "ruan",
+    mechanism: "Ward 4 and one native one-use Anchor on one living same-side actor in signal range, self included. The Anchor cancels one forced displacement; damage still applies. No stacking two anchors.",
+    newEffect: "native ward plus native anchor on an ally; refresh replaces at normal value.",
+    reveal: "The Ruan keeps the company standing together: a ward of 4 and one held ground.",
+    price: "25 AP, 4 ΦF.", counter: "Spend the anchor, then move the body again; direct damage still works.", teaches: "There is room for another pair of hands.", domains: ["action", "support"],
+    prompt: "Who holds their ground?" };
+  abilities.guqinUnbrokenListening = { name: "Unbroken Listening", tier: "refined", concepts: ["preservation"],
+    delivery: "self", target: "self", area: { shape: "single" }, cost: 6, tempoCost: 35, range: 0, potency: 0, protection: 12, duration: 1, effect: "barrier", effectCategory: "conditional", instrument: "guqin",
+    reactive: true, ownTurnRange: 3, wardLabel: "Unbroken Listening", expiry: "ownerNextTurnStart",   // ownTurnRange: on your own turn a line to one ally within 3 (targeting.js); as an answer, yourself only (R-20261123-17)
+    mechanism: "A 12-point ward: on your own turn, on yourself or one living ally in line of sight within 3, until their next turn; as an answer to a ranged shot you see coming, on yourself, halved when rushed. Actual prevention it catches banks up to 6 LF in Guqin memory, kept to the end of your next own turn. A refined performance: consumes Tune, or 1 Inspiration instead.",
+    newEffect: "reactive self ward with a tagged prevention bank (s.instruments); no post-cash deposits, no cloning the pool.",
+    reveal: "Unbroken Listening meets the shot whole when prepared, halved when rushed; what it stops, it remembers.",
+    price: "35 AP, 6 ΦF, plus Tune or 1 Inspiration; the round's one reaction as an answer.",
+    counter: "Melee, or pressure after the reaction token is spent; a stopped ward banks nothing.", teaches: "The silence keeps what it catches.", domains: ["action", "self"] };
+  // JI1c (R-20261123-40): the other four refined performances, 35 AP / 6 ΦF each, plus Tune or 1 Inspiration (paid at commit,
+  // never refunded by a miss). The first refined cast each battle that does 10 LF of real work earns 1 Inspiration (True Performance).
+  abilities.erhuAnswerAche = { name: "Answer the Ache", tier: "refined", concepts: ["harmony"],
+    delivery: "signal", target: "ally", area: { shape: "single" }, cost: 6, tempoCost: 35, range: 3, potency: 14, effect: "erhuAnswerAche", effectCategory: "conditional", instrument: "erhu",
+    mechanism: "Heal 14 LF on one living same-side actor in signal range, self included, and steady existing body bleeding without downgrading grades. A full-LF bleeding actor is a valid target; a full-LF unbleeding one is refused. Poison, curse and death are untouched. A refined performance: consumes Tune, or 1 Inspiration instead.",
+    newEffect: "native heal plus Injury.stabilize at the refined value; no second grade heal.",
+    reveal: "The Erhu answers the ache: 14 LF, and the bleeding stops.",
+    price: "35 AP, 6 ΦF, plus Tune or 1 Inspiration.", counter: "Deny the healer's line, or burst faster than paid healing.", teaches: "I can carry the note you cannot.", domains: ["action", "support"],
+    prompt: "Whose ache does the Erhu answer?" };
+  abilities.guzhengThousandBridges = { name: "A Thousand Bridges", tier: "refined", concepts: ["resonance"],
+    delivery: "field", target: "self", area: { shape: "radius", radius: 2 }, cost: 6, tempoCost: 35, range: 0, potency: 8, damageType: "nigredo", effect: "guzhengThousandBridges", effectCategory: "conditional", instrument: "guzheng",
+    mechanism: "8 Nigredo damage to current hostiles within 2 tiles, then shove each living hostile that actually lost LF 1 tile away (native push modifiers apply). A fully stopped hit shoves no one; Anchor, braces and collisions keep their native outcomes, and the field strikes no terrain. No friendly splash. A refined performance: consumes Tune, or 1 Inspiration instead.",
+    newEffect: "hostiles-only field damage, then a native 1-tile push on each hostile actually hurt.",
+    reveal: "The Guzheng spans the field: 8 to hostiles within 2, and room to move where it lands.",
+    price: "35 AP, 6 ΦF, plus Tune or 1 Inspiration.", counter: "Spread outside the ring, or hold ground with an Anchor.", teaches: "Leave room for the last string.", domains: ["action", "world"] };
+  abilities.pipaThreeNotesOneCut = { name: "Three Notes, One Cut", tier: "refined", concepts: ["resonance"],
+    delivery: "line", target: "enemy", area: { shape: "single" }, cost: 6, tempoCost: 35, range: 4, potency: 18, damageType: "albedo", effect: "damage", effectCategory: "conditional", instrument: "pipa", stunOnSurvive: 10,
+    mechanism: "18 Albedo damage in one hit down a line to one hostile in 4. If the target survives having actually lost LF, a native 10 AP stun (resists and timing apply; no skipped turn). Not inherently piercing: Guard, ward and line counters apply. A refined performance: consumes Tune, or 1 Inspiration instead.",
+    newEffect: "generic line damage plus a native stun on a hurt survivor; one hit, never three procs.",
+    reveal: "Three notes, one cut: 18 Albedo, and a survivor loses 10 AP.",
+    price: "35 AP, 6 ΦF, plus Tune or 1 Inspiration.", counter: "Break the shot's line, or take it on a ward.", teaches: "One clean note.", domains: ["action"],
+    prompt: "Where does the cut fall?" };
+  abilities.ruanStayTogether = { name: "Stay Together", tier: "refined", concepts: ["inertia"],
+    delivery: "signal", target: "ally", area: { shape: "single" }, cost: 6, tempoCost: 35, range: 3, potency: 8, duration: 1, effect: "ruanStayTogether", effectCategory: "conditional", instrument: "ruan",
+    mechanism: "Aim at one other living same-side actor in signal range: a ward of 8 and one native one-use Anchor on them and on yourself, each until its holder's next turn. Needs that other ally: it never doubles on yourself. A refined performance: consumes Tune, or 1 Inspiration instead.",
+    newEffect: "native ward plus native anchor on the caster and one ally, two separate clocks; refresh replaces.",
+    reveal: "The Ruan keeps two together: a ward of 8 and one held ground each.",
+    price: "35 AP, 6 ΦF, plus Tune or 1 Inspiration.", counter: "Spend each anchor, then move the bodies again; direct damage still works.", teaches: "There is room for another pair of hands.", domains: ["action", "support"],
+    prompt: "Who stands with you?" };
 
   // ── characters + the demo encounter ───────────────────────────────────────
   const characters = {
@@ -2213,6 +2342,7 @@
     green: { name: "Green", blurb: "The subject is the living land: grow it, read it, keep it." },
     ink: { name: "Ink", blurb: "The work is an image a person made, on paper, a panel, a print, or a screen." },
     cosmic: { name: "Cosmic", blurb: "They came from somewhere this map is not: another world, orbit, or another genre." },
+    divinity: { name: "Divinity", blurb: "The gods, and the messengers who carry their word.", wall: false },   // the gods' crew, a reputation subfaction (Mala, muse-ritual-sacrifice-spec; blurb R-20261123-09); off the wall until a god is a class (R-20261123-10): Hermes, its first member, is a brief
     money: { name: "Money", blurb: "The power is what they own, or they are apprenticed to the person who owns it." },
     masks: { name: "Masks", blurb: "The fight is the public mask: a cape, a nemesis, and the crowd that picks a side." },
     wake: { name: "Wake", blurb: "The ground of the fight is the water." },
@@ -2254,7 +2384,7 @@
     actor: "stage", bard: "stage", director: "stage", jazz_musician: "stage", jiang_qing: "stage", jpop_idol: "stage", musician: "stage", neon_dj: "stage", neon_idol: "stage", supermodel: "stage",
     agi: "lab", agent_swarm: "lab", android_maker: "lab", clockwork: "lab", defective_machine: "lab", hacker: "lab", ornithopter: "lab", robot_mechanic: "lab", scientist: "lab", sieve: "lab", steam_walker: "lab",
     animalTamer: "wilds", boarman: "wilds", ecologist: "wilds", esker: "wilds", hedge_witch: "wilds", monkey_king: "wilds", mutant_boar: "wilds", mycologist: "wilds", ranger: "wilds", shaman: "wilds",
-    black_armor: "court", daedalus: "court", general: "court", knight: "court", magistrate: "court", mao_zedong: "court", odysseus: "court", oni_yokozuna: "court", paladin: "court", pharaoh: "court", president: "court", samurai: "court", soldier: "court",
+    black_armor: "court", triumvirate_hero: "court", daedalus: "court", general: "court", knight: "court", magistrate: "court", mao_zedong: "court", odysseus: "court", oni_yokozuna: "court", paladin: "court", pharaoh: "court", president: "court", samurai: "court", soldier: "court",
     artemesia: "arcane", bastet: "arcane", celestial_priestess: "arcane", devouring_mother: "arcane", ember_judge: "arcane", forest_spirit: "spirit", frogan: "arcane", hypnotist: "arcane", florence_oloo: "lab", chitinous_archbishop: "arcane", chitin_bishop: "arcane", shardback: "cosmic", eldritch: "cosmic", jujutsu_sorcerer: "arcane", medusa: "arcane", new_oni: "arcane", ritual_chanter: "arcane", tofu_archer: "arcane", tofu_warden: "arcane", tofu_yokai: "arcane", wizard: "arcane",
     moonflower: "arcane", archivist_elf: "arcane", bard_elf: "arcane", astral_security: "arcane", celestial_astral: "arcane",
     auditor_goblin: "civic", architect: "civic", cleric: "civic", doctor: "civic", engineer: "civic", fbi_agent: "civic", mason: "civic", pioneer: "civic", planner: "civic", police_officer: "civic", policeOfficer: "civic", surveyor: "civic", tactical_operative: "civic", yogaInstructor: "civic",
@@ -2277,7 +2407,7 @@
     bronze_admin: "posterity",
     horned_suit: "posterity",
     archivist: "rogues", aviator_hero: "rogues", black_swan_warrior: "rogues", control: "rogues", gemini: "rogues", warden: "rogues",
-    bard_artificer: "stage", burlesque_dancer: "stage", clown: "stage", big_game_hunter: "wilds", mma_fighter_alternate: "street", hermes: "cosmic", kaikeyi: "court",
+    bard_artificer: "stage", burlesque_dancer: "stage", clown: "stage", big_game_hunter: "wilds", mma_fighter_alternate: "street", hermes: "divinity", kaikeyi: "court",
     cactusguard: "civic", cactuswar: "street", pixel_treant: "cosmic",
   };
 
@@ -2515,6 +2645,8 @@
       learned: ["formBase", "formMonkey", "formGiant", "vanish"], allyFavors: ["jambavan"] });
     if (characters.jambavan) characters.jambavan.traits = ["contemplative", "traditionalist", "honorable"];
     if (characters.jatayu) Object.assign(characters.jatayu, { traits: ["aerodynamic", "loyal", "courageous"], startStates: ["jatayuAloft", "jatayuLastWord"] });   // Jatayu (docs/jatayu-build.md): winged, so he breaks the serpent noose
+    // SN1b reads Medusa's serpentBearer tag off her class record (classes-data.js), not off this roster:
+    // medusa is a class, not a content.js character, so there is nothing to tag here.
     if (characters.surpanakha) Object.assign(characters.surpanakha, { traits: ["vengeful", "rivalrous", "impatient", "proud"], startStates: ["surpanakhaGuise", "surpanakhaWounded"],
       fleeChain: { character: "maricha", chance: 1, delay: 1, states: ["marichaDeer"], why: "Her flight is a lure: Lanka sends a golden deer to the place she ran from.",
         then: { after: 3, character: "ravana", delay: 1, states: ["ravanaMendicant"], withholds: ["ravanaHeads", "ravanaBoon"], arrival: "in the guise of a wandering mendicant",
@@ -2560,7 +2692,11 @@
     if (characters.martial_artist) characters.martial_artist.traits = ["playfulness", "competitive"];   // Martial Artist (Mala, 2026-10-22): values trait playfulness, same as Monkey King
     for (const id of ["statute", "warrant"]) if (abilities[id]?.pairs && !abilities[id].pairs.some(([p, q]) => p === "laws_of_gods_of_men" && q === "constraint")) abilities[id].pairs.push(["laws_of_gods_of_men", "constraint"]);   // F3: the Archbishop's Constraint blend keeps her law (an unused pair)
     if (abilities.statute) Object.assign(abilities.statute, { freeFirst: "turn", freeFirstFor: ["chitinous_archbishop"], reveal: `${abilities.statute.reveal} The Chitinous Archbishop's first Statute each turn is free.` });   // F3: her first Statute each turn is free (the def is shared with the Magistrate and the Goblin)
+    if (abilities.commonGround) Object.assign(abilities.commonGround, { freeFirst: "turn", freeFirstFor: ["triumvirate_hero"], reveal: `${abilities.commonGround.reveal} The African Triumvirate Hero's first Common Ground each turn is free.` });   // trio T3a (R-20261122-72)
+    if (characters.triumvirate_hero) Object.assign(characters.triumvirate_hero, { traits: ["heavyBones", "collaborative", "loyal"], wheelhouse: "legitimacy", wheelhouseEnabled: false, conceptPool: ["cooperative_principle", "load_distribution", "legitimacy"] });   // trio T3a: wheelhouse named, swap off (spec G07; Three Seats is T3b, dark)
     if (abilities.cutSlope) Object.assign(abilities.cutSlope, { freeFirst: "turn", freeFirstFor: ["shardback"], reveal: `${abilities.cutSlope.reveal} Shardback's first Cut Slope each turn is free.` });   // F5a: her free first is a grading move (the def is shared with every Grading & Drainage holder)
+    if (abilities.survey) Object.assign(abilities.survey, { freeFirst: "turn", freeFirstTraits: ["attentionToDetail", "hunterOfWardens"], reveal: `${abilities.survey.reveal} The Eldritch Intruder's first Survey each turn is free.` });   // F6: her free first is a look for what is hidden (hunterOfWardens joins attentionToDetail; the Investigator perk is untouched)
+    if (characters.eldritch) Object.assign(characters.eldritch, { traits: ["unreadableFlesh", "hunterOfWardens", "noMasters"], wheelhouse: "pathway", wheelhouseEnabled: true, reserve: ["pathway"], conceptPool: ["cipher", "discovery", "pathway"], configs: [{ id: "eldritch-main", label: "Cipher + Discovery", primary: "cipher", secondary: "discovery", reserve: ["pathway"], lens: {} }, { id: "eldritch-pathway", label: "Cipher + Alternate Pathway", primary: "cipher", secondary: "pathway", reserve: ["discovery"], lens: {} }] });   // Eldritch Intruder (hot-build cuts F6): Unreadable Flesh, Hunter of Wardens, No Masters and the Pathway wheelhouse
     if (characters.shardback) Object.assign(characters.shardback, { traits: ["stoneHide", "groundKeeper", "hardPlace"], wheelhouse: "berm", wheelhouseEnabled: true, reserve: ["berm"], conceptPool: ["gradingDrainage", "thorn", "berm"], configs: [{ id: "shardback-1", label: "Grading & Drainage + Thorn", primary: "gradingDrainage", secondary: "thorn", reserve: ["berm"], lens: {} }, { id: "shardback-berm", label: "Grading & Drainage + Berm", primary: "gradingDrainage", secondary: "berm", reserve: ["thorn"], lens: {} }] });   // Shardback (hot-build cuts F5a, F5b): Stone Hide, Ground Keeper (R-20261122-10), Hard Place and the Berm wheelhouse
     if (characters.chitinous_archbishop) Object.assign(characters.chitinous_archbishop, { traits: ["carapace", "liturgist", "citesPrecedent"], wheelhouse: "constraint", wheelhouseEnabled: true, reserve: ["constraint"], conceptPool: ["laws_of_gods_of_men", "transmigration", "constraint"], configs: [{ id: "archbishop-main", label: "Laws + Transmigration", primary: "laws_of_gods_of_men", secondary: "transmigration", reserve: ["constraint"], lens: {} }, { id: "archbishop-vestment", label: "Laws + Constraint", primary: "laws_of_gods_of_men", secondary: "constraint", reserve: ["transmigration"], lens: {} }] });   // Chitinous Archbishop (hot-build cuts F3): Carapace, Liturgist, Cites Precedent (R-20261116-04) and the Constraint wheelhouse
     if (characters.memorialist) characters.memorialist.traits = ["steadyHands", "eulogy"];   // Memorialist (Codex, 2026-10-24): longer Roll wards + once-a-battle self-mend

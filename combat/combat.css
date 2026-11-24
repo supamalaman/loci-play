@@ -1196,7 +1196,13 @@
 .cc-almanac-card { display:flex; flex-direction:column; gap:3px; width:120px; margin:0; } .cc-almanac-card figcaption { display:flex; flex-direction:column; font-size:max(var(--pn-text-floor), calc(12px * var(--pn-text-step))); } .cc-almanac-card figcaption small { color:#9aa3c7; }
 .cc-almanac-card.is-staged .cc-card-art { opacity:.62; filter:saturate(.7); }
 .cc-almanac-back { display:flex; align-items:center; gap:10px; margin:6px 0 10px; }
-.cc-card-meta, .cc-card-note { opacity:.8; } .cc-deck-line.is-bad { color:#e9a46a; }
+.cc-card-meta, .cc-card-note { opacity:.8; }
+/* C7b (R-20261123-45): the rarity gem beside the rarity word: one colour, four shapes (the word carries the meaning; the shape lets the eye sort a grid). */
+.cc-rarity-gem { display:inline-block; width:.8em; height:.8em; margin-right:.35em; vertical-align:-.05em; background:#e9c46a; }
+.cc-rarity-gem.is-circle { border-radius:50%; }
+.cc-rarity-gem.is-diamond { clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.cc-rarity-gem.is-star { clip-path:polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.cc-rarity-gem.is-hexagon { clip-path:polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); } .cc-deck-line.is-bad { color:#e9a46a; }
 
 /* AP where you act: the command panel's AP readout, and a dimmed-but-openable opener */
 .cc-ap-head { margin-left: auto; font: 700 max(var(--pn-text-floor), calc(12px * var(--pn-text-step))) ui-monospace, Menlo, monospace; color: #fff0b4; text-transform: none; letter-spacing: 0; white-space: nowrap; }

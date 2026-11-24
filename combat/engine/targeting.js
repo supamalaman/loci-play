@@ -10,6 +10,8 @@
   return (function () {
     const { ClassRuntime, DIRS, MaidSystems, Parley, Performers, Stealth, ab, actorAt, barrierAt, classH, dist, dreamCanReach, gradeableSoil, hasSight, hasTrait, heightAt,
       inside, line, patchAt, paths, presidentCanRecognize, presidentEffects, presidentUnits, surfaceAt, tileAt } = H;
+    const INS = () => (typeof module === "object" && module.exports ? (() => { try { return require("../workshop/instruments.js"); } catch { return null; } })() : globalThis.ConceptCombatWorkshopInstruments) || null;   // Resonant Heirlooms JI1
+    const INS_ART = { has: (id) => !!(id && INS()?.ART_INSTRUMENT?.[id]) };   // JI1c: read from instruments.js ART_INSTRUMENT, the one list (a hand list here missed new arts)
 
     // ── targeting (shared by validation, preview and AI) ───────────────────
     function areaTiles(s,a,m,tx,ty) { return rawAreaTiles(s,a,m,tx,ty).filter(([x,y])=>dreamCanReach(s,a,m,x,y)); }
@@ -92,6 +94,21 @@
         return { ok: true, tiles };
       }
       if (m.effect === "cure") return H.States.cureTarget(s, a, m, actorAt(s, tx, ty), [tx, ty], action.cureChoice);
+      // Resonant Heirlooms JI1: the instrument source gate runs before any generic targeting. It checks the
+      // speaking focus, the tier, hands/silence and the Tune rules; queued AP-stun alone is not a ban.
+      if (INS_ART.has(m.ability)) {
+        const no = INS()?.check(s, a, m.ability, action);
+        if (no) return fail(no);
+        if ((m.ability === "erhuWanderingNote" || m.ability === "erhuAnswerAche") && tx != null) {   // JI1c: Answer the Ache shares the whole-and-steady refusal
+          const occ = actorAt(s, tx, ty);
+          if (occ && occ.side === a.side && !occ.defeated && occ.lf >= occ.maxLF && !(H.Injury?.bleedOf?.(s, occ) > 0)) return fail(`${occ.name} is whole and steady: the note finds no wound to carry.`);
+        }
+        if (m.ability === "ruanStayTogether" && tx != null) {   // JI1c: aim at the other ally; the caster is always the second holder, never doubled
+          const occ = actorAt(s, tx, ty);
+          if (tx === a.x && ty === a.y) return fail("Stay Together needs one other living ally: aim at them, and you stand with them.");
+          if (!occ || occ.side !== a.side || occ.defeated) return fail("Stay Together holds you and one other living ally.");
+        }
+      }
       const songError=Performers?.beforeAbility(s,a,m);if(songError)return fail(songError);
       if (ClassRuntime && m.effect === "classEffect") {
         if (m.ability === "clearTheObstruction" && MaidSystems?.canClean(s, a, tx, ty) && dist(s, a.x, a.y, tx, ty) <= 1 && hasSight(s, a.x, a.y, tx, ty))
@@ -250,6 +267,13 @@
         return { ok: true, tiles: [[tx, ty]] };
       }
       if (m.effect === "barrier" || m.effect === "berm" || m.effect === "swale") {
+        if (m.ability === "guqinUnbrokenListening" && !(tx === a.x && ty === a.y)) {   // JI1 (R-20261123-17): on your own turn, a line to one living ally within 3. As an answer it is yourself only: the window offers only the defender's tile (window.js reactiveOptions) and respond accepts only an offered row
+          const ally = actorAt(s, tx, ty), reach = m.ownTurnRange ?? 3;
+          if (!ally || ally.side !== a.side || ally.defeated) return fail("Unbroken Listening holds yourself or one living ally.");
+          if (dist(s, a.x, a.y, tx, ty) > reach) return fail(`Out of range (${reach}).`);
+          if (!hasSight(s, a.x, a.y, tx, ty)) return fail("No line of sight to that ally.");
+          return { ok: true, tiles: [[tx, ty]], targets: [ally.id] };
+        }
         if (m.range === 0) return tx === a.x && ty === a.y ? { ok: true, tiles: [[tx, ty]], self: true } : fail("This lens wards only yourself: target your own tile.");
         const range = effectiveRange(s, a, m, tx, ty);
         if (dist(s, a.x, a.y, tx, ty) > range) return fail(`Out of placement range (${range}).`);

@@ -72,7 +72,8 @@
   function conceptCounts(pair) {
     const k = pair ? pair.join("+") : ""; if (memo.has(k)) return memo.get(k);
     const counts = {};
-    for (const v of Object.values(C.abilities || {})) if (!v.signatureOnly && !v.formOnly && castable(v, pair)) for (const c of v.concepts || []) (counts[c] ||= blank())[abilityRole(v)]++;
+    // Item-granted instrument arts (Resonant Heirlooms JI1, `instrument`) belong to the held instrument, not to a concept's kit.
+    for (const v of Object.values(C.abilities || {})) if (!v.signatureOnly && !v.formOnly && !v.instrument && castable(v, pair)) for (const c of v.concepts || []) (counts[c] ||= blank())[abilityRole(v)]++;
     memo.set(k, counts); return counts;
   }
   const normal = (t) => { const n = ROLES.reduce((s, k) => s + t[k], 0); if (!n) return null; const out = {}; for (const k of ROLES) out[k] = t[k] / n; return out; };

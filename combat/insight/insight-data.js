@@ -37,6 +37,9 @@
     stoneHide:{name:"Stone Hide",category:"biology",difficulty:2,text:"Hide like packed stone: the first Strike or contact hit a foe lands on her each turn loses 2 potency."},
     hardPlace:{name:"Hard Place",category:"values",difficulty:2,text:"She keeps the ground she made: a turn she ends on a tile she graded this battle, or on her own berm, gives her 1 ΦF, once a round."},
     groundKeeper:{name:"Ground Keeper",category:"psychology",difficulty:2,text:"She shapes the ground before she fights on it: she grades a tile while she has no thorn soil, then lashes and quakes the foes who stand on ground she made."},
+    unreadableFlesh:{name:"Unreadable Flesh",category:"biology",difficulty:2,text:"Flesh that will not stay read: the first Observe against her each battle costs one more step."},
+    hunterOfWardens:{name:"Hunter of Wardens",category:"psychology",difficulty:2,text:"She hunts the guardian above all: her attacks against Greedigut carry +10 while he stands, and she Surveys what is hidden and Redacts the broken."},
+    noMasters:{name:"No Masters",category:"values",difficulty:2,text:"She serves no master and treats with none: she never comes to terms, and no terms are offered her."},
     liturgist:{name:"Liturgist",category:"psychology",difficulty:2,text:"The law first, then the body: she posts a Statute while none of hers stands, and marks as her Vessel whoever stands in it. A believer she marks is a body she may wake in."},
     citesPrecedent:{name:"Cites Precedent",category:"values",text:"Remembers witnessed techniques. When answering a visible attacker who repeats a technique you already saw them use, the reactive technique costs 0 AP. Its ΦF and reaction are still paid. Change techniques or deny sight to defeat the precedent.",open:true},
     discernment:{name:"Discernment",category:"psychology",difficulty:2,text:"Each new hidden fact personally learned through Observe or Investigate gives +5% direct damage against that enemy, up to +25% for this battle. Repeated or shared knowledge adds nothing."},
@@ -374,7 +377,7 @@
       /* feats batch, 2026-10-27 */ "packMule", "fourArms",
       /* prehensile tail PT1, 2026-11-12 */ "prehensileTail", /* Florence F2, 2026-11-15 */ "steadyHands",
       /* tsukumogami structures, 2026-10-29 */ "heavy", "rigid", "brittle", "light",
-      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory", /* the maid's Vocational form, 2026-11-15: a boss form */ "vocational", /* Chitinous Archbishop F3, 2026-11-16 */ "carapace", /* Shardback F5a, 2026-11-21 */ "stoneHide", /* Šammu nikitti SN1a, 2026-11-22 */ "juvenescentSap"],
+      /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory", /* the maid's Vocational form, 2026-11-15: a boss form */ "vocational", /* Chitinous Archbishop F3, 2026-11-16 */ "carapace", /* Shardback F5a, 2026-11-21 */ "stoneHide", /* Šammu nikitti SN1a, 2026-11-22 */ "juvenescentSap", /* Eldritch Intruder F6 */ "unreadableFlesh"],
     psychology: ["discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
       "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "comparative", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
@@ -383,10 +386,12 @@
       /* the Paladin, 2026-10-31 (PALADIN.md) */ "consecrated", "faithful", "compassionate",
       /* the respec fruit, 2026-11-01 */ "fruitbound",
       /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer", /* the Treasure Hunter, TH1 */ "goldFever", /* Florence F2, 2026-11-15 */ "clinician",
-      /* Chitinous Archbishop F3, 2026-11-16 */ "liturgist", /* Shardback F5b, R-20261122-10 */ "groundKeeper", /* the Raven Messenger, K3 (re-cut of R2) */ "messenger", /* the Magistrate's bench, court M2a (1.3.572) */ "bench"],
+      /* Chitinous Archbishop F3, 2026-11-16 */ "liturgist", /* Shardback F5b, R-20261122-10 */ "groundKeeper", /* the Raven Messenger, K3 (re-cut of R2) */ "messenger", /* the Magistrate's bench, court M2a (1.3.572) */ "bench",
+      /* Eldritch Intruder F6 */ "hunterOfWardens"],
     values: ["citesPrecedent", "hardPlace", "believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
       "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective",
-      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand", /* the Treasure Hunter, TH1 */ "findersKeepers", /* Florence F2, 2026-11-15 */ "doNoHarm"],
+      /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand", /* the Treasure Hunter, TH1 */ "findersKeepers", /* Florence F2, 2026-11-15 */ "doNoHarm",
+      /* Eldritch Intruder F6 */ "noMasters"],
     state: ["complex", "unexplainedEvent"],
     spiritual: ["astralPresence"],   // soul traits (Mala, 2026-10-24): invisible unless the observer is a seer (seesSpirits, planned); rolled like anything else but far rarer for the average person
   };
@@ -430,6 +435,8 @@
     homestead: { counters: ["restless", "impatient"], synergies: ["loyal", "stubborn", "traditionalist", "dutiful"] },
     markedGround: { counters: ["impatient", "restless"], synergies: ["dutiful", "stubborn", "proud"] },
     groundKeeper: { counters: ["restless"], synergies: ["stubborn"] },   // Shardback F5b: she keeps to ground she made, as Hard Place does
+    hunterOfWardens: { counters: ["merciful", "protective"], synergies: ["vengeful", "rivalrous"] },   // Eldritch F6: she hunts the guardian above all
+    noMasters: { counters: ["loyal", "dutiful"], synergies: ["proud", "stubborn"] },   // Eldritch F6: she serves no master and treats with none (unreadableFlesh is biology: never imitable, dynamics-free)
     hardPlace: { counters: ["impatient", "restless"], synergies: ["stubborn", "proud"] },   // 1.3.573 merge (Deadwood IN): Shardback F5a's values trait keeps the ground she made, as markedGround keeps a claim (traits.test)
     awardWinningDirector: { counters: ["fool"], synergies: ["proud", "competitive", "ambitious"] },
     humanExperience: { counters: ["fool"], synergies: ["empathic", "talkative", "persuasive"] },
@@ -575,6 +582,11 @@
       {kind:"weakness",channel:"rubedo",text:"Crack the carapace: rubedo is her weak channel.",difficulty:2},
       {kind:"realization",text:"Change delivery: her Statute only taxes what she named, and the Choir only sings back what you threw. Kill the believer she marked before you kill her, or she wakes in them while the mark holds.",difficulty:2},
       {kind:"state",id:"choir",text:"A stored Choir: one caught delivery waiting to be written into her next Statute.",difficulty:2}]},
+    triumvirate_hero:{traits:["heavyBones","collaborative","loyal"],obs:[   // hot builds trio T3a (spec section 4, Observe)
+      {kind:"tell",text:"Three stand as one: a blow on any of them lands on all of them. While his own Share the Load or Support Network is up, an ally who steps toward the ground he named and ends within 2 of him joins the links.",difficulty:1},
+      {kind:"weakness",channel:"citrinitas",text:"An area that hits every link gains nothing from the split: citrinitas is his weak channel.",difficulty:2},
+      {kind:"realization",text:"The crown spreads the blow; it does not shrink it. Hit all of them at once, or knock one out of the triangle.",difficulty:2},
+      {kind:"state",id:"links",text:"His links: every unit in his Share the Load or Support Network takes an even share of a hit on any of them.",difficulty:2}]},
     shardback:{traits:["stoneHide","groundKeeper","hardPlace"],obs:[
       {kind:"tell",text:"The ground remembers her claws. While she holds Thorn, a tile she graded this battle is thorn soil: her Brier Ring bites harder there, Earth Upheaval hits a foe on it for half again, and a shot fired from it meets her Ward Field whole.",difficulty:1},
       {kind:"weakness",channel:"citrinitas",text:"Dry the soil: citrinitas is her weak channel.",difficulty:2},
@@ -584,6 +596,10 @@
       {kind:"weakness",channel:"albedo",text:"Name the glamour: albedo is her weak channel.",difficulty:2},
       {kind:"realization",text:"Swap who shoots; break line of sight. The dome primes only against the foe she has Fixed.",difficulty:2},
       {kind:"state",id:"crown",text:"A Crown of Plates: the Fixed foe cannot attack on its next turn.",difficulty:2}]},
+    eldritch:{traits:["unreadableFlesh","hunterOfWardens","noMasters"],obs:[
+      {kind:"tell",text:"It sniffs for a jailer. While she holds Cipher, a Verified rumour about a foe becomes a Cipher break: her next Cipher refined ignores one ward on him.",difficulty:1},
+      {kind:"weakness",channel:"albedo",text:"Name it aloud: albedo is her weak channel.",difficulty:2},
+      {kind:"realization",text:"It hates the guardian more than you — or you are next if none is here. Her Ossified Ward meets Greedigut whole, rushed or not.",difficulty:2}]},
     auditor_goblin:{traits:["twentyTwentyVision","attentionToDetail","citesPrecedent"],obs:[
       {kind:"tell",text:"The little ledger records techniques he actually sees. A Statute names the delivery he can object to.",difficulty:1},
       {kind:"weakness",channel:"citrinitas",text:"Paper burns: citrinitas is his weak channel.",difficulty:2},

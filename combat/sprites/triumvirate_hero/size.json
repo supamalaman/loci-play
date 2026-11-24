@@ -1,0 +1,199 @@
+{
+  "size_class": "person",
+  "world_height": 1.0,
+  "minimum_pixel_size_px": 96,
+  "runtime_consumed": false,
+  "source": "source/African Triumvirate Hero Sprite Sheet.png",
+  "poses": {
+    "idle": {
+      "canvas": [
+        300,
+        295
+      ],
+      "content_w": 196,
+      "content_h": 285,
+      "foot": [
+        140.0,
+        291
+      ]
+    },
+    "walk": {
+      "canvas": [
+        300,
+        295
+      ],
+      "content_w": 214,
+      "content_h": 277,
+      "foot": [
+        131.0,
+        291
+      ]
+    },
+    "dodge": {
+      "canvas": [
+        300,
+        295
+      ],
+      "content_w": 234,
+      "content_h": 221,
+      "foot": [
+        177.0,
+        286
+      ]
+    },
+    "knockback": {
+      "canvas": [
+        300,
+        295
+      ],
+      "content_w": 193,
+      "content_h": 206,
+      "foot": [
+        173.5,
+        291
+      ]
+    },
+    "punch": {
+      "canvas": [
+        301,
+        295
+      ],
+      "content_w": 285,
+      "content_h": 189,
+      "foot": [
+        149.5,
+        282
+      ]
+    },
+    "cast-off": {
+      "canvas": [
+        300,
+        290
+      ],
+      "content_w": 290,
+      "content_h": 216,
+      "foot": [
+        149.0,
+        286
+      ]
+    },
+    "cast": {
+      "canvas": [
+        300,
+        290
+      ],
+      "content_w": 277,
+      "content_h": 276,
+      "foot": [
+        143.5,
+        286
+      ]
+    },
+    "block": {
+      "canvas": [
+        300,
+        290
+      ],
+      "content_w": 238,
+      "content_h": 208,
+      "foot": [
+        140.0,
+        286
+      ]
+    },
+    "knocked-out": {
+      "canvas": [
+        300,
+        290
+      ],
+      "content_w": 290,
+      "content_h": 77,
+      "foot": [
+        151.0,
+        286
+      ]
+    },
+    "ultimate": {
+      "canvas": [
+        301,
+        290
+      ],
+      "content_w": 289,
+      "content_h": 282,
+      "foot": [
+        150.5,
+        286
+      ]
+    },
+    "portrait-neutral": {
+      "canvas": [
+        292,
+        314
+      ],
+      "content_w": 292,
+      "content_h": 314,
+      "foot": [
+        146.0,
+        314
+      ]
+    },
+    "portrait-happy": {
+      "canvas": [
+        292,
+        314
+      ],
+      "content_w": 292,
+      "content_h": 314,
+      "foot": [
+        146.0,
+        314
+      ]
+    },
+    "portrait-angry": {
+      "canvas": [
+        291,
+        314
+      ],
+      "content_w": 291,
+      "content_h": 314,
+      "foot": [
+        145.5,
+        314
+      ]
+    },
+    "portrait-sad": {
+      "canvas": [
+        292,
+        314
+      ],
+      "content_w": 292,
+      "content_h": 314,
+      "foot": [
+        146.0,
+        314
+      ]
+    },
+    "portrait-surprised": {
+      "canvas": [
+        292,
+        314
+      ],
+      "content_w": 292,
+      "content_h": 314,
+      "foot": [
+        146.0,
+        314
+      ]
+    }
+  },
+  "idle_alpha_size_px": [
+    196,
+    285
+  ],
+  "content_height_px": 285,
+  "foot_point_px": [
+    140.0,
+    291
+  ],
+  "note": "world_height 1.0 (person) by default: no consumer or class names this figure yet; the consumer slice sets it."
+}

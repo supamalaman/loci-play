@@ -1778,10 +1778,18 @@
     const ownRumorPendingHere = (s, a) => (s.rumors || []).some((r) => typeof r.id === "string" && r.id.startsWith(`rumor-${a.id}-`) && r.expiresRound > s.round);   // her own find, still live (resolve.js verify reads the same expiry)
     const noOwnRumorHere = (s, a) => !ownRumorPendingHere(s, a);
     const driveChecks = { hurtAllyBy:(s,a,r,cand)=>Array.isArray(cand?.target)&&Object.values(s.actors).some(u=>u.id!==a.id&&!u.defeated&&u.side===a.side&&u.lf<u.maxLF/2&&dist(s,cand.target[0],cand.target[1],u.x,u.y)<=(r??2)),noOwnPatch:(s,a)=>!(s.successionPatches||[]).some(p=>p.owner===a.id),   /* Empathic tending (Šammu nikitti SN1a): a hurt ally (below half LF) within r of the aimed tile; no patch of hers standing */ auditNoStatute:(s,a)=>!(s.terrainEffects||[]).some(e=>e.kind==="statute"&&e.owner===a.id&&a.ownerTurns<e.expiresAt),auditRumour:(s,a)=>s.rumors?.some(r=>r.ownerSide===a.side&&r.expiresRound>s.round), foeNear: foeNearHere, noneFixed: noneFixedHere, fixedFoeRanged: fixedFoeRangedHere, noWard: noWardHere, foesInSight: foesInSightHere, freshCatalogueTarget: freshCatalogueTargetHere, cataloguedQuarry: cataloguedQuarryHere, foeConcealed: foeConcealedHere, ownRumorPending: ownRumorPendingHere, noOwnRumor: noOwnRumorHere, fieldLive: (s, a) => !!a.substrate, noFieldLive: (s, a) => !a.substrate, statuteFoe: (s, a) => Object.values(s.actors || {}).some((u) => !!ClassRuntime?.law?.named?.(s, a, u)) };
+    // Collaborative (hot builds trio T3a, the Triumvirate Hero's table): alliesNear n = at least n standing allies within 3 of him;
+    // allyLow = a standing ally within 3 below half LF.
+    const alliesWithin3 = (s, a) => Object.values(s.actors || {}).filter((u) => !!u && u.id !== a.id && !u.defeated && !u.notArrived && u.side === a.side && dist(s, a.x, a.y, u.x, u.y) <= 3);
+    Object.assign(driveChecks, { alliesNear: (s, a, n) => alliesWithin3(s, a).length >= (n || 1), allyLow: (s, a) => alliesWithin3(s, a).some((u) => u.lf < u.maxLF / 2) });
     // Ground Keeper (Shardback F5b): thorn soil is the ground she graded (a.graded, class-runtime Shardback); the checks read that map.
     const onSoil = (a, u) => !!u && !!a.graded?.[`${u.x},${u.y}`];
     Object.assign(driveChecks, { noThornSoil: (s, a) => !Object.keys(a.graded || {}).length, foeOnThornSoil: (s, a, _n, cand) => onSoil(a, foeAtTarget(s, a, cand)),
       foeOnThornSoilNear: (s, a, n) => Object.values(s.actors || {}).some((u) => !u.defeated && !u.notArrived && u.side !== a.side && u.side !== "bystander" && onSoil(a, u) && dist(s, a.x, a.y, u.x, u.y) <= (n || 2)) });
+    const isGreedigut = (u) => !!u && !u.defeated && !u.notArrived && (u.boss === "greedigut" || u.character === "greedigut");
+    // Hunter of Wardens (hot-build cuts F6, the Eldritch Intruder): candidates aimed at Greedigut, and at a foe with a live Cipher break.
+    Object.assign(driveChecks, { foeIsGreedigut: (s, a, _n, cand) => isGreedigut(foeAtTarget(s, a, cand)),
+      cipherFoeBroken: (s, a, _n, cand) => { const t = foeAtTarget(s, a, cand); return !!t && a.cipherBreak?.foe === t.id; } });
     function driveWhenHolds(checks, s, a, cand, when) {
       if (when === undefined || when === null) return true;
       // A bare ["name", x] with non-string x is one tuple; any other array is a list of atoms (tuple args are never bare strings).

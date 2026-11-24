@@ -15,6 +15,10 @@
 })(typeof self !== "undefined" ? self : this, function (Cards, D, CB, CA) {
   const esc = (s) => String(s).replace(/[&<>\x22]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const word = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  // C7b (R-20261123-45): the rarity gem, a shape beside the rarity word (CARDS.md:247 "a text word and a shape"): circle, diamond, star, hexagon.
+  // One colour for all four, so the shape (and the word beside it) carries the rarity, never colour alone; aria-hidden because the word already says it.
+  const GEM_SHAPES = { common: "circle", uncommon: "diamond", rare: "star", legendary: "hexagon" };
+  const gem = (r) => { const k = GEM_SHAPES[r] ? r : "common"; return `<span class="cc-rarity-gem is-${k} is-${GEM_SHAPES[k]}" aria-hidden="true"></span>`; };
   // One card face: kind and rarity are words (never colour alone), the generated rule text is the screen-reader text.
   const ART_BASE = "combat/cards/";
   const art = (card) => (CA && card?.art?.key && CA.art[card.art.key]) || null;
@@ -32,7 +36,7 @@
     return `<button type="button" class="cc-card-face is-${card.kind}${A ? " has-art" : ""}${disabled ? " is-off" : ""}" ${attr} ${disabled ? 'disabled aria-disabled="true"' : 'draggable="true"'} title="${esc(text)}">`
       + picture(card, A)
       + `<span class="cc-card-top"><span aria-hidden="true">${esc(k.glyph)}</span> <b${A ? ' class="cc-sr"' : ""}>${esc(card.name)}</b>${count > 1 ? ` <small>×${count}</small>` : ""}</span>`
-      + `<small class="cc-card-meta">${k.label} · ${word(card.rarity)} · ${card.cost} point${card.cost === 1 ? "" : "s"}</small>`
+      + `<small class="cc-card-meta">${gem(card.rarity)}${k.label} · ${word(card.rarity)} · ${card.cost} point${card.cost === 1 ? "" : "s"}</small>`
       + `<small class="cc-card-text">${esc(text)}</small>${note ? `<small class="cc-card-note">${esc(note)}</small>` : ""}</button>`;
   }
   // Your shelf: kinds you hold, and kinds you have only seen. A key that is not a card id is not a sighting.
@@ -56,7 +60,7 @@
     const html = `<p class="cc-muted">Every card in the game, with its picture. A card marked "not playable yet" is drawn and priced but cannot go in a deck.${shelf}</p>`
       + (CA ? `<p class="cc-almanac-back"><span class="cc-card-art is-back" aria-hidden="true"><img src="${ART_BASE}${esc(CA.back)}" alt="" draggable="false" loading="lazy" decoding="async"></span><small>The back of a card: what an opponent's deck looks like face down.</small></p>` : "")
       + series.map((g) => `<details class="cc-almanac-series"><summary><b>${esc(g.name)}</b> <small>${g.cards.filter((c) => playable.has(c.id)).length} of ${g.cards.length} playable</small></summary><div class="cc-almanac-grid">`
-        + g.cards.map((c) => `<figure class="cc-almanac-card${playable.has(c.id) ? "" : " is-staged"}">${picture(c, art(c), true)}<figcaption><b>${esc(c.name)}</b><small>${esc(D.kinds[c.kind].label)} · ${esc(word(c.rarity))}${playable.has(c.id) ? "" : " · not playable yet"}${mark(c)}</small></figcaption></figure>`).join("")
+        + g.cards.map((c) => `<figure class="cc-almanac-card${playable.has(c.id) ? "" : " is-staged"}">${picture(c, art(c), true)}<figcaption><b>${esc(c.name)}</b><small>${gem(c.rarity)}${esc(D.kinds[c.kind].label)} · ${esc(word(c.rarity))}${playable.has(c.id) ? "" : " · not playable yet"}${mark(c)}</small></figcaption></figure>`).join("")
         + `</div></details>`).join("");
     return { html, playable: n, total, ...(col ? { owned: col.owned, seen: col.seen } : {}) };
   }
@@ -145,5 +149,5 @@
     const g = CB.giftStarter(ctx.account()), c2 = { ...ctx, account: () => g.account };
     return { html: group(c2), ctx: c2, account: g.account, gifted: g.changed };
   }
-  return { group, wire, move, drawerRows, unitLine, art, face, almanac, collection, inventoryTab };
+  return { group, wire, move, drawerRows, unitLine, art, face, almanac, collection, inventoryTab, gem, GEM_SHAPES };
 });

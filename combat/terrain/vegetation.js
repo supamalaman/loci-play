@@ -37,6 +37,8 @@
         blocksMove: f.blocksMove, moveCost: sp.moveCost ?? f.moveCost, sightHeight: sp.sightHeight ?? f.sightHeight,
         cover: f.cover, canopy: sp.trait?.id === "deciduous" ? 0 : (sp.canopy ?? f.canopy),
         protected: !!sp.protected, trait: sp.trait?.id || null, status: {},
+        // SN1b: the one serial per specimen. A hand-built or copied object carries none, and harvest refuses it.
+        ...(type === "sammuNikitti" ? { serial: `sammu:${n}` } : {}),
       };
     }
     const o = V.objects[type];

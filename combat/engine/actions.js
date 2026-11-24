@@ -166,7 +166,9 @@
       if (usableRamp(s, x, y, nx, ny)) return Math.max(1, Math.abs(dh));
       if (waterAt(s, nx, ny) && terrain.blocksMove) return H.hasTrait(mover, "treeWalker") ? 1 : 2; // swimmers may wade through a deep-water tile, at a large AP surcharge; Tree Walkers pay normal (anime batch)
       const trail = (terrain.moveCost || 1) > 1 && ClassRuntime?.builds?.[mover?.character]?.passives?.trailcraft;   // Trailcraft (Big Game Hunter): rough ground costs her 1 less a step, min 1
-      return (trail ? Math.max(trail.effect.min, (terrain.moveCost || 1) - trail.effect.terrainCostLess) : (terrain.moveCost || 1)) + (dh === 1 && !H.hasTrait(mover, "treeWalker") ? 1 : 0) + (MaidSystems ? MaidSystems.levelAt(s, nx, ny) : 0);   // Tree Walkers waive the uphill step (anime batch)
+      const spineHere = barrierAt(s, nx, ny);
+      const spineOwed = spineHere && spineHere.concept === "amberSpine" && mover && spineHere.owner !== mover.id && s.actors[spineHere.owner] && s.actors[spineHere.owner].side !== mover.side ? 1 : 0;   // Amber Spine (Eldritch F6): a foe's step onto her spine costs 1 more move point
+      return (trail ? Math.max(trail.effect.min, (terrain.moveCost || 1) - trail.effect.terrainCostLess) : (terrain.moveCost || 1)) + (dh === 1 && !H.hasTrait(mover, "treeWalker") ? 1 : 0) + (MaidSystems ? MaidSystems.levelAt(s, nx, ny) : 0) + spineOwed;   // Tree Walkers waive the uphill step (anime batch)
     }
     function movementTempoCost(s, a, route) {
       if (a.awakened) return 0;   // Tsukumogami: movement costs no tempo — the turn's price is the one action

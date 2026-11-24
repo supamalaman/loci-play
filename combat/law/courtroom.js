@@ -10,6 +10,8 @@
 //   advance(s, H)                            → round hook: argues one exchange per side, verdicts when spent
 //   applyVerdicts(s, H)                      → seals/sword/mercy/minor/cuffs + resume + ledger
 //   violenceGate(s, H, a)                    → refusal string or null (contempt + favor against the brawler)
+//   vouchersFor(s, accusedId)                → Bonds B6: who may vouch for the player (s.bondVouches; [] for anyone else)
+//   stageHearing(s, H, spec)                 → Bonds B6 teaching: a scenario opens court on the player at battle start
 // Invoke costs 1 banked rite step + presented evidence (2+ observations on
 // the accused) + real counts (live lawEvidence/testimony, cap 3). One trial
 // per battle; retrials (≤2, new evidence only) reopen inside it. The rite is
@@ -25,8 +27,12 @@
   const foundIds = (s, accused) => Object.values(s.cls?.lawEvidence?.[accused] || {}).flat().filter((e) => e.grade === "found").map((e) => e.id);
   function fixtures(s) {
     return Object.values(s.actors || {}).filter((u) => !u.defeated).map((u) => ({ id: u.id, name: u.name, side: u.side === "player" ? "ally" : u.side,
-      honest: !!u.traits?.some?.((t) => (t?.id || t) === "honest"), lf: u.lf, maxLF: u.maxLF, alive: true, arrivalRound: u.arrivalRound ?? 0 }));
+      honest: !!u.traits?.some?.((t) => (t?.id || t) === "honest"), lf: u.lf, maxLF: u.maxLF, alive: true, arrivalRound: u.arrivalRound ?? 0,
+      character: u.character || null }));   // Bonds B6: the vouch asks whether its character was on the field when the act happened
   }
+  // Bonds B6 (claude-bonds-spec 1.9): only the player has bonds, so only the player's defense gets a vouch. s.bondVouches is
+  // carried from the account (spirit/orders.js carryOpts, engine/ledgers.js carryOrder) or lent by a teaching scenario.
+  const vouchersFor = (s, accusedId) => (accusedId === "player" && Array.isArray(s.bondVouches) ? s.bondVouches.map((v) => ({ ...v })) : []);
   function countsFor(s, accusedId) {
     const ev = Object.values(s.cls?.lawEvidence?.[accusedId] || {}).flat();
     const test = (s.cls?.testimony || []).filter((w) => w.target === accusedId || w.subject === accusedId);
@@ -73,7 +79,7 @@
     const counts = countsFor(s, accusedId);
     const magistrate = !!H.ClassRuntime?.law?.isMagistrate(s.actors[invokerId]) && counts.some((c) => c.severity >= TR.SEV.serious);
     const t = TR.openTrial({ form: "courtroom", accusedId, prosecutorId: invokerId, seed: s.seed,
-      units: fixtures(s), counts, magistrate });
+      units: fixtures(s), counts, magistrate, vouchers: vouchersFor(s, accusedId) });
     s.trial = { t, invokerId, accusedId, queued: null, queuedDefense: null, contempt: [], over: false,
       foundAtOpen: foundIds(s, accusedId), convened: true };
     H.log(s, { kind: "trial", actor: invokerId, target: accusedId,
@@ -211,9 +217,23 @@
         sentence: swordDispelled ? null : applied.get(verdict.count) || applied.get(null) || null };
     });
     (s.trialLedger ||= []).push({ accused: tr.accusedId, by: tr.invokerId,
-      verdicts: tr.t.verdicts?.counts?.map((v) => `${v.count}:${v.verdict}`) || [], round: s.round, recordCounts, swordDispelled });
+      verdicts: tr.t.verdicts?.counts?.map((v) => `${v.count}:${v.verdict}`) || [], round: s.round, recordCounts, swordDispelled,
+      ...(tr.t.vouch ? { vouch: { ...tr.t.vouch } } : {}) });   // Bonds B6: who was asked to vouch and what they said (account.js settleCourt remembers it)
     tr.over = true; s.trialDone = true;
     H.log(s, { kind: "trial", text: "Court adjourns: the battle resumes." });
+  }
+  // Bonds B6 teaching ("The Friend Who Testified", R-20261123-07): the scenario names one count and court opens on the player
+  // before the first round, prosecuted by the first standing foe of the named class (spec.by), with the scenario's lent vouch (engine/factions.js).
+  function stageHearing(s, H, spec) {
+    if (!spec || typeof spec !== "object" || s.trial || s.trialDone || !s.actors.player) return null;
+    const by = Object.values(s.actors).find((u) => u.side !== "player" && !u.defeated && !u.notArrived && !["civilian", "bystander", "neutral", "visitors"].includes(u.side) && (!spec.by || u.character === spec.by));
+    if (!by) return null;
+    const c = spec.count || {};
+    const counts = [{ grade: c.grade || "witnessed", severity: c.severity ?? 1, actRound: 0, ledgerAct: c.real === true, courtKey: `staged:${s.seed}`, label: c.label || "the staged charge" }];
+    const t = TR.openTrial({ form: "courtroom", accusedId: "player", prosecutorId: by.id, seed: s.seed, units: fixtures(s), counts, vouchers: vouchersFor(s, "player") });
+    s.trial = { t, invokerId: by.id, accusedId: "player", queued: null, queuedDefense: null, contempt: [], over: false, foundAtOpen: [], convened: true, staged: true };
+    H.log(s, { kind: "trial", actor: by.id, target: "player", text: `${by.name} calls the court to order before a blow is struck: ${s.actors.player.name} answers ${counts[0].label}.` });
+    return s.trial;
   }
   function violenceGate(s, H, a) {
     const tr = s.trial;
@@ -225,5 +245,5 @@
     H.log(s, { kind: "trial", actor: a.id, text: `${a.name} brawls during trial: CONTEMPT. The room turns against their side (favor ${tr.t.favor >= 0 ? "+" : ""}${tr.t.favor}). No double-jeopardy shield; hunters will remember.` });
     return `${a.name} cannot fight during trial: contempt of court.`;
   }
-  return { RULES, canInvoke, canConvene, convene, aiConvene, conveneCost, inCourtReach, hasBench, countsFor, fixtures, invoke, queuePlay, queueDefense, advance, applyVerdicts, violenceGate, foundIds };
+  return { RULES, canInvoke, canConvene, convene, aiConvene, conveneCost, inCourtReach, hasBench, countsFor, fixtures, invoke, queuePlay, queueDefense, advance, applyVerdicts, violenceGate, foundIds, vouchersFor, stageHearing };
 });

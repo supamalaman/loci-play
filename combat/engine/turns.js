@@ -625,6 +625,7 @@
       totemTurnEnd(s, a);   // ingredient totems: the host's count runs at her turn end (not the turn she woke it)
       ClassRuntime?.ma?.turnEnd(s, a, log);   // Ma (five concepts M1): a still turn in Still Stance banks 1
       ClassRuntime?.shardback?.turnEnd(s, a, log);   // Shardback F5a: Hard Place, +1 ΦF for a turn ended on ground she made
+      ClassRuntime?.eldritch?.turnEnd(s, a, log);   // Eldritch F6: Amber Spine, +1 ΦF per foe ending its turn on her spine
       if (s.law?.dispatch?.pending && H.Dispatch) { s.law.dispatch.autoArrived = true; H.Dispatch.arrive(s, H); }   // no UI played the call (sims, headless): the officers still come
       if (a) { a._unspent = a._heldAtEnd ?? a.tempo; a._heldAtEnd = null; }   // W5.3: heat reads banked-first (stall zeroes tempo before this runs)
       armEstablishedGuard(s, a);

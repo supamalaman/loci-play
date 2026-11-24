@@ -1424,7 +1424,7 @@
       moveOptions, jumpOptions, climbOptions, targeting, preview, availableAbilities, actionOptions, seededChance, beliefSummonCandidate, aiLastWorkflow, shownTrait,
       aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, approach, retreat, lessonsOf, lessonMul, cannotDodge
     } = H;
-    return { cards: H.Cards, warfareEventOptions, eventParticipantsFor, create, apply, preview, targeting, moveOptions, jumpOptions, climbOptions, movementBudget: (s, id) => moveBudgetFor(s, s.actors[id]), movementStepCost: (...a) => H.stepCost(...a), maxRoomFor: (...a) => H.maxRoomFor(...a), availableAbilities, actionOptions, randomEncounterOptions, manifest: (s, id, abId) => manifest(s, s.actors[id], abId),
+    return { cards: H.Cards, rep: H.Rep, warfareEventOptions, eventParticipantsFor, create, apply, preview, targeting, moveOptions, jumpOptions, climbOptions, movementBudget: (s, id) => moveBudgetFor(s, s.actors[id]), movementStepCost: (...a) => H.stepCost(...a), maxRoomFor: (...a) => H.maxRoomFor(...a), availableAbilities, actionOptions, randomEncounterOptions, manifest: (s, id, abId) => manifest(s, s.actors[id], abId),
       conveneOptions: (s, id) => Courtroom?.hasBench(s.actors[id], H) ? {
         cost: Courtroom.conveneCost(s, H, s.actors[id]),
         targets: Object.values(s.actors).filter((target) => !Courtroom.canConvene(s, H, id, target.id)).map((target) => target.id),

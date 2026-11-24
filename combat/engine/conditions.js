@@ -474,7 +474,7 @@
       return cost;
     }
     function consumeMoveMods(s, a, route) {
-      H.ClassRuntime?.commonGroundSpend?.(s, a, route);
+      H.ClassRuntime?.commonGroundSpend?.(s, a, route, H);   // H: the triangle's log line (trio T3a)
       H.ClassRuntime?.purposeMoveSpend?.(s, a, route);
       if (!a.status?.moveMods) return;
       const spent = [];

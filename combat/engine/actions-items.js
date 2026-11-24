@@ -10,8 +10,11 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).actionsItems = install;
 })(typeof self !== "undefined" ? self : this, function install(H, K) {
   return (function () {
-    const { ClassRuntime, accountItems, actorAt, barrierAt, checkOutcome, dist, inside, log, pickupRules, saveWildWorld, spendTempo, tileAt, wildRules,
+    const { C, ClassRuntime, accountItems, actorAt, barrierAt, checkOutcome, dist, hasSight, inside, log, pickupRules, saveWildWorld, spendTempo, tileAt, wildRules,
       wildSnapshot } = H;
+    // NOTE: no `const { Injury } = H` here. The injury part installs after the actions part
+    // (ENGINE_PARTS order in queries.js), so an install-time destructure would freeze undefined;
+    // read H.Injury at call time like actions.js does.
     const { Cooking, hermitCharge } = K;
     const family = {
       takeFromCart(s, a, act) {   // an ally beside the Maid takes an item out of her cart (Mala, 2026-10-14; classes/class-runtime.js cartOf)
@@ -64,6 +67,16 @@
         if (accountItem && !accountItem.effect?.wild) {
           const effect = accountItem.effect || {};
           if (effect.hire) return H.Hires.call(s, a, item, accountItem) || undefined;   // a merc contract or a letter of safe conduct (engine/hires.js)
+          if (effect.rejuvenate) {   // SN1b: Šammu nikitti, the eaten mouthful (mythic-plants/sammu.js). Gates above
+            const SH = typeof module === "object" && module.exports ? require("../mythic-plants/sammu.js") : globalThis.ConceptCombatSammu;   // resolve.js and turns.js read the same module the same way
+            if (!SH) return `${accountItem.name} cannot be used in a fight.`;
+            const pv = SH.eatPreview(s, a, act, { hasSight, C, Injury: H.Injury });
+            if (pv.error) return pv.error;
+            const useAp = Cooking()?.useCost(item, s.rules.actionCosts.utility, a) ?? s.rules.actionCosts.utility;   // legendary: 5 AP, the normal door's price
+            const spendError = spendTempo(s, a, useAp, `Use ${accountItem.name}`); if (spendError) return spendError;
+            SH.applyEat(s, a, item, pv.thief, { log, Injury: H.Injury, hermitCharge });
+            return;
+          }
           if (!Object.keys(effect).some((k) => USABLE.has(k))) return `${accountItem.name} cannot be used in a fight.`;   // flower-jars S2: unwired keys refuse instead of consuming silently
           const range = effect.placeBarrier || effect.blockSightTiles || effect.observe ? 4 : 0;
           if (!inside(s, at[0], at[1]) || dist(s, a.x, a.y, at[0], at[1]) > range) return `Choose a tile within ${range} spaces.`;
@@ -89,7 +102,8 @@
           return;
         }
         if (!wildRules || !pickupRules) return "Items are unavailable.";
-        const itemRange = wildRules.data.items[item]?.range;
+        const wildKey = accountItem?.effect?.wild || item;
+        const itemRange = wildRules.data.items[wildKey]?.range;
         if (itemRange == null || !inside(s, at[0], at[1]) || dist(s, a.x, a.y, at[0], at[1]) > itemRange) return `Choose a tile within ${itemRange ?? 0} spaces.`;
         const spendError = spendTempo(s, a, s.rules.actionCosts.utility, "Use item"); if (spendError) return spendError;
         a.inventory.splice(a.inventory.indexOf(item), 1);
@@ -156,7 +170,7 @@
         const itemRange = (item) => {
           const effect = accountItems?.consumables?.[item]?.effect;
           if (effect && !effect.wild) return (effect.placeBarrier || effect.blockSightTiles || effect.observe) ? 4 : 0;
-          return wildRules?.data?.items?.[item]?.range ?? 0;
+          return wildRules?.data?.items?.[effect?.wild || item]?.range ?? 0;
         };
         const itemCost = (item) => {
           const effect = accountItems?.consumables?.[item]?.effect;
@@ -168,7 +182,13 @@
           if (seen.has(rowKey)) return;
           seen.add(rowKey);
           const at = act.target || [a.x, a.y];
-          rows.push(judge(s, act, extra, `Use ${itemName(act.item)} → (${at[0]},${at[1]})`, itemCost(act.item), "Use an inventory item."));
+          let label = `Use ${itemName(act.item)} → (${at[0]},${at[1]})`;
+          if (accountItems?.consumables?.[act.item]?.effect?.rejuvenate) {   // SN1b: the preview names the eligible thief (spec T8)
+            const SH = typeof module === "object" && module.exports ? require("../mythic-plants/sammu.js") : globalThis.ConceptCombatSammu;
+            const thief = SH?.thiefFor?.(s, a, { hasSight, C, Injury: H.Injury });
+            if (thief) label += ` · ${thief.name} will take it within 3`;
+          }
+          rows.push(judge(s, act, extra, label, itemCost(act.item), "Use an inventory item."));
         };
         for (const act of refRows(s, a, extra, "useItem")) push(act);
         for (const item of (a.inventory || [])) push({ type: "useItem", actor: a.id, item, target: [a.x, a.y] });

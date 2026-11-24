@@ -10,7 +10,8 @@
 // Bonds B2b (R-20261122-69, R-20261122-70): beat 5, the pact, a talk that opens at Close (the third memory) whose "Swear the
 // pact" choice offers the pact (ledger.js offerPact); beat 6, the map, a promise beat that opens at Allied with its own promise
 // lines (a clerk from Lanka, the feuding crew, wants the flood map; the check is a win at the next settle); the floor hints and
-// his answers for Allied and Full Bond. The pact's halves (call, vouch) are stored for B4 and B6; no line here promises either.
+// his answers for Allied and Full Bond. The pact's halves (call, vouch) are stored; the call waits on B4, so no line here promises it.
+// Bonds B6 (R-20261123-07): `honest` and `hearing`, what he says when he is asked to vouch for you at a trial (law/trial.js vouch).
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatBondRoutes = factory();
@@ -87,8 +88,16 @@
         owned: "You came and said it yourself. That is the first half. The second is the next fight: win it, and the page can be corrected.",
         repaired: "Corrected, then. The register keeps both lines, the break and the mending. That is what it is for.",
       },
-      pact: { beat: "pact", call: true, vouch: true, label: "Swear the pact",   // call: he has a combat character (classes-data.js jatayu); both halves wait on B4 and B6
+      pact: { beat: "pact", call: true, vouch: true, label: "Swear the pact",   // call: he has a combat character (classes-data.js jatayu); the call half waits on B4, the vouch is read by B6
         accepted: "Sworn. I have written it under both our names, in my own hand." },
+      honest: true,   // R-20261123-07: honest for the vouch only. His battle traits (insight-data.js jatayu: loyal, courageous) do not change.
+      hearing: {      // B6: asked to vouch at your trial. vouched/broken/saw are said in the courtroom; the two memory lines go in the Bonds window
+        vouched: "I keep the Archive. I have checked this one against the stone more than once, and the copy holds.",
+        broken: "There is a promise to me in the register with a line through it. I will not stand up here as though there were not.",
+        saw: "I was on that field. I saw it done, and I will not stand here and say I did not.",
+        vouchedMemory: "I stood up for you at the hearing. It went into the register in my own hand.",
+        declinedMemory: "You asked me to speak for you, and I would not. That is in the register too, beside the rest.",
+      },
       refuse: {
         broken: "Not while a broken promise stands between us. Own it, and mend it, and ask me again.",
         trust: "You sent me into a fall I did not need to take. I do not answer that for someone I cannot follow yet.",

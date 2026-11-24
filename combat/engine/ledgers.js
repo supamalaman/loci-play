@@ -17,7 +17,30 @@
       s.respectSeed = { ...(opts.orderCarry?.respect || {}) };
       s.deeds = {}; s.orderBattles = opts.orderCarry?.battles || 0;
       s.bondRanks = { ...(opts.orderCarry?.bonds || {}) };   // Bonds B2a: the player's bond ranks, read by Factions.bondValence
+      s.bondVouches = (Array.isArray(opts.orderCarry?.vouches) ? opts.orderCarry.vouches : []).map((v) => ({ ...v }));   // Bonds B6: who may vouch at the player's trial (law/courtroom.js vouchersFor)
+      s.crewRep = {};   // Reputation R1a (muse-reputation-ledger-spec, R-20261122-19): the battle copy of account.crewRep, seeded whole (R-20261110-72)
+      for (const [sub, v] of Object.entries(opts.crewRep && typeof opts.crewRep === "object" ? opts.crewRep : {})) if (Object.hasOwn(C.subfactions || {}, sub) && Number.isFinite(v)) s.crewRep[sub] = repClamp(v);
     }
+
+    // ── Reputation (muse-reputation-ledger-spec; R-20261122-19, R-20261122-21) ──
+    // One store: standing per subfaction, a whole number 0 to 100, on the account's account.crewRep and the battle's copy
+    // s.crewRep (seeded in carryOrder above). A crew with no entry reads 50, neutral, so an old save starts nobody hostile.
+    // Writers call addRep with a reason; parley reads repOf. The copy goes back to the account only at the battle's finish
+    // (slice R1b, ui.js, outside a test battle); a test or practice battle passes no crewRep, so nothing it does is kept.
+    const REP_NEUTRAL = 50;
+    function repClamp(v) { return Math.max(0, Math.min(100, Math.round(v))); }
+    function repOf(s, sub) { const v = s?.crewRep?.[sub]; return Number.isFinite(v) ? v : REP_NEUTRAL; }
+    function addRep(s, sub, delta, why) {   // returns the change that stuck (0 when clamped or unknown)
+      const crew = Object.hasOwn(C.subfactions || {}, sub) ? C.subfactions[sub] : null; if (!s || !crew || !Number.isFinite(delta) || Math.round(delta) === 0) return 0;
+      const had = repOf(s, sub), now = repClamp(had + delta); if (now === had) return 0;
+      (s.crewRep ||= {})[sub] = now;
+      log(s, { kind: "reputation", subfaction: sub, delta: now - had, standing: now,
+        text: now > had ? `${crew.name} notes your respect.` : `${crew.name} will remember this.`,
+        why: [...(why ? [String(why)] : []), `${crew.name} standing ${had} → ${now}.`] });
+      return now - had;
+    }
+    // Reached as H.Rep (the writer slices, e.g. R2a's lastRites, call H.Rep.addRep) and as E.rep from outside the engine (one
+    // short export: engine.js is at its size cap). The copy is the battle's: a test battle is never seeded and never written back.
 
     // ── Contains Multitudes (content.js rules.multitudes; docs/contains-multitudes.md) ──
     // The Warden pays Inspiration to embody one class from his victory ledger (s.victories, carried in from the account)
@@ -551,6 +574,6 @@
       }
     };
 
-    return { Multitudes, Inspiration, PostHuman, Exposure, Support, Rites, carryOrder };
+    return { Multitudes, Inspiration, PostHuman, Exposure, Support, Rites, carryOrder, Rep: { repOf, addRep } };
   })();
 });

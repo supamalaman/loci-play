@@ -58,7 +58,7 @@
       ends: ["strength reaches 0", "no downhill or level tile to move to"],
     },
     termites: {
-      name: "Termite swarm", form: "unit", concept: "succession", channel: "albedo",
+      name: "Termite swarm", form: "unit", concept: "succession", channel: "albedo", sprite: "termites",
       sci: "Coptotermes formosanus",
       basis: "Formosan subterranean termites attack structural wood and living trees in Hawaiʻi; Ficus termite damage is noted in the Punchbowl research. Arborists remove infested debris and borate-treat wood.",
       teaches: "Debris left on site feeds decomposers; sanitation and treated wood break the cycle.",
@@ -69,7 +69,7 @@
       skittish: 0,
     },
     feralPig: {
-      name: "Feral pig", form: "unit", concept: "inertia", channel: "nigredo",
+      name: "Feral pig", form: "unit", concept: "inertia", channel: "nigredo", sprite: "feral-pig",
       sci: "Sus scrofa",
       basis: "Feral pigs root up soil and spread invasive plants across Hawaiʻi; conservation areas keep them out with fencing.",
       teaches: "A fence is a boundary that works because it is continuous: one gap and the pig is through.",
@@ -240,7 +240,12 @@
     waterCan:   { name: "Watering can", range: 2, text: "Wet a plus of tiles: they stop burning and won't catch fire for 3 rounds." },
     borate:     { name: "Borate treatment", range: 1, text: "Treat a wooden object or bridge: termites ignore it, and adjacent swarms flee." },
     noisemaker: { name: "Noisemaker", range: 4, text: "Startle unit monsters within 4 tiles: pigs flee, and swarms scatter one tile." },
+    dewJar:     { name: "Dew jar", range: 2, text: "Wet one tile: it stops burning and won't catch fire for 3 rounds." },
+    sweetBait:  { name: "Sweet bait", range: 4, text: "Place on a tile. A feral pig appears at the nearest edge, or an existing pig targets the bait for 3 rounds." },
   };
+  items.bluebellJar = { name: "Bluebell Jar", range: items.dewJar.range, text: items.dewJar.text };
+  items.sunflowerJar = { name: "Sunflower Jar", range: items.sweetBait.range, text: items.sweetBait.text };
+  items.marigoldJar = { name: "Marigold Jar", range: items.sweetBait.range, text: items.sweetBait.text };
 
   // Site appetite (Mala, 2026-10-19): each archetype tilts the random-event wave toward its own
   // wilds. Unlisted kinds keep weight 1, so an empty table draws exactly as before. The grove sends
@@ -257,12 +262,13 @@
 
   // L0 (bryophyte): field kinds as data. frontier, environmentPhase and
   // clearTiles read these rows instead of branching on kind names. Same
-  // numbers, same texts. Rows reference the monsters table above where the
+  // numbers, same texts. L1 adds spread mode "bonus" (perRound, every, base, bonus: { shade, wet, hard },
+  // onto, only) with act "spread" for the bryophyte kinds; creeper and brushfire keep their own modes. Rows reference the monsters table above where the
   // value already lives there, so each number still has one source.
   const fields = {
     creeper: {
       label: "Creeper", act: "creeper",
-      spread: { mode: "chars", onto: [",", "m"], shadeSkip: true, edgeChance: 1, openChance: 0.6 },
+      spread: { mode: "chars", onto: [",", "m"], shadeSkip: true, edgeChance: 1, openChance: 0.6, perRound: monsters.creeper.growPerRound },
       clear: { clearedBy: monsters.creeper.clearedBy, eventKind: "creeperCleared" },
       effects: { entangle: monsters.creeper.entangle },
     },

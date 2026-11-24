@@ -9,6 +9,8 @@
 })(typeof self !== "undefined" ? self : this, function install(H) {
   return (function () {
     const { addStun, ClassRuntime, continueTurnStart, currentId, dist, dodgeCostFor, endTurn, grappled, hit, key, log, opponentsOn, paths, resolveAbility, resolveDelayed } = H;
+    const INS = () => (typeof module === "object" && module.exports ? (() => { try { return require("../workshop/instruments.js"); } catch { return null; } })() : globalThis.ConceptCombatWorkshopInstruments) || null;   // Resonant Heirlooms JI1
+    const INS_ART = { has: (id) => !!(id && INS()?.ART_INSTRUMENT?.[id]) };   // JI1c: read from instruments.js ART_INSTRUMENT, the one list (a hand list here missed new arts)
     const apWords = (n, owed) => (n ? `${n} AP${owed}` : "no action points");   // a free dodge (a blurred speedster's, R-20261115-30) says so, not "0 AP, owed next turn"
     const starReactionTax = (s, d, attackerId) => (ClassRuntime?.actor && attackerId ? ClassRuntime.actor.reactionTax(s, d, attackerId) : 1);   // GDP taxes reactions off the star's attacks
     const hasReflexes = (u) => (u?.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === "insaneReflexes");
@@ -85,6 +87,14 @@
         if (coverOnly && x.id !== "fixedGaze" && x.id !== "purpleLitany" && x.id !== "guestPortion" && x.id !== "objection") continue;
         if (def?.answer) { if (answerReady(s, d, x, atk, def, inst)) out.push({ kind: "technique", ability: x.id, target: [atk.x, atk.y], apCost: answerAp(s, m, d, inst), pf: H.inspiredPay(s, d, m) ? 0 : m.cost, name: m.name, answer: true, ...(H.inspiredPay(s, d, m) ? { inspired: true } : {}) }); continue; }
         if (!def?.reactive || d.pf < m.cost || !canPayAp(s, d, answerAp(s, m, d, inst))) continue;
+        // JI1: an instrument answer is offered only with its source rights. Untuned but Inspired
+        // gets its own row carrying the substitute flag; nothing else changes shape.
+        let insSub = false;
+        if (INS_ART.has(x.id)) {
+          if (!INS()?.check(s, d, x.id, {})) insSub = false;
+          else if (!INS()?.check(s, d, x.id, { instrumentInspiration: true })) insSub = true;
+          else continue;
+        }
         if (learnedFails(s, d, inst, x.id)) continue;   // it failed against this technique already this battle
         const opt = (at) => ({ kind: "technique", ability: x.id, target: at, apCost: answerAp(s, m, d, inst), pf: m.cost, name: m.name });
         if (x.id === "objection") { const offer=ClassRuntime.auditor.option(s,d,inst,shown,H); if(offer)out.push({...opt(offer.target),...offer}); continue; }
@@ -105,9 +115,11 @@
           if (x.id === "fixedGaze" && coverOnly) { for (const t of opponentsOn(s, atk, inst.tiles, false)) if (t.side === d.side && t.id !== d.id && !t.defeated && !t.status?.ward && dist(s, d.x, d.y, t.x, t.y) <= 2) out.push({ ...opt([t.x, t.y]), coverFor: t.id }); continue; }   // W1c cover: the image meets a shot at an unwarded ally within 2 (a warded ally needs nothing; the image never overwrites)
           if (x.id === "purpleLitany" && !seesItComing(s, d, inst)) continue;   // Purple Litany (Bishop F4): a twin of Fixed Gaze with no prepaid image; the ranged gate is the same
           if (x.id === "wardField" && (!seesItComing(s, d, inst) || inst.ability === "strike" || inst.delivery === "contact" || dist(s, atk.x, atk.y, d.x, d.y) < 2)) continue;   // Ward Field (Shardback F5a): ranged 2+ only, never a Strike or contact hit
+          if (inst.breakWard && d.id === inst.breakWardFoe) continue;   // Cipher break (Eldritch F6): her next Cipher refined ignores one ward on the marked foe
+          if (x.id === "ossifiedWard" && (!seesItComing(s, d, inst) || inst.ability === "strike" || inst.delivery === "contact" || dist(s, atk.x, atk.y, d.x, d.y) < 2 || d.ossifiedRound === s.round)) continue;   // Ossified Ward (Eldritch F6): ranged 2+ only, never a Strike or contact hit, once a round
           if (x.id === "purpleLitany" && coverOnly) { for (const t of opponentsOn(s, atk, inst.tiles, false)) if (t.side === d.side && t.id !== d.id && !t.defeated && !t.status?.ward && dist(s, d.x, d.y, t.x, t.y) <= 2) out.push({ ...opt([t.x, t.y]), coverFor: t.id }); continue; }
           if (x.id === "sunWard" && !(H.States?.sunWardOpen?.(s, d) && seesItComing(s, d, inst) && dist(s, d.x, d.y, atk.x, atk.y) >= 2)) continue;   // Sun Ward (Treasure Hunter TH1b): base form only, no ward already held, and a shot he sees coming from minRange or more, announced or not (states.js)
-          if (m.range === 0) { out.push(opt([d.x, d.y])); continue; }   // Fortress lens: a ward on yourself
+          if (m.range === 0) { out.push(insSub ? { ...opt([d.x, d.y]), instrumentInspiration: true } : opt([d.x, d.y])); continue; }   // Fortress lens: a ward on yourself
           if (shown !== "line" || !atk) continue;   // a wall stops only line deliveries (as far as the defender can tell)
           const between = new Set(H.line(atk.x, atk.y, d.x, d.y).slice(1, -1).map(([x, y]) => key(x, y)));
           for (const l of H.targeting(s, d.id, x.id).legal) if (between.has(key(l.at[0], l.at[1]))) out.push(opt(l.at));
@@ -171,7 +183,9 @@
     function castReaction(s, d, opt, attack) {
       if (H.ab(opt.ability)?.answer) return castAnswer(s, d, opt, attack);
       if (opt.ability === "guestPortion") return castPortion(s, d, opt, attack);
-      const m = H.manifest(s, d, opt.ability), t = H.target(s, d, m, ...(opt.coverFor ? [d.x, d.y] : opt.target), {});   // W1c cover: the option names the ally's tile, but the self-targeted manifest re-validates at the holder (the offer itself already seated the ally)
+      const m = H.manifest(s, d, opt.ability);
+      if (opt.instrumentInspiration) m.instrumentInspiration = true;   // JI1: the reactive Inspiration bend rides the manifest, like the own-turn pre-branch in actions-technique.js
+      const t = H.target(s, d, m, ...(opt.coverFor ? [d.x, d.y] : opt.target), opt.instrumentInspiration ? { instrumentInspiration: true } : {});   // W1c cover: the option names the ally's tile, but the self-targeted manifest re-validates at the holder (the offer itself already seated the ally)
       if (!t.ok) return t.error;
       const now = d.id === currentId(s);
       const tax = starReactionTax(s, d, attack?.owner), apCost = answerAp(s, m, d, attack) * tax;
@@ -206,7 +220,11 @@
       if (sunPrimed) log(s, { kind: "respond", actor: d.id, target: attack.owner, ability: opt.ability, primed: true, text: `${d.name} had ${s.actors[attack.owner]?.name}'s tile marked: the Sun Ward meets ${attack.name} whole.`, why: ["Sun Ward, primed: the shooter stands on a tile his own live Survey rumor names, so the ward is not rushed."] });
       const wardPrimed = opt.ability === "wardField" && !!ClassRuntime?.shardback?.primed(s, d, s.actors[attack?.owner]);   // Ward Field, primed (Shardback F5b, the Cash): the shooter stands on her thorn soil, so the ward is whole and she cashes 1 Inspiration
       if (wardPrimed) { log(s, { kind: "respond", actor: d.id, target: attack.owner, ability: opt.ability, primed: true, text: `${s.actors[attack.owner]?.name} shoots from ground ${d.name} graded: the Ward Field meets ${attack.name} whole.`, why: ["Ward Field, primed: the shooter stands on her thorn soil (a tile she graded this battle), so the ward is not rushed, and she cashes 1 Inspiration (once a round)."] }); H.Inspiration.cash(s, d, "My ground."); }
-      const caught = perfect || crescendoAnswer || fixedPrimed || auditPrimed || sunPrimed || wardPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
+      const atkIsGreedigut = (u) => !!u && (u.boss === "greedigut" || u.character === "greedigut");
+      const ossifiedPrimed = opt.ability === "ossifiedWard" && (atkIsGreedigut(s.actors[attack?.owner]) || s.actors[attack?.owner]?.prey?.by === d.id);   // Ossified Ward, primed (Eldritch F6, R-20261122-68): the shooter is Greedigut, or a foe she marked as prey — so the ward is whole, even rushed
+      if (ossifiedPrimed) { d.ossifiedRound = s.round; log(s, { kind: "respond", actor: d.id, target: attack.owner, ability: opt.ability, primed: true, text: `${s.actors[attack.owner]?.name} hunts where ${d.name} hunts: the Ossified Ward meets ${attack.name} whole.`, why: ["Ossified Ward, primed: the shooter is Greedigut or her marked prey, so the ward is not rushed."] }); }
+      if (opt.ability === "ossifiedWard") { d.ossifiedRound = s.round; s.barriers.push({ id: "b" + (++s.seq), owner: d.id, x: d.x, y: d.y, concept: "brittle", duration: 1, expiresAt: d.ownerTurns + 1, passable: true, blocksMove: false, blocksSight: false, linePassable: true, coverFraction: 0 }); log(s, { kind: "respond", actor: d.id, ability: opt.ability, tiles: [[d.x, d.y]], text: `Bone shards settle where ${d.name} stands: a brittle tile of hers until her next turn.`, why: ["Ossified Ward: the answered shot leaves a brittle tile behind, once a round."] }); }
+      const caught = perfect || crescendoAnswer || fixedPrimed || auditPrimed || sunPrimed || wardPrimed || ossifiedPrimed ? 1 : hidden ? RD(s).fromCover.rushed : RD(s).rushed ?? 1;
       if(opt.ability==="objection"){ClassRuntime.auditor.sustain(s,d,attack,{...opt,caught},H);delete d.status.auditPrimed;}
       if (opt.ability === "plateChoir") ClassRuntime.law.choirSustain(s, d, attack, { ...opt, caught }, H);   // F3: store the Choir; tax a named attacker
       if (opt.ability === "wardField") ClassRuntime?.shardback?.wardBerm(s, d, s.actors[attack?.owner], H, log);   // F5a: the berm rises toward the shooter
@@ -329,7 +347,7 @@
           if (dealt > 0 && !atk.defeated) { atk.status.bleed = { drain: 2, until: atk.ownerTurns + bleedTurns }; d.status.bloodyHands = { label: "Bloody Hands", owner: d.id, expiresAt: d.ownerTurns + (s.rules.rite?.bloodyHandsTurns ?? 2) }; log(s, { kind: "bleed", actor: atk.id, text: `${atk.name} bleeds (2 LF a turn, ${bleedTurns} turns).` }); }
         }
       } else if (act.response === "technique") {
-        const opt = reactiveOptions(s, d, p.inst).find((o) => o.ability === act.ability && o.target[0] === (act.target || [])[0] && o.target[1] === act.target[1]);
+        const opt = reactiveOptions(s, d, p.inst).find((o) => o.ability === act.ability && o.target[0] === (act.target || [])[0] && o.target[1] === act.target[1] && !!(o.instrumentInspiration) === !!(act.instrumentInspiration));
         if (!opt) return "That technique cannot answer this attack: it must be reactive and affordable, and a wall must stand on the incoming line.";
         const r = castReaction(s, d, opt, p.inst); if (r) return r;
       } else if (act.response === "kneel") {
