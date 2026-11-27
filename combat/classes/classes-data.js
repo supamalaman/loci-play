@@ -136,6 +136,8 @@
     extraction:   { name: "Extraction", status: "graphed", from: "maid", note: "Maid. Distinct from Pruning (deletes a tagged part), Selectivity (decides what passes) and Swale (absorbs a hit): it MOVES a conserved quantity into finite capacity. In the graph, Diffusion puts that material back (opp-diffusion-rediffuses-extraction) and Extraction draws an accessible source down (opp-extraction-draws-diffusion). Its lesson echoes Interposition's (relocated, not erased); keep it about capacity, not redirection.",
                     operation: "Transfer an eligible quantity from a source to a destination.", lesson: "Removal relocates material; it doesn't erase it, and capacity runs out.",
                     limits: "Requires access, a removal mechanism and destination capacity." },
+    augury: { name: "Augury", status: "admit", note: "Held by no class yet (playable for whoever equips it, R-20261124-20). Distinct from Forecasting (a falsifiable bet on where a foe goes, scored by named tiles) and Parapsychology (one sealed call about one kind of act, scored for evidence): Augury seals a vague statement whose several readings race, and pays on whichever the foe's own acts make true. Needs prophecy state in the engine: prophecy/prophecy.js (S1).",
+            operation: "Seal a prophecy on one foe whose readings race through its next turn.", lesson: "A broad prediction is easy to hit and must pay little; the target chooses which reading comes true.", limits: "One open prophecy per prophet; lasts the target's next turn; only the target's own acts fulfil a reading; no reading kills or skips a turn." },
     parapsychology: { name: "Parapsychology", status: "admit", note: "Holder ruled, not built: a new class, the Parapsychologist, paired with Inference (R-20261110-60). Distinct from Inference (weighs already-gathered evidence; backward-looking, unstaked) and Deception (misrepresents; cold reading is the evil twin that controls expose): Parapsychology seals falsifiable predictions and scores them. Needs trial/seal/commit-reveal state in the engine.",
                     operation: "Seal a falsifiable call, resolve it against the outcome, pay hits and log misses.", lesson: "A prediction is evidence only if declared before the outcome; replication separates fluke from finding.",
                     limits: "One open trial per trialist; trials score, never change." },
@@ -214,6 +216,7 @@
     // Ajin C1 (Kerf BD, 2026-11-10): staged; no holder class yet.
     reconstitution: { name: "Reconstitution", status: "admit", operation: "Rebuild a damaged fighter after a failure threshold using a retained viable pattern.", lesson: "Surviving failure requires recoverable structure, time and resources; restoration is not a rewind.", limits: "LF cannot exceed maximum; one Reserve Pattern or Continuity Break anchor per caster; Continuity Break once per battle; recovery cannot drop below 1 LF.", note: "Unheld (Ajin C1). Distinct from Preservation (prevents loss before it occurs) and Reversal (undoes a previous change): only Reconstitution rebuilds after a failure threshold. Needs lfMark, moveToAnchor, turn-level return and pending-in-outcome (R1)." },
     telepresence: { name: "Telepresence", status: "admit", operation: "Act and perceive at a distant location using a physically present proxy on a limited control link.", lesson: "Remote capability increases reach but introduces a vulnerable connection and a control-versus-autonomy tradeoff.", limits: "One ordinary proxy; Flood permits exactly 3; proxies cannot capture, collect, cast or create proxies; control path ≤5; vanish if the caster falls.", note: "Unheld (Ajin C1). Distinct from Delegation (assigns another agent authority) and Interposition (places protection between threat and target): only Telepresence projects a temporary proxy body. Needs proxy actors, control paths, unveilNear and scheduled autonomous steps (T1)." },
+    warp_metric: { name: "Warp Metric", status: "admit", operation: "Relocate along a straight line without crossing the ground between, and pay the next turn by the square of the distance.", lesson: "Why can she not turn? What pays for the trip, and when?", limits: "Straight lines only; walls stop the pocket; a grappled unit cannot cast; a Run cannot be steered or cancelled once named.", note: "No class holds it until WM4 (Greedigut's wheelhouse, R-20261122-02). Distinct from Aeronautics (the body still flies the path and pays for each change of heading) and Folding (rotates a patch about a crease, then unfolds clean): only Warp Metric's body never leaves its pocket, and the trip leaves a debt and a shock. Needs a shared relocate helper, exotic debt as a next-turn AP cut, and delayed landing in the engine (WM1–WM3)." },
   };
 
   // Readwise-sourced proposals (Mala, 2026-10-08: "for those that aren't original maybe we need new concepts, lets look for
@@ -276,7 +279,7 @@
     "Load Distribution": "load_distribution", "Tension": "tension", "Dependency": "dependency", "Deception": "deception", "Inference": "inference",
     "Fault Tolerance": "fault_tolerance", "Topology": "topology", "Strategic Commitment": "strategic_commitment", "Alternate Pathway": "pathway",
     "Mesmerism": "mesmerism", "Disinhibition": "disinhibition",
-    "Plasticity": "plasticity", "Delegation": "delegation", "Section / Projection": "section", "Collage": "collage", "Succession": "succession", "Grading & Drainage": "gradingDrainage", "Pruning": "pruning", "Diffusion": "diffusion", "Focus": "focus", "Swale": "swale", "Selectivity": "selectivity", "Extraction": "extraction", "Parapsychology": "parapsychology", "Stoicism": "stoicism",
+    "Plasticity": "plasticity", "Delegation": "delegation", "Section / Projection": "section", "Collage": "collage", "Succession": "succession", "Grading & Drainage": "gradingDrainage", "Pruning": "pruning", "Diffusion": "diffusion", "Focus": "focus", "Swale": "swale", "Selectivity": "selectivity", "Extraction": "extraction", "Parapsychology": "parapsychology", "Augury": "augury", "Stoicism": "stoicism",
     "Laws of Gods of Men": "laws_of_gods_of_men", "Credit": "credit",
     "Damnation": "damnation", "Transference": "transference", "Co-Creation": "co_creation", "Discovery": "discovery", "Aging": "aging",
     "Glamour": "glamour", "Poise": "poise", "Bushido": "bushido", "Stealth": "stealth",
@@ -285,7 +288,7 @@
     "Gratitude": "gratitude",
     "Austerity": "austerity",
     "Expertise": "expertise",
-    "Truthsaying": "truthsaying", "Forecasting": "forecasting", "Horror": "horror", "Cooperative Principle": "cooperative_principle", "Super Empathy": "super_empathy",
+    "Truthsaying": "truthsaying", "Forecasting": "forecasting", "Horror": "horror", "Cooperative Principle": "cooperative_principle", "Paradox": "paradox", "Super Empathy": "super_empathy",
     "Innovation": "innovation",
     "Folding": "folding", "Conjunction": "conjunction",
     "Thorn": "thorn", "Cipher": "cipher",
@@ -303,6 +306,7 @@
     "Periodicity": "periodicity",
     "Affordance": "affordance", "Resilience": "resilience",
     "Reconstitution": "reconstitution", "Telepresence": "telepresence",
+    "Warp Metric": "warp_metric",
   };
 
   // Touched by Magic (Mala, 2026-10-10). A BIOLOGY trait, `touchedByMagic` in insight/insight-data.js: innate, never
@@ -340,7 +344,8 @@
   // calls them, from that set only (summons/summons.js callsPalace, familiarSet). No class lists any yet.
   const C = (id, name, concepts, wh, passives, abilities, merge, hidden, hyp, extra = {}) => ({
     id, name, status: "brief", concepts: concepts.map((n) => conceptId[n]), wheelHouse: wh.map((n) => conceptId[n]),
-    passives: passives.map(([pid, effect]) => ({ id: pid, effect })), abilities, merge, hidden, hypotheses: hyp, ...extra });
+    passives: passives.map(([pid, effect, mark]) => ({ id: pid, effect, ...(mark && typeof mark === "object" ? mark : {}) })),
+    abilities, merge, hidden, hypotheses: hyp, ...extra });
 
   const classes = {
     auditor_goblin:C("auditor_goblin","Auditor Goblin",["Laws of Gods of Men","Discovery"],["Laws of Gods of Men","Discovery","Indexing"],
@@ -645,6 +650,15 @@
       { strength: "Perception moves faster than proof: it changes how others act without changing the board.", weakness: "One clear Observation punctures the aura for everyone who sees it." },
       { weakTo: "Inference and Observe that test the hype.", strongAgainst: "Cautious or Preparer AIs.", strongWith: "Legitimacy turning hype into recognized status.", bypass: "Opponents' caution (they don't engage).", negate: "Nothing physical.", neutral: "Mindless units (zombies) that don't read signals." },
       { origin: "Grok roster (Sixfold codex), fleshed out by Claude 2026-10-08", art: "hypebeast" }),
+    // The Anime Duelist (codex-anime-duelist-spec AD1a, R-20261112-27, R-20261122-75): a theatrical duelist who hides his options, then wins by making
+    // his stakes public. AD1a: the four shared moves, his traits and Card Battler, as an opponent. The merge is AD1b (staged text below).
+    anime_duelist: C("anime_duelist", "Anime Duelist", ["Strategic Commitment", "Deception"], ["Strategic Commitment", "Deception", "Sightline"],
+      [["scrutiny", "20/20 Vision adds one visible observation point; shared trait effect once."], ["believer", "Believer: he is aware of Battle Cards; bounded by the normal believer rules, and he never reads a private deck."], ["card_battler", "Card Battler: +4 deck points (30 at most) and +2 card slots; the first direct damage, heal or ward of 5 or more on each instant or set card he plays gains 20%, at most +3."]],
+      { primaryBasic: "Public Promise: name a measurable objective and publicly give up an option.", primaryRefined: "Credible Guarantee: stake ΦF behind the promise; keep it for the reward, break it and pay.", secondaryBasic: "Feint: bait a reaction within 4.", secondaryRefined: "Feigned Retreat: withdraw, and punish whoever pursues." },
+      "All Cards on the Table (staged, not castable yet; AD1b): announce, show your hand, and the next single-target card you play this turn or next gains 50% of its damage or ward, at most +8 in all.",
+      { strength: "A deeper finite deck keeps late-battle options, and his direct card payloads land harder.", weakness: "A finite deck and public commitments narrow his options: study what he carries and refuse the chase." },
+      { weakTo: "Observe and study that learn what he carries.", strongAgainst: "Foes who chase a retreat or answer every Feint the same way.", strongWith: "Sightline reading a set threat before it springs.", bypass: "Nothing: every card still pays its normal limits.", negate: "Pressure while his promise is public.", neutral: "Mindless units that ignore bait." },
+      { origin: "codex-anime-duelist-spec (Trestle TC, 2026-11-12), built by Becket BD 2026-11-22, rebased by Inhaul BD 2026-11-25", art: "anime-duelist", existingAbilities: { primaryBasic: "publicPromise", primaryRefined: "credibleGuarantee", secondaryBasic: "feint", secondaryRefined: "feignedRetreat" } }),   // the four shared live techniques, as the Auditor Goblin declares his
     rogue: C("rogue", "Rogue", ["Pruning", "Extraction"], ["Pruning", "Extraction", "Deception"],
       [["light_fingers", "When adjacent, the Rogue sees one item or buff the target carries."], ["clean_cut", "A pruning cut that removes something leaves no trace for 1 round: the target doesn't know what's missing."]],
       { primaryBasic: "Cut Purse: remove one carried item or consumable from an adjacent target.", primaryRefined: "Disarm: remove one equipped lens or gear effect for 2 turns.", secondaryBasic: "Pocket: take what was cut for yourself.", secondaryRefined: "Fence It: turn a pocketed item into Seeds or ΦF." },
@@ -945,13 +959,13 @@
         kit: ["diffuseWave", "concentrationGradient", "prototype", "recombine", "naniteBloom", "caseNotes"], rules: "engine/damage.js Latch Dose + Do No Harm (F2); engine/resolve.js Nanite Bloom + Case Notes; substrate link in engine/actions-technique.js; Clinical Review rides her pairs, not the kit (the Second Gaze precedent)" }),
     // Šammu nikitti (SN1a, R-20261122-38/-39; spec cursor-sammu-nikitti-item-spec SAMMU_NIKITTI.md): a mythic plant, never a starter or a roster foe.
     // She exists only as a commune: terrain/communion-data.js species identity makes the answering ally this class (96 LF, her three traits).
-    // SN1a is live (Sap, her deck, her AI, the four native techniques); the bloom merge (SN1-bloom), Tend Before Triumph and Borrowed Years (SN1a2) are staged text.
+    // SN1a is live (Sap, her deck, her AI, the four native techniques); Tend Before Triumph and Borrowed Years are live (SN1a2); only the bloom merge (SN1-bloom) is staged text.
     // No class-builds.js entry on purpose: a build needs a ClassRuntime.CLASS_PAIRS row, and every CLASS_PAIRS row becomes a roster enemy (content.js, the class-pack
     // loop) and an Emissary kit. She is a commune only; her passives' machine form lives in her traits (insight-data.js) and mythic-plants/sammu.js.
     sammu_nikitti: C("sammu_nikitti", "Šammu nikitti", ["Succession", "Preservation"], ["Succession", "Preservation", "Adaptation"],
-      [["juvenescent_sap", "Juvenescent Sap (biology): a heal of hers that restores LF adds half as much again (at most +8) and mends the worst injury one grade, on up to three different living people a battle (herself included), each once."],
-       ["empathic_tending", "Empathic: with an ally below half LF within her reach, she plants a patch where that ally can use it; Repair the Record still comes first when she can pay for it (her AI)."],
-       ["borrowed_years", "Borrowed Years (staged, not castable yet; SN1a2): her Protective Sleeve banks the damage it prevents, and her next Repair the Record spends it (at most +6)."]],
+      [["juvenescent_sap", "Juvenescent Sap (biology): a heal of hers that restores LF adds half as much again (at most +8) and mends the worst injury one grade, on up to three different living people a battle (herself included), each once.", { appliedBy: "web/combat/content.js ~301" }],
+       ["empathic_tending", "Empathic: with an ally below half LF within her reach, she plants a patch where that ally can use it; Repair the Record still comes first when she can pay for it (her AI).", { appliedBy: "web/combat/content.js ~401" }],
+       ["borrowed_years", "Borrowed Years (SN1a2): her Protective Sleeve banks the damage it prevents, and her next Repair the Record spends it (at most +6).", { planned: "SA4d after SN1a2 lands: bank prevented damage, spend on Repair the Record (max +6)" }]],
       { primaryBasic: "Pioneer Patch: plant a patch on open soil; it matures to a healing patch over rounds.", primaryRefined: "Nurse Log: anchor a patch at a felled log or stump; the remnant shelters what grows.",
         secondaryBasic: "Protective Sleeve: a 12-point ward on a living ally until their next turn.", secondaryRefined: "Repair the Record: restore up to 14 LF to a living ally; never revives." },
       "Old Men Become Young (staged, not castable yet; SN1-bloom): an announced bloom from a mature patch that, a full turn later, restores up to three named living allies to full LF and clears their injuries, unless the patch is broken or the root is moved. Needs both concepts.",
@@ -1298,8 +1312,8 @@
       { origin: "Mala 2026-11-11 hot build for the remora adventurer sheet. Unused pair Leverage + Extraction. Sprite remora-adventurer, cut the same day.", art: "remora-adventurer", status: "playable", kit: ["tridentJab", "pryLoose", "hitchBite", "stripAScale", "theHost"], existingAbilities: { primaryBasic: "tridentJab", primaryRefined: "pryLoose", secondaryBasic: "hitchBite", secondaryRefined: "stripAScale" }, rules: "engine/conditions.js" }),
     // Bard Artificer (Muse Berry BD hot-build, 2026-10-29): the luthier-bard. Builds the instruments, then plays the room with them. Stage crew: the watching is the point.
     bard_artificer: C("bard_artificer", "Bard Artificer", ["Craftsmanship", "Innovation"], ["Craftsmanship", "Innovation", "Lyricism"],
-      [["soundcheck", "The first technique the Bard Artificer casts each battle costs 3 less FF (min 0)."],
-       ["roadie", "Allied gadgets and constructs within 3 tiles gain +2 potency on their effects, max +2 per effect."]],
+      [["soundcheck", "The first technique the Bard Artificer casts each battle costs 3 less FF (min 0).", { planned: "SA4a: first technique each battle costs 3 less FF (min 0)" }],
+       ["roadie", "Allied gadgets and constructs within 3 tiles gain +2 potency on their effects, max +2 per effect.", { planned: "SA4a: allied gadgets and constructs within 3 gain +2 potency, max +2 per effect" }]],
       { primaryBasic: "Tune Up: an ally's next technique this round gains +3 potency. 5 FF; counter: strike the tuned ally before they act.", primaryRefined: "Showpiece: build a Resonant Instrument on an adjacent tile (3 uses): allies adjacent to it cast basics for 1 less FF. It breaks at 10 damage.", secondaryBasic: "Workshop: deploy a Spark Gadget on an adjacent tile: once, an ally may trigger it for +4 potency on a basic. One gadget at a time.", secondaryRefined: "Iterate: repeat the last basic technique you cast this battle at half potency (round down), paying its cost again. Once per battle." },
       "First Chair: every ally including you immediately recasts their last basic at full potency, free, in any order. It needs both concepts: Craftsmanship's tuned instruments, Innovation's recombination.",
       { strength: "Long battles tune the whole band: every recast lands on already-softened targets.", weakness: "No allies, no band: solo, half the kit accompanies nobody." },
@@ -1331,10 +1345,18 @@
       { strength: "More actions per round than anyone, cheaply, through fragile guests.", weakness: "Every guest is fragile, and all of it hangs on one body." },
       { weakTo: "Area attacks that clear the table; Smite and destructive hits on a Totem.", strongAgainst: "Foes who ignore the host and chase guests.", strongWith: "Preservation protecting the host while the table works.", bypass: "None.", negate: "None.", neutral: "A foe with nothing hidden: the Raven's reveal finds no one, the mark still lands." },
       { origin: "Mala 2026-11-10: the Shaman is the summoner class; spirits as cheap guests; nature spirits as attendants.", art: "shaman", status: "playable", kit: ["spiritRaven", "ancestralFox", "guestPortion", "spiritTotem", "ancestralMoot", "echoDouble"], rules: "guests/guests.js" }),
+    magenta_trickster: C("magenta_trickster", "Magenta Trickster", ["Deception", "Elasticity"], ["Deception", "Elasticity", "Sightline"],
+      [["witnessed_opening", "Once per owner turn, an accepted non-none designated response to this owner's announced Feint discounts the next Palm against that target to 25 AP / 3 PF."],
+       ["loose_wrist", "Paid single-target nigredo line techniques with positive pull reach 1 tile farther (not Snap the Thread or The Last Card Returns). Independent hard caps remain. No pair required."]],
+      { primaryBasic: "Feint: existing albedo bait; announced 5 AP / 1 PF, potency 1.", primaryRefined: "Palm the Thread: attach one elastic thread to a visible hostile within 4, or to a unique biggest-threat ally.", secondaryBasic: "Reeling Shot: nigredo 7, pull 1, range 4 (5 with Loose Wrist).", secondaryRefined: "Snap the Thread: 8+4t nigredo, cap 20, consumes the thread, range 6, no pull." },
+      "The Last Card Returns: announced merge along the live thread; 16+4t nigredo cap 28, ordinary pull 2, consumes the thread.",
+      { strength: "An opponent who answers announcements makes attachment cheaper, then stretch pays Snap.", weakness: "An opponent who approaches or breaks sight keeps the thread slack or gone." },
+      { weakTo: "Approach, sight-break, Dream change, and answering none to Feint.", strongAgainst: "Habitual responders who stay at range.", strongWith: "Sightline and any ally who pins a target in view.", bypass: "None.", negate: "None: defenses still apply to Snap and the merge.", neutral: "Battle Cards stay a separate deck; these cards are technique props." },
+      { origin: "codex-magenta-trickster-spec MT1", art: "magenta-trickster", status: "playable", identity: "A legendary street fighter who plays the duel as high-level strategy: bait, attach, stretch, snap. He hunts the biggest threat on the field, even when a teammate wants a weaker mark finished.", kit: ["feint", "palmTheThread", "reelingShot", "snapTheThread", "theLastCardReturns"], existingAbilities: { primaryBasic: "feint", primaryRefined: "palmTheThread", secondaryBasic: "reelingShot", secondaryRefined: "snapTheThread" } }),
     // Burlesque Dancer (Muse Berry BD hot-build, 2026-10-29): the headliner. Holds the room's breath, then spends it. Stage crew.
     burlesque_dancer: C("burlesque_dancer", "Burlesque Dancer", ["Tension", "Glamour"], ["Tension", "Glamour", "Lyricism"],
-      [["stage_presence", "Enemies adjacent to the Dancer at their turn start lose 2 AP, once per enemy per round."],
-       ["encore_call", "When an enemy misses the Dancer, she gains +1 movement until her next turn."]],
+      [["stage_presence", "Enemies adjacent to the Dancer at their turn start lose 2 AP, once per enemy per round.", { planned: "SA4c: adjacent enemies lose 2 AP at turn start, once per enemy per round" }],
+       ["encore_call", "When an enemy misses the Dancer, she gains +1 movement until her next turn.", { planned: "SA4c: +1 movement until next turn when an enemy misses" }]],
       { primaryBasic: "Spotlight: pull one enemy's gaze: it must target her with its next technique or pay +4 FF. 4 FF.", primaryRefined: "Tease: the next technique an enemy that can see her casts costs +3 FF, once. Counter: avert gaze for 5 AP.", secondaryBasic: "Smize: become the center of attention: gain 2 Protection until your next turn. 3 FF.", secondaryRefined: "Fan Dance: a wave of fans: enemies in a line of 3 take 6 and are Pushed 1. 6 FF." },
       "Showstopper: every enemy that can see her stops: Stunned 1 (bosses Slowed 2 instead), and she Conceals. It needs both concepts: Tension's held breath, Glamour's reveal.",
       { strength: "The room pays attention: every gaze she holds is AP and FF the enemy never spends.", weakness: "Blind enemies and empty rooms: with no one watching, she is glitter with no leverage." },
@@ -1342,8 +1364,8 @@
       { origin: "Muse Berry BD hot-build 2026-10-29 (Tension + Glamour; unused pair)", art: "burlesque-dancer" }),
     // Clown (Muse Berry BD hot-build, 2026-10-29): the fool. Folds the battlefield like a napkin and serves everyone at once. Stage crew.
     clown: C("clown", "Clown", ["Folding", "Collage"], ["Folding", "Collage", "Deception"],
-      [["slapstick", "When the Clown is knocked Prone or Pushed, it gains +2 movement until its next turn."],
-       ["pratfall_timing", "The first technique each round that would deal 10+ to the Clown deals 2 less."]],
+      [["slapstick", "When the Clown is knocked Prone or Pushed, it gains +2 movement until its next turn.", { planned: "SA4a: +2 movement until next turn when knocked Prone or Pushed" }],
+       ["pratfall_timing", "The first technique each round that would deal 10+ to the Clown deals 2 less.", { planned: "SA4a: first 10+ technique each round deals 2 less" }]],
       { primaryBasic: "Fold Away: fold a willing ally into a pocket: they leave the board until your next turn start, then pop out adjacent. 5 FF; counter: Stun the Clown and the pocket pops early.", primaryRefined: "Pie: throw a pie at range 4: 4 damage and the target is Dazed 1. 4 FF.", secondaryBasic: "Slapstick: trip an adjacent enemy: Pushed 1 and Prone. 3 FF.", secondaryRefined: "Prop Comedy: assemble a prop cannon from battlefield junk: 8 damage in a line of 3; costs +2 FF each time it is cast in a battle." },
       "Kitchen Sink: EVERYTHING including: all enemies within 4 take 10, are Pushed 2 and Prone; all allies within 4 heal 6. It needs both concepts: Folding's pocket, Collage's assembly.",
       { strength: "Chaos is a resource: every Pushed, Prone and pocketed body is a prop for the next gag.", weakness: "Short arms: everything it does reaches 4 tiles or fewer." },
@@ -1351,8 +1373,8 @@
       { origin: "Muse Berry BD hot-build 2026-10-29 (Folding + Collage; unused pair)", art: "clown" }),
     // MMA Fighter Alternate (Muse Berry BD hot-build, 2026-10-29): the grinder. Takes root in the cage and gets harder to move than to hit. Street crew, beside its sibling.
     mma_fighter_alternate: C("mma_fighter_alternate", "MMA Fighter Alternate", ["Antifragility", "Settlement"], ["Antifragility", "Settlement", "Leverage"],
-      [["granite_chin", "Reduce the first damage taken each round by 2 (min 0)."],
-       ["home_cage", "While the Alternate ends its turn adjacent to a wall or arena edge, it gains 1 Protection (max 3)."]],
+      [["granite_chin", "Reduce the first damage taken each round by 2 (min 0).", { planned: "SA4c: reduce the first damage each round by 2" }],
+       ["home_cage", "While the Alternate ends its turn adjacent to a wall or arena edge, it gains 1 Protection (max 3).", { planned: "SA4c: +1 Protection (max 3) ending turn adjacent to wall or edge" }]],
       { primaryBasic: "Take Root: brace: +2 Protection until your next turn and cannot be Pushed. 3 FF.", primaryRefined: "Counter Hold: when an enemy misses you in melee this round, deal 6 back. A stance until your next turn.", secondaryBasic: "Settle In: claim your tile: while you stand on it, +2 potency. Moving abandons the claim.", secondaryRefined: "Weather It: cleanse all conditions and heal 4. 6 FF, once per round." },
       "Hometown Decision: until your next turn, every enemy that damages you takes 6 back, and your techniques gain +4 potency while you stand your claimed tile. It needs both concepts: Antifragility's return, Settlement's ground.",
       { strength: "The cage shrinks around it: every round it stands still it is harder to move and meaner to touch.", weakness: "It must stand still: drag it off its tile and the Decision is just a bruise." },
@@ -1361,8 +1383,8 @@
     // Maricha (Kedge BD, 2026-11-09; Surpanakha flee chain S1, R-20261108-06: story-only and thin until a later hot-build). Ravana's
     // unwilling uncle, the shape-shifter who became the golden deer. Arrives only through Surpanakha's flight. Fights from concept kits; passives + merge staged.
     maricha: C("maricha", "Maricha", ["Deception", "Plasticity"], ["Deception", "Plasticity", "Glamour"],
-      [["golden_hide", "Staged: while in a borrowed shape, the first technique that targets Maricha each round must be re-aimed if another foe is in range."],
-       ["old_wound", "Staged: Maricha starts each battle afraid of Rama's arrow: his fear checks are 25% likelier while Rama stands within 4."]],
+      [["golden_hide", "Staged: while in a borrowed shape, the first technique that targets Maricha each round must be re-aimed if another foe is in range.", { planned: "SA4d: re-aim first targeting technique each round in borrowed shape" }],
+       ["old_wound", "Staged: Maricha starts each battle afraid of Rama's arrow: his fear checks are 25% likelier while Rama stands within 4.", { planned: "SA4d: fear checks 25% likelier while Rama stands within 4" }]],
       { primaryBasic: "Lure Step: Feint (Deception kit), a glimpse of gold between the trees.", primaryRefined: "False Trail: Feigned Retreat (Deception kit): he runs, and the chaser follows too far.", secondaryBasic: "Borrowed Shape: New Configuration (Plasticity kit): another body, the same rakshasa.", secondaryRefined: "Take the Shape: Take the Shape (Plasticity kit): the deer, the voice, whatever lures." },
       "Ha Lakshmana: Maricha cries out in an ally's voice; the nearest foe must move toward the cry or lose 2 AP. It needs both concepts: Deception's lie, Plasticity's borrowed throat. Staged.",
       { strength: "A lure nobody can ignore: a foe who chases him has left someone else unguarded.", weakness: "Afraid and unwilling: one clean blow ends the illusion, and he runs." },
@@ -1370,8 +1392,8 @@
       { existingAbilities: { primaryBasic: "feint", primaryRefined: "feignedRetreat", secondaryBasic: "newConfiguration", secondaryRefined: "takeTheShape" }, origin: "Ramayana (Valmiki, Aranya Kanda); Surpanakha flee chain (cursor-surpanakha-flee-chain-spec)", art: "mutant-boar" }),
     // Tofu Yokai (Muse Berry BD hot-build, 2026-10-29): the pack anchor. Feints, vanishes, and wobbles through; every gift is a trick and every trick starts as a gift. Fights from concept kits; passives + merge staged.
     tofu_yokai: C("tofu_yokai", "Tofu Yokai", ["Deception", "Stealth"], ["Deception", "Stealth", "Inertia"],
-      [["wobble", "The first hit each round that would deal 6+ to the Yokai deals 2 less (min 0); soft curd absorbs."],
-       ["sample_tray", "Enemies ending their turn adjacent to the Yokai smell the tofu: they must target it with their next technique or move away first. Once per enemy per round."]],
+      [["wobble", "The first hit each round that would deal 6+ to the Yokai deals 2 less (min 0); soft curd absorbs.", { appliedBy: "web/combat/engine/damage.js ~596" }],
+       ["sample_tray", "Enemies ending their turn adjacent to the Yokai smell the tofu: they must target it with their next technique or move away first. Once per enemy per round.", { planned: "SA4b: adjacent enemies at turn end must target it or move away, once per enemy per round" }]],
       { primaryBasic: "Feint Gift: Feint (Deception kit), offered as a gift — the threat is the follow-up, not the touch.", primaryRefined: "False Tray: False Horizon (Deception kit) on the Yokai's tile: the tray is set where the enemy must step.", secondaryBasic: "Gone Like Steam: Vanish (Stealth kit): the boy is gone; only the smell of tofu remains.", secondaryRefined: "Curd-Smoke: Smoke Veil (Stealth kit): the pack shuffles behind the veil." },
       "Hundred-Night Vanishing: the Yokai and every ally within 2 Vanish; enemies that strike the empty tiles are Feinted. It needs both concepts: Deception's misdirection, Stealth's exit. Staged.",
       { strength: "Never where the blow lands: feints, veils and wobble stack into unhittability.", weakness: "Soft all the way down: pin it down and squash it; veils don't stop area fire." },
@@ -1379,8 +1401,8 @@
       { existingAbilities: { primaryBasic: "feint", primaryRefined: "falseHorizon", secondaryBasic: "vanish", secondaryRefined: "smokeVeil" }, origin: "Muse Berry BD hot-build 2026-10-29 (Deception + Stealth; unused pair)", art: "tofu-yokai" }),
     // Tofu Archer (Muse Berry BD hot-build, 2026-10-29): the eldest sister. Holds the shrine sill at range; the shot is set. Fights from concept kits; passives + merge staged.
     tofu_archer: C("tofu_archer", "Tofu Archer", ["Sightline", "Threshold"], ["Sightline", "Threshold", "Deception"],
-      [["sill_watch", "Ranged techniques gain +2 potency against enemies that moved this round."],
-       ["nigari_sets", "The first ranged hit each battle Slows 1 (the shot sets like curd)."]],
+      [["sill_watch", "Ranged techniques gain +2 potency against enemies that moved this round.", { planned: "SA4b: ranged techniques gain +2 potency vs enemies that moved this round" }],
+       ["nigari_sets", "The first ranged hit each battle Slows 1 (the shot sets like curd).", { planned: "SA4b: first ranged hit each battle Slows 1" }]],
       { primaryBasic: "Threaded Shot: Clear Shot (Sightline kit), threaded between the shelves.", primaryRefined: "Survey the Sill: Survey Shot (Sightline kit); what it Reveals, the pack exploits.", secondaryBasic: "Trip the Sill: Trip Threshold (Threshold kit) on the enemy's path.", secondaryRefined: "Break the Sill: Tipping Point (Threshold kit): the held threshold breaks all at once." },
       "The Sill Holds: until your next turn, no enemy may cross the Archer's sightline; crossers take 8 and stop. It needs both concepts: Sightline's thread, Threshold's gate. Staged.",
       { strength: "The longer the sightline, the thinner the enemy: movers pay double.", weakness: "Needs the thread: smoke, dazzle and point-blank rushers tangle it." },
@@ -1388,8 +1410,8 @@
       { existingAbilities: { primaryBasic: "clearShot", primaryRefined: "surveyShot", secondaryBasic: "tripThreshold", secondaryRefined: "tippingPoint" }, origin: "Muse Berry BD hot-build 2026-10-29 (Sightline + Threshold; unused pair)", art: "tofu-archer" }),
     // Tofu Warden (Muse Berry BD hot-build, 2026-10-29): the younger sister. The immovable gate. PROVISIONAL: her sheet hasn't dropped; theme follows the cutter. Fights from concept kits; passives + merge staged.
     tofu_warden: C("tofu_warden", "Tofu Warden", ["Boundary", "Inertia"], ["Boundary", "Inertia", "Threshold"],
-      [["gate_stands", "Enemies cannot move through tiles adjacent to the Warden."],
-       ["press_cloth", "Adjacent allies take 1 less from area damage (min 0)."]],
+      [["gate_stands", "Enemies cannot move through tiles adjacent to the Warden.", { planned: "SA4b: enemies cannot move through adjacent tiles" }],
+       ["press_cloth", "Adjacent allies take 1 less from area damage (min 0).", { planned: "SA4b: adjacent allies take 1 less from area damage" }]],
       { primaryBasic: "Extend the Gate: Fence Line (Boundary kit): the gate extends.", primaryRefined: "None Pass: Closed Domain (Boundary kit): none pass.", secondaryBasic: "Set the Feet: Anchor (Inertia kit): the gate sets its feet.", secondaryRefined: "Full Stop: Immovable (Inertia kit): the gate does not move, full stop." },
       "Press-Cloth Bastion: a 2-tile bastion around the Warden: allies inside cannot be Pushed and the Warden cannot be moved until your next turn. It needs both concepts: Boundary's wall, Inertia's mass. Staged.",
       { strength: "The ground it stands on is settled law: nothing passes, nothing moves it.", weakness: "The law ends at its reach: outrange it or go around." },
@@ -1397,8 +1419,8 @@
       { existingAbilities: { primaryBasic: "fenceLine", primaryRefined: "closedDomain", secondaryBasic: "anchor", secondaryRefined: "immovable" }, origin: "Muse Berry BD hot-build 2026-10-29 (Boundary + Inertia; unused pair)", art: "tofu-warden" }),
     // Hermes (Muse Berry BD hot-build, 2026-10-29): the messenger. Joins every quarrel by arriving first with everyone else's news. Divinity crew, the gods' standing (Reputation R1a, R-20261123-10; was Cosmic).
     hermes: C("hermes", "Hermes", ["Conjunction", "Diffusion"], ["Conjunction", "Diffusion", "Threshold"],
-      [["winged_sandals", "+1 movement; Hermes never takes fall damage."],
-       ["herald", "Allies Hermes passes adjacent to during movement gain +1 movement until their next turn, once per ally per round."]],
+      [["winged_sandals", "+1 movement; Hermes never takes fall damage.", { planned: "SA4d: +1 movement, never fall damage" }],
+       ["herald", "Allies Hermes passes adjacent to during movement gain +1 movement until their next turn, once per ally per round.", { planned: "SA4d: passed allies gain +1 movement until next turn, once per ally per round" }]],
       { primaryBasic: "Special Delivery: carry a willing adjacent ally up to 4 tiles. 5 FF; counter: rooted allies cannot be carried.", primaryRefined: "Wrong Address: redirect an enemy's single-target technique to another legal target of your choice. Once per round, 6 FF; counter: area techniques cannot be redirected.", secondaryBasic: "Rumor Mill: plant a rumor: one enemy cannot benefit from allied auras until your next turn. 4 FF; counter: cleanse.", secondaryRefined: "Whisper Network: reveal all Concealed enemies until your next turn. 5 FF." },
       "Caduceus: the staff parts every quarrel: all enemies are Pushed 2 from Hermes and cannot target anyone except Hermes until his next turn; all allies heal 8. It needs both concepts: Conjunction's meeting, Diffusion's spread.",
       { strength: "The fastest agenda on the board: every delivery, redirect and rumor arrives before the enemy's plan.", weakness: "The message needs a runner: pin Hermes down and the network goes quiet." },
@@ -1406,8 +1428,8 @@
       { origin: "Muse Berry BD hot-build 2026-10-29 (Conjunction + Diffusion; unused pair)", art: "hermes" }),
     // Kaikeyi (Muse Berry BD hot-build, 2026-10-29): the queen owed. Saved a king in battle, banked two boons, and collects in thrones. Court crew: her fight is an office.
     kaikeyi: C("kaikeyi", "Kaikeyi", ["Laws of Gods of Men", "Pruning"], ["Laws of Gods of Men", "Pruning", "Legitimacy"],
-      [["battle_debt", "The first time each battle an ally saves Kaikeyi from damage (ward or intercept), she banks a Boon (max 2): spend a Boon for +4 potency on a technique."],
-       ["queens_price", "The first technique each enemy casts after damaging Kaikeyi costs +2 FF."]],
+      [["battle_debt", "The first time each battle an ally saves Kaikeyi from damage (ward or intercept), she banks a Boon (max 2): spend a Boon for +4 potency on a technique.", { planned: "SA4d: bank a Boon (max 2) when saved, spend for +4 potency" }],
+       ["queens_price", "The first technique each enemy casts after damaging Kaikeyi costs +2 FF.", { planned: "SA4d: first technique after damaging Kaikeyi costs +2 FF" }]],
       { primaryBasic: "The Boon: demand payment: one enemy that damaged an ally this round pays you 4 FF or takes 6. 4 FF.", primaryRefined: "Exile Order: banish one enemy from its tile: Pushed 3, and it cannot return to that tile until your next turn. 6 FF.", secondaryBasic: "Cut the Line: sever one ongoing effect (ward, aura or link) within 4 tiles. 5 FF; counter: instant effects cannot be cut.", secondaryRefined: "Deadwood: an enemy with 3+ conditions takes 8. 5 FF." },
       "Two Boons: cash the debt a king owes: name two enemy techniques; neither can be cast until your next turn; then every enemy pays 4 FF or takes 8. It needs both concepts: Law's binding word, Pruning's cut.",
       { strength: "Debts compound: every ward spent on her and every hit on her allies becomes leverage.", weakness: "No debtors, no queen: ignore her kit and she is a slow clerk with a crown." },
@@ -1415,8 +1437,8 @@
       { origin: "Muse Berry BD hot-build 2026-10-29 (Laws of Gods of Men + Pruning; unused pair)", art: "kaikeyi" }),
     // Cactus Guard (Muse Berry BD hot-build, 2026-10-29): the stoic warden. Stands the gate and charges admission in spines. Civic crew: keeps things standing.
     cactusguard: C("cactusguard", "Cactus Guard", ["Thorn", "Barrier"], ["Thorn", "Barrier", "Leverage"],
-      [["spines", "Enemies that strike the Guard in melee take 2 back, once each per round."],
-       ["rooted_guard", "While the Guard ends its turn adjacent to an ally, that ally gains 1 Protection (max 2)."]],
+      [["spines", "Enemies that strike the Guard in melee take 2 back, once each per round.", { planned: "SA4c: verify-or-wire melee retaliation (2 back, once each per round)" }],
+       ["rooted_guard", "While the Guard ends its turn adjacent to an ally, that ally gains 1 Protection (max 2).", { planned: "SA4c: adjacent ally gains 1 Protection (max 2) at turn end" }]],
       { primaryBasic: "Needle Jab: a quick jab for 5. 3 FF; counter: outrange it.", primaryRefined: "Crown of Flowers: the red crown opens: adjacent enemies take 4 and are marked (your next technique against them +2). 6 FF.", secondaryBasic: "Stand the Gate: brace: +2 Protection until your next turn. 3 FF.", secondaryRefined: "Living Wall: until your next turn, allies behind you in a line cannot be targeted by line techniques. 6 FF." },
       "Desert Bloom: the crown opens all at once: all adjacent enemies take 10 and are Slowed 1; allies adjacent to you heal 6. It needs both concepts: Thorn's spines, Barrier's wall.",
       { strength: "The gate holds: every round it stands, allies behind it are safer and enemies in front are sorrier.", weakness: "It is a gate, not a hunter: lure it off its post or walk around." },
@@ -1424,8 +1446,8 @@
       { origin: "Muse Berry BD hot-build 2026-10-29 (Thorn + Barrier; unused pair)", art: "cactusguard" }),
     // Cactus War (Muse Berry BD hot-build, 2026-10-29): the relentless. Falls down, gets up, hits harder. Street crew, beside the MMA siblings.
     cactuswar: C("cactuswar", "Cactus War", ["Fault Tolerance", "Adaptation"], ["Fault Tolerance", "Adaptation", "Elasticity"],
-      [["still_standing", "The first time each battle Cactus War would fall below 1 LF, it stays at 1 instead."],
-       ["battle_scars", "Each condition on Cactus War grants +1 potency (max +3)."]],
+      [["still_standing", "The first time each battle Cactus War would fall below 1 LF, it stays at 1 instead.", { planned: "SA4c: first fall below 1 LF each battle stays at 1" }],
+       ["battle_scars", "Each condition on Cactus War grants +1 potency (max +3).", { planned: "SA4c: +1 potency per condition (max +3)" }]],
       { primaryBasic: "Wild Swing: 6 melee. 3 FF; counter: sidestep — it commits.", primaryRefined: "Battle Bloom: the purple crown flares: +3 potency until your next turn; take 2. 4 FF.", secondaryBasic: "Shake It Off: cleanse one condition. 3 FF.", secondaryRefined: "Read the Ring: until your next turn, ignore one damage instance of 5 or less, once. 5 FF." },
       "Full War: three wild swings at random adjacent enemies (8 each), then cleanse everything. It needs both concepts: Fault Tolerance's refusal, Adaptation's learning.",
       { strength: "Damage is information and conditions are fuel: the worse it looks, the harder it hits.", weakness: "Random and committed: it cannot choose its swings and cannot take them back." },
@@ -1433,8 +1455,8 @@
       { origin: "Muse Berry BD hot-build 2026-10-29 (Fault Tolerance + Adaptation; unused pair)", art: "cactuswar" }),
     // Pixel Treant (Muse Berry BD hot-build, 2026-10-29): the encrypted grove. A treant running on somebody's hardware. Cosmic crew: pixels are another genre.
     pixel_treant: C("pixel_treant", "Pixel Treant", ["Software", "Cipher"], ["Software", "Cipher", "Indexing"],
-      [["pixellated", "Ranged techniques against Pixel Treant cost +1 FF each (hard to resolve), never more than +3 per round per attacker."],
-       ["checksum", "Once per round, when Pixel Treant would gain a condition, negate it."]],
+      [["pixellated", "Ranged techniques against Pixel Treant cost +1 FF each (hard to resolve), never more than +3 per round per attacker.", { planned: "SA4a: ranged techniques against it cost +1 FF (max +3 per round per attacker)" }],
+       ["checksum", "Once per round, when Pixel Treant would gain a condition, negate it.", { planned: "SA4a: negate the first condition each round" }]],
       { primaryBasic: "Render: 5 at range 4. 4 FF.", primaryRefined: "Patch Notes: rewrite an ally's next basic to cost 2 less. 4 FF.", secondaryBasic: "Encrypt: Conceal until your next turn. 4 FF.", secondaryRefined: "Decrypt: reveal all Concealed enemies within 4. 4 FF." },
       "Blue Screen: every enemy within 4 is Stunned 1 (bosses Slowed 2); Pixel Treant Conceals. It needs both concepts: Software's crash, Cipher's key.",
       { strength: "Information warfare: it sees everything, shows nothing, and taxes every answer.", weakness: "Melee honesty: stand next to it and hit it; no firewall stops a fist." },

@@ -528,6 +528,35 @@
       ultimate: { name: "Ecdysis Burst", status: "spec", mechanism: "The spirit bursts forth from its current shell in a wave of transformative force.", constraint: "Ordered within leash.",
         play: { type: "nova", centre: "self", radius: 1, potency: 16, text: "The Instar sheds force: a burst of transformative chitin on hostiles within 1 of it, 16 potency." } },
       identity: "A spirit that evolves through mortal necessity, shedding successive forms as danger deepens." },
+
+    // The Roman Emperor (Roman Emperor S1, muse-roman-emperor-spec S1; Mala 2026-11-24: build S1, Decisions 1-4 keep, Decision 5 stand-ins).
+    // Callable normal form; Dream Space reveals Marcus Aurelius (true form). MAX later (loop:1a1e302aea7). Art lands beside S1
+    // (cursor-roman-emperor-cut roman-emperor folder, cursor-marcus-aurelius-cut greek-hero folder; both SURGERY, reinspection owed).
+    roman_emperor: { name: "The Roman Emperor",
+      sprite: "roman-emperor",   // the summon id is roman_emperor but the sheet folder is roman-emperor (gaia-accord precedent)
+      trueForm: { sprite: "greek-hero", name: "Marcus Aurelius · True Form", provisional: true,
+        maxLFMul: 1.3, potencyMul: 1.15, pfRegenAdd: 1,
+        traits: [
+          { id: "meditations", name: "Examined Campaign", text: "The examined campaign: +30% maximum LF, +15% technique potency, and +1 ΦF regeneration per turn." },
+          { id: "stoicReserve", name: "Stoic Reserve", text: "What is up to us: he keeps his composure." /* softened at merge (Sternway IN, 1.3.578): the free first Guard has no code yet; slice S1b (R-20261124-09) restores it */ } ],
+        // Meditations dispel is staged: kind "meditations" has no engine branch yet, so trueFormTechnique idles
+        // (never fires, never lies); the dispel code is the named next slice. Range 3 is the designed reach.
+        technique: { id: "meditations", name: "Meditations", kind: "meditations", cooldown: 2, range: 3,
+          text: "Meditations: he pauses to reflect; no battle effect yet." /* softened at merge (Sternway IN, 1.3.578): the ally cleanse has no engine branch yet (summons.js idle); slice S1b restores it */ },
+        text: "Dream Space reveals Marcus Aurelius: +30% maximum LF, +15% technique potency, +1 ΦF regeneration per turn." },
+      source: "The Council; fictional game adaptation", attitude: "sovereign", room: "senate", realPerson: true,
+      pact: { call: { pf: 6, seeds: 60 }, duration: 4 },
+      // standIn secondary is inertia, not the spec's austerity: austerity is proposed-only in graph-data.js (not a live
+      // content.js concept, so the roster gate fails). Inertia holds ground and resists displacement, the closest live
+      // concept; revisit when austerity graduates. Proposed concepts wait on Mala (Decision 5: stand-ins for S1).
+      standIn: { primary: "boundary", secondary: "inertia" },
+      signature: { name: "Pax Romana", status: "spec", mechanism: "Declare the battlefield under Roman peace: enemies pay 5 AP on every technique until the Emperor's next turn, and the Emperor also pays it.", constraint: "Ends early if he is defeated or leaves.", counters: ["Wait it out", "Force him out", "Fight basic-only that turn"] },
+      // Pax Romana play ships in S1 (Decision 4 approved verbatim; the repo gate needs a playable ultimate per summon).
+      // The tax half stays spec; SPQR's home (true-ultimate row) is S2 with T3/T4.
+      ultimate: { name: "Pax Romana", status: "spec", mechanism: "A declared peace both sides pay into: the playable buff below ships now; the AP tax and the SPQR chorus stay spec.", constraint: "Restriction also binds its owner.",
+        play: { type: "buff", radius: 3, status: { id: "paxRomana", damageTakenMul: 0.7, duration: 2 },
+        text: "Allies within 3 take 30% less damage for 2 turns." } },
+      identity: "Law only works when the lawgiver obeys it." },
   };
 
   // Mala's implementation notes, verbatim intent.

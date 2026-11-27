@@ -21,7 +21,7 @@
     sightline: "holy", focus: "holy", legitimacy: "holy", complementarity: "holy", delegation: "holy", harmony: "holy", cooperative_principle: "holy",   // Cooperative Principle (five concepts P1/P2): working together, like Harmony; assigned at the 1.3.565 merge (Stanchion IN)
     threshold: "electric", resonance: "electric", timing: "electric", pipeline: "electric", hardware: "electric", mise_en_place: "electric", enhancement: "electric",
     adaptation: "water", swale: "water", plasticity: "water", periodicity: "water",
-    deception: "shadow", reversal: "shadow", stealth: "shadow", mesmerism: "shadow",   // Mesmerism (Cure S2): a hidden order left without the subject's memory, beside Deception, which enhances it
+    deception: "shadow", reversal: "shadow", stealth: "shadow", mesmerism: "shadow", paradox: "shadow", augury: "shadow",   // Mesmerism (Cure S2): a hidden order left without the subject's memory, beside Deception, which enhances it. Paradox FR1a: with its kin (builder's call; disclosed in the shelf NOTE)
     substitution: "arcane", pathway: "arcane", section: "arcane", collage: "arcane", indexing: "arcane", homology: "arcane", adjacency: "arcane", inference: "arcane", software: "arcane", retrieval: "arcane", imagination: "arcane", longtermism: "arcane",
     boundary: "fire", strategic_commitment: "fire", antifragility: "fire", hospitality: "fire",   // the Hot Pot Berserker: the boiling pot and the hearth (2026-10-25)
     diffusion: "poison", obsolescence: "poison", disinhibition: "poison",   // Disinhibition (Cure S2): dissolves a unit's restraints layer by layer, like an intoxicant

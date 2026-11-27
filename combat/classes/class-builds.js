@@ -150,6 +150,12 @@
       aura: { trigger: "an opponent who has not Observed you starts a turn within 2", effect: { hesitateAp: 10 }, bound: "once per battle per opponent; never a seer", counter: "Observe the Hypebeast: the aura is over for you and every ally who can see him." },
       viral_growth: { trigger: "your turn starts and no opponent has seen through you", effect: { hypeRadiusPlus: 1, fieldAp: 5 }, bound: "radius 4 at most; one Observe stops the growth for good (it never shrinks)", counter: "Observe him once, or stay out of the field." },
     }, "hypebeast"),
+    // The Anime Duelist (codex-anime-duelist-spec AD1a): four shared live techniques; his passives are his traits (insight-data.js anime_duelist). All Cards on the Table is AD1b.
+    anime_duelist: B(["publicPromise", "credibleGuarantee", "feint", "feignedRetreat"], { primaryBasic: "publicPromise", primaryRefined: "credibleGuarantee", secondaryBasic: "feint", secondaryRefined: "feignedRetreat" }, {
+      scrutiny: { trait: "twentyTwentyVision", trigger: "Observe a visible subject", effect: { observePoints: 1 }, bound: "shared trait effect once", counter: "Conceal the subject." },
+      believer: { trait: "believer", trigger: "a battle with Battle Cards in it", effect: { cardAware: true }, bound: "the normal believer rules; no private deck is read", counter: "Play no cards where he can see them." },
+      card_battler: { trait: "cardBattler", trigger: "deck limits at battle start; an instant or set card resolves", effect: { capAdd: 4, countAdd: 2, efficacy: 0.2, efficacyMax: 3 }, bound: "30-point ceiling; one payload per card, at most +3; no card is created", counter: "Study his deck and outlast it." },
+    }, "anime-duelist", "brief"),   // brief until AD1b adds the merge and flips it live, as the Hypnotist (W1a) and Eldritch did
     // Tech Billionaire (Muse's plug-in docs/tech-billionaire-build.md; built 2026-10-12, docs/tech-billionaire.md).
     // The spec mapped his four slots onto Linked Step, Remote Door, Required Input and Choke Point with new behaviour for
     // him alone; they are his own pair-gated techniques instead, so the Teleporter's and the Villain's stay as they were.
@@ -537,6 +543,10 @@
       spirit_table: { trigger: "you seat a guest", effect: { maxGuests: 2, freeFirstAp: true }, bound: "two seats; a third call sends the oldest home; first guest call each battle costs no AP (ΦF still paid)", counter: "Kill the guests; focus the host." },
       spirit_company: { trigger: "you finish a technique while an attendant is present", effect: { pulsesPerTurn: 2, radius: 2 }, bound: "two pulses a turn; echoed and deceptive techniques do not pulse", counter: "Separate her from the table; stun her before the technique resolves." },
     }, "shaman"),
+    magenta_trickster: B(["feint","palmTheThread","reelingShot","snapTheThread","theLastCardReturns"], {primaryBasic:"feint", primaryRefined:"palmTheThread", secondaryBasic:"reelingShot", secondaryRefined:"snapTheThread"}, {
+      witnessed_opening: { trait:"playfulness", trigger:"accepted non-none designated response to this owner's announced Feint", effect:{palmAp:25,palmPf:3}, bound:"once per owner turn; token expires at owner turn end; pair required", counter:"Answer none, approach so the thread stays slack, or deny sight." },
+      loose_wrist: { trait:"looseWrist", trigger:"paid single-target nigredo line with positive pull", effect:{rangeAdd:1}, bound:"once; independent hard caps remain; no pair required", counter:"Stay outside the extra tile or deny sight." },
+    }, "magenta-trickster"),
   };
   return { builds };
 });

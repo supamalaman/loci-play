@@ -578,8 +578,9 @@
       H.summonRules?.Trial?.keep(s, log);   // Tandem T2c: a Trial's unbound tandem is never out of the fight, whatever path took it down
       H.summonRules?.Tandem?.checkMoltTriggers(s, { log });   // Tandem T5a: a fall by any path (a bleed, heat) is witnessed; a user cornered by a price
       H.astralDeathLink?.(s);   // the death-link resolves before the outcome is read: a fallen soul takes its body
+      H.deepDeathCheck?.(s);   // Sunken Ruins BD1: if the deep pocket's opener fell/left, close the map and bring everyone up alive
       H.Instinct?.autoEnd(s);   // Survival Instincts: a lie ends when its side has no other standing unit; first, before any branch below can end the battle
-      if (s.outcome) return;
+      if (s.outcome) { H.deepDeathCheck?.(s, true); return; }
       if (s.film) return;   // the duel resolves the film (endTurn); the outside battle waits
       if (s.copBust) {
         const winner = s.copBust.side === "player" ? "enemy" : "player";
@@ -643,6 +644,7 @@
       const subOn = (side) => Object.values(s.actors).some((a) => subduedUnit(a) && sideKey(a) === side);   // Nonlethal victory: is anyone on this side subdued (alive, out of the fight)?
       if (!sides.player && !sides.enemy && subOn("player") && !subOn("enemy")) sides.player = 1;   // the enemy side is gone (killed) and ours lives, subdued: that is a win, not a loss
       if (!sides.enemy || !sides.player) {
+        H.deepDeathCheck?.(s, true);   // Sunken Ruins BD1: never end a battle with an open deep pocket (6.5, T33)
         const nonLethal = !!sides.player && !sides.enemy && surrendered.length > 0;
         const persuaded = nonLethal && surrendered.every(a => a.persuaded);   // Parley: came to terms with every enemy left standing
         const nobodyDied = !!sides.player && Object.values(s.actors).every(a => a.side !== "enemy" || !a.defeated || a.knockedOut || a.escaped || a.notArrived);   // Immortals are only knocked out

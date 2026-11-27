@@ -41,13 +41,15 @@
   const name = (u) => u?.name || u?.id || "someone";
   const hp = (u) => (u?.maxLF ? u.lf / u.maxLF : 1);
 
+  const TAINT_TALK = 0.1;   // IR2 Tainted Blade: persuasion lost for the battle once sworn (Decisions: Leadline BD's recommendation, pending Mala)
   const PERSUASIVE = 0.15;   // same number as insight-data.js traits.persuasive.speech.chanceAdd (it was 0.1 before 2026-10-12)
   // How well this unit talks: persuasive trait, a role built for it, concepts that live in persuasion.
   function persuasion(u) {
     let p = (has(u, "persuasive") ? PERSUASIVE : 0) + (PERSUADERS[u?.character] || 0) + (u?.passives?.legitimacyAdd || 0) * 0.03 + (u?.passives?.glamourAdd || 0) * 0.02 + (u?.passives?.fameAdd || 0) * 0.01;   // Fame F1 (FAME.md E1): +0.01 a level; tests pin 0.01 to Fame.RULES.persuasionPer; the min(0.3) below stays last   // fine clothes speak (W4.3); awe aids persuasion until W2.1 Presence gives it its own checks
     let c = 0; for (const k of [u?.primary, u?.secondary]) c = Math.max(c, SILVER_CONCEPTS[k] || 0);
-    if (has(u, "humanExperience")) return Math.min(0.5, p + c + 0.2);   // the Human Experience argues 20% better, past the usual cap
-    return Math.min(0.3, p + c);
+    const d = u?.foughtDirty ? TAINT_TALK : 0;   // IR2 (R-20261123-02): who swore Tainted Blade talks worse for the rest of the battle; never below 0
+    if (has(u, "humanExperience")) return Math.max(0, Math.min(0.5, p + c + 0.2) - d);   // the Human Experience argues 20% better, past the usual cap
+    return Math.max(0, Math.min(0.3, p + c) - d);
   }
   // The same sum as persuasion(), part by part, for the hover card's Persuasion breakdown (FAME.md E1;
   // loop 1a19d25e688). Keys name the source so the card can gate each part on what the viewer knows.
@@ -64,8 +66,9 @@
     if (c) parts.push({ key: "concept", ref: ck, value: c });
     const he = has(u, "humanExperience");
     if (he) parts.push({ key: "humanExperience", value: 0.2 });
-    const cap = he ? 0.5 : 0.3, total = Math.min(cap, p + c + (he ? 0.2 : 0));
-    return { parts, total, capped: p + c + (he ? 0.2 : 0) > cap, cap };
+    const cap = he ? 0.5 : 0.3, raw = Math.min(cap, p + c + (he ? 0.2 : 0)), d = u?.foughtDirty ? TAINT_TALK : 0;
+    const dd = Math.min(d, raw); if (dd > 0) parts.push({ key: "foughtDirty", value: -dd });   // merge fix (1.3.578 stage, dolphin batch 10): the part shows only what it takes off the floored total, and is absent when that is nothing
+    return { parts, total: Math.max(0, raw - d), capped: p + c + (he ? 0.2 : 0) > cap, cap };
   }
   // Mala: "having low life points might make a conversation more convincing because most people would rather not die,
   // less likely for someone like the Soldier. However this might not be true if you killed someones allies … if you kill
@@ -122,17 +125,83 @@
   };
   const lean = (u, stubborn, agreeable) => (has(u, "stubborn") ? -stubborn : 0) + (has(u, "agreeable") ? agreeable : 0);
 
-  // I-03 Valence → Parley (perks S1a; Chef S2 reuses). Factions registers the reader at install via useValence.
+  // I-03 Valence → Parley (perks S1a; Chef W4 adds meal valenceBonus). Factions registers the reader at install via useValence.
   // Formula (R-20261109-12 + A01): min(0.25 + 0.04×rank, valence×(0.04 + 0.02×rank)); valence is target→speaker; ≤0 gives 0.
+  const SECRET_ENCOUNTERS = new Set(["secretWarrior", "secretWarriorNext"]);
+  const UNREASONABLE_TRAITS = new Set(["stubborn", "vengeful", "proud", "rivalrous", "neverGiveUp", "devoutBeliever", "fullBeliever"]);
+  const WIN_OVER_THRESHOLD = 3;
   let valenceFn = null;
   const useValence = (fn) => { valenceFn = typeof fn === "function" ? fn : null; };
   function valenceAdd(s, speaker, subject) {
     if (!valenceFn || !speaker || !subject) return 0;
-    const v = Math.max(0, Number(valenceFn(s, subject, speaker)) || 0);
+    const noMeal = SECRET_ENCOUNTERS.has(s?.encounter);   // R-20261125-11: secret fights exclude the meal share from talk/terms odds (natural valence stays)
+    const v = Math.max(0, Number(valenceFn(s, subject, speaker, noMeal ? { noMeal: true } : undefined)) || 0);
     if (v <= 0) return 0;
     const rank = Math.max(0, Math.floor(speaker?.perkMods?.ranks?.warmReception || 0));
     const cap = 0.25 + 0.04 * rank;
     return Math.min(cap, v * (0.04 + 0.02 * rank));
+  }
+  const mealBonus = (s, a, b) => { const n = s?.valenceBonus?.[`${a?.id}>${b?.id}`]; return Number.isFinite(n) ? n : 0; };
+  const isPlayerUnit = (u) => !!u && (u.id === "player" || u.controller === "player");
+  function isHostSide(s, u) {
+    if (!u || !s?.chef) return false;
+    for (const [hostId, rec] of Object.entries(s.chef)) {
+      const hostSide = rec?.side || s.actors?.[hostId]?.side || s.film?.saved?.actors?.[hostId]?.side;
+      if (hostSide && hostSide === u.side) return true;
+    }
+    return false;
+  }
+  // Chef W4 (CHEF.md 3g): a unit that can be won over by a shared meal (six gates from existing data, no per-character dials).
+  function reasonable(s, u) {
+    if (!u || u.defeated || u.notArrived || u.husk || u.persuaded) return false;
+    if (speech(u) !== "person") return false;
+    if (u.boss || u.character === "boss-tallyman" || SECRET_ENCOUNTERS.has(s?.encounter)) return false;
+    if (willingness(s, u).unforgiving) return false;
+    for (const tr of traitsOf(u)) if (UNREASONABLE_TRAITS.has(tr)) return false;
+    if (isHostSide(s, u)) return false;
+    return true;
+  }
+  // Chef W4 (CHEF.md 3g(a)): soft AI reluctance. Meal-sourced warmth >= 3 skips this opponent as an AI target;
+  // natural valence alone never triggers it, player units are never refused, apply() still validates, and self-defence lifts it.
+  function reluctant(s, u, o) {
+    if (!s || !u || !o || u.id === o.id || u.side === o.side || isPlayerUnit(u)) return false;
+    if (!valenceFn || mealBonus(s, u, o) <= 0 || !reasonable(s, u)) return false;
+    if (Number(valenceFn(s, u, o)) < WIN_OVER_THRESHOLD) return false;
+    if (u.lastHit?.by === o.id && (u.lastHit.round == null || s.round - u.lastHit.round <= 1)) return false;   // self-defence lifts reluctance
+    return true;
+  }
+  // Chef W4 (CHEF.md 3g(b)): turn-start surrender for a reasonable AI enemy warmed by a meal (valence >= 3, meal-sourced > 0).
+  // Reuses persuade() so the battle ends via the existing non-lethal "Enemy Persuaded" outcome and pays Fame (R-20261123-33).
+  function winOver(s, u, H) {
+    if (!s || !u || u.side !== "enemy" || isPlayerUnit(u) || !valenceFn || !reasonable(s, u)) return null;
+    const warm = Object.values(s.actors || {})
+      .filter((o) => o && o.id !== u.id && o.side !== u.side && o.side !== "bystander" && o.side !== "wild"
+        && !o.defeated && !o.notArrived && !o.persuaded && !o.husk
+        && mealBonus(s, u, o) > 0 && Number(valenceFn(s, u, o)) >= WIN_OVER_THRESHOLD)
+      .sort((p, q) => (Number(valenceFn(s, u, q)) - Number(valenceFn(s, u, p))) || ((q.side === "player" ? 1 : 0) - (p.side === "player" ? 1 : 0)))[0] || null;
+    if (!warm) return null;
+    persuade(s, u, warm);
+    H?.log?.(s, { kind: "parley", actor: u.id, target: warm.id,
+      text: `${name(u)} would rather stand down than hurt ${name(warm)}.`,
+      why: ["Won over: a reasonable opponent warmed to valence 3+ by a shared meal stands down instead of fighting."] });
+    return warm;
+  }
+  // Chef W4 (CHEF.md 3g(c)): player-controlled units are never forced; log a hint once per meal-warmed opponent at valence >= 3.
+  function fondHint(s, u, H) {
+    if (!s || !u || u.defeated || u.notArrived || !isPlayerUnit(u) || !valenceFn) return [];
+    const out = [];
+    for (const o of Object.values(s.actors || {})) {
+      if (!o || o.id === u.id || o.side === u.side || o.side === "bystander" || o.side === "wild"
+        || o.defeated || o.notArrived || o.persuaded || o.husk) continue;
+      if (mealBonus(s, u, o) <= 0 || Number(valenceFn(s, u, o)) < WIN_OVER_THRESHOLD) continue;
+      const k = `${u.id}>${o.id}`, hints = (P(s).fondHint ||= {});
+      if (hints[k]) continue;
+      hints[k] = s.round;
+      out.push(o);
+      H?.log?.(s, { kind: "parley", actor: u.id, target: o.id, text: `${name(u)} is fond of ${name(o)}.`,
+        why: ["Meal warmth: valence 3+ toward an opponent (hint only; player-controlled units act freely)."] });
+    }
+    return out;
   }
 
   const key = (a, b) => [a, b].sort().join("|");
@@ -305,6 +374,6 @@
 
   // Immortal: still knocked out like anyone, but never dies (no kill for Assassinate; the win is non-lethal).
   const isImmortal = (u) => has(u, "immortal") || IMMORTALS.has(u?.character);
-  return { rules, COMPANY, COMPANY_BY_RANK, stillFighting, companyMul, useValence, valenceAdd, PERSUADERS, DUTY, IMMORTALS, isImmortal, speech, language, cannotTalk, willingness, fallenAllies, persuasion, persuasionBreakdown, traitsOf, talkChance, resolveTalk, termsChance, canTerms, comeToTerms, npcTalkTarget, npcTalkOdds, npcTalk,
+  return { rules, COMPANY, COMPANY_BY_RANK, stillFighting, companyMul, useValence, valenceAdd, SECRET_ENCOUNTERS, UNREASONABLE_TRAITS, WIN_OVER_THRESHOLD, reasonable, reluctant, winOver, fondHint, PERSUADERS, DUTY, IMMORTALS, isImmortal, speech, language, cannotTalk, willingness, fallenAllies, persuasion, persuasionBreakdown, traitsOf, talkChance, resolveTalk, termsChance, canTerms, comeToTerms, npcTalkTarget, npcTalkOdds, npcTalk,
     answerOffer, blocks, options, locked, lock, allPersuaded, standingDown };
 });

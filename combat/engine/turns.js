@@ -242,6 +242,10 @@
       if (a?.popped && !s.preview) a.popped = false;   // Animated Body: this turn is its own; it can be flattened again from now on
       if (a && s.rules.soul && a.maxSoul == null) { a.maxSoul = s.rules.soul.max; if (a.soul == null) a.soul = a.maxSoul; }
       if (a?.husk) { a.tempo = 0; if (!s.preview) { log(s, { kind: "ritual", actor: a.id, text: `${a.name} is an empty husk and cannot act.` }); ClassRuntime?.mise?.satOut?.(s, a); endTurn(s); } return; }
+      if (a && !a.defeated && !s.preview && !s.film) {
+        if (H.Parley?.winOver?.(s, a, H)) { a.tempo = 0; ClassRuntime?.mise?.satOut?.(s, a); checkOutcome(s); if (!s.outcome) endTurn(s); return; }   // Chef W4 (CHEF.md 3g(b)): reasonable meal-warmed AI enemy stands down
+        H.Parley?.fondHint?.(s, a, H);   // Chef W4 (CHEF.md 3g(c)): hint only for player-controlled units
+      }
       // Repeated-channel adaptation measures one attacker's action turn at a time.
       s.turnDamageCounts = {};
       a.ownerTurns += 1;
@@ -390,6 +394,7 @@
       }
       ritualTick(s, a);
       riteTick(s, a);   // Rites (Muse-2): the bank hold ticks beside the capture chant
+      H.FireDance?.checkBreaks(s);   // Fire Dance D1: soaked/defeat/side-change breaks hold at once
       poisonTick(s, a);   // after the turn's action points are set, so the loss is felt this turn
       if (H.Injury?.bleedTick(s, a)) { endTurn(s); return; }   // wound-bleed is honest LF damage: a corpse yields the turn
       if (a.status.catharsis && a.status.catharsis.expiresAt <= a.ownerTurns) a.status.catharsis = null;
@@ -462,14 +467,17 @@
         return;
       }
       refreshDrowning(s, a);
+      H.deepBreathTick?.(s, a);
       for (const unit of Object.values(s.actors)) H.speedSync(s, unit);   // True Super Speed: a slow or a stagger that ran out above gives the blur back (every unit, so the first turn of a battle marks them all)
       if (a.status.drowning && hasTrait(a, "gills")) a.status.drowning = null;
       if (a.status.drowning && a.status.drowning.nextTickAtOwnerTurn <= a.ownerTurns) {
         a.status.drowning.nextTickAtOwnerTurn = a.ownerTurns + 1;
-        const drownLF = Math.round(8 * (a.passives?.drowningDamageMul || 1));   // Supers who sink like a stone drown faster
+        const deepMul = a.status.drowning.deep || 1;
+        const drownLF = Math.round(8 * deepMul * (a.passives?.drowningDamageMul || 1));   // Supers who sink like a stone drown faster; deep drowning escalates 8 -> 16 -> 24 (BD1)
+        if (a.status.drowning.deep) a.status.drowning.deep += 1;
         const lost = hit(s, { id: "drowning", name: "Drowning", side: "wild" }, a, null, drownLF, ["Water exposure."], { label: "Drowning", damageType: "rubedo" });
-        log(s, { kind: "drowning", actor: a.id, target: a.id, amount: lost, tiles: [[a.x, a.y]], text: `${a.name} is drowning and loses ${lost} LF.`, why: ["Drowning threatens 8 LF at turn start (before weakness and defense modifiers) until you recover footing, surface, or leave water."] });
-        if (a.defeated || s.outcome) return;
+        log(s, { kind: "drowning", actor: a.id, target: a.id, amount: lost, tiles: [[a.x, a.y]], text: `${a.name} is drowning and loses ${lost} LF.`, why: ["Drowning threatens 8 LF at turn start (escalating below the surface) until you recover footing, surface, or leave water."] });
+        if (a.defeated || s.outcome) { H.deepDeathCheck?.(s); return; }
       }
       // 2. expiries whose boundary is this owner's turn start
       expire(s, a);
@@ -638,8 +646,11 @@
       { const G = typeof module === "object" && module.exports ? require("../guests/guests.js") : globalThis.ConceptCombatGuests; G?.clockEnded?.(s, a, H); }   // Shaman Inspiration (SH4): a guest clock that ends with the guest standing
       H.Hires?.turnEnd(s, a);   // a merc's contract and nerve, a mediator's patience
       if (a) H.tenantTurnEnd?.(s, a);   // Exile tenancy: a way left open is logged once (restraint)
+      if (a) H.Prophecy?.turnEnd(s, a);   // Prophecy S1: a prophecy on this unit whose turn this was, with no reading true, goes unfulfilled
       if (a) H.fruitTurnEnd?.(s, a);   // Sinkerfruit (Locusfruit): a Ripe eater leaves a memory mark on the tile it ends a turn on
       H.Multitudes.turnEnd(s, a); H.Exposure.turnEnd(s, a);   // Exposure: a turn ended beside his own wall   // Contains Multitudes: an embodiment ends with his last turn of it
+      H.FireDance?.turnEnd(s, a);   // Fire Dance D1: keeper sustain check / dancer turn countdown + Inspiration payout
+      H.States?.paradoxTurnEnd?.(s, a);   // Paradox FR1a: Contradiction resolves at the end of the holder's own turn
       // Visage (biology): whoever ends their turn within 2 of the face meets its gaze. The gaze itself
       // exempts the fearless, marks dread, and may rout; the Emissary's enraged button stays an action.
       if (!a.defeated && !a.routed) for (const b of Object.values(s.actors)) {

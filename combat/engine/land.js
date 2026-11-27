@@ -64,7 +64,7 @@
     // enemy side go on the ledger; the wild, civilians and Gaia herself don't sin against the land in this count.
     function landWound(s, a, kind, n = 1, tiles) {
       const R = L(); if (!R || !a || off(s) || !(n > 0) || !FIGHTING.includes(a.side) || a.boss === "gaia") return 0;
-      if (H.astralRegionOf?.(s, a.x, a.y) === "pocket") return 0;   // the plane has no Gaia: pocket wounds scar nothing
+      if (H.astralRegionOf?.(s, a.x, a.y) !== "land") return 0;   // pockets (astral, deep) have no Gaia: pocket wounds scar nothing
       const w = round1((R.wounds[kind] || 0) * n); if (!w) return 0;
       const st = landState(s);
       st.wounds = round1(st.wounds + w);

@@ -12,7 +12,7 @@
       applyPoison, auraH, barrierAt, bossRules, chanted, chargeUltimate, checkOutcome, classH, compositionEdge, conceptName, dreamCanReach, accountItems, pickupRules,
       dreamSpaceRules, eatMushroom, edgeUsed, endRitual, endRite, fearCheck, footprint, heightAt, heroFell, inside, isMonster, key, log, monsterCtx,
       presidentContext, presidentRules, presidentUnits, recordMirrorEvent, refreshDrowning, saveWildWorld, springTraps, structures, summonRules,
-      syncPickup, tileAt, tryDeathDoor, vegetation, wildRules, wildSnapshot } = H;
+      syncPickup, tileAt, tryDeathDoor, Vows, vegetation, wildRules, wildSnapshot } = H;
     // Holy (docs/holy.md): the fell are dream creatures, summons, the undead and demons by name (Mala 2026-11-02: Ravana and his Lanka court count, Mandodari too; his summoned horde already does) (a short anchored list, not the belief module's loose mythic regex).
     const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
     const AB = () => (typeof module === "object" && module.exports ? (() => { try { return require("../animated-body/animated-body.js"); } catch { return null; } })() : globalThis.ConceptCombatAnimatedBody) || null;   // Animated Body AB1a (R-20261122-44)
@@ -131,7 +131,9 @@
       return { K, kMul, holdChance: lost > 0 ? K / (K + lost) : 1, breakChance: lost > 0 ? lost / (K + lost) : 0, channels };
     }
     function concentrationCheck(s, tgt, lost) {
-      if (!tgt || !(lost > 0) || s.preview) return;
+      if (!tgt || !(lost > 0)) return;
+      if (tgt.dance?.form === "flame") H.FireDance?.onDamage(s, tgt);   // Fire Dance D1: deterministic break on any damage (even in preview)
+      if (s.preview) return;
       const profile = concentrationProfile(s, tgt, lost);
       const { K, kMul, holdChance: p } = profile;
       const roll = (what) => {
@@ -307,7 +309,9 @@
       // A bleed-out skips the who-may-hit gates: the wound was dealt when the bleed was applied, this only finishes it.
       if (!opts.bleedOut && H.Tourist?.is(src) && src.id !== tgt?.id) return 0;
       if (!opts.bleedOut && (H.PostHuman.blocked(s, src, tgt) || H.Civilian.blocked(s, src, tgt) || H.Visitors?.blocked(s, src, tgt) || H.Factions.blocked(s, src, tgt))) return 0;   // Post-Humanity, civilians, visitors — and heroes, who only fight villains
+      let preHitHostile = null;   // Stunning Restraint: impact-time hostility for the rider, before attacked() below marks this hit
       if (!opts.bleedOut) {   // a bleed-out (stealth.js) only finishes the drain: no new attack, no standoff reset
+        preHitHostile = [...(s.civilians?.hostileTo || [])];
         H.PostHuman.attacked(s, src, tgt);
         H.Civilian.attacked(s, src, tgt);
         H.Factions.attacked(s, src, tgt);
@@ -352,6 +356,7 @@
         }
         if (tgt.wild) {
         const summonMul = tgt.summoned ? (src?.passives?.summonDamageDealtMul || 1) : 1;
+        if (!inst?.restrained && potency > 0 && (Vows ? Vows.restraintMul(s, src) : 1) !== 1) potency = Vows.restrainPotency(potency);   // Stunning Restraint prices wild-monster hits too
         const amount = Math.max(0, roundFn(s)(potency * summonMul));
         const causes = summonMul !== 1 ? [...why, `Non-believer deals ×${summonMul} damage to a summoned creature.`] : why;
         const r = wildRules.hurtMonster(wildSnapshot(s), tgt.id, amount, src && s.actors[src.id] === src ? src.id : null);
@@ -377,6 +382,10 @@
       if (potency > 0 && H.prepaidEscape?.(s, src, tgt, inst) === "miss") return 0;   // prepaid escape (machine P4): the designated displacement fires before the hit lands
       if (H.monsterOf(inst)) potency = H.monsterPotency(src, tgt, inst, potency);   // Life Drain: what the gradient allows
       let mult = H.Observation?.damageBonus(s,src,tgt,inst) || 1; const notes = why.slice();
+      if (!inst?.restrained && potency > 0 && (Vows ? Vows.restraintMul(s, src) : 1) !== 1) {   // Stunning Restraint: direct custom hits price the live vow here; struck paths already stamped it above
+        const before = potency; potency = Vows.restrainPotency(potency);
+        notes.push(`Restrained Force: harmful potency ×0.4 (${roundFn(s)(before)} → ${roundFn(s)(potency)}).`);
+      }
       if(mult>1)notes.push(`Discernment: ${H.Observation.discoveries(s,src,tgt.id)} discoveries, damage ×${mult.toFixed(2)}.`);
       const flatFr = potency > 0 && tgt.boss && s.bossRush && bossRules?.flatResist ? bossRules.flatResist(tgt) : null, flatPierced = !!flatFr && (!!inst?.piercing || (inst?.damageType || opts.damageType) === "albedo"), flatHolds = !!flatFr && !flatPierced;   // a flat hide (the Oni) is x0.1 whatever else the boss wears: the enraged mass does not stack on it (Mala, 2026-10-31: "oni should be flat")
       if (tgt.boss && bossRules && !flatHolds) { const bossMul = bossRules.damageTakenMul(tgt); if (bossMul !== 1) { mult *= bossMul; notes.push(`${tgt.name}'s enraged mass resists damage ×${bossMul}.`); } }
@@ -576,6 +585,7 @@
         notes.push(`${w.label || "Fortress ward"} absorbs ${absorbed} (${w.protection} left).`);
         if (w.protection <= 0) { tgt.status.ward = null; notes.push("The ward breaks."); }
         else if (w.gazeCover) { tgt.status.ward = null; notes.push("The projected gaze spends itself on the one shot."); }   // W1c cover: a projection stops one shot even when it has protection to spare
+        if (warded > 0) (typeof module === "object" && module.exports ? (() => { try { return require("../mythic-plants/sammu.js"); } catch { return null; } })() : globalThis.ConceptCombatSammu)?.bankAfterWard(s, tgt, warded, w, { hasTrait: H.hasTrait, log: H.log });   // Šammu SN1a2: a Sleeve ward banks what it prevented (lazy per hit, like the OG/AB getters above)   (below the gazeCover else, which binds to the protection check: stage fix, outside read BROKEN)
         // Resonant Heirlooms JI1: a tagged Guqin ward banks its actual prevention (up to 6) as memory.
         if (warded > 0 && w.guqin && !w.guqin.closed) {
           const banked = INS_JI1()?.bank(s, w.guqin, warded, H);
@@ -806,6 +816,8 @@
       if (inst?.aimZone && !s.preview) H.Injury?.wound(s, src, tgt, inst.aimZone, "called");   // a called shot that lands wounds its zone, whatever the damage (negations exit above)
       if (!s.preview) H.Injury?.overflow(s, src, tgt, dealtLf);
       summonRules?.Tandem?.afterHit(s, src, tgt, dealtLf, opts, log, (u, by) => hit(s, by && s.actors[by.id] ? by : null, u, null, 0, ["The echo of its tandem's wound."], { label: "Echo", bleedOut: true }));   // Tandem T2b: a lent tile; a close tandem's echo
+      if (!s.preview && !opts?.bleedOut && Vows) { const dp = Vows.tryDazing(s, src, tgt, inst, dealtLf, { log, preHitHostile }); if (dp) addStun(s, src, tgt, dp); }   // Stunning Restraint: the central post-hit rider — one 30-AP stun attempt on a qualifying hit
+      if (!s.preview && !opts?.bleedOut && Vows?.tryTaint) { const tp = Vows.tryTaint(s, src, tgt, inst, dealtLf, {}); if (tp) { const p0 = tgt.status?.poison; if (p0 && p0.turnsLeft > 0 && p0.label !== tp.poison.label) { if (p0.turnsLeft < tp.poison.maxTurns) { p0.turnsLeft = tp.poison.maxTurns; log(s, { kind: "poison", actor: src.id, target: tgt.id, tiles: [[tgt.x, tgt.y]], turns: p0.turnsLeft, text: `A tainted blade keeps ${tgt.name}'s ${p0.label} alive: ${p0.turnsLeft} turns.`, why: ["Tainted Blade never replaces a poison of another kind; it only keeps it going."] }); } } else applyPoison(s, tgt, tp, src.id, "tainted"); } }   // IR2 Tainted Blade: a live poison of another kind is kept (own pass)   // Stunning Restraint: the central post-hit rider — one 30-AP stun attempt on a qualifying hit
       return dealtLf;
     }
     function applyFall(s, source, target, fromHeight, toHeight, half = false, cause = "shoved") {
@@ -837,6 +849,7 @@
           log(s, { kind: "ritual", actor: target.id, tiles: [[x, y]], text: `${target.name} shifts a step and the chant does not waver (Perfect Concentration).` });
         } else endRitual(s, target, "moved");
       }
+      if (target.dance?.form === "flame" && target.dance.role === "keeper") H.FireDance?.breakDance(s, target, "The keeper moved.");   // Fire Dance D1 (§Design 3): the keeper stays put
       eatMushroom(s, target, x, y);                                            // true forms: Zherm's Sporefall
       if (target.form?.golden) return;
       if (ClassRuntime && ClassRuntime.onEntry(s, target, x, y, cause, H.waterAt(s, x, y), classH())) return;   // ClassRuntime: flyers pass over hazards; knocked into water = grounded
@@ -994,6 +1007,10 @@
       if (inst?.answeredBy?.includes(tgt.id)) return hit(s, src, tgt, inst, potency, baseWhy);   // answered (window.js castAnswer): straight to hit(), which cancels it; his Rebound/Membrane are not spent
       if (ClassRuntime?.beforeStrike) { const cs = ClassRuntime.beforeStrike(s, src, tgt, inst, potency, classH()); if (cs) { potency = cs.potency; inst = cs.inst; baseWhy = baseWhy.concat(cs.why); } }   // Ranger: mark, ambush, arrow cover
       if(src.status.attention?.target===tgt.id){potency*=1.5;inst={...inst,ignoreCover:true,ignoreParry:true};baseWhy=baseWhy.concat(["Undivided Attention sharpens attacks on its one target ×1.5 and bypasses cover and parries."]);}
+      if (inst && !inst.restrained && potency > 0 && (Vows ? Vows.restraintMul(s, src) : 1) !== 1) {   // Stunning Restraint: a live vow weakens custom/delayed paths; stamped instances already paid at commit (null insts fall through to hit())
+        const before = potency; potency = Vows.restrainPotency(potency); inst = { ...inst, restrained: true };
+        baseWhy = baseWhy.concat([`Restrained Force: harmful potency ×0.4 (${roundFn(s)(before)} → ${roundFn(s)(potency)}).`]);
+      }
       const r = targetInteractions(s, src, tgt, inst, potency);
       if (r.stop) { if (r.why.length) log(s, { kind: "negate", actor: src.id, target: tgt.id, text: `${inst.name} doesn't reach ${tgt.name}.`, why: r.why, edge: r.edge }); return 0; }
       let finalPotency = r.potency; const why = baseWhy.concat(r.why);
@@ -1025,6 +1042,10 @@
       if (!m || m.verse || !m.ability) return false;
       if ((a.learned || []).includes(m.ability)) return true;
       if ((a.form?.techniques || []).includes(m.ability)) return true;
+      // Resonant Heirlooms JI1h (Mala, 2026-11-23, R-20261123-49): a wearer's own refined performance charges the ultimate bar
+      // even on a non-musician, when the wearer holds that instrument at the refined tier. Basic arts keep the rule above.
+      const art = INS_JI1()?.ART_INSTRUMENT?.[m.ability];
+      if (art?.tier === "refined" && INS_JI1().focusForId(a, art.id)?.tier === "refined") return true;
       const M = a.embodied && !a.defeated ? a.embodied : null;
       if (M && [...(C.concepts[M.primary]?.abilities || []), ...(C.concepts[M.secondary]?.abilities || [])].includes(m.ability)) return true;
       return (ab(m.ability)?.pairs || []).some(([p, sec]) => (p === a.primary && sec === a.secondary) || (M && p === M.primary && sec === M.secondary));
@@ -1052,7 +1073,7 @@
     }
     const opponentsOn = (s, src, tiles, includeWild = false) => {
       const set = new Set(tiles.map((t) => key(t[0], t[1])));
-      const actors = Object.values(s.actors).filter((a) => !a.defeated && a.side !== src.side && footprint(a).some(([x,y]) => set.has(key(x,y))));
+      const actors = Object.values(s.actors).filter((a) => !a.defeated && (a.side !== src.side || ClassRuntime?.magenta?.betrayLegal?.(s, src, a)) && footprint(a).some(([x,y]) => set.has(key(x,y))));   // Magenta (R-20261124-15): unique biggest-threat ally is a legal line mark
       if (includeWild) actors.push(...s.wild.filter((m) => m.form === "unit" && set.has(key(m.x, m.y))).map((m) => ({ ...m, wild: true, side: "wild", maxLF: m.maxLF, status: {} })));
       return actors;
     };

@@ -73,6 +73,10 @@
         const receipt = `${vb.potencyAdd ? ` +${vb.potencyAdd} potency` : ""}${liveRangeChange ? ` +${vb.rangeAdd} range` : ""}${vb.piercing ? " piercing" : ""}`;
         m.notes.push(`Oath-bound (${vb.names.join(" + ")}):${receipt || " no applicable change"}.`);
       }
+      if (!m.restrained && (Vows?.restraintMul?.(s, a) ?? 1) !== 1 && (m.potency || 0) > 0 && m.effect === "damage") {
+        const before = m.potency; m.potency = Vows.restrainPotency(before); m.restrained = true;
+        m.notes.push(`Restrained Force: harmful potency ×0.4 (${before} → ${m.potency}).`);
+      }
       // The Aviator (Mala, 2026-10-18): Aerodynamic and Thrust each add 2 to Propulsion's dash, and they stack (5 → 9).
       if (abilityId === "propulsion") {
         const add = ((a.traits || []).some((t) => (t?.id || t) === "aerodynamic") ? 2 : 0) + (H.ClassRuntime?.aeroForce?.(a) === "thrust" ? 2 : 0);
@@ -121,6 +125,7 @@
     function decider(s) {
       if (s.outcome) return null;
       if (s.answerOffer) return { actor: s.answerOffer.user, kind: "answer" };   // Tandem T5b: the Answer holds the battle until its user chooses (summons/tandem-answer.js)
+      if (s.trial?.awaitingJudgment) return { actor: s.trial.accusedId, kind: "judgment" };   // M2b (1.3): an unanswered guilty verdict holds the field until the accused chooses
       if (s.phase === "response") return { actor: s.pending.defenders[s.pending.responded.length], kind: "response" };
       if (s.phase === "mind" && s.mindDuel) {   // Mind duel: the concession waits on its loser; picks wait on the player first, then whoever is left
         const du = s.mindDuel;
@@ -174,14 +179,15 @@
       for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) {
         const reach = effectiveRange(s, a, m, x, y);
         if (dist(s, a.x, a.y, x, y) <= reach && !(x === a.x && y === a.y && m.range !== 0)) range.push([x, y]);
-        if (Parley && actorAt(s, x, y) && Parley.blocks(s, a, actorAt(s, x, y))) continue;   // Parley: terms, talked down, distracted
+        const at = actorAt(s, x, y);
+        if (Parley && at && (Parley.blocks(s, a, at) || Parley.reluctant?.(s, a, at))) continue;   // Parley: terms, talked down, distracted; Chef W4 AI reluctance (player units never filtered)
         const t = target(s, a, m, x, y, options); if (t.ok) legal.push({ at: [x, y], tiles: t.tiles, route: t.route || null, section: t.section || null });
       }
       // Distributed Intelligence: a damaging technique can also be aimed from any of his towers (class-runtime relayFor).
       const origins = m.potency > 0 ? ClassRuntime?.relayOrigins?.(s, a) || [] : [];
       if (origins.length) { const home = [a.x, a.y], seen = new Set(legal.map((l) => l.at.join(",")));
         try { for (const [ox, oy] of origins) { a.x = ox; a.y = oy;
-          for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) { if (seen.has(`${x},${y}`)) continue; const t = target(s, a, m, x, y, options);
+          for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) { if (seen.has(`${x},${y}`)) continue; const at = actorAt(s, x, y); if (Parley && at && (Parley.blocks(s, a, at) || Parley.reluctant?.(s, a, at))) continue; const t = target(s, a, m, x, y, options);
             if (t.ok) { seen.add(`${x},${y}`); legal.push({ at: [x, y], tiles: t.tiles, route: t.route || null, section: t.section || null, relay: [ox, oy] }); } } } }
         finally { a.x = home[0]; a.y = home[1]; } }
       const only=ab(abilityId)?.contract?.cast?.onlyType;
@@ -229,7 +235,7 @@
       // Resonant Heirlooms JI1: instrument arts ride the separate passives.instrumentArtIds record
       // (soulArtIds are never overwritten). Granted here, beside the loadout list, so menus, the AI
       // and reactive answers see them; engine.js abilitiesOf stays at its size cap untouched.
-      const ids = [...new Set([...abilitiesOf(a), ...((a.passives?.instrumentArtIds || []).filter((x) => ab(x)))])];   // includes anything learned by watching, for every class (tests/learned.test.mjs)
+      const ids = [...new Set([...abilitiesOf(a), ...((a.passives?.instrumentArtIds || []).filter((x) => ab(x)))])].filter((x) => !ab(x)?.readings || a.controller === "player" || a.id === "player");   // Prophecy S2 (spec T8): only the player's own units seal; every AI path reads this list   // includes anything learned by watching, for every class (tests/learned.test.mjs)
       return ids.map((abId) => {
         const m = manifest(s, a, abId);
         const mastered = !!s.rules.mastery && (a.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === s.rules.mastery.trait);
@@ -318,7 +324,7 @@
       const a = H.clone(s?.spawnBase && base?.id === "player" ? s.spawnBase : base);   // start from the battle-start player: nothing gained mid-battle carries over
       if (H.summonRules?.freshen) H.summonRules.freshen(a);
       else { a.form = null; a.formCooldownUntil = 0; for (const k of ["priorSprite", "priorSide", "priorName", "aura", "vows", "focus", "contractActive", "formsEntered", "formVowSpent", "heartScroll", "learnedForms", "embodied"]) delete a[k]; }
-      Object.assign(a, { summon: null, beads: [], ritual: null, dream: null, rite: null, rites: null, riteAugment: null, inspiration: 0, audition: null, husk: false, pendingSwap: null, knockedOut: false, escaped: false, hunterQuarry: null });   // H2: a fresh body starts with no Quarry (lifecycle table)
+      Object.assign(a, { summon: null, beads: [], ritual: null, dream: null, rite: null, rites: null, riteAugment: null, dance: null, inspiration: 0, audition: null, husk: false, pendingSwap: null, knockedOut: false, escaped: false, hunterQuarry: null });   // H2: a fresh body starts with no Quarry (lifecycle table); Fire Dance D1: dance never clones
       for (const k of ["soul", "maxSoul", "soulKind", "fruit", "beastSummons", "stateOffers", "orbitKit", "styleConcept"]) delete a[k];   // setup carries too: the Sinkerfruit kit and carried creatures are the player's
       delete a.aiPlan;   // AI Sight I1: a clone or summon never inherits the plan (lifecycle: not copied)
       Object.assign(a, { beliefStrength: 0, level: 1, xp: 0, proficiency: 1, status: Object.fromEntries(Object.keys(a.status || {}).map((k) => [k, null])) });   // sites set their own after   // ensureSoul (damage.js) rebuilds the soul from the body's own character   // not in the summon reset; a spawned body starts without them

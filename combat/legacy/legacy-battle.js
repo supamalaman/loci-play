@@ -193,8 +193,11 @@
     const l = fresh(legacy);
     if (!memorizable(id, C)) return { ok: false, error: "That technique can't be held in memory.", legacy: l };
     const r = L.memorize(l.memory, id, l.practice[id] || 0, MEMORIZE_AT, isScribedIn(l), desk);
-    return r.ok ? { ok: true, legacy: l, evicted: r.evicted } : { ok: false, error: `Needs practice ${r.need} (has ${l.practice[id] || 0}): finish a study and read a book, or study it twice.`, legacy: l };
+    return r.ok ? { ok: true, legacy: l, evicted: r.evicted, note: heldNote(id, C) } : { ok: false, error: `Needs practice ${r.need} (has ${l.practice[id] || 0}): finish a study and read a book, or study it twice.`, legacy: l };
   }
+  // JI1f (R-20261124-13): what the Codex says beside a held instrument art. It stays memorizable, so its generic parts can still be
+  // transcribed or taken apart, but the full art plays only from its instrument (the engine's instrument gate refuses it otherwise).
+  const heldNote = (id, C) => TP.instrumentNote(TP.instrumentSource(C?.abilities?.[id]));
   function buyBook(legacy, book) {
     const l = fresh(legacy); l.practice[book.technique] = (l.practice[book.technique] || 0) + 1;
     return { legacy: l, price: BOOK_PRICE[book.tier] || BOOK_PRICE.drill };

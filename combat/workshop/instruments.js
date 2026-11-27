@@ -46,6 +46,13 @@
     return [...new Set(out)];
   }
   const originKey = (itemId, actorId) => `${itemId}>${actorId}`;
+  // JI1e: a clone shares its origin's budgets. Walk mirrorOf chains (cycle-guarded) to the
+  // originating actor id; anyone else keeps their own. Independent wearers stay independent.
+  const originIdOf = (s, a) => {
+    let cur = typeof a === "string" ? s?.actors?.[a] : a, seen = 0;
+    while (cur && cur.mirrorOf && seen++ < 10) { const o = s?.actors?.[cur.mirrorOf]; if (!o || o === cur) break; cur = o; }
+    return (cur && cur.id) || (typeof a === "string" ? a : a?.id);
+  };
   const state = (s) => (s.instruments ||= { byOrigin: {} });
   const rec = (s, key) => (state(s).byOrigin[key] ||= {});
   const focusOf = (a) => (a?.passives?.instrumentFocus || [])[0] || null;
@@ -76,7 +83,7 @@
     const held = (x) => x && (x.until == null || x.until >= a.ownerTurns);
     if (held(a.status?.cuffed) || held(a.status?.detained)) return "Cuffed hands can't play.";
     if (a.status?.silenced && (a.status.silenced.until == null || a.status.silenced.until >= a.ownerTurns)) return "Silenced: the performance dies before it starts.";
-    const key = originKey(f.id, a.id);
+    const key = originKey(f.id, originIdOf(s, a));
     sweep(s, a, key);
     const r = rec(s, key);
     if (ability === "tuneStrings") {
@@ -93,13 +100,13 @@
   const tuneFree = (s, a) => {
     const f = focusOf(a);
     if (!f) return false;
-    return !rec(s, originKey(f.id, a.id)).freeTuneUsed;
+    return !rec(s, originKey(f.id, originIdOf(s, a))).freeTuneUsed;
   };
   // Commit a successful Tune: one charge keyed to item/actor, first success per battle/origin free.
   function takeTune(s, a, wasFree) {
     const f = focusOf(a);
     if (!f) return null;
-    const r = rec(s, originKey(f.id, a.id));
+    const r = rec(s, originKey(f.id, originIdOf(s, a)));
     r.tuned = true; r.tuneTurn = a.ownerTurns; r.tuneTakenTurn = a.ownerTurns;
     if (wasFree) r.freeTuneUsed = true;
     return f;
@@ -111,7 +118,7 @@
   function consumeRefined(s, a, H, action) {
     const f = focusOf(a);
     if (!f) return null;
-    const key = originKey(f.id, a.id);
+    const key = originKey(f.id, originIdOf(s, a));
     sweep(s, a, key);
     const r = rec(s, key);
     let paid = null;
@@ -143,7 +150,7 @@
   }
   // Tag a Guqin ward as a memory source: actual prevention it catches banks up to 6 LF.
   function tagWard(s, a, ward) {
-    const key = originKey("guqin", a.id);
+    const key = originKey("guqin", originIdOf(s, a));
     const r = rec(s, key);
     const id = (s.seq = (s.seq || 0) + 1);
     ward.guqin = { origin: key, caster: a.id, wardId: id };
@@ -165,7 +172,7 @@
   // Quiet Line cashes the bank: up to 6 LF, capped at missing LF, only when it actually heals.
   // The cash closes its source ward to further deposits even when protection remains.
   function cash(s, a, H) {
-    const key = originKey("guqin", a.id);
+    const key = originKey("guqin", originIdOf(s, a));
     sweep(s, a, key);
     const r = rec(s, key);
     return { key, amount: r.memory || 0, wardId: r.memoryWard ?? null };
@@ -179,5 +186,5 @@
     const r = rec(s, key);
     r.memory = 0;
   }
-  return { INSTRUMENTS, BASIC_ART, REFINED_ART, ART_INSTRUMENT, TRUE_PERFORMANCE, isInstrument, focusFor, artIdsFor, originKey, focusOf, focusForId, check, tuneFree, takeTune, consumeRefined, credit, tagWard, bank, cash, closeWard, spendCash, clearSource, sweep };
+  return { INSTRUMENTS, BASIC_ART, REFINED_ART, ART_INSTRUMENT, TRUE_PERFORMANCE, isInstrument, focusFor, artIdsFor, originKey, originIdOf, focusOf, focusForId, check, tuneFree, takeTune, consumeRefined, credit, tagWard, bank, cash, closeWard, spendCash, clearSource, sweep };
 });

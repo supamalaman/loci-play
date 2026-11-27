@@ -41,7 +41,7 @@
   }
 
   function render(vm) {
-    const { t, actions, practice, note, queued, verdict } = vm;
+    const { t, actions, practice, note, queued, verdict, judgment } = vm;
     const active = t.counts.find((count) => count.status === "open");
     const counts = t.counts.map((c) => `<li class="cc-pt-count" data-count-status="${esc(c.status)}"${c === active && !t.over ? ' aria-current="true"' : ""}><strong>${esc(c.label)}</strong><small>${esc(c.grade)} · severity ${c.severity} · ${esc(c.status)}</small></li>`).join("");
     const lines = t.log.map((e) => {
@@ -56,7 +56,7 @@
         <h3>Docket</h3><ul class="cc-pt-counts">${counts}</ul>${favorBar(t.favor, t.magistrate)}
         ${note ? `<p role="status">${esc(note)}</p>` : ""}
         ${queued ? `<p class="cc-court-queued" role="status">Queued for this round · ${esc(queued)}</p>` : ""}
-        ${verdict ? `<div class="cc-pt-verdict"><h3>Verdict</h3><ul>${verdict.counts.map((v) => `<li>${esc(v.count)} · <b>${esc(v.verdict)}</b></li>`).join("")}</ul>${verdict.sentences.map((line) => `<p>${esc(line)}</p>`).join("")}${practice ? "<p>This was practice. Nothing changed.</p>" : ""}</div>`
+        ${verdict ? `<div class="cc-pt-verdict"><h3>Verdict</h3><ul>${verdict.counts.map((v) => `<li>${esc(v.count)} · <b>${esc(v.verdict)}</b></li>`).join("")}</ul>${verdict.sentences.map((line) => `<p>${esc(line)}</p>`).join("")}${judgment ? `<div class="cc-court-actions" aria-label="Judgment">${plays}</div>` : ""}${practice ? "<p>This was practice. Nothing changed.</p>" : ""}</div>`
           : `<div class="cc-court-actions" aria-label="Legal plays">${plays}</div>`}
       </section>
       ${lines ? `<details class="cc-court-transcript"><summary>Trial transcript</summary><ol class="cc-pt-log">${lines}</ol></details>` : ""}
@@ -70,8 +70,22 @@
     appeal: ["Appeal for leniency", "Ask the court for favor. Appeals fare worse under the Magistrate."],
     end: ["Rest", "Let the count stand as graded."],
     finalPlea: ["Final plea", "Move favor once per trial. Sworn counts can turn it against you."],
+    plead: ["Plead guilty", "End the trial at once: every count guilty one tier lower. A plea never carries the Sword."],   // M2b (1.2)
     vouch: ["Vouch", `Your Full Bond speaks for your character: favor +${Math.max(1, Math.round(TR.TRIAL.exhibitBase * 0.5))}, never a count's grade. Once per trial, not on a sworn count; an honest friend may refuse.`],   // Bonds B6 (law/trial.js vouch)
   };
+
+  function sentenceSummary(t) {   // M2b (1.3): what "Accept judgment" costs, in the verdict screen's own words
+    const kinds = (t.verdicts?.sentences || []).map((s) => s.kind);
+    const guiltyCounts = (t.verdicts?.counts || []).filter((v) => v.verdict === "guilty");
+    const worst = Math.max(0, ...guiltyCounts.map((v) => t.counts?.find((c) => c.id === v.count)?.severity ?? v.severity ?? 1));
+    if (kinds.includes("sword")) return "the Sword falls";
+    if (worst >= 3) return "cuffs now, jail at battle end";
+    if (worst === 2) return "the Guilty trait now, jail at battle end";
+    if (kinds.includes("incarceration")) return "cuffs now";
+    if (kinds.includes("confiscate")) return "a sealed technique";
+    if (kinds.includes("guilty-trait") || kinds.includes("harsh")) return "the Guilty trait now";
+    return "a −25 tempo fine";
+  }
 
   function liveView(s, actorId, cost, portrait) {
     const tr = s?.trial, t = tr?.t;
@@ -80,7 +94,11 @@
     if (!side) return null;
     const queued = side === "defense" ? tr.queuedDefense : tr.queued;
     const active = t.counts.find((count) => count.status === "open");
-    const actions = tr.over || t.over ? [] : TR.legalPlays(t, side).map((move) => {
+    const judging = !!tr.awaitingJudgment && tr.accusedId === actorId;   // M2b (1.3): the verdict screen offers the two buttons
+    const actions = judging ? [
+      { move: "accept", label: `Accept judgment: ${sentenceSummary(t)}`, help: "The sentences stand. The charged entries are absolved, and your standing with the law rises (up to clean)." },
+      { move: "fight", label: "Fight your way out: the charges stay, you are wanted, and the law remembers.", help: "No sentence now — but the charges stay open, a resistedJudgment entry follows you, and your standing falls. Caught later, the sentences apply after all." },
+    ] : tr.over || t.over ? [] : TR.legalPlays(t, side).map((move) => {
       const [label, reason0] = moves[move] || [move, ""];
       const reason = move === "vouch" && t.vouchers?.[0]?.name ? reason0.replace("Your Full Bond", t.vouchers[0].name) : reason0;   // Bonds B6: name who would speak
       const refusal = move === "evidence" && !TR.witnessPool(t, side, active).length ? "No eligible witness for this count." :
@@ -91,7 +109,9 @@
       counts: t.verdicts.counts.map((v) => ({ count: t.counts.find((c) => c.id === v.count)?.label || v.count, verdict: v.verdict })),
       sentences: (t.verdicts.sentences || []).map((sentence) => sentence.text).filter(Boolean),
     } : null;
-    return { t, playerSide: side, actingSide: queued ? side : null, actors: s.actors, portrait, actions, type: side === "defense" ? "trialDefend" : "trialPlay", queued: moves[queued]?.[0], verdict };
+    const swordPossible = t.magistrate && t.counts.some((k) => k.status !== "struck" && k.status !== "absolved" && k.status !== "restituted" && (k.severity ?? 1) >= (TR.SEV?.serious ?? 2));
+    const note = !t.over && swordPossible && t.pleaOpen && side === "defense" ? "Death is on the table. A plea takes it off." : "";   // M2b (1.2): the warning shows only when the Sword is possible
+    return { t, playerSide: side, actingSide: queued ? side : null, actors: s.actors, portrait, actions, type: judging ? "trialJudgment" : side === "defense" ? "trialDefend" : "trialPlay", queued: moves[queued]?.[0], verdict, note, judgment: judging || undefined };
   }
 
   function openLive(host, { view, play, restore }) {

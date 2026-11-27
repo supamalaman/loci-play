@@ -526,5 +526,5 @@
     return null;
   }
 
-  return { named, vesselBy, markVessel, faithful, person, vestmentMul, choirOption, choirSustain, vestments, LAW, IDS, taxes, price, beforeAbility, target, resolve, moved, beforeMove, afterHit, turnStart, aiValue, statutes, gates, outlawBy, guilty, breaches, isMagistrate, isLawgiver, evidence, proven, debrief, foundEvidence, fileObjectEvidence, foundObjectEvidence };
+  return { named, vesselBy, markVessel, faithful, person, vestmentMul, choirOption, choirSustain, vestments, LAW, IDS, taxes, price, beforeAbility, target, resolve, moved, beforeMove, afterHit, turnStart, aiValue, statutes, gates, outlawBy, guilty, breaches, isMagistrate, isLawgiver, evidence, proven, debrief, foundEvidence, fileObjectEvidence, foundObjectEvidence, setOutlaw };
 });

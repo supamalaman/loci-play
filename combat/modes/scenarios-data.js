@@ -538,6 +538,16 @@
         mid: { when: { round: 3 }, text: "Crack the gold first: any blow that hurts him, even a little, breaks it. Then hit him for real. The treasure he drops is anyone's, but the first time one of you takes it, he gains an Inspiration." },
         result: { player: "The Treasure Hunter is down, gold and all.", enemy: "The Treasure Hunter wins the terraces. Next time crack the gold first: any blow that hurts him breaks it.",
           none: "The rounds run out with the treasure still in play." } } },
+    theDuelistsDeck: { id: "theDuelistsDeck", name: "The Duelist's Deck", minTier: 2, weight: 1,   // teaching Card Battler (AD1a, codex-anime-duelist-spec; R-20261122-75): the Anime Duelist is the one foe, with the auto-built deck every eligible human enemy carries (engine/cards.js buildEnemyDeck), deepened by his trait (cards.js limitsFor)
+      arenas: ["terraceGarden"],
+      foes: { fixed: ["anime_duelist"] },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "One Anime Duelist, and a deeper deck than anyone you have met: Card Battler gives him 4 more deck points and 2 more cards. The first direct damage, healing or ward of 5 or more on each instant or set card he plays lands 20% harder, at most +3; his familiars, zones and gear do not.",
+        mid: { when: { round: 3 }, text: "Every card he plays is gone for the battle. Vary your answer to his Feint, and do not chase his retreat: let the deck run down." },
+        result: { player: "The Anime Duelist is down, his deck spent.", enemy: "The Anime Duelist wins the duel. Next time refuse the chase and let his cards run out.",
+          none: "The rounds run out with cards still in his hand." } } },
     theMosaicsOrdeal: { id: "theMosaicsOrdeal", name: "The Mosaic's Ordeal", minTier: 1, weight: 1, chainOnly: true,   // the Mosaic's Trial (Tandem T2c, muse-tandem-spirit-spec section 3; R-20261115-03, R-20261115-42): never rolled, begun from the Tandem wing (summons/tandem-wing.js); the numbers are the row's (summons-data.js mosaic.tandem.trial; a test pins that they agree)
       arenas: ["punchbowlRim"],
       foes: { fixed: [], unbound: "mosaic" },   // fixed: [] = no rolled or drawn foe; the tandem is the only one
@@ -644,6 +654,18 @@
         mid: { when: { round: 3 }, text: "Name it aloud: albedo is her weak channel. She answers ranged shots with Ossified Ward — whole only against Greedigut, half against you." },
         result: { player: "The Intruder is down. Nothing hunts you now.", enemy: "It read you, then it hit what it read. Next time name it aloud early, and do not stand where it screamed.",
           none: "The rounds run out." } } },
+    whatWasForetold: { id: "whatWasForetold", name: "What Was Foretold", minTier: 2, weight: 1,   // teaching Prophecy S2 (muse-prophecy-spec; R-20261124-20, and R-20261115-55: "S2 Augury carries it"): Augury is lent as the player's
+      // secondary for this battle (lendConcept) against one soldier. Cast the Lots or Double Meaning seals a prophecy; the soldier's own next turn makes one reading true, or none.
+      arenas: ["punchbowlRim"],
+      foes: { fixed: ["soldier"], at: [[7, 3]] },
+      lendConcept: "augury",
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "Augury is yours for this battle. Cast the Lots, or strike with Double Meaning, and a prophecy settles on the soldier: whichever of its readings the soldier's next turn makes true is the one that comes to pass.",
+        mid: { when: { round: 3 }, text: "The readings are public: the soldier can choose which one comes true, or stand and guard so that none does. A prophecy that nothing fulfils is a miss." },
+        result: { player: "It went the way it was foretold.", enemy: "The soldier chose its road. Next time, seal the reading it cannot avoid.",
+          none: "The rounds run out." } } },
     whatTheyMeanToDo: { id: "whatTheyMeanToDo", name: "What They Mean to Do", minTier: 2, weight: 1,   // teaching Rigs RG1 (claude-rigs-spec section 3, "Read the room"; that id is taken by the crew lesson, so this one has its own): an Officer rig is lent for this battle (lendGear; never an unlock). Appended last so the termination sixths keep their members (C11)
       arenas: ["punchbowlRim"],
       foes: { fixed: ["soldier", "student"], at: [[7, 3], [4, 5]] },   // both in sight of the spawn (the pillars hide (6,2) and (6,4)), so the first turn can Forecast
@@ -667,6 +689,16 @@
         mid: { when: { round: 3 }, text: "When the court adjourns, the Magistrate is an ordinary foe. A pact of your own vouches the same way at any trial where you are the accused, and the Bonds window remembers whether he spoke." },
         result: { player: "The Magistrate is down. A lent pact writes nothing; a Full Bond of your own would remember this hearing.", enemy: "The Magistrate wins. Next time, let Jatayu speak before the charge is heard out.",
           none: "The rounds run out with the Magistrate still standing." } } },
+    underTheCanal: { id: "underTheCanal", name: "Under the Canal", minTier: 1, weight: 1,   // teaching Sunken Ruins BD1 (specs/SUNKEN_RUINS.md section 7): Warden starts on canalGarden water against a Swimmer foe; hint names Dive, breath, and that surfacing brings everyone up. Appended last (C11)
+      arenas: ["canalGarden"],
+      foes: { fixed: ["sailor"], at: [[7, 3]] },
+      quiet: true,
+      objective: { kind: "classic" },
+      text: {
+        open: "Standing in the canal opens Dive under Rituals: drop into the drowned seabed below the water. Watch your breath before the deep starts taking your air, and climb the rope to Surface — when the first diver surfaces or falls, the water closes and everyone below comes up alive.",
+        mid: { when: { round: 3 }, text: "A swimmer holds breath longer below than a land fighter. Keep an eye on your air and make for the rope before it runs out." },
+        result: { player: "The canal is yours, above and below.", enemy: "The swimmer took the water. Next time watch your breath and use the rope.",
+          none: "The fight runs out along the canal." } } },
   };
 
   return { SCENARIOS, LAW };

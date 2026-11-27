@@ -116,6 +116,7 @@
         const resolved = ClassRuntime.target(s, a, m, tx, ty, classH()) || fail("Unknown class effect.");
         return resolved;
       }   // ClassRuntime
+      { const ge = ClassRuntime?.magenta?.gateTarget?.(s, a, m, tx, ty, classH()); if (ge) return fail(ge); }
       if (ClassRuntime && ab(m.ability)?.classNeeds) { const r = ClassRuntime.beforeAbility({ ...s, cls: s.cls || {} }, a, { ...m, id: m.ability, probe: true }, classH()); if (r) return fail(r); }
       if (["raisePalisade", "raiseFoundry", "foundCity"].includes(m.effect)) {   // Settlement: founding needs open ground in sight and range (Mala, 2026-10-19)
         if (tx == null || !inside(s, tx, ty)) return fail("Choose ground to found on.");
@@ -268,7 +269,7 @@
       }
       if (m.effect === "barrier" || m.effect === "berm" || m.effect === "swale") {
         if (m.ability === "guqinUnbrokenListening" && !(tx === a.x && ty === a.y)) {   // JI1 (R-20261123-17): on your own turn, a line to one living ally within 3. As an answer it is yourself only: the window offers only the defender's tile (window.js reactiveOptions) and respond accepts only an offered row
-          const ally = actorAt(s, tx, ty), reach = m.ownTurnRange ?? 3;
+          const ally = actorAt(s, tx, ty), reach = m.ownTurnRange ?? 3;   // the manifest carries the row's reach (ownTurnRange fix, stacked on ER1)
           if (!ally || ally.side !== a.side || ally.defeated) return fail("Unbroken Listening holds yourself or one living ally.");
           if (dist(s, a.x, a.y, tx, ty) > reach) return fail(`Out of range (${reach}).`);
           if (!hasSight(s, a.x, a.y, tx, ty)) return fail("No line of sight to that ally.");
@@ -325,7 +326,7 @@
       // line / contact
       const range = effectiveRange(s, a, m, tx, ty);
       if (dist(s, a.x, a.y, tx, ty) > range) return fail(`Out of range (${range}).`);
-      if (m.target === "enemy" && (!seen || (seen.side === a.side && !(H.isMonster(a) && a.drawback === "mindless" && occ.id !== a.summoner)))) return fail("Choose an opponent.");   // the mindless Zombie bites its own side too
+      if (m.target === "enemy" && (!seen || (seen.side === a.side && !(H.isMonster(a) && a.drawback === "mindless" && occ.id !== a.summoner) && !ClassRuntime?.magenta?.betrayLegal?.(s, a, occ)))) return fail("Choose an opponent.");   // Magenta (R-20261124-15): unique biggest-threat ally; mindless Zombie bites its own side too
       if (m.target === "enemy" && occ && Parley && !occ.wild) { const no = Parley.blocks(s, a, occ); if (no) return fail(no); }   // Parley: talked down refuses before payment, like Strike
       if (tx === a.x && ty === a.y) return fail("Choose another tile.");
       if (m.delivery === "line" && !hasSight(s, a.x, a.y, tx, ty)) return fail("No line of sight: opaque terrain blocks the direct view.");

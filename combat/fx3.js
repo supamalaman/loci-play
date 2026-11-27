@@ -166,7 +166,7 @@
     const side = Math.abs(cs) > 0.5 ? (cs >= 0 ? 1 : -1) : sl.sgn;
     const A = [b.cx, b.y + b.h / 2 - lift * 12];
     const C = [ccx + side * (124 + (sl.sgn === side ? 34 : 0)), ccy - 24 + Math.sin(ang) * tile * 0.95 + (sl.sgn === side ? -10 : 14)];
-    const D = [fx + sl.sgn * (20 + b.w / 2), fy - 14];
+    const D = [fx + sl.sgn * (4 + b.w / 2), fy - 14];
     const p1 = easeInOut(seg(tt, sl.fold.t0, launch)), q = seg(tt, launch, sl.tc), p2 = q * q;
     const hump = Math.sin(Math.PI * p1);
     const x = A[0] + (C[0] - A[0]) * p1 + (D[0] - C[0]) * p2;
@@ -174,14 +174,49 @@
     const rebuildEnd = sl.tc + sl.holdMs + sl.backMs;
     const gone = seg(tt, sl.tc + sl.holdMs, rebuildEnd);
     const hold = lift > 0.01 && tt < rebuildEnd && tt < blockingMs;
+    const sinceContact = tt - sl.tc;
+    const punch = sinceContact >= 0 && sinceContact <= 90 ? 1 + 0.1 * (1 - sinceContact / 90) : 1;
     return { w: sl.w, sgn: sl.sgn, twin: sl.twin, tc: sl.tc, holdMs: sl.holdMs, backMs: sl.backMs, rebuildEnd,
-      hold, x, y, z: hump * 90, pw: b.w, ph: b.h, alpha: lift * (1 - gone), spin: p1 * Math.PI * 2 * (idx % 2 ? 1 : -1) };
+      hold, x, y, z: hump * 90, pw: b.w, ph: b.h, alpha: lift * (1 - gone), spin: p1 * 0.5 * (idx % 2 ? 1 : -1), punch };
   }
 
   function slabsAt(script, folded, caster, t, tile, centre) {
     const size = tile || 48, toPx = toCentre(centre, size), who = caster || { x: 0, y: 0 };
     const p = plan(script, folded);
     return p.slabs.map((sl, i) => slabAt(sl, i, t == null ? 0 : t, who, toPx, size));
+  }
+
+  // F4: each folded kind flies as its own pane. Walls and objects keep the F3 stone; barriers read as
+  // pale blue, wards as gold (the ward ring), and the dream edge as violet. Opacity stays high so the
+  // slab reads as carried stone, not glow (R-20261121-05 keeps the opaque look for F3/F4).
+  function styleFor(kind) {
+    if (kind === "barrier") return { color: 0x7fa8c9, opacity: 0.92 };
+    if (kind === "ward") return { color: 0xe8c15a, opacity: 0.92 };
+    if (kind === "dreamEdge") return { color: 0x9a86d6, opacity: 0.92 };
+    return { color: 0x8d8678, opacity: 1 };
+  }
+
+  // F4: one impact window per foe hit: contact at tc, release when its slabs finish rebuilding.
+  function windows(script, folded) {
+    const p = plan(script, folded || []);
+    return p.slabs.map((sl) => ({ x: sl.im.x, y: sl.im.y, target: sl.im.target, tc: sl.tc, rebuildEnd: sl.tc + sl.holdMs + sl.backMs }));
+  }
+
+  // F4: the foe squeezed between its slabs. Scale 1 outside [tc, rebuildEnd); down to 0.8 at contact,
+  // easing back to 1 at release so the draw width is exact again after. Pure in (script, folded, actor, t).
+  function squeezeFor(script, folded, actor, t) {
+    const tt = t == null ? 0 : t;
+    let sx = 1;
+    for (const w of windows(script, folded)) {
+      const hit = (actor && actor.id != null && w.target != null) ? actor.id === w.target
+        : (actor && w.x === actor.x && w.y === actor.y);
+      if (!hit) continue;
+      if (!(tt >= w.tc && tt < w.rebuildEnd)) continue;
+      const p = (tt - w.tc) / Math.max(1e-6, w.rebuildEnd - w.tc);
+      const s = 1 - 0.2 * (1 - p);
+      if (s < sx) sx = s;
+    }
+    return sx;
   }
 
   function clearLayer() {
@@ -240,11 +275,11 @@
       const geo = new T.PlaneGeometry(1, 1);
       for (const sl of slabs) {
         if (sl.alpha < 0.02) continue;
-        const pane = sl.w.kind === "wall" || sl.w.kind === "object";
-        const mat = new T.MeshBasicMaterial({ color: pane ? 0x8d8678 : 0xb5a57a, transparent: true, opacity: Math.max(0.35, sl.alpha), depthTest: false });
+        const st = styleFor(sl.w.kind);
+        const mat = new T.MeshBasicMaterial({ color: st.color, transparent: true, opacity: Math.max(0.35, Math.min(st.opacity, sl.alpha)), depthTest: false });
         const m = new T.Mesh(geo, mat);
         m.position.set(sl.x, sl.y, 0);
-        m.scale.set(sl.pw, sl.ph, 1);
+        m.scale.set(sl.pw * (sl.punch || 1), sl.ph * (sl.punch || 1), 1);
         m.rotation.z = sl.spin || 0;
         scene.add(m); slabMeshes.push(m);
       }
@@ -253,5 +288,5 @@
     } catch (e) { cannot("paint: " + String(e && e.message || e).slice(0, 160)); return false; }
   }
 
-  root.FX3 = { state, load, layerFor, debugQuad, libUrl, LIB_VERSION, QUAD, slabsAt, holds, mine, paint, release, sync, STORE_KEY };
+  root.FX3 = { state, load, layerFor, debugQuad, libUrl, LIB_VERSION, QUAD, slabsAt, holds, mine, paint, release, sync, styleFor, windows, squeezeFor, STORE_KEY };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -10,7 +10,7 @@
   else (root.ConceptCombatEngineParts = root.ConceptCombatEngineParts || {}).actionsStrike = install;
 })(typeof self !== "undefined" ? self : this, function install(H, K) {
   return (function () {
-    const { ClassRuntime, Courtroom, DIRS, EmergentIdeas, Parley, Tsukumogami, actorAt, applyEntryEffects, barrierAt, bossRules, classH, dist,
+    const { ClassRuntime, Courtroom, DIRS, EmergentIdeas, Parley, Tsukumogami, Vows, actorAt, applyEntryEffects, barrierAt, bossRules, classH, dist,
       footprint, fullCourtPressOptions, hasTrait, hit, inside, log, presidentContext, presidentRules, presidentUnits, roundFn, spendTempo,
       strikeTarget, syncPresidentUnit, tileAt } = H;
     const { addStun, barsTooFast, freeStrike, grappleChance, grappleCost, grappled, hermitCharge, holdFireRefusal, sealedNext, seededChance, strikeRange, strongGrip,
@@ -69,11 +69,13 @@
             const push = act.effort ?? s.rules.actionCosts.strike;
             if (push < s.rules.actionCosts.strikeMin || push > s.rules.actionCosts.strikeMax || push % 5) return `Strike effort must be ${s.rules.actionCosts.strikeMin}–${s.rules.actionCosts.strikeMax} in 5-point steps.`;
             const pay = spendTempo(s, a, push, "Strike", true); if (pay) return pay;
-            const blade0 = a.form?.strike || null, force = (awakenedBase ?? blade0?.potency ?? s.rules.strike.potency) * push / s.rules.actionCosts.strike * (H.mindset(a)?.baseMul || 1) * flowMul + foundryBonus + (a.passives?.strikePotencyAdd || 0) + (a.awakened && hasTrait(a, "heavy") ? 2 : 0);
+            const blade0 = a.form?.strike || null; let force = (awakenedBase ?? blade0?.potency ?? s.rules.strike.potency) * push / s.rules.actionCosts.strike * (H.mindset(a)?.baseMul || 1) * flowMul + foundryBonus + (a.passives?.strikePotencyAdd || 0) + (a.awakened && hasTrait(a, "heavy") ? 2 : 0);
+            const restWhy = [];
+            if (force > 0 && (Vows?.restraintMul?.(s, a) ?? 1) !== 1) { const before = force; force = Vows.restrainPotency(force); restWhy.push(`Restrained Force: harmful potency ×0.4 (${roundFn(s)(before)} → ${roundFn(s)(force)}).`); }
             const what = dc.o.name || ({ plant: dc.o.common || dc.o.type }[dc.o.kind]) || dc.o.type;
-            if (dc.object) log(s, { kind: "act", actor: a.id, tiles: [[tx, ty]], text: `${a.name} strikes the ${what}, investing ${push}% of a turn for ${roundFn(s)(force)} potency.`, why: ["Anything on the map can be broken."] });
+            if (dc.object) log(s, { kind: "act", actor: a.id, tiles: [[tx, ty]], text: `${a.name} strikes the ${what}, investing ${push}% of a turn for ${roundFn(s)(force)} potency.`, why: ["Anything on the map can be broken.", ...restWhy] });
             else log(s, { kind: "act", actor: a.id, tiles: [[tx, ty]], text: dc.tower ? `${a.name} strikes the ${dc.o.name || dc.o.type} carrying ${dc.owner.name}'s drone tower, investing ${push}% of a turn for ${roundFn(s)(force)} potency.` : `${a.name} strikes ${dc.owner.name}'s data center, investing ${push}% of a turn for ${roundFn(s)(force)} potency.`,
-              why: [dc.tower ? "A Strike can hit an object that carries a drone tower: break the anchor and the tower falls." : "A data center is an object a Strike can hit.", ...(dc.agi ? [`${dc.agi.name} runs on it.`] : [])] });
+              why: [dc.tower ? "A Strike can hit an object that carries a drone tower: break the anchor and the tower falls." : "A data center is an object a Strike can hit.", ...(dc.agi ? [`${dc.agi.name} runs on it.`] : []), ...restWhy] });
             H.strikeObject(s, a, dc.o, force, blade0?.damageType || "nigredo");
             if (dc.o.sealedGate) sealedNext()?.syncGates?.(s);
             s.lastClashRound = s.round; return;
@@ -87,7 +89,7 @@
         }
         const entr = !a._entrFlip && a.status?.entranced && (a.status.entranced.until == null || a.status.entranced.until >= a.ownerTurns);
         const seenSide = entr ? (a.side === "player" ? "enemy" : "player") : !a._entrFlip && H.States?.anySide(a) ? null : a.side;   // Cure: a loosed unit sees no side at all
-        if (!t || t.side === seenSide || H.Instinct.hidden(a, t)) return "Strike needs an adjacent opponent.";
+        if (!t || ((t.side === seenSide) && !ClassRuntime?.magenta?.betrayLegal?.(s, a, t)) || H.Instinct.hidden(a, t)) return "Strike needs an adjacent opponent.";   // Magenta (R-20261124-15): unique biggest-threat ally
         if (Parley && !t.wild) { const no = Parley.blocks(s, a, t); if (no) return no; }   // Parley
         if (reachDist(tx, ty) > strikeRange(s, a)) return strikeRange(s, a) > 1 ? `Strike reaches ${strikeRange(s, a)} tiles.` : "Strike reaches only adjacent tiles.";
         if (!t.wild && ClassRuntime?.bowBlocked?.(s, a, t, classH())) return "The bow needs a clear line of sight.";
@@ -105,6 +107,7 @@
         if (act.aim) { s.aimN = (s.aimN || 0) + 1; if (seededChance(`${s.seed}:aim:${a.id}:${t.id}:${s.aimN}`) < (s.rules.injury?.aimMiss ?? 0.15)) { log(s, { kind: "miss", actor: a.id, target: t.id, cause: "aimed-wide", text: `${a.name} aims for the ${act.aim} and misses clean.` }); return; } }
         if (barsTooFast(s, a, "strike")) { log(s, { kind: "act", actor: a.id, target: t.id, fizzled: true, text: `${a.name} talks too fast and the jab goes past ${t.name}.`, why: ["Speed-Talker: his attacks are talk, at half the action points, and they land 85% as often."] }); return; }
         if (free) { a.freeStrikeTurn = a.ownerTurns; log(s, { kind: "freeStrike", actor: a.id, target: t.id, text: `${a.name} strikes from the hold: ${free} action points of it cost nothing.`, why: ["Grappler: the first Strike each turn on a held opponent is free up to a balanced strike."] }); }
+        if (!s.preview) ClassRuntime?.magenta?.announceHunt?.(s, a, t, classH());   // Magenta (R-20261124-17): next-mark cutscene names who he goes for
         const blade = a.form?.strike || null;   // an orb form's own strike (the Cyborg's energy blade, docs/brain-chip.md)
         let potency = (awakenedBase ?? blade?.potency ?? s.rules.strike.potency) * effort / s.rules.actionCosts.strike * (a.omen ? a.omen.multiplier : 1) * H.adviceMul(a) * (H.mindset(a)?.baseMul || 1) * flowMul;   // Corner advice (companions); Craftsman's Mindset; Flow state
         if (a.awakened && hasTrait(a, "heavy")) potency += 2;   // Tsukumogami: Heavy stone lands harder
@@ -128,10 +131,11 @@
         if (act.aim) { inst.aimZone = act.aim; log(s, { kind: "act", actor: a.id, target: t.id, text: `${a.name} aims the strike at the ${act.aim} (+${aimAp} AP).` }); }
         if (hasTrait(a, "drunkenMonkey")) inst.directHit = true;   // Drunken Monkey Style: every attack lands direct
         if (steel) inst.carriesWill = true;
+        if (!inst.restrained && potency > 0 && (Vows?.restraintMul?.(s, a) ?? 1) !== 1) { const before = potency; potency = Vows.restrainPotency(potency); inst.restrained = true; inst.restrainedNote = `Restrained Force: harmful potency ×0.4 (${roundFn(s)(before)} → ${roundFn(s)(potency)}).`; }
         if (coils.n) log(s, { kind: "effect", actor: a.id, target: t.id, text: `${a.name} lets ${coils.n} coil${coils.n === 1 ? "" : "s"} go: +${coils.potency} potency.`, why: ["Coilfruit: Wind the Spring stores the blow; the next Strike releases it."] });
         if (H.fruitDrift?.(s, a, t, inst)) { log(s, { kind: "act", actor: a.id, target: t.id, fizzled: true, text: `${a.name}'s strike passes through ${t.name}: Drift.`, why: ["Mistfruit: a strike that doesn't carry will misses 35% of the time. Steel will (+10 AP) lands through it."] }); hermitCharge(s, a, "strike"); return; }
         log(s, { kind: "act", actor: a.id, text: `${a.name} strikes ${t.name} (contact, no ΦF), investing ${effort}% of a turn for ${roundFn(s)(potency)} potency.${dense ? " Dense Muscle doubles it." : ""}${quad ? " Four Arms double it (×1.5 AP)." : ""}${gearBlade ? ` The weapon adds +${gearBlade}.` : ""}${autoArm ? " The automail arm adds +3." : ""}${vesselBulk ? " The vessel body adds +1." : ""}`, ...(starTax > 1 ? { why: [`Genre-Defining Performance: ×${starTax} AP to touch the star.`] } : {}) });
-        strikeTarget(s, a, t, inst, potency, [`Universal strike: no concept, no edges beyond parries. ${effort} action points invested; damage scales with tempo committed.`, ...(foundryBonus ? [`The line arms the blow: +${foundryBonus} (Foundry).`] : []), ...(autoArm ? ["Automail arm +3."] : []), ...(vesselBulk ? ["Vessel body +1."] : []), ...(armG === 1 ? ["Wounded arms: −20% potency."] : [])]);
+        strikeTarget(s, a, t, inst, potency, [`Universal strike: no concept, no edges beyond parries. ${effort} action points invested; damage scales with tempo committed.`, ...(foundryBonus ? [`The line arms the blow: +${foundryBonus} (Foundry).`] : []), ...(autoArm ? ["Automail arm +3."] : []), ...(vesselBulk ? ["Vessel body +1."] : []), ...(armG === 1 ? ["Wounded arms: −20% potency."] : []), ...(inst.restrainedNote ? [inst.restrainedNote] : [])]);
         if (coils.n && H.fruitOf?.(a)?.ripe && !t.defeated && !s.outcome) { log(s, { kind: "effect", actor: a.id, target: t.id, text: `The ripe coils let go all at once: ${t.name} is knocked back ${H.fruitPushBonus?.(s, a, t, coils.n, "push") ?? coils.n}.`, why: ["Sinkerfruit: a ripened release knocks the target back one tile per coil."] }); { const mk = s.log.length, from = [t.x, t.y]; H.knock(s, a, t, coils.n, inst, "push"); H.fruitKnocked?.(s, a, t, mk, from); } }
         hermitCharge(s, a, "strike");   // Train Hard
         if (blade?.rider && bossRules?.formRider && !s.outcome) bossRules.formRider(a, t, blade.rider, H.formCtx(s, a, t));   // learned forms: the form Strike's effect

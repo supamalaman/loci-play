@@ -266,13 +266,15 @@
       transcend: ["Now I see the whole field."],
       swear: ["I am old, and I swear it anyway. The king of the vultures keeps his word to the last feather."] } },
     // Maricha (Surpanakha flee chain S1, 2026-11-09): Ravana's unwilling uncle, the golden deer. Original lines.
-    maricha: { name: "Maricha", ownOnly: true, voice: "Afraid and obedient; an old rakshasa who remembers one arrow too well.", rules: {}, events: {
+    maricha: { name: "Maricha", ownOnly: true, guises: { marichaDeer: { voice: "A golden deer: no words, only what a lure lets you hear.", events: {
+      appear: ["(A golden deer steps out of the trees, unafraid, and looks back at you.)", "(Silver spots on gold. It waits to be followed.)"] } } }, voice: "Afraid and obedient; an old rakshasa who remembers one arrow too well.", rules: {}, events: {
       encounter: ["Look, but do not follow. Or do. That is the point."],
       hurt: ["Again an arrow. Enough. I am gone."],
       defeat: ["I told him this would end badly."] } },
     // Surpanakha (docs/surpanakha-build.md "Voice"): Ravana's sister; charming, then furious; never forgets.
     surpanakha: { name: "Surpanakha", ownOnly: true, voice: "Honeyed, then shrill; vain, wounded, relentless. Every slight is a debt.", rules: {}, events: {
       encounter: ["Such a handsome warrior. Come closer.", "Do you know who my brother is?"],
+      flee: ["Run, yes. Run to Lanka. You will wish I had stayed.", "Enjoy the quiet. Something golden is coming."],   // S3: her flight starts the lure (fleeChain); an own-line event
       attack: ["For my face!"],
       hit: ["Remember that. I will."],
       hurt: ["You will pay for that. My brother will make you pay."],
@@ -379,7 +381,14 @@
       transcend: ["I am awake now. Truly."],
       swear: ["Fine. I swear it. Now let me get on with it before I fall asleep again."] } },
     // Ravana (docs/ravana-build.md "Voice"): the ten-headed king of Lanka, scholar and Shiva's devotee, too proud to listen.
-    ravana: { name: "Ravana", ownOnly: true, voice: "Grand, scornful, learned; a king who has never been refused. Speaks of himself in the plural when angry.", rules: {}, events: {
+    // Surpanakha flee chain S3 (Leadline BD, 2026-11-24, R-20261124-22): `guises` are voices worn while a state holds (combat-voice.js
+    // reads them in place of `events`, own lines only), so a disguise never speaks its wearer's lines. The breaking blow is heard in the
+    // true voice, since the state is gone by then.
+    ravana: { name: "Ravana", ownOnly: true, guises: { ravanaMendicant: { voice: "A soft-spoken wandering ascetic asking for alms; nothing kingly shows.", events: {
+      appear: ["Alms, for a wanderer? Only a little rice, and a little water.", "Peace on this house. I have walked far."],
+      attack: ["Forgive an old man his staff."],
+      hit: ["The road is hard on everyone."],
+      low_lf: ["Is this how the forest treats a holy man?"] } } }, voice: "Grand, scornful, learned; a king who has never been refused. Speaks of himself in the plural when angry.", rules: {}, events: {
       encounter: ["I am Ravana, lord of Lanka. Kneel, or be taken.", "Ten heads, and every one of them has already decided you lose."],
       attack: ["Chandrahasa, drink."],
       hit: ["Mine now."],
@@ -447,6 +456,17 @@
       parried: ["Again. Slower this time."],
       climb: ["One step. Then another. Good."] } },
     // The Treasure Hunter (TH1): an easy, greedy grin; every sentence is a map, a price, or a dare.
+    // The Anime Duelist (AD1a, codex-anime-duelist-spec): theatrical, card-proud; original lines only.
+    anime_duelist: { name: "Anime Duelist", ownOnly: true, voice: "Theatrical and sure; narrates his own duel to an audience only he can see; every line is a reveal or a dare.", rules: {}, events: {
+      encounter: ["You know my hand. Now read my next move.", "A duel needs a witness. You will do."],
+      attack: ["My turn. Watch closely."],
+      hit: ["Exactly as I drew it."],
+      hurt: ["A good draw. Yours will not last."],
+      low_lf: ["Down to my last cards. That is when it gets interesting."],
+      ally_down: ["Hold on. The duel is not over."],
+      defeat: ["Out of cards... and out of moves."],
+      victory: ["The deck never lies."],
+    } },
     treasure_hunter: { name: "Treasure Hunter", ownOnly: true, voice: "Easy, greedy, delighted; every sentence is a map, a price or a dare. Talks to the loot as much as to you.", rules: {}, events: {
       encounter: ["Somebody buried something here. I can smell it.", "Finders keepers. I will be finding."],
       attack: ["Hold still. You are in the way of something shiny."],
@@ -719,6 +739,10 @@
       rules: { ra_line: ["Mind if I tag along? I will anyway."], ra_hurt: ["Ow! Worth it."] },
       events: { encounter: ["Mind if I tag along? I will anyway."], attack: ["Just a little piece!"], hurt: ["Ow! Worth it."], rethink: ["New host. Better view."], defeat: ["...dropping off here..."] },
     },
+    magenta_trickster: { name: "Magenta Trickster", voice: "Cool, watchful, needling; he already named the strongest body in the room.",
+      rules: { mt_line: ["Biggest on the field. That's mine."], mt_hurt: ["You watched my hands a little late."] },
+      events: { encounter: ["Biggest on the field. That's mine."], attack: ["Keep watching."], hurt: ["You watched my hands a little late."], rethink: ["New card. Same hands."], defeat: ["Ah. You watched my hands."] },
+      faces: { encounter: "happy", attack: "neutral", hurt: "surprised", rethink: "angry", defeat: "sad" } },
     shaman: { name: "Shaman", voice: "Modern ancestor-channel; introduces the dead like honored guests, because they are.",
       rules: { sh_line: ["The dead never left. Mind your manners."], sh_hurt: ["The ancestors felt that!"] },
       events: { encounter: ["Come out, all of you. We have company."], attack: ["Grandmother, teeth!"], hurt: ["The ancestors felt that!"], rethink: ["Different ancestor. Older debt."], defeat: ["...joining the guests..."] },
@@ -875,6 +899,12 @@
       faces: { encounter: "neutral", attack: "angry", hit: "neutral", hurt: "sad", low_lf: "angry", reveal: "surprised", ultimate: "surprised", victory: "happy", rethink: "neutral", defeat: "sad" } },
     goethe_ascended: { name: "The Ascended Scholar", voice: "Goethe at the height of the climb: a gold-threaded coat, a small dragon at his shoulder, and the patience of someone who has read the ending.", rules: {}, events: { encounter: ["Every road I walked arrives at this."], attack: ["A single sentence, well placed."], hurt: ["Even this belongs in the work."], reveal: ["Look higher. There is always more of the mountain."], ultimate: ["The whole of it, at once, and luminous."], victory: ["So the work is finished. For today."], defeat: ["A good place to set down the pen..."] },
       faces: { encounter: "happy", attack: "angry", hit: "neutral", hurt: "sad", low_lf: "angry", reveal: "surprised", ultimate: "surprised", victory: "happy", rethink: "neutral", defeat: "sad" } },
+    // Roman Emperor S1 (staged character voices; the palace SUMMON kit ships in summon-voices.js). Lines are original:
+    // no Meditations quotes are attributed to the real Marcus (summon-voices.js header rule).
+    roman_emperor: { name: "The Roman Emperor", voice: "An emperor out of the palace histories: laurel, purple, and the absolute certainty that order is declared, not found.", rules: {}, events: { encounter: ["Rome is patient. Rome is also here."], attack: ["For the Senate and the people."], hurt: ["The purple stains like any cloth."], reveal: ["Behold the man beneath the laurel."], ultimate: ["Pax Romana. Be still, and be kept."], low_lf: ["An emperor kneels to no one. Today excepted."], victory: ["So the map is redrawn. Again."], rethink: ["Another road to Rome."], defeat: ["The laurel passes. Rome remains."] },
+      faces: { encounter: "neutral", attack: "angry", hit: "neutral", hurt: "sad", low_lf: "angry", reveal: "surprised", ultimate: "surprised", victory: "happy", rethink: "neutral", defeat: "sad" } },
+    greek_hero: { name: "Marcus Aurelius", voice: "A philosopher in armor, out of the dream: writes his doubts down at night and spends them by day. Weary, exact, and kind the way tired commanders are.", rules: {}, events: { encounter: ["The camp is quiet. Good. Talk first."], attack: ["As duty directs."], hurt: ["Noted. The body complains; the work continues."], reveal: ["The dream keeps what the day spends."], ultimate: ["For every tent in the line."], low_lf: ["The writing desk will have to wait."], victory: ["Bury the fallen. Pay the living."], rethink: ["A different column. Same road."], defeat: ["To the tents, then. The night shift is mine."] },
+      faces: { encounter: "neutral", attack: "angry", hit: "neutral", hurt: "sad", low_lf: "angry", reveal: "surprised", ultimate: "surprised", victory: "happy", rethink: "neutral", defeat: "sad" } },
   };
 
   const fallback = {
@@ -889,9 +919,18 @@
   // Full Tracery spec for one speaker (the shape tracery.js expects).
   // side is "ally" or "foe" (combat-voice passes the speaker's side relative to the
   // player); omitted it merges both variants, so old callers keep working.
-  function spec(id, side) {
+  // S3: events only a speaker's own lines voice (no shared lines, no signature fallback), kept out of `events` so the every-speaker
+  // tests do not demand them: a flight (Surpanakha) and a kin arrival (the deer, the mendicant).
+  const ownEvents = ["flee", "appear"];
+  const ownOf = (sp, guise, e) => { const g = guise ? sp?.guises?.[guise] : null; let own = g ? g.events?.[e] : sp?.events?.[e]; if (own && !Array.isArray(own)) own = [...(own.ally || []), ...(own.foe || [])]; return own || []; };
+  function spec(id, side, guise = null) {
     const sp = speakers[id];
     const ev = {};
+    if (guise && sp?.guises?.[guise]) {   // a guise speaks only its own lines, for every event it has
+      for (const e of [...events, ...ownEvents]) ev[e] = ownOf(sp, guise, e);
+      return { enemy: id, name: sp.name, events: ev, rules: {}, filters, fallback, faces: {} };
+    }
+    for (const e of ownEvents) ev[e] = ownOf(sp, null, e);
     // A speaker's first rule is its signature line; it voices hit/attack/ultimate when the
     // speaker hasn't written lines for them, so routine chatter stays in character.
     const sig = sp && Object.keys(sp.rules || {})[0];
@@ -904,5 +943,5 @@
     return { enemy: id, name: sp ? sp.name : id, events: ev, rules: sp ? sp.rules : {}, filters, fallback, faces: sp ? sp.faces || {} : {} };
   }
 
-  return { events, common, speakers, fallback, filters, spec };
+  return { events, ownEvents, common, speakers, fallback, filters, spec, ownOf };
 });

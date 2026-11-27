@@ -13,9 +13,14 @@
     const { CRAFT, CRAFT_OWN, ClassRuntime, Courtroom, DIRS, Director, MaidSystems, Performers, Postures, Vows, ab, abilitiesOf, actorAt, applyEntryEffects, barrierAt, borrowedCharges,
       chargeUltimate, classH, conceptName, declaredRange, dist, dreamSpaceRules, hasDeception, hasSight, hasTrait, heightAt, inside, insightRules, log, manifest, moveRefusal,
       ownerOfConcept, presidentContext, presidentEffects, presidentRules, presidentUnits, rangeEnvelope, spendTempo, syncPresidentUnit, target, tileAt } = H;
+    const DEFERRED_FIELD = new Set(["guzhengCrossingStrings", "guzhengThousandBridges"]);   // JI1h: field damage arts whose resolve calls settleDeferredCharge (resolve.js), so an empty field builds no charge
     const INS = () => (typeof module === "object" && module.exports ? (() => { try { return require("../workshop/instruments.js"); } catch { return null; } })() : globalThis.ConceptCombatWorkshopInstruments) || null;   // Resonant Heirlooms JI1
     const INS_ART = { has: (id) => !!(id && INS()?.ART_INSTRUMENT?.[id]) };   // JI1c: read from instruments.js ART_INSTRUMENT, the one list (a hand list here missed new arts)
     const { barsTooFast, holdFireRefusal, openResponseWindow, resolveAbility, sealedNext } = K;
+    // Tend Before Triumph (Šammu nikitti SN1a2): empathic first Pioneer Patch while an ally is hurt. Lazy like
+    // damage.js (orgonite/animated-body): Node requires the module, the page reads the preloaded global.
+    const sammuMod = () => (typeof module === "object" && module.exports ? (() => { try { return require("../mythic-plants/sammu.js"); } catch { return null; } })() : globalThis.ConceptCombatSammu) || null;
+    const tendFreeHere = (s, a, m) => sammuMod()?.tendFree(s, a, m?.ability, hasTrait) || false;
     const family = {
       ability(s, a, act, internal) {   // MY-02: prepaid authority rides the internal 4th arg (verified card-consumption only); a smuggled public field buys nothing
         if (typeof act.ability === "string" && act.ability.startsWith("boss_sealednext_")) {
@@ -43,6 +48,8 @@
         { const held = H.Tally?.heldReason(s, a, act.ability); if (held) return held; }   // collateral (engine/tally.js)
         if (Vows) { const no = Vows.gate(s, a, "ability", ab(act.ability), act, { log }); if (no) return no; }   // Vows: Single Mind, Burned Bridge; breakVow elects the breach
         if (Vows && act.ability === "audition") { const no = Vows.validate("role", act.vow, a, s.rules.inspiration, s); if (no) return no; }   // role vows ride the audition
+        if (ab(act.ability)?.readings && !(a.controller === "player" || a.id === "player")) return "Only the player's own units seal a prophecy.";   // Prophecy S2 (spec T8): the AI never seals
+        if (ab(act.ability)?.readings && H.Prophecy?.openFor(s, a.id)) return "You already hold an open prophecy: one at a time.";   // Prophecy S2: Augury's seals, refused before any cost
         const m = manifest(s, a, act.ability, act);
         { const no = holdFireRefusal(s, a, m.target === "enemy"); if (no) return no; }
         // Resonant Heirlooms JI1: Tune the Strings validates its source/turn rules here (the target gate
@@ -68,7 +75,7 @@
         if (quickened === "lastWord" && m.tier !== "ultimate") return "Last Word can only spend an ultimate.";
         if (quickened === "snap" && !["basic", "refined", "ultimate"].includes(m.tier)) return "Snap requires a damaging technique.";
         const extraTempo = Math.max(0, Math.floor(act.overclock || 0));
-        const freeFirst = H.freeFirstFree?.(a, m);   // hotbuild free first use (W0b): hoisted — the early tempo gate must agree with the menu (triage 2026-11-04)
+        const freeFirst = H.freeFirstFree?.(a, m) || tendFreeHere(s, a, m);   // hotbuild free first use (W0b): hoisted — the early tempo gate must agree with the menu (triage 2026-11-04); Tend Before Triumph (Šammu SN1a2) rides the same waiver
         const detailTax = !crescendoFree && hasTrait(a, "attentionToDetail") && m.effect === "barrier" ? 5 : 0;   // Attention to Detail: sturdier craft costs slightly
         const coopOff = !crescendoFree && ClassRuntime?.coopApOff ? ClassRuntime.coopApOff(s, a, act) : 0;
         const tempoBillOf = () => !coopOff || m.tempoCost < 5 ? m.tempoCost : Math.max(5, m.tempoCost - coopOff);   // read at each use: a later prepare step may lower m.tempoCost (Homology's Eliminated Hypothesis); fixed at the 1.3.565 merge (Stanchion IN)
@@ -153,6 +160,7 @@
         else if (m.tier === "ultimate" && !internal?.prepaid) { a.ultimateCharge -= s.rules.ultimateChargeMax; if (a.status.ward?.flow) a.status.ward = null; a.flowOn = false; log(s, { kind: "charge", actor: a.id, text: `${a.name} spends ${s.rules.ultimateChargeMax} ultimate charge on ${m.name}.` }); }   // spending the bar ends the flow state (ward included)   // MCR-04: prepaid reveals spend no bar or Inspiration beyond the set payment
         if (m.tier === "ultimate" && !internal?.prepaid) H.Inspiration.ultimateFired(s, a);   // Legend's Cloth (JG1): every cast ultimate counts once: bar, mastery or sequel; a prepaid card counted at its set (mystery.js)
         if (!s.preview) ClassRuntime?.auditor?.committed(s,a,{...m,id:act.ability},{...classH(),Factions:H.Factions,Parley:H.Parley});
+        if (!s.preview) ClassRuntime?.magenta?.commit?.(s, a, {...m,id:act.ability, targets: t.targets}, classH());
         s.stats.abilityUses[act.ability] = (s.stats.abilityUses[act.ability] || 0) + 1; H.Exposure.used(s, a, act.ability, m);
         if (crescendoFree) H.Inspiration.crescendoFreeUsed(a, act.ability);   // the free cast is spent at commit
         if (m.crescendo) H.Inspiration.crescendoArm(s, a, m);   // the Crescendo spends its Inspiration and bends the rule once the cast is committed
@@ -167,6 +175,7 @@
         // cast that later misses or fizzles refunds nothing; the paid record rides the manifest into resolve,
         // carrying the True Performance tally. Listening pays here too; its resolve branch reads the record.
         if (INS_ART.has(act.ability) && INS()?.ART_INSTRUMENT[act.ability].tier === "refined") m.instrumentPaid = INS().consumeRefined(s, a, H, m) || { paid: "none" };
+        if (!s.preview && freeFirst === "battle" && act.ability === "pioneerPatch" && !H.freeFirstFree?.(a, m)) log(s, { kind: "succession", actor: a.id, ability: act.ability, text: `${a.name} tends before triumph: the Patch costs nothing while an ally is hurt.`, why: ["Tend Before Triumph (empathic): one free Pioneer Patch a battle when a living ally within 3 is below half LF; ordinary soil and range checks remain."] });   // Šammu SN1a2 (pioneerPatch carries no hotbuild freeFirst, so a battle-free Patch is this waiver)
         if (freeFirst === "substrate") delete a.substrate;   // Florence (F2): the substrate stamp is spent by the Innovation copy it fed
         if (!s.preview && a.character === "florence_oloo" && ["diffuseWave", "concentrationGradient"].includes(act.ability)) a.substrate = true;   // Florence (F2): a Diffusion field she placed is the substrate her next Innovation reads
         if (CRAFT) {   // practice and care bookkeeping (the manifest above already read the stacks this use benefits from)
@@ -261,7 +270,7 @@
           // resolution, where settleDeferredCharge grants it only if someone was hit. Utility still charges on use.
           const chargeArgs = [inst.concept, `Using ${inst.name} as ${ownerOfConcept(a, inst.concept) || "borrowed"} concept.`, inst.compositionApplied ? s.rules.ultimateChargePairBonus : 0,
             MaidSystems?.utilityChargeMultiplier(m) || 1, MaidSystems?.canRechargeAura(a, inst) || false, borrowedCharges(a, inst)];
-          if (m.effect === "damage" || m.effect === "paleStampede") inst.deferredCharge = chargeArgs;   // a stampede that tramples no one charges nothing either
+          if (m.effect === "damage" || m.effect === "paleStampede" || DEFERRED_FIELD.has(m.effect)) inst.deferredCharge = chargeArgs;   // a stampede that tramples no one charges nothing either; nor a Guzheng field that strikes no one (JI1h)
           else chargeUltimate(s, a, ...chargeArgs, H.sealMulFor(a, act.ability));   // Tea T1: a non-damage draw (a merge) charges here, before the ink spends
         }
         H.fruitCast?.(s, a, act, inst);   // Sinkerfruit (Locusfruit): a recall costs 2 more PhiF and empties its room; a palace taxes or refunds

@@ -12,6 +12,8 @@
     const Spirit = () => (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null;
     const Orders = () => (typeof module === "object" && module.exports ? require("../spirit/orders.js") : globalThis.ConceptCombatOrders) || null;
     const OG = () => (typeof module === "object" && module.exports ? (() => { try { return require("../orgonite/orgonite.js"); } catch { return null; } })() : globalThis.ConceptCombatOrgonite) || null;
+    const INS = () => (typeof module === "object" && module.exports ? (() => { try { return require("../workshop/instruments.js"); } catch { return null; } })() : globalThis.ConceptCombatWorkshopInstruments) || null;
+    const ART_OF = (id) => INS()?.ART_INSTRUMENT?.[id] || null;
     const { Auras, Affinity, Bonds, ClassRuntime, Climate, INTERDICT, Imitation, MED, MindDuel, Parley, REVEAL, RITUAL, Traps, Vows, VK, WX, Workflow, ab, accountItems,
       actorAt, apply, auraH, availableAbilities, beliefSummonCandidate, chanted, classH, decider, dist, edgeDistance, fullCourtPressOptions, hasTrait,
       insightRules, isMonster, knownEnemyTraps, log, manifest, moduleArena, monsterCtx, moveOptions, onEdge, paths, presidentCanRecognize, presidentRules,
@@ -316,7 +318,7 @@
     // takes a foe out of the fight now. removesFoe: a foe standing before the act is not standing in its preview.
     const CALLS = new Set(["summon", "callDream"]);
     // killFoe: the foe set kill-beats-all counts (killBeatsAll below): parley partners, truces, civilians and wilds are not foe kills.
-    const killFoe = (s, a, t) => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, t));
+    const killFoe = (s, a, t) => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && (Parley.blocks(s, a, t) || Parley.reluctant?.(s, a, t)));
     const removesFoe = (st, after, a) => Object.values(st.actors).some((t) => killFoe(st, a, t) && after.actors[t.id] && !H.Instinct.standing(after.actors[t.id]));
     function aiDecide(s) {
       const dc = decider(s); if (!dc) return traceAiReturn("aiDecide:L204", (null));
@@ -326,11 +328,13 @@
       }
       if (dc.kind === "answer") { const TA = typeof module === "object" && module.exports ? require("../summons/tandem-answer.js") : globalThis.ConceptCombatTandemAnswer; return traceAiReturn("aiDecide:answer", (TA.aiChoice(s, s.actors[dc.actor]))); }   // Tandem T5b: the Answer, chosen by its AI user
       if (dc.kind === "banquet") { const B = typeof module === "object" && module.exports ? require("../banquet/banquet.js") : globalThis.ConceptCombatBanquet; return traceAiReturn("aiDecide:banquet", ({ type: "banquetChoose", actor: dc.actor, choice: B.aiChoice(s, s.actors[dc.actor]) })); }   // the Chef's table: a guest chooses first
+      if (dc.kind === "judgment") return traceAiReturn("aiDecide:judgment", ({ type: "trialJudgment", actor: dc.actor, move: H.Courtroom.aiJudgment(s, H) }));   // M2b (1.3): an AI-driven accused answers a guilty verdict
       const a = s.actors[dc.actor];
       if (dc.kind === "turn" && a.summon?.order && !a.summon.ultimateUsed && !a.defeated)
         return traceAiReturn("aiDecide:L211", ({ type: "resolveSummonUltimate", actor: a.id }));
       if (dc.kind === "turn" && a.status?.detained && (a.status.detained.until == null || a.status.detained.until >= a.ownerTurns)) return traceAiReturn("aiDecide:L212", ({ type: "end", actor: a.id }));   // Detained: beforeAbility, Strike and Move all refuse (previews skip those checks), but end/stall stay open — bank it and wait (end auto-stalls when tempo remains)
       if (dc.kind === "turn" && H.States?.blocksAll(s, a)) return traceAiReturn("aiDecide:states", ({ type: "end", actor: a.id }));   // States: shut out of everything but ending the turn
+      if (dc.kind === "turn" && a.dance?.form === "flame" && a.dance.role === "keeper" && a.dance.sustainedRound !== s.round && H.FireDance?.isHolder(a) && apply(s, { type: "flameSustain", actor: a.id }, { preview: true }).ok) return traceAiReturn("aiDecide:flameSustain", ({ type: "flameSustain", actor: a.id }));   // Fire Dance D1 (T9): holder AI sustains an active Flame Dance
       // RIK R1, the exchange's promise (the RIK spec; R-20261105-04, R-20261105-05, R-20261110-31): after a reveal that "seizes the
       // exchange", the setter's next decides this turn commit to the cheap finisher, never the ultimate, ahead of every optional branch below
       // (cards, hires, the Sage), so nothing spends the tempo first. The promise lapses at the turn's end (the marker names the turn) or when no
@@ -402,6 +406,20 @@
       }
       if (H.Dispatch?.shouldKneel(s, a)) { const kneelAct = { type: "kneel", actor: a.id }; if (apply(s, kneelAct, { preview: true }).ok) return traceAiReturn("aiDecide:dispatchKneel", kneelAct); }   // the sentenced, hurt and surrounded: kneel
       if (a.tempo <= 0) return traceAiReturn("aiDecide:L254", ({ type: "end", actor: a.id }));
+      // Sunken Ruins BD2 (specs/SUNKEN_RUINS.md 6.4): below the surface, head for the rope and surface at <= 1 breath
+      // (or when drowning, or when no foes remain below and the opener's need is gone).
+      if (s.pockets?.deep?.ready && H.astralRegionOf?.(s, a.x, a.y) === "deep") {
+        const D = s.pockets.deep;
+        const fBelow = Object.values(s.actors).filter((u) => !u.defeated && !u.notArrived && !H.Tourist?.is(u) && u.side !== a.side && u.side !== "bystander" && H.astralRegionOf?.(s, u.x, u.y) === "deep");
+        const mustSurface = (a.dive?.breath ?? 0) <= 1 || !!a.status?.drowning || (!fBelow.length && (D.opener !== a.id || !deepOpenNeed(s, a)));
+        if (mustSurface) {
+          const surf = { type: "surface", actor: a.id };
+          if (a.x === D.rope[0] && a.y === D.rope[1] && apply(s, surf, { preview: true }).ok) return traceAiReturn("aiDecide:deepSurface", surf);
+          const toRope = moveOptions(s, a.id).filter((o) => dist(s, o.to[0], o.to[1], D.rope[0], D.rope[1]) < dist(s, a.x, a.y, D.rope[0], D.rope[1]))
+            .sort((p, q) => dist(s, p.to[0], p.to[1], D.rope[0], D.rope[1]) - dist(s, q.to[0], q.to[1], D.rope[0], D.rope[1]) || p.tempoCost - q.tempoCost);
+          for (const o of toRope.slice(0, 4)) if (apply(s, { type: "move", actor: a.id, to: o.to }, { preview: true }).ok) return traceAiReturn("aiDecide:deepRope", { type: "move", actor: a.id, to: o.to });
+        }
+      }
       if(a.status?.drowning) {
         const recover={type:"recoverWater",actor:a.id};
         if(H.waterRecovery(s,a)?.allowed && apply(s,recover,{preview:true}).ok)return traceAiReturn("aiDecide:L257", (recover));
@@ -980,7 +998,7 @@
       if (!a.status?.soothed && !a.wild && a.tempo >= s.rules.actionCosts.strikeMin) for (const o of anchorsOf(s, a)) if (dist(s, a.x, a.y, o.x, o.y) <= H.strikeRange(s, a))
         out.push({ type: "strike", actor: id, target: [o.x, o.y], effort: Math.min(s.rules.actionCosts.strike, s.rules.actionCosts.strikeMax, a.tempo) });
       if(a.status?.verse?.id&&a.status.verse.freeAp){const t=targeting(s,id,a.status.verse.id);if(t.legal.length)return t.legal.map(q=>({type:"ability",actor:id,ability:a.status.verse.id,target:q.at}));return [{type:"discardVerse",actor:id}];}
-      let foes = Object.values(s.actors).filter((t) => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && H.Factions.atWar(s, a, t) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, t)));
+      let foes = Object.values(s.actors).filter((t) => H.Instinct.standing(t) && !H.Tourist?.is(t) && t.side !== a.side && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && H.Factions.atWar(s, a, t) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && (Parley.blocks(s, a, t) || Parley.reluctant?.(s, a, t))));
       if (a.status.onePossession?.expiresAt > a.ownerTurns && a.status.onePossession.targetId) foes = foes.filter(t => t.id === a.status.onePossession.targetId);
       if (a.forceTarget && a.forceTargetUntil >= s.round && foes.some((t) => t.id === a.forceTarget)) foes = foes.filter((t) => t.id === a.forceTarget);
       // Pet Fighting (insight-data.js): a Pet Fighter's pet goes for the other side's pets while any stand.
@@ -1034,6 +1052,9 @@
           if (Vows.live(s, a).some((v) => v.on === "technique" && v.boon === boon)) continue;
           const pay = vowTechPay(s, a, Vows.BOONS[boon].price);
           if (pay) out.push({ type: "vow", actor: id, target: "technique", vow: { boon, restrictions: pay }, vowGain: vg[boon] });
+        }
+        if (vg && vg.dazingBlow > 0 && !Vows.live(s, a).some((v) => v.on === "technique") && !(s.declarations || []).some((d) => d.actor === id && d.boon === "dazingBlow")) {
+          out.push({ type: "vow", actor: id, target: "technique", vow: { boon: "dazingBlow", restrictions: ["restrainedForce"] }, vowGain: vg.dazingBlow });   // Stunning Restraint: mandatory price, never vowTechPay; one declaration per origin per battle
         } }
       { const dream = Vows && !a.form?.golden && VK && Affinity && H.C && VK.declareFor(Affinity, H.C, a, H.abilitiesOf(a).map((bid) => VK.textOf(ab(bid))),   // W4.6: the recognized dream, sworn out loud (deliberate = consented)
         { round: s.round, isAhead: VK.ahead(s, a.side), live: Vows.live(s, a).some((v) => !v.broken) });
@@ -1159,6 +1180,11 @@
         }
       }
       if(H.waterRecovery(s,a)?.allowed && apply(s,{type:"recoverWater",actor:id},{preview:true}).ok)out.push({type:"recoverWater",actor:id});   // Water (synergy merge 1.3.379: hand-placed beside recover; the palace-summon block sits between the patch's anchors)
+      if (s.rules.dive) {   // Sunken Ruins BD2 (6.4): AI dive pursuit / The Deep opener, and surfacing at the rope
+        const reg = H.astralRegionOf?.(s, a.x, a.y);
+        if (reg === "land" && (canPursueDeep(s, a) || deepOpenNeed(s, a)) && apply(s, { type: "dive", actor: id }, { preview: true }).ok) out.push({ type: "dive", actor: id });
+        if (reg === "deep" && apply(s, { type: "surface", actor: id }, { preview: true }).ok) out.push({ type: "surface", actor: id });
+      }
       if (((a.maxPF > 0 && a.pf < 6) || H.snapBackReady(s, a)) && !H.canRecover(s, a)) out.push({ type: "recover", actor: id });   // Animated Body AB1a: the shared predicate; Snap Back owed makes Recover worth a turn even at full ΦF
       if (!a.status?.overwatch && (a.reaction ?? 0) > 0 && !a.aggressive && !a.summon && a.tempo >= (s.rules.overwatch?.ap ?? 10)) out.push({ type: "overwatch", actor: id });   // Overwatch (Muse-2)
       if (a.disengageTurn !== a.ownerTurns && a.lf <= (s.rules.opportunity?.potency ?? 6) && a.tempo >= (s.rules.opportunity?.disengageAp ?? 15)
@@ -1288,7 +1314,7 @@
     // is worn protection that hits back: it pays only if one of them attacks the wearer. The range is a judgement, not a proof:
     // a foe farther off may still arrive before the card expires, and the AI does not bet on it (spec section 1: no set with an
     // empty trigger outlook). Distance only, as the ledger counts worn protection: no sight test. Nearest first.
-    const setFoe = (s, a, t) => H.Instinct.standing(t) && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander" && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && H.Factions.atWar(s, a, t) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, t));   // a foe the setter fights (S3 shares it with revealTries)
+    const setFoe = (s, a, t) => H.Instinct.standing(t) && !t.notArrived && !H.Tourist?.is(t) && t.side !== a.side && t.side !== "bystander" && H.PostHuman.atWar(s, a, t) && H.Civilian.atWar(s, a, t) && (H.Visitors?.atWar(s, a, t) ?? true) && H.Factions.atWar(s, a, t) && !(a.truceWith === t.id && a.truceUntil >= s.round) && !(Parley && (Parley.blocks(s, a, t) || Parley.reluctant?.(s, a, t)));   // a foe the setter fights (S3 shares it with revealTries)
     function setOutlook(s, a) {
       const R6 = s.rules.aiLedger?.threatRangeSelf ?? 6;
       return Object.values(s.actors).filter((t) => setFoe(s, a, t) && dist(s, a.x, a.y, t.x, t.y) <= R6)
@@ -1539,8 +1565,9 @@
       const reachGuns = damage.filter(({ m }) => m.target !== "self" && (m.delivery === "routed" ? m.routeBudget > 0
         : m.range > 0 && (m.delivery === "line" || (m.delivery === "field" && m.area?.shape === "single"))));
       const marks = (foes || []).filter((t) => !t.notArrived && t.side !== "bystander");
-      if ((!guns.length && !reachGuns.length) || !marks.length) return null;
-      const out = { farShot: 0, heavyHands: 0, piercingOath: 0 };
+      const dazeGuns = damage.filter(({ m }) => m.target === "enemy" && (!m.area || m.area.shape === "single") && m.delivery !== "field");   // Stunning Restraint: only aimed single-target damage can carry the rider
+      if ((!guns.length && !reachGuns.length && !dazeGuns.length) || !marks.length) return null;
+      const out = { farShot: 0, heavyHands: 0, piercingOath: 0, dazingBlow: 0 };
       for (const { m } of reachGuns) for (const f of marks) {
         const reach = m.delivery === "routed" ? m.routeBudget : m.range, d = dist(s, a.x, a.y, f.x, f.y);
         if (d > reach + 1 || (m.delivery !== "routed" && d <= reach)) continue;   // keep the existing printed-range horizon
@@ -1561,6 +1588,16 @@
             if (ward >= 8) out.piercingOath = Math.max(out.piercingOath, Math.min(ward, m.potency) * 0.9);
           }
         }
+      }
+      const foregone = 0.6 * Math.max(0, ...dazeGuns.map(({ m }) => m.potency || 0));   // Stunning Restraint: the price is 60% of your own output while it lasts
+      for (const { m } of dazeGuns) for (const f of marks) {
+        const reach = m.delivery === "routed" ? m.routeBudget : m.range, d = dist(s, a.x, a.y, f.x, f.y);
+        if (d > reach || !H.hasSight(s, a.x, a.y, f.x, f.y)) continue;
+        if (m.potency * 0.4 < 1) continue;   // the weakened hit must still land ≥1 LF
+        if (m.potency * 0.4 <= (f.status?.ward?.protection || 0)) continue;   // a hit the ward would fully absorb is blocked: leave it to piercing
+        if (f.form?.golden || (f.boss && H.bossRules?.statusImmune?.(f, "stun")) || (f.status?.stun?.points || 0) >= 30) continue;   // public immunities: no attempt
+        if (hasTrait(f, "perfectConcentration")) continue;
+        out.dazingBlow = Math.max(out.dazingBlow, Math.min(30, f.tempo > 0 ? f.tempo : 30) * 0.5 - foregone);
       }
       return out;
     }
@@ -1816,8 +1853,134 @@
       }
       return total;
     }
+    // Sunken Ruins BD2 (specs/SUNKEN_RUINS.md 6.4): AI pursuit & The Deep opener helpers.
+    const deepFoesBelow = (s, a) => Object.values(s.actors).filter((u) => !u.defeated && !u.notArrived && !H.Tourist?.is(u) && u.side !== a.side && u.side !== "bystander" && H.astralRegionOf?.(s, u.x, u.y) === "deep");
+    function deepOpenNeed(s, a) {
+      if (!s.rules.dive || !hasTrait(a, "theDeep") || s.pockets?.deep?.ready) return false;
+      if ((a.diveOpens || 0) >= (s.rules.dive.opensPerBattle ?? 2)) return false;
+      if (a.lf < a.maxLF * 0.5) return true;
+      const foes4 = Object.values(s.actors).filter((u) => !u.defeated && !u.notArrived && !H.Tourist?.is(u) && u.side !== a.side && u.side !== "bystander" && H.astralSameRegion(s, a.x, a.y, u.x, u.y) && dist(s, a.x, a.y, u.x, u.y) <= 4).length;
+      const friends4 = Object.values(s.actors).filter((u) => !u.defeated && !u.notArrived && u.side === a.side && H.astralSameRegion(s, a.x, a.y, u.x, u.y) && dist(s, a.x, a.y, u.x, u.y) <= 4).length;
+      return foes4 > friends4;
+    }
+    function canPursueDeep(s, a) {
+      if (!s.rules.dive || !s.pockets?.deep?.ready || H.astralRegionOf?.(s, a.x, a.y) !== "land" || H.cannotSwim?.(a)) return false;
+      if (!deepFoesBelow(s, a).length) return false;
+      const hasBreathGear = (a.passives?.breathTurnsAdd || 0) > 0 || hasTrait(a, "breathHolder");
+      if (!hasTrait(a, "swimmer") && !hasBreathGear) return false;
+      return (H.deepBreathFor?.(s, a) || 0) >= 2;
+    }
+    // Heirlooms JI1d: hard usability gate for instrument performances. True means the art can be committed
+    // right now; the need score (instrumentNeed, general sum) decides whether it should be. The AI never
+    // spends Inspiration on a refined art — it tunes first, and the Tune gate below only opens when a valid
+    // affordable refined action is expected before expiry.
+    function instrumentReady(s, a, cand) {
+      if (!cand || cand.type !== "ability" || !cand.ability) return false;
+      const art = ART_OF(cand.ability);
+      if (!art) return false;
+      const foci = a.passives?.instrumentFocus || [];
+      const f = art.id ? foci.find((x) => x.id === art.id) : foci[0];
+      if (!f) return false;
+      const rec = (s.instruments?.byOrigin || {})[`${f.id}>${a.id}`] || {};
+      if (cand.ability === "tuneStrings") return tuneValue(s, a, f) > 0;
+      const def = ab(cand.ability);
+      if (def?.tier === "refined" && (f.tier !== "refined" || !rec.tuned)) return false;
+      return true;
+    }
+    // The most the setup is worth: a solid setup move, priced just under a landed strike so it beats
+    // utility (Rally) in a quiet turn but never hijacks triage (heavy need still plays the basic now).
+    // Builder's pick (spec gives directions, not numbers); pinned by T10 tune.
+    function tuneValue(s, a, f) {
+      if (!f || f.tier !== "refined") return 0;
+      const key = `${f.id}>${a.id}`;
+      const rec = (s.instruments?.byOrigin || {})[key] || {};
+      if (rec.tuned || rec.tuneTakenTurn === a.ownerTurns) return 0;
+      const id = INS()?.REFINED_ART?.[f.id];
+      if (!id) return 0;
+      const d = ab(id);
+      if (!d || (a.pf ?? 0) < (d.cost ?? 0) || (a.tempo ?? 0) < (d.tempoCost ?? 0)) return 0;
+      // Probe the refined art's targets as if already tuned: Tune only opens a door the wearer can walk through.
+      // (targeting refuses untuned refined outright, so the live state never has a legal refined target yet.)
+      const s2 = { ...s, instruments: { ...(s.instruments || {}), byOrigin: { ...((s.instruments || {}).byOrigin || {}), [key]: { ...rec, tuned: true } } } };
+      const tg = targeting(s2, a.id, id);
+      const legs = (tg?.legal || []).map((l) => l && l.at).filter((t) => Array.isArray(t) && t.length === 2);
+      for (const t of legs) if (instrumentNeed(s2, a, { type: "ability", ability: id, target: t }) > 0) return 8;
+      return 0;
+    }
+    // Heirlooms JI1d: need value for an instrument performance, generic wearer and musician alike. Reads only
+    // public board state (positions, LF, statuses the engine already reveals, the wearer's own focus and tune
+    // record) — never insight decks, hidden cards, future attacks, or character names. Assumes playable
+    // (instrumentReady gates the unusable); 0 means no need, never a veto.
+    function instrumentNeed(s, a, cand) {
+      if (!cand || cand.type !== "ability" || !cand.ability) return 0;
+      const art = ART_OF(cand.ability);
+      if (!art) return 0;
+      const foci = a.passives?.instrumentFocus || [];
+      const f = art.id ? foci.find((x) => x.id === art.id) : foci[0];
+      if (!f) return 0;
+      const live = (u) => u && !u.defeated;
+      const allies = Object.values(s.actors || {}).filter((u) => live(u) && u.side === a.side && u.id !== a.id);
+      const foes = Object.values(s.actors || {}).filter((u) => live(u) && u.side !== a.side && u.side !== "bystander" && !H.Tourist?.is(u));
+      const missing = (u) => Math.max(0, (u.maxLF || u.lf || 0) - u.lf);
+      const bleeding = (u) => !!(u.injuries && Object.values(u.injuries).some((z) => z && z.g && !z.s));
+      const low = (u) => u.lf <= (u.maxLF || u.lf || 1) * 0.3;
+      const threatened = (u) => foes.some((e) => dist(s, e.x, e.y, u.x, u.y) <= 2);
+      const at = (t) => (t && t.length === 2 ? actorAt(s, t[0], t[1]) : null);
+      const wardGain = (u, pot) => Math.max(0, pot - (u.status?.ward?.protection || 0));
+      const key = `${f.id}>${a.id}`, banked = (s.instruments?.byOrigin || {})[key]?.memory || 0;
+      switch (cand.ability) {
+        case "tuneStrings": { const foci = a.passives?.instrumentFocus || []; return tuneValue(s, a, foci[0]); }
+        case "erhuWanderingNote": case "erhuAnswerAche": {
+          const t = at(cand.target);   // the ally this candidate heals (resolve.js: inst.targets[0]); range is targeting's job
+          if (!t || t.defeated || t.side !== a.side) return 0;
+          const heal = ab(cand.ability)?.potency ?? 0;
+          return Math.min(heal, missing(t)) * (low(t) ? 2 : 0.8) + (bleeding(t) ? (art.tier === "refined" ? 5 : 3) : 0);
+        }
+        case "guzhengCrossingStrings": case "guzhengThousandBridges": {
+          const r = art.tier === "refined" ? 2 : 1, pot = ab(cand.ability)?.potency ?? 0;
+          const crowd = foes.filter((u) => dist(s, a.x, a.y, u.x, u.y) <= r);
+          return crowd.reduce((v, u) => v + Math.min(pot, u.lf) * 0.35, 0) + (art.tier === "refined" ? crowd.filter((u) => u.lf > pot).length : 0);
+        }
+        case "guqinQuietLine": case "guqinUnbrokenListening": {
+          const t = at(cand.target);
+          if (!t || t.side !== a.side) return 0;
+          const pot = ab(cand.ability)?.potency || ab(cand.ability)?.protection || 0;
+          const gain = wardGain(t, pot);   // a new ward replaces the old one (resolve.js), so only the excess is bought
+          const cash = cand.ability === "guqinQuietLine" ? Math.min(banked, missing(t), 6) : 0;   // only Quiet Line cashes memory, at most 6 (resolve.js)
+          if (!threatened(t)) return Math.min(gain, missing(t)) * 0.3 + cash;
+          return Math.min(gain, missing(t)) * 1.2 + (gain > 0 ? 3 : 0) + cash;   // a threatened ally is pre-warded even at full LF
+        }
+        case "pipaThreeNotesOneCut": {
+          const t = at(cand.target);
+          if (!t || t.side === a.side) return 0;
+          return t.lf - (ab(cand.ability)?.potency ?? 0) > 0 ? 4 : 0;   // a native stun on a hurt survivor, not overkill
+        }
+        case "ruanSteadyMeasure": case "ruanStayTogether": {
+          const t = at(cand.target);
+          if (!t || t.side !== a.side) return 0;
+          // No self-target guard here: targeting refuses Stay Together on yourself before scoring ever runs,
+          // and the generic path prices it below zero. (A removed `t.id === a.id` check proved unobservable.)
+          const pot = ab(cand.ability)?.potency || ab(cand.ability)?.protection || 0;
+          const gain = wardGain(t, pot), anchor = t.status?.anchor ? 0 : (art.tier === "refined" ? 3 : 2);   // a held anchor is not bought twice
+          return threatened(t) ? Math.min(gain, missing(t)) * 1.2 + anchor : Math.min(gain, missing(t)) * 0.5;
+        }
+        default: return 0;
+      }
+    }
     function rawScore(s, id, cand) {
       if(cand.type==="recoverWater")return H.waterRecovery(s,s.actors[id])?.allowed ? 18 : -1;
+      if (cand.type === "surface") {
+        const u = s.actors[id], D = s.pockets?.deep;
+        if (!D?.ready || H.astralRegionOf?.(s, u.x, u.y) !== "deep") return -1;
+        const urgent = (u.dive?.breath ?? 0) <= 1 || !!u.status?.drowning || !deepFoesBelow(s, u).length || (D.opener === u.id && hasTrait(u, "theDeep") && !deepOpenNeed(s, u));
+        return urgent ? 24 : -1;
+      }
+      if (cand.type === "dive") {
+        const u = s.actors[id];
+        if (canPursueDeep(s, u)) return 14;
+        if (deepOpenNeed(s, u)) return 12;
+        return -1;
+      }
 
       const a = s.actors[id];
       { const v = H.States?.aiValue(s, a, cand); if (v != null) return v; }   // States: an ability's def.states.ai (a Remind is worth a lot)
@@ -2009,11 +2172,12 @@
         let kb = 0;
         if (m0.potency > 0) { const pvK = preview(s, cand);   // kill-beats-all reaches class kits too: a Monkey ult that ends the fight fires
           if (pvK.ok) kb = killBeatsAll(s, a, pvK, (d, t) => (cand.announce && (t.reaction > 0 || t.freeReactionVs === a.id || t.status?.guard) ? 0.5 : 1)); }
-        return ClassRuntime.aiValue(s, a, cand, classH()) * 1.8 - m0.cost * 0.2 + playfulTarget(s, a, cand) + kb;   // ClassRuntime (values sit on the damage scale)
+        return ClassRuntime.aiValue(s, a, cand, classH()) * 1.8 - m0.cost * 0.2 + playfulTarget(s, a, cand) + kb + (H.traitDriveBonus?.(s, a, cand) || 0);   // ClassRuntime (values sit on the damage scale); TD1: trait-drive reaches class techniques
       }
       if (ClassRuntime && cand.type === "ability") { const v = ClassRuntime.aiValueShared(s, a, cand, ab(cand.ability)?.effect, classH()); if (v != null) {
         if (cavalryClosing(s, a) && ["berm", "barrier", "contourBerm", "bermRing"].includes(ab(cand.ability)?.effect)) return 0;
-        return v * 1.8 - manifest(s, a, cand.ability).cost * 0.2; } }
+        return v * 1.8 - manifest(s, a, cand.ability).cost * 0.2 + (H.traitDriveBonus?.(s, a, cand) || 0); } }
+      if (cand.type === "ability" && ART_OF(cand.ability) && !instrumentReady(s, a, cand)) return 0;   // Heirlooms JI1d: unplayable performances (untuned refined, pointless Tune) are never offered
       if (cand.type === "throw") {   // both bodies are hurt; on the damage scale like a Strike
         const T = s.rules.emergentIdeas.fulcrumThrow, f = actorAt(s, cand.pick[0], cand.pick[1]);
         return T.damage * (f && H.grappled(s, f) ? T.heldMul : 1) + T.impact;
@@ -2200,7 +2364,7 @@
       const taste = TA && cand.type === "ability" && a.adhdChain?.ability ? Object.entries(TA.variety || {}).reduce((n, [k, v]) => hasTrait(a, k) ? n + v : n, 0) : 0;
       const variety = taste ? (a.adhdChain.ability === cand.ability ? -taste : taste) : 0;   // ADHD: something new appeals, the same again bores
       return dmg - self * 1.5 - cost * 0.3 - reserveCost(s, a, cand, cost) + variety + (pv.answerCost || 0) * (AM?.costWeight ?? 1) + (cand.announce ? 2 : 0) + spite - heed + playful + bait + curiousBonus(s, id, cand) + setupBo + rgBo + readyUlt + foundBonus
-        + scribedComponentValue(s,a,cand,pv) + standing.harm + protection + protection * wantDev(s, a, "position") + infoValue(s, a, cand, pv, def) + develop + (H.traitDriveBonus?.(s, a, cand) || 0) + traceAiTerm("waterDisplacement", pushedWaterValue(s, a, pv)) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus + (H.floorValue?.(s, a, cand) || 0);   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill; DT4: the floor under a foe
+        + scribedComponentValue(s,a,cand,pv) + standing.harm + protection + protection * wantDev(s, a, "position") + infoValue(s, a, cand, pv, def) + develop + (H.traitDriveBonus?.(s, a, cand) || 0) + (H.instrumentNeed?.(s, a, cand) || 0) + traceAiTerm("waterDisplacement", pushedWaterValue(s, a, pv)) + motiveTerm(s, a, pv) + keyBonus(s, a, cand, def) + killBonus + (H.floorValue?.(s, a, cand) || 0);   // ledgers: threat, then info; then what this unit wants; then known boss keys; then the kill; DT4: the floor under a foe
     }
     // ── In-match lessons (Mala, 2026-10-14: "AI should learn during the match if an attack is effective or not AND
     // understand why"). What a preview already shows (a Shield Wall across a line, a resistance in the damage sum) is
@@ -2290,7 +2454,7 @@
     const isWaterContainer = o => o.hp > 0 && (o.type === "cistern" || o.type === "parterreFountain");
     const waterHostile = (s, a, u) => !H.Tourist?.is(u) && H.PostHuman.atWar(s, a, u) && H.Civilian.atWar(s, a, u)
       && (H.Visitors?.atWar(s, a, u) ?? true) && H.Factions.atWar(s, a, u)
-      && !(a.truceWith === u.id && a.truceUntil >= s.round) && !(Parley && Parley.blocks(s, a, u));
+      && !(a.truceWith === u.id && a.truceUntil >= s.round) && !(Parley && (Parley.blocks(s, a, u) || Parley.reluctant?.(s, a, u)));
     function waterRisk(s, a, [x, y]) {
       const W = s.rules.waterAi;
       if (!W || !s.arena.waterAgenda || ClassRuntime?.flies(a) || a.form?.golden) return 0;
@@ -2321,6 +2485,13 @@
       return value * W.displacement;
     }
     function approach(s, a, toward = null) {
+      if (!toward && canPursueDeep(s, a)) {   // BD2: Swimmer/water-breathing pursuer walks to nearest water tile to dive
+        const landFoe = Object.values(s.actors).some((f) => H.Instinct.standing(f) && !H.Tourist?.is(f) && f.side !== a.side && f.side !== "bystander" && H.astralSameRegion(s, a.x, a.y, f.x, f.y));
+        if (!landFoe) {
+          const wTile = moveOptions(s, a.id).filter((o) => { const ch = s.arena.map[o.to[1]]?.[o.to[0]]; return (ch === "w" || ch === "~") && apply(s, { type: "move", actor: a.id, to: o.to }, { preview: true }).ok; }).sort((p, q) => p.tempoCost - q.tempoCost)[0];
+          if (wTile) return { type: "move", actor: a.id, to: wTile.to };
+        }
+      }
       toward ||= siegeOf(s, a);   // aggro: with nothing better to do, a unit at war with his AGI closes on the building
       const foe = toward || Object.values(s.actors).filter((f) => H.Instinct.standing(f) && !H.Tourist?.is(f) && f.side !== a.side && H.PostHuman.atWar(s, a, f) && H.Civilian.atWar(s, a, f) && (H.Visitors?.atWar(s, a, f) ?? true) && H.Factions.atWar(s, a, f) && !(a.truceWith === f.id && a.truceUntil >= s.round) && (!a.forceTarget || a.forceTargetUntil < s.round || f.id === a.forceTarget))[0]; if (!foe) return null;
       const options = [];
@@ -2376,6 +2547,6 @@
       return best && best.d > dist(s, a.x, a.y, foe.x, foe.y) ? { type: "move", actor: a.id, to: best.to } : { type: "end", actor: a.id };
     }
 
-    return { withAiTrace, traceAiEvent, aiLastWorkflow, shownTrait, aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, concentrationValue, approach, retreat, lessonsOf, lessonMul, cannotDodge, traitDriveBonus, driveChecks };
+    return { withAiTrace, traceAiEvent, aiLastWorkflow, shownTrait, aiAction, demonstratedTraits, recordShown, aiDecide, candidates, score, concentrationValue, approach, retreat, lessonsOf, lessonMul, cannotDodge, traitDriveBonus, driveChecks, instrumentReady, instrumentNeed };
   })();
 });

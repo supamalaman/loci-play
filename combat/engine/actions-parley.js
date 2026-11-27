@@ -1,5 +1,5 @@
 "use strict";
-// Actions, the parley family: declineOrder, blessing, terms, tallySettle, tallyTerms, stakes, setIntent, revealIntent, myol, stakeSeeds, doubleDown, answerTerms, mediate, order, parley, invokeTrial, convene, trialPlay, trialDefend.
+// Actions, the parley family: declineOrder, blessing, terms, tallySettle, tallyTerms, stakes, setIntent, revealIntent, myol, stakeSeeds, doubleDown, answerTerms, mediate, order, parley, invokeTrial, convene, trialPlay, trialDefend, trialJudgment.
 // Split out of actions.js on 2026-11-11 (tools/split-actions.mjs, action seams A2; the map is tools/action-families.json,
 // the lookup docs/action-families.md). Not a module in its own right and not in engine.js's ENGINE_PARTS: actions.js
 // installs it with the host object H and K, the names actions.js has in its own scope (K.handlers is the action table).
@@ -147,6 +147,11 @@
         a.tempo -= Courtroom.RULES.playTempo;
         log(s, { kind: "trial", actor: a.id, text: `${a.name} prepares the defense's ${act.move}.` });
       },
+      trialJudgment(s, a, act) {   // M2b: the accused answers a guilty verdict — accept or fight (no AP: a verdict response, not a play)
+        if (!Courtroom) return "No court today.";
+        if (!s.trial || s.trial.accusedId !== a.id) return "Only the accused answers the verdict.";
+        return Courtroom.judge(s, H, act.move) || undefined;
+      },
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-parley.js)`);
     Object.assign(K.handlers, family);
@@ -180,6 +185,14 @@
           const cost = m?.tempoCost ?? 0;
           const name = (H.ab ? H.ab(act.ability)?.name : null) || act.ability;
           return judge(s, act, extra, `Set ${name} on ${act.trigger}`, cost, "Pay now for a technique that fires later on its trigger.");
+        });
+      } },
+      trialJudgment: { type: "trialJudgment", drawer: "talk", options(s, a) {   // M2b (R-20261110-46): accept or fight after a guilty verdict (0 AP)
+        if (!s.trial?.awaitingJudgment || s.trial.accusedId !== a.id) return [];
+        return ["accept", "fight"].map((move) => {
+          const act = { type: "trialJudgment", actor: a.id, move }, pv = H.preview(s, act);
+          return { act, label: move === "accept" ? "Accept judgment" : "Fight your way out", cost: 0, off: !pv.ok, why: pv.ok ? "" : pv.error,
+            help: move === "accept" ? "Accept the court's sentences: charged entries are absolved and standing rises (up to clean)." : "Refuse the sentences: marked Outlaw, charges stay open, standing falls." };
         });
       } },
     };

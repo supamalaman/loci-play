@@ -3,7 +3,7 @@
 // A part of the Concept Combat engine: engine.js installs it with the host object H and it hands back `Cards`
 // (reached as H.Cards; engine.js exports it as E.cards). The pure rules (price, text, validate) stay in cards/cards.js.
 //
-//   Cards.init(s, opts)                  create(): read opts.loadouts[actorId].cards = { deck: [ids], cap?, owned? }, keep the longest legal
+//   Cards.init(s, opts)                  create(): read opts.loadouts[actorId].cards = { deck: [ids], cap?, owned?, limitsApplied? }, apply the holder's trait limits once (cards.js limitsFor), keep the longest legal
 //                                        prefix, write s.cardplay. A battle with no deck anywhere leaves s.cardplay absent.
 //   Cards.options(s, actorId)            one row per deck entry for the drawer: ready / used / blocked, with the reason and legal targets
 //   Cards.check(s, a, index, target)     the refusal reason (null = playable): the one set of checks the drawer, the handler and previews share
@@ -23,7 +23,7 @@
 //   Cards.ripAp(entry)                   C2: the study AP an Observe needs to rip a set card open (more for a more powerful card)
 //   Cards.resolveSet(s, a, entry, target, why, ctx)   C2: a face-down SET card fires (called by Mystery's fireCard, never by an act): returns the reason it holds, or null
 //
-// State (plain JSON): s.cardplay = { by: { <actorId>: { deck: [{ id, used, usedRound, proto }], turnStamp, played, shown, shownAt, shownTo: [ids] } },
+// State (plain JSON): s.cardplay = { by: { <actorId>: { deck: [{ id, used, usedRound, proto }], maxCards, turnStamp, played, shown, shownAt, shownTo: [ids] } },
 //   priv: { <log index>: { owner, text, id, seenBy: [ids] } }, depth: 0, zones: [] }. The deck belongs to the ACTOR (not the side).
 // Rules this part keeps (tested): a card never plays a card; playCard is callable only from the action door; no response window opens and
 // no reaction is spent; the card id and name never enter a public log entry (kind "cardPlay" carries a generic line; the name lives in
@@ -35,6 +35,7 @@
   return (function () {
     const lib = () => (typeof module === "object" && module.exports ? require("../cards/cards.js") : globalThis.ConceptCombatCards);
     const dat = () => (typeof module === "object" && module.exports ? require("../cards/cards-data.js") : globalThis.ConceptCombatCardsData);
+    const PR = () => (typeof module === "object" && module.exports ? require("../prophecy/prophecy.js") : globalThis.ConceptCombatProphecy);   // Prophecy S1 (muse-prophecy-spec)
     const { log, dist, hasSight, hit, addStun, knock } = H;
     const AWARE = ["believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever"];
     const traitIds = (u) => (u?.traits || u?.selfTraits || []).map((t) => (typeof t === "string" ? t : t?.id)).filter(Boolean);
@@ -74,6 +75,7 @@
       return Math.min(R.max, Math.max(1, Math.floor(water / R.tilesPerFish)));
     }
     const spawnsFish = (card) => card.effects.some((e) => e.key === "spawnFish");
+    const formsLavaRing = (card) => card.effects.some((e) => e.key === "lavaRing");
     function targetsOf(s, a, card) {
       const range = card.range || dat().rules.defaultRange, c = card.condition, out = [];
       if (card.kind === "field") {   // C4: a zone is centred on any tile within the zone reach of its owner, in the same Dream region (CARDS.md 4.4)
@@ -93,6 +95,14 @@
             if (dist(s, a.x, a.y, x, y) > range || !H.waterAt(s, x, y) || (s.fish || []).some((f) => f.x === x && f.y === y)) continue;
             if (!H.dreamSame(s, a.x, a.y, x, y)) continue;
             out.push([x, y]);
+          }
+          return out;
+        }
+        if (formsLavaRing(card)) {   // Fire Dance D0: living ally (or self) on dry ground within range, same Dream region
+          for (const u of Object.values(s.actors)) {
+            if (u.defeated || u.escaped || u.notArrived || u.side !== a.side || u.category === "bystander") continue;
+            if (dist(s, a.x, a.y, u.x, u.y) > range || H.waterAt(s, u.x, u.y) || !H.dreamSame(s, a.x, a.y, u.x, u.y)) continue;
+            out.push([u.x, u.y]);
           }
           return out;
         }
@@ -144,11 +154,64 @@
         }
       }
     }
+    // Fire Dance D0 (muse-fire-dance-spec §Design 4, 6, 8; T12-T13): prototype Lava Ring runtime in s.cardplay.lavaRings
+    // (plain JSON; leaves a.dance absent for D1/D2). Heat starts at 0, rises +1 per full round up to cap (3), lasts 3 rounds,
+    // scorches foes adjacent to the centre or any adjacent allied link at turn start, and breaks at once if the centre is hurt.
+    const lavaRingsOf = (s) => s.cardplay?.lavaRings || [];
+    function openLavaRing(s, a, card, e, target) {
+      const [x, y] = target || [], centre = x != null ? H.actorAt(s, x, y) : null;
+      if (!centre || centre.defeated || centre.side !== a.side || H.waterAt(s, centre.x, centre.y)) {
+        log(s, { kind: "effect", actor: a.id, tiles: target ? [target] : [[a.x, a.y]], text: "Lava Dance cannot begin over water." });
+        return;
+      }
+      const cp = s.cardplay;
+      cp.lavaRings = lavaRingsOf(s).filter((r) => r.side !== a.side);
+      cp.lavaRings.push({ id: `lava-${s.round}-${s.log.length}`, cardId: card.id, owner: a.id, side: a.side, centreId: centre.id,
+        heat: 0, base: e.base ?? 2, cap: e.cap ?? 3, roundsLeft: e.rounds ?? 3 });
+      log(s, { kind: "effect", actor: a.id, target: centre.id, tiles: [[centre.x, centre.y]], text: `${a.name} forms the Lava ring around ${centre.name} (heat 0).` });
+    }
+    function lavaTurnStart(s, a) {
+      const rings = lavaRingsOf(s);
+      if (!rings.length || !a || a.defeated || a.escaped || a.notArrived || s.preview || s.film) return;
+      const kept = [];
+      for (const r of rings) {
+        const c = s.actors[r.centreId];
+        if (!c || c.defeated || c.escaped || c.notArrived) { log(s, { kind: "effect", actor: r.owner, text: "The Lava ring breaks." }); continue; }
+        kept.push(r);
+        if (H.stanceFor(s, c, a) !== "enemy" || !H.dreamSame(s, c.x, c.y, a.x, a.y)) continue;
+        const links = Object.values(s.actors).filter((u) => !u.defeated && !u.escaped && !u.notArrived && u.side === r.side && dist(s, c.x, c.y, u.x, u.y) <= 1 && H.dreamSame(s, c.x, c.y, u.x, u.y));
+        if (!links.some((u) => dist(s, u.x, u.y, a.x, a.y) <= 1)) continue;
+        const owner = s.actors[r.owner] || c, amt = r.base + r.heat;
+        hit(s, owner, a, instOf("rubedo"), amt, [], { label: "Lava heat", damageType: "rubedo" });
+      }
+      s.cardplay.lavaRings = kept;
+    }
+    function lavaDamaged(s, tgt, dealt) {
+      if (!(dealt > 0) || !tgt || !s.cardplay?.lavaRings?.length || s.preview || s.film) return;
+      const before = s.cardplay.lavaRings.length;
+      s.cardplay.lavaRings = s.cardplay.lavaRings.filter((r) => r.centreId !== tgt.id);
+      if (s.cardplay.lavaRings.length < before) log(s, { kind: "effect", actor: tgt.id, tiles: [[tgt.x, tgt.y]], text: "The Lava ring breaks." });
+    }
     function zoneTick(s) {
-      const cp = s.cardplay; if (!cp?.zones?.length) return;
-      for (const z of cp.zones) z.roundsLeft -= 1;
-      for (const z of cp.zones.filter((q) => q.roundsLeft <= 0)) dropZone(s, z);
-      cp.zones = cp.zones.filter((q) => q.roundsLeft > 0);
+      const cp = s.cardplay; if (!cp?.zones?.length && !cp?.lavaRings?.length) return;
+      if (cp.zones?.length) {
+        for (const z of cp.zones) z.roundsLeft -= 1;
+        for (const z of cp.zones.filter((q) => q.roundsLeft <= 0)) dropZone(s, z);
+        cp.zones = cp.zones.filter((q) => q.roundsLeft > 0);
+      }
+      if (cp.lavaRings?.length && !s.film) {
+        const next = [];
+        for (const r of cp.lavaRings) {
+          const c = s.actors[r.centreId];
+          if (!c || c.defeated || c.escaped || c.notArrived) { log(s, { kind: "effect", actor: r.owner, text: "The Lava ring breaks." }); continue; }
+          r.roundsLeft -= 1;
+          if (r.roundsLeft <= 0) { log(s, { kind: "effect", actor: r.owner, target: c.id, tiles: [[c.x, c.y]], text: "The Lava ring closes." }); continue; }
+          r.heat = Math.min(r.cap, r.heat + 1);
+          log(s, { kind: "effect", actor: r.owner, target: c.id, tiles: [[c.x, c.y]], text: `The Lava ring holds (heat ${r.heat}).` });
+          next.push(r);
+        }
+        cp.lavaRings = next;
+      }
     }
     function placeZone(s, a, card, at) {
       const cp = s.cardplay, Z = card.zone;
@@ -239,6 +302,7 @@
         return H.mysteryRoom?.(s, a.side) ? null : `Face-down budget spent (${dat().rules.mystery?.budget ?? 3} per side).`;
       }
       const why = conditionReason(s, a, card); if (why) return why;
+      if (card.readings && PR().openFor(s, a.id)) return "You already hold an open prophecy: one at a time.";   // Prophecy S1 (E6): refused before the play, so the card stays unspent
       if (card.kind === "summon") {   // C3: the owner's summon slot (shared with the palace summon) and an open tile nearby, in the same Dream region
         const slot = familiarSlot(s, a); if (slot) return slot;
         if (!familiarSpot(s, a)) return "There is no open tile nearby for the familiar.";
@@ -252,10 +316,18 @@
         const legal = targetsOf(s, a, card);
         if (!legal.length) {
           if (card.target === "tile" && spawnsFish(card)) return (s.fish || []).length >= fishCap(s) ? "The water is fished out." : "No open water there.";
+          if (card.target === "tile" && formsLavaRing(card)) {
+            const range = card.range || dat().rules.defaultRange;
+            const wetAlly = Object.values(s.actors).some((u) => !u.defeated && !u.escaped && !u.notArrived && u.side === a.side && u.category !== "bystander" && dist(s, a.x, a.y, u.x, u.y) <= range && H.dreamSame(s, a.x, a.y, u.x, u.y) && H.waterAt(s, u.x, u.y));
+            return wetAlly ? "Lava Dance cannot begin over water." : "No living ally on dry ground in reach.";
+          }
           return card.target === "tile" ? `No concealed unit within ${card.range || dat().rules.defaultRange}.` : `No foe in reach and in sight.`;
         }
         if (target) {
-          if (!Array.isArray(target) || !legal.some((p) => p[0] === target[0] && p[1] === target[1])) return card.target === "tile" ? (spawnsFish(card) ? "No open water there." : "Choose a concealed unit within range.") : "Choose a foe in range and in sight.";
+          if (!Array.isArray(target) || !legal.some((p) => p[0] === target[0] && p[1] === target[1])) {
+            if (card.target === "tile" && formsLavaRing(card)) return Array.isArray(target) && H.inside(s, target[0], target[1]) && H.waterAt(s, target[0], target[1]) ? "Lava Dance cannot begin over water." : "Choose a living ally on dry ground within reach.";
+            return card.target === "tile" ? (spawnsFish(card) ? "No open water there." : "Choose a concealed unit within range.") : "Choose a foe in range and in sight.";
+          }
         } else return "Choose a target.";
       }
       return null;
@@ -278,10 +350,11 @@
     const nameless = (u) => u.name || "A unit";
     function resolve(s, a, card, target) {
       const L = lib(), t = target ? H.actorAt(s, target[0], target[1]) || Object.values(s.actors).find((u) => !u.defeated && u.x === target[0] && u.y === target[1]) : null;
+      if (card.readings) { if (t && !t.defeated) PR().seal(s, a, card, t, H); return; }   // Prophecy S1: the card seals; its readings resolve on the target's next turn (prophecy/prophecy.js)
       for (const e of card.effects) {
         if (e.key === "damage") {
           if (!t || t.defeated) continue;
-          const potency = e.potency + showBonus(s, a, t, e.potency);
+          const potency = e.potency + showBonus(s, a, t, e.potency) + battlerBonus(a, card, e);
           hit(s, a, t, instOf(e.type), potency, [], { label: "A blow", damageType: e.type });
         } else if (e.key === "push") { if (t && !t.defeated) knock(s, a, t, e.tiles, instOf("nigredo"), "push"); }
         else if (e.key === "pullTowardWater") { if (t && !t.defeated) knock(s, a, t, e.tiles, instOf("nigredo"), "pull"); }
@@ -308,11 +381,12 @@
           delete t.status.concealed;
           log(s, { kind: "effect", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${t.name} is no longer concealed.` });
         } else if (e.key === "ward") {
-          a.status.ward = { label: "Ward", owner: a.id, expiresAt: a.ownerTurns + 1, protection: e.protection };
-          log(s, { kind: "effect", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} gains a ward of ${e.protection} until their next turn.` });
+          const protection = e.protection + battlerBonus(a, card, e);
+          a.status.ward = { label: "Ward", owner: a.id, expiresAt: a.ownerTurns + 1, protection };
+          log(s, { kind: "effect", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} gains a ward of ${protection} until their next turn.` });
         } else if (e.key === "heal") {
           if (a.defeated) continue;
-          const got = Math.max(0, Math.min(a.maxLF - a.lf, e.lf)); a.lf += got;
+          const got = Math.max(0, Math.min(a.maxLF - a.lf, e.lf + battlerBonus(a, card, e))); a.lf += got;
           log(s, { kind: "heal", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} recovers ${got} LF.` });
           if (got > 0) H.States?.healed(s, a, got);
         }         else if (e.key === "familiar") spawnFamiliar(s, a, card, e);
@@ -324,9 +398,20 @@
           if (!t || t.defeated) continue;
           t.status.oliveBranch = { by: a.id };
           log(s, { kind: "effect", actor: a.id, target: t.id, tiles: [[t.x, t.y]], text: `${a.name} offers ${t.name} an olive branch.` });
-        }
+        } else if (e.key === "lavaRing") openLavaRing(s, a, card, e, target);
         else throw new Error(`card effect ${e.key} is not part of the instant menu`);
       }
+    }
+    // Card Battler (codex-anime-duelist-spec AD1a): when an instant or set card resolves, its FIRST direct damage, heal or ward in printed order
+    // (the authored effect object, so a rip's split resolution still names one) gains 20% of its authored amount, rounded down, at most +3. One
+    // payload, one recipient; a prevented hit spends it. Read live: a holder who lost the trait gets nothing. Familiars, zones and equips never
+    // reach resolve() or finishRip, so they never gain it.
+    const DIRECT = { damage: "potency", heal: "lf", ward: "protection" };
+    function battlerBonus(a, card, e) {
+      const B = dat().rules.cardBattler;
+      if (!B || !a || !B.kinds.includes(card?.kind) || !traitIds(a).includes(B.trait)) return 0;
+      const first = (lib().byId(card.id)?.effects || []).find((x) => DIRECT[x.key] && Math.floor((x[DIRECT[x.key]] || 0) * B.efficacy) >= 1);   // the first that can gain anything (an authored 5 or more)
+      return first === e ? Math.min(B.efficacyMax, Math.floor(e[DIRECT[e.key]] * B.efficacy)) : 0;
     }
     // Show your hand (18.4): from the owner's NEXT turn, card damage against a foe it showed (and that is still aware) is 10% higher, at most +3.
     function showBonus(s, a, t, potency) {
@@ -348,7 +433,7 @@
       const target = Array.isArray(act.target) ? act.target : null;
       const why = check(s, a, act.card, target, act.trigger || null); if (why) return why;
       const card = L.byId(entry.id);
-      if (by.played >= dat().rules.deck.maxCards) return "No more cards can be played this battle.";   // termination: at most one play per deck entry, a deck is at most 12
+      if (by.played >= (by.maxCards ?? dat().rules.deck.maxCards)) return "No more cards can be played this battle.";   // termination: at most one play per deck entry, a deck is at most its holder's maxCards (12; Card Battler 14), fixed at battle start
       if (card.kind === "field" || card.kind === "equip") {   // C4: a zone on a tile, or an equip on a unit: a grant or a record, never a hit
         const wearer = card.kind === "equip" ? (card.target === "self" ? a : H.actorAt(s, target[0], target[1])) : null;
         entry.used = true; entry.usedRound = s.round; by.turnStamp = a.ownerTurns; by.played += 1;
@@ -407,7 +492,7 @@
       cp.depth += 1;
       try {
         const dmg = card?.effects.find((e) => e.key === "damage");
-        if (dmg) hit(s, a, obs, instOf(inst.damageType), inst.potency + showBonus(s, a, obs, inst.potency), [], { label: "A hidden blow", damageType: inst.damageType });   // the same blow a normal fire deals (the shown-hand bonus included)
+        if (dmg) hit(s, a, obs, instOf(inst.damageType), inst.potency + showBonus(s, a, obs, inst.potency) + battlerBonus(a, card, dmg), [], { label: "A hidden blow", damageType: inst.damageType });   // the same blow a normal fire deals (the shown-hand bonus included)
         const control = (card?.effects || []).filter((e) => RIP_VICTIM.includes(e.key) && e.key !== "damage");
         if (control.length && !obs.defeated) resolve(s, a, { ...card, effects: control }, [obs.x, obs.y]);
       } finally { cp.depth -= 1; }
@@ -546,7 +631,7 @@
     }
     function buildEnemyDeck(a, ctx = {}) {
       const L = lib(), R = dat().rules, seed = ctx.seed ?? 0, level = a.level || 1;
-      const cap = Math.max(1, Math.floor((R.enemyCapMul ?? 0.6) * L.capFor({ level })));
+      const { cap, maxCards } = L.limitsFor({ cap: Math.max(1, Math.floor((R.enemyCapMul ?? 0.6) * L.capFor({ level }))), traits: traitIds(a) });   // Card Battler (AD1a): +4 after the 0.6x, +2 cards
       const kinds = R.ai?.kinds || ["instant"], pool = L.liveCards().filter((c) => kinds.includes(c.kind) && (c.rarity === "common" || c.rarity === "uncommon" || (level >= (R.enemyRareLevel ?? 10) && c.rarity === "rare")));
       const TW = H.Workflow?.TRAITS || {};
       const scored = pool.map((c) => {
@@ -556,12 +641,12 @@
       const deck = []; let points = 0;
       for (const { c } of scored) {
         for (let i = 0, n = L.copiesFor(c); i < n; i++) {
-          if (deck.length >= R.deck.maxCards || points + c.cost > cap) break;
+          if (deck.length >= maxCards || points + c.cost > cap) break;
           deck.push(c.id); points += c.cost;
         }
-        if (deck.length >= R.deck.maxCards || points >= cap) break;
+        if (deck.length >= maxCards || points >= cap) break;
       }
-      return { deck: L.validate(deck, { cap }).legal, cap };
+      return { deck: L.validate(deck, { cap, maxCards }).legal, cap, maxCards };
     }
     function aiContext(s, a) {
       // mirrors the context engine/ai.js builds for Workflow.choose (ai.js:515-522)
@@ -632,7 +717,7 @@
       if (!live() || !a || !H.Workflow?.choose) return null;
       const by = book(s, a.id);
       if (!by || by.turnStamp === a.ownerTurns) return null;
-      const kinds = R0().ai?.kinds || ["instant"], rows = options(s, a.id).filter((r) => r.state === "ready" && kinds.includes(r.kind));
+      const kinds = R0().ai?.kinds || ["instant"], rows = options(s, a.id).filter((r) => r.state === "ready" && kinds.includes(r.kind) && !lib().byId(r.id)?.readings);   // Prophecy S1 (reach table): the AI never seals, even driving a player deck in autoplay
       if (!rows.length) return null;
       const L = lib(), R = dat().rules, weights = H.Workflow.choose(a, aiContext(s, a)).weights;
       const bar = (R.ai?.min ?? 0.5) * (1 + (R.ai?.hoardStep ?? 0.25) * (weights.hoard || 0));
@@ -665,20 +750,22 @@
     function init(s, opts) {
       if (!live()) return;
       const L = lib(), loadouts = opts?.loadouts || {}, by = {}; let dropped = null;
-      const freshBook = (legal) => ({ deck: legal.map((cid) => ({ id: cid, used: false, usedRound: null, proto: L.byId(cid)?.status === "prototype" })), turnStamp: -1, played: 0, shown: false, shownAt: -1, shownTo: [] });
+      const freshBook = (legal, maxCards) => ({ deck: legal.map((cid) => ({ id: cid, used: false, usedRound: null, proto: L.byId(cid)?.status === "prototype" })), maxCards, turnStamp: -1, played: 0, shown: false, shownAt: -1, shownTo: [] });
       for (const id of Object.keys(loadouts)) {
         const cfg = loadouts[id]?.cards, a = s.actors[id];
         if (!a || !cfg || !Array.isArray(cfg.deck) || !cfg.deck.length) continue;
         const playerSide = a.side === "player", lab = !!s.devPlayground && playerSide;   // §19: prototypes ride player decks; the lab deck skips ownership
-        const v = L.validate(cfg.deck, { owned: lab ? null : (cfg.owned || null), cap: cfg.cap ?? dat().rules.cap.ceiling, proto: playerSide });
+        const base = cfg.cap ?? dat().rules.cap.ceiling, natural = L.limitsFor({ cap: base, traits: traitIds(a) });
+        const lim = cfg.limitsApplied ? { cap: base, maxCards: Math.min(cfg.maxCards ?? natural.maxCards, natural.maxCards) } : natural;   // Card Battler (AD1a): once, after the ordinary cap; limitsApplied keeps the caller's cap and clamps the count to the helper (never the ordinary 12 default)
+        const v = L.validate(cfg.deck, { owned: lab ? null : (cfg.owned || null), cap: lim.cap, proto: playerSide, maxCards: lim.maxCards });
         if (v.legal.length < cfg.deck.length) (dropped ||= []).push({ id, cut: cfg.deck.length - v.legal.length, why: v.errors.map((e) => e.text) });
-        if (v.legal.length) by[id] = freshBook(v.legal);
+        if (v.legal.length) by[id] = freshBook(v.legal, lim.maxCards);
       }
       if (dat().rules.enemyDecks && !opts?.noEnemyDecks && !SECRET_ENCOUNTERS.includes(s.encounter)) {   // `opts.noEnemyDecks`: a staged scenario (tests/helpers/battle.mjs duel) keeps its enemies deck-free unless it asks for decks
         for (const a of Object.values(s.actors)) {
           if (by[a.id] || !deckEligible(a)) continue;
           const built = buildEnemyDeck(a, { seed: s.seed ?? 0 });
-          if (built.deck.length) by[a.id] = freshBook(built.deck);
+          if (built.deck.length) by[a.id] = freshBook(built.deck, built.maxCards);
         }
       }
       if (!Object.keys(by).length && !dropped) return;
@@ -690,6 +777,9 @@
       }
     }
 
-      return { Cards: { init, options, check, play, resolveSet, sweep, zoneTick, zoneTiles, familiarTurn, glimpse, ripAp, showHand, showOptions, viewFor, logFor, aware, aiPick, listeningPlay, buildEnemyDeck, eligible: deckEligible } };
+      // H.Prophecy: the hooks actions.js (before and after each action) and turns.js (turn end) call; engine.js is at its size cap, so the
+      // prophecy module rides this part instead of an ENGINE_PARTS entry.
+      const Prophecy = { openFor: (s, id) => PR().openFor(s, id), seal: (s, a, def, t) => PR().seal(s, a, def, t, H), before: (s, a) => PR().before(s, a), after: (s, a, act, pre) => PR().after(s, a, act, pre, H), turnEnd: (s, a) => PR().turnEnd(s, a, H) };
+      return { Prophecy, Cards: { init, options, check, play, resolveSet, sweep, zoneTick, zoneTiles, lavaTurnStart, lavaDamaged, familiarTurn, glimpse, ripAp, showHand, showOptions, viewFor, logFor, aware, aiPick, listeningPlay, buildEnemyDeck, eligible: deckEligible } };
   })();
 });

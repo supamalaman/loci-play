@@ -98,12 +98,12 @@
         const knownConcept = new Set(usedConcepts);
         const show = (p) => isSelf || (p.key === "persuasive" || p.key === "humanExperience" ? knownTraits.has(p.key)
           : p.key === "concept" ? knownConcept.has(p.ref)
-          : p.key === "fame" ? t.side === me?.side : false);   // role and gear read the build, which only you know fully; fame is your own account's
+          : p.key === "fame" ? t.side === me?.side : p.key === "foughtDirty");   // IR2: a sworn vow is declared aloud, so everyone knows   // role and gear read the build, which only you know fully; fame is your own account's
         const shown = bd.parts.filter(show);
         const label = (p) => p.key === "role" ? (content?.characters?.[p.ref]?.name || p.ref) : p.key === "concept" ? cname(p.ref)
           : p.key === "persuasive" ? "Persuasive" : p.key === "humanExperience" ? "Human Experience"
-          : p.key === "legitimacy" ? "Legitimacy" : p.key === "glamour" ? "Glamour" : "Fame";
-        const items = shown.map((p) => `${label(p)} +${p.value.toFixed(2)}`);
+          : p.key === "legitimacy" ? "Legitimacy" : p.key === "glamour" ? "Glamour" : p.key === "foughtDirty" ? "Fought dirty (Tainted Blade)" : "Fame";
+        const items = shown.map((p) => `${label(p)} ${p.value < 0 ? "−" : "+"}${Math.abs(p.value).toFixed(2)}`);
         if (shown.length === bd.parts.length) items.unshift(`Total +${bd.total.toFixed(2)}${bd.capped ? ` (capped at ${bd.cap.toFixed(2)})` : ""}`);
         add("Persuasion", items);
       }

@@ -1,5 +1,5 @@
 "use strict";
-// Actions, the rites family: miseRenew, aura, ritual, forYou, riteStep, riteComplete, riteToggle, riteAbandon, visitorRitual, vow.
+// Actions, the rites family: miseRenew, aura, ritual, forYou, riteStep, riteComplete, riteToggle, riteAbandon, visitorRitual, vow, flameOpen, flameSustain.
 // Split out of actions.js on 2026-11-11 (tools/split-actions.mjs, action seams A2; the map is tools/action-families.json,
 // the lookup docs/action-families.md). Not a module in its own right and not in engine.js's ENGINE_PARTS: actions.js
 // installs it with the host object H and K, the names actions.js has in its own scope (K.handlers is the action table).
@@ -34,6 +34,7 @@
       },
       ritual(s, a, act) {   // C18: begin a capture on a weakened wild monster within 4
         if (a.rite) return "You are already working a rite: one channel at a time.";   // Rites (Muse-2)
+        if (a.dance) return "The dance needs its keeper: one channel at a time.";   // Fire Dance D1: one channel both ways
         const [tx, ty] = act.at || [];
         // A monster of the mind (a dream creature on the other side) can be taken too (Mala, 2026-10-14: the ritual is
         // meant to tame the monsters that plague the mind). It is an actor, not a wild unit.
@@ -104,6 +105,7 @@
       riteStep(s, a, act) {   // Rites (Muse-2): one section per turn — words (cheap), sigils (locks movement), blood (LF)
         const R = s.rules.rite ?? {};
         if (H.Rites.capture(a)) return "You are already holding a capture ritual: one channel at a time.";
+        if (a.dance) return "The dance needs its keeper: one channel at a time.";   // Fire Dance D1: one channel both ways
         const rite = a.rite || { steps: [], hold: 0 };
         if (rite.steps.length >= (R.maxSteps ?? 3)) return "The rite is complete at three steps: apply it or abandon it.";
         if (rite.stepTurn === a.ownerTurns || a.riteStepTurn === a.ownerTurns) return "One rite step per turn.";
@@ -216,6 +218,7 @@
         const no = Vows.validate(act.target, act.vow, a, s.rules.inspiration); if (no) return no;
         if (!act.vow?.boon) return "Name a boon to swear.";
         if (Vows.live(s, a).some((v) => v.on === act.target && v.boon === act.vow.boon)) return `The ${Vows.BOONS[act.vow.boon].name} oath already binds you.`;
+        if (act.vow?.boon === "dazingBlow" && (s.declarations || []).some((d) => d.actor === a.id && d.boon === "dazingBlow")) return "One Dazing Blow oath per battle.";   // Stunning Restraint: the declaration cap survives expiry, breach and form changes
         // W4.4 D-ruling (one unit one vow, concurrent reading: an unbroken vow of any kind blocks a new one; a vow that ended frees the soul again)
         if (Vows.live(s, a).some((v) => !v.broken)) return `${a.name} already bears a vow: one soul, one promise at a time.`;
         if (word) a.wordGiven = true;
@@ -230,7 +233,80 @@
           }
         }
       },
+      flameOpen(s, a, act) {   // Fire Dance D1 (FIRE_DANCE.md §Design 3): keeper chants Flame Dance open with a living ally within 4 tiles (15 AP)
+        const FD = H.FireDance;
+        if (!FD.isHolder(a)) return "Only a Fire Dancer can open the Flame Dance.";
+        if (a.rite || H.Rites.capture(a) || a.dance) return "The dance needs its keeper: one channel at a time.";
+        const dancer = s.actors[act.target];
+        if (!dancer || dancer.id === a.id || dancer.defeated || dancer.notArrived || dancer.side !== a.side) return "Flame Dance needs a living ally within 4 tiles.";
+        if (!H.dreamSame(s, a.x, a.y, dancer.x, dancer.y)) return "The sealed Dream Space blocks that interaction.";
+        const range = s.rules.ritual?.range ?? RITUAL.range ?? 4;
+        if (dist(s, a.x, a.y, dancer.x, dancer.y) > range) return `Flame Dance reaches ${range} tiles.`;
+        if (dancer.rite || H.Rites.capture(dancer) || dancer.dance) return "The dance needs its keeper: one channel at a time.";
+        if (FD.isSoaked(a) || FD.isSoaked(dancer)) return "Soaked units cannot open the Flame Dance.";
+        const spend = spendTempo(s, a, riteDiscount(s, a, FD.OPEN_AP), "Flame Dance"); if (spend) return spend;
+        const sustainCost = riteDiscount(s, a, s.rules.rite?.wordsAp ?? FD.SUSTAIN_AP);
+        a.dance = { form: "flame", role: "keeper", keeperId: a.id, dancerId: dancer.id, turnsLeft: FD.TURNS, sustainedRound: s.round };
+        dancer.dance = { form: "flame", role: "dancer", keeperId: a.id, dancerId: dancer.id, turnsLeft: FD.TURNS };
+        log(s, { kind: "ritual", actor: a.id, target: dancer.id, tiles: [[a.x, a.y], [dancer.x, dancer.y]],
+          text: `${a.name} begins the Flame Dance with ${dancer.name}.`,
+          why: [`People learned to dance from watching fire. Stay put and sustain (${sustainCost} AP) each keeper turn for ${FD.TURNS} dancer turns to inspire the dancer.`] });
+      },
+      flameSustain(s, a) {   // Fire Dance D1: keeper spends words-parity AP each turn to sustain Flame Dance
+        const FD = H.FireDance;
+        if (a.dance?.form !== "flame" || a.dance.role !== "keeper") return "No Flame Dance to sustain.";
+        if (a.dance.sustainedRound === s.round) return "Flame Dance is already sustained this turn.";
+        const dancer = s.actors[a.dance.dancerId];
+        if (!dancer || dancer.defeated || dancer.side !== a.side) { FD.breakDance(s, a, "The partner is gone."); s.keepRefusal = true; return "The Flame Dance has ended."; }
+        if (FD.isSoaked(a) || FD.isSoaked(dancer)) { FD.breakDance(s, FD.isSoaked(a) ? a : dancer, "Soaked breaks the Flame Dance."); s.keepRefusal = true; return "Soaked breaks the Flame Dance."; }
+        const cost = riteDiscount(s, a, s.rules.rite?.wordsAp ?? FD.SUSTAIN_AP);
+        const spend = spendTempo(s, a, cost, "Sustain Flame Dance"); if (spend) return spend;
+        a.dance.sustainedRound = s.round;
+        log(s, { kind: "ritual", actor: a.id, target: dancer.id, text: `${a.name} sustains the Flame Dance (${a.dance.turnsLeft} dancer turns left).` });
+      },
     };
+    const isHolder = (u) => !!u && (u.character === "burlesque_dancer" || hasTrait(u, "fireDance"));
+    const isSoaked = (u) => !!(u?.status?.soaked && u.status.soaked.expiresAt > u.ownerTurns);
+    function breakDance(s, u, reason) {
+      if (!u?.dance) return false;
+      const d = u.dance, keeper = s.actors[d.keeperId], dancer = s.actors[d.dancerId];
+      if (keeper) keeper.dance = null;
+      if (dancer) dancer.dance = null;
+      log(s, { kind: "ritual", actor: u.id, text: `${u.name}: the dance breaks.`, why: [reason] });
+      return true;
+    }
+    function checkBreaks(s) {
+      for (const u of Object.values(s.actors || {})) {
+        if (u?.dance?.form !== "flame" || u.dance.role !== "keeper") continue;
+        const dancer = s.actors[u.dance.dancerId];
+        if (!dancer || u.defeated || dancer.defeated) { breakDance(s, u, "A partner fell."); continue; }
+        if (u.side !== dancer.side) { breakDance(s, u, "Sides changed."); continue; }
+        if (isSoaked(u) || isSoaked(dancer)) breakDance(s, isSoaked(u) ? u : dancer, "Soaked breaks the Flame Dance.");
+      }
+    }
+    function onDamage(s, tgt) {
+      if (tgt?.dance?.form === "flame") breakDance(s, tgt, "Damage breaks the Flame Dance.");
+    }
+    function turnEnd(s, a) {
+      checkBreaks(s);
+      if (a?.dance?.form !== "flame") return;
+      if (a.dance.role === "keeper") {
+        if (a.dance.sustainedRound !== s.round) breakDance(s, a, "The keeper skipped the sustain chant.");
+      } else if (a.dance.role === "dancer") {
+        const keeper = s.actors[a.dance.keeperId];
+        if (!keeper || keeper.defeated || keeper.side !== a.side) { breakDance(s, a, "The keeper is gone."); return; }
+        const left = (a.dance.turnsLeft || 1) - 1;
+        a.dance.turnsLeft = left;
+        if (keeper.dance) keeper.dance.turnsLeft = left;
+        if (left <= 0) {
+          a.dance = null;
+          if (keeper.dance) keeper.dance = null;
+          H.Inspiration?.gain(s, a, 1, "completed the Flame Dance");
+          log(s, { kind: "ritual", actor: a.id, target: keeper.id, text: `${a.name} finishes the Flame Dance cleanly.` });
+        }
+      }
+    }
+    H.FireDance = { OPEN_AP: 15, SUSTAIN_AP: 10, TURNS: 3, isHolder, isSoaked, breakDance, checkBreaks, onDamage, turnEnd };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-rites.js)`);
     Object.assign(K.handlers, family);
     // Qualifier cards QC3 (claude-qualifier-cards-spec, slice QC3): engine-only action cards for
@@ -257,6 +333,19 @@
         const ref = refRows(s, a, extra, "aura");
         if (ref.length) return ref.map((act) => judge(s, act, extra, "Aura on/off", cost, "Toggle the primary concept's ring."));
         return [judge(s, { type: "aura", actor: a.id }, extra, "Aura on/off", cost, "Toggle the primary concept's ring.")];
+      } },
+      flameOpen: { type: "flameOpen", drawer: "rituals", options(s, a, extra = {}) {   // Fire Dance D1 (R-20261110-46)
+        const FD = H.FireDance;
+        if (!FD?.isHolder(a) || a.dance) return [];
+        const cost = riteDiscount(s, a, FD.OPEN_AP), range = s.rules.ritual?.range ?? RITUAL.range ?? 4;
+        return Object.values(s.actors).filter((u) => u.id !== a.id && !u.defeated && !u.notArrived && u.side === a.side && dist(s, a.x, a.y, u.x, u.y) <= range)
+          .map((u) => judge(s, { type: "flameOpen", actor: a.id, target: u.id }, extra, `Flame Dance: ${u.name} · ${cost} AP`, cost, "People learned to dance from watching fire. Chant Flame Dance open with a living ally within 4 tiles."));
+      } },
+      flameSustain: { type: "flameSustain", drawer: "rituals", options(s, a, extra = {}) {   // Fire Dance D1 (R-20261110-46)
+        const FD = H.FireDance;
+        if (a.dance?.form !== "flame" || a.dance.role !== "keeper") return [];
+        const cost = riteDiscount(s, a, s.rules.rite?.wordsAp ?? FD.SUSTAIN_AP);
+        return [judge(s, { type: "flameSustain", actor: a.id }, extra, `Sustain Flame Dance · ${cost} AP`, cost, `Spend ${cost} AP chanting to hold the Flame Dance.`)];
       } },
     };
     H.actionCards ||= {};

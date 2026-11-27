@@ -475,6 +475,161 @@
       return 0;
     }
 
+    // ── Paradox FR1a (claude-formal-rabbit-spec): Contradiction. A benefited effect is a held state granted by the
+    // holder's own side (or self); a burdened effect one granted by a foe; a state with no granter is neither
+    // (spec-silent reading, see the shelf NOTE). Two Doors flips one benefited effect: its damage mults invert
+    // (the FR1a rework answering Dolphin AD's pass-1 LIES; no RULINGS row) and it counts as burdened, for the holder's next full turn.
+    // Stacks ride the contradiction instance's count (rules.paradox.stackCap). 1 ΦF prices at 0.3 damage-scale
+    // (rules.aiLedger reserve) for the horn math.
+    const PAR = (s) => s.rules?.paradox || H.C.rules?.paradox || {};
+    const paradoxCap = (s) => PAR(s).stackCap ?? 3;
+    const paradoxEquipped = (u) => !!u && !u.defeated && (u.primary === "paradox" || u.secondary === "paradox");
+    const granterSide = (s, u, inst) => { const g = inst?.by ? s.actors[inst.by] : null; return g ? g.side : null; };
+    const flippedNow = (inst) => inst?.paradoxFlipTurns != null;
+    const flipMult = (inst, mult) => (flippedNow(inst) && mult ? 1 / mult : mult);
+    const isBenefited = (s, u, id) => {
+      if (id === "contradiction") return false;
+      const inst = u.states?.[id]; if (!inst) return false;
+      if (flippedNow(inst)) return false;
+      const side = granterSide(s, u, inst); return !!side && side === u.side;
+    };
+    const isBurdened = (s, u, id) => {
+      if (id === "contradiction") return false;
+      const inst = u.states?.[id]; if (!inst) return false;
+      if (flippedNow(inst)) return true;
+      const side = granterSide(s, u, inst); return !!side && side !== u.side;
+    };
+    const paradoxBenefits = (s, u) => Object.keys(u.states || {}).filter((id) => isBenefited(s, u, id));
+    const paradoxBurdens = (s, u) => Object.keys(u.states || {}).filter((id) => isBurdened(s, u, id));
+    const newestBenefit = (s, u) => paradoxBenefits(s, u).sort((x, y) => (u.states[y].since ?? 0) - (u.states[x].since ?? 0))[0] || null;
+    function paradoxPlant(s, u, n, by) {
+      if (!live(u) || !(n > 0)) return 0;
+      let inst = u.states?.contradiction;
+      if (!inst) { inst = grant(s, u, "contradiction", { by }); if (!inst) return 0; inst.count = 0; }
+      const room = Math.max(0, paradoxCap(s) - (inst.count ?? 0));
+      const g = Math.min(room, n);
+      if (g > 0) inst.count = (inst.count ?? 0) + g;
+      else log(s, { kind: "state", actor: u.id, text: `${u.name}'s Contradiction is already at cap ${paradoxCap(s)}.` });
+      return g;
+    }
+    // End of round: while Paradox is equipped by anyone in the battle, a unit holding both a benefited and a
+    // burdened effect gains 1 (at most 1 a round this way). Two-Doors flips tick down on the holder's own turns.
+    function paradoxAccrue(s) {
+      if (!Object.values(s.actors || {}).some(paradoxEquipped)) return;
+      for (const u of Object.values(s.actors || {})) {
+        if (!live(u)) continue;
+        if (paradoxBenefits(s, u).length && paradoxBurdens(s, u).length) paradoxPlant(s, u, 1, null);
+      }
+    }
+    // End of the holder's own turn: for each stack the holder either loses 2 ΦF or ends one of their own
+    // benefited effects (newest first). A stack they cannot pay for stays, up to the cap.
+    function paradoxTurnEnd(s, a) {
+      const inst = a?.states?.contradiction; if (!a || !live(a) || !inst) return;
+      let n = inst.count ?? 0, paid = 0, ended = 0;
+      while (n > 0) {
+        if ((a.pf ?? 0) >= 2) { a.pf -= 2; n -= 1; paid += 1; }
+        else { const b = newestBenefit(s, a); if (!b) break; remove(s, a, b, "a resolved Contradiction"); n -= 1; ended += 1; }
+      }
+      if (paid) log(s, { kind: "effect", actor: a.id, text: `${a.name} resolves ${paid} Contradiction for ${paid * 2} ΦF.` });
+      if (ended) log(s, { kind: "effect", actor: a.id, text: `${a.name} ends ${ended} benefited effect${ended === 1 ? "" : "s"} to resolve Contradiction.` });
+      if (n <= 0) remove(s, a, "contradiction", "resolved");
+      else { inst.count = n; log(s, { kind: "effect", actor: a.id, text: `${a.name} cannot pay for ${n} Contradiction; ${n === 1 ? "it persists" : "they persist"}.` }); }
+    }
+    // The foe always picks the cheaper horn (damage-scale: 1 ΦF = 0.3; ending one benefited effect = rules.paradox.ai.endedBenefit).
+    function paradoxHorn(s, foe) {
+      const R = PAR(s).ai || {};
+      const ffV = Math.min(4, foe.pf ?? 0) * 0.3, bV = R.endedBenefit ?? 1.5;
+      return ffV <= bV ? "ff" : "benefit";
+    }
+    function paradoxForkFoe(s, a, foe, inst) {
+      const b = newestBenefit(s, foe);
+      if (!b && (foe.pf ?? 0) <= 0) {   // neither: +1 Contradiction (cap holds)
+        paradoxPlant(s, foe, 1, a.id);
+        log(s, { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${a.name}'s Morton's Fork finds ${foe.name} holding neither ΦF nor benefit: Contradiction.` });
+        return;
+      }
+      let horn = "ff";
+      if (!b) horn = "ff";                     // no benefit: must pay
+      else if ((foe.pf ?? 0) <= 0) horn = "benefit";   // 0 ΦF: must end an effect
+      else horn = paradoxHorn(s, foe);         // both: the cheaper horn
+      if (horn === "ff") {
+        const pay = Math.min(4, foe.pf ?? 0); foe.pf -= pay;
+        log(s, foe.side === "player"
+          ? { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${foe.name} pays the cheaper horn: ${pay} ΦF.` }
+          : { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${foe.name} takes the ΦF horn: −${pay} ΦF.` });
+      } else {
+        const def = defOf(b); remove(s, foe, b, `${a.name}'s Morton's Fork`);
+        log(s, foe.side === "player"
+          ? { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${foe.name} pays the cheaper horn: ending ${def?.name || b}.` }
+          : { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${foe.name} takes the benefit horn: ends ${def?.name || b}.` });
+      }
+    }
+    function paradoxDoorsFoe(s, a, foe, inst) {
+      const b = newestBenefit(s, foe);
+      if (!b) {   // no benefited effect: plant 1 Contradiction instead
+        paradoxPlant(s, foe, 1, a.id);
+        log(s, { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${a.name}'s Two Doors finds ${foe.name} holding no benefit: Contradiction.` });
+        return;
+      }
+      foe.states[b].paradoxFlipTurns = 1;
+      log(s, { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${a.name}'s Two Doors flips ${foe.name}'s ${defOf(b)?.name || b}: benefit becomes burden for a turn.` });
+    }
+    function paradoxBladeFoe(s, a, foe, inst) {
+      const n = foe.states?.contradiction?.count ?? 0; if (!(n > 0)) return;
+      const R = PAR(s).ai || {}, ends = paradoxBenefits(s, foe);
+      const ffV = Math.min(2 * n, foe.pf ?? 0) * 0.3, bV = ends.length * (R.endedBenefit ?? 1.5);
+      if (ends.length && bV < ffV) {
+        for (const id of ends) remove(s, foe, id, `${a.name}'s Barber's Blade`);
+        log(s, { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${foe.name} ends ${ends.length} benefited effect${ends.length === 1 ? "" : "s"} for ${n} stacks.` });
+      } else {
+        const pay = Math.min(2 * n, foe.pf ?? 0); foe.pf -= pay;
+        log(s, { kind: "effect", actor: a.id, target: foe.id, ability: inst.ability, text: `${foe.name} pays ${pay} ΦF for ${n} Contradiction.` });
+      }
+      remove(s, foe, "contradiction", `${a.name}'s Barber's Blade`);
+    }
+    // Technique entry for the three FR1a dilemmas (resolve.js dispatches inst.effect here).
+    function paradoxResolve(s, a, inst) {
+      if (inst.effect === "paradoxFork" || inst.effect === "paradoxDoors") {
+        const foe = s.actors[inst.targets?.[0]];
+        if (!foe || foe.defeated) { log(s, { kind: "miss", actor: a.id, ability: inst.ability, text: `${inst.name} has no living target.` }); return; }
+        if (inst.effect === "paradoxFork") paradoxForkFoe(s, a, foe, inst); else paradoxDoorsFoe(s, a, foe, inst);
+        return;
+      }
+      if (inst.effect === "paradoxBlade") {
+        const R = inst.area?.radius ?? 2;
+        const foes = Object.values(s.actors || {}).filter((u) => live(u) && u.side !== a.side && Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)) <= R && (u.states?.contradiction?.count ?? 0) > 0);
+        if (!foes.length) { log(s, { kind: "miss", actor: a.id, ability: inst.ability, text: `${inst.name} finds no stacked foe in range; the stacks stand.` }); return; }
+        for (const foe of foes) paradoxBladeFoe(s, a, foe, inst);
+        return;
+      }
+    }
+    // AI: the expected damage-scale swing of the three dilemmas, minus the caster's ΦF at 0.3, plus a premium for
+    // forcing the dilemma (tuning, not spec behavior).
+    function paradoxAi(s, a, cand) {
+      const d = abOf(cand?.ability);
+      if (!d || (d.effect !== "paradoxFork" && d.effect !== "paradoxDoors" && d.effect !== "paradoxBlade")) return null;
+      const R = PAR(s).ai || {}, endedBenefit = R.endedBenefit ?? 1.5, premium = R.dilemmaPremium ?? 0.5;
+      const foeAt = Array.isArray(cand.target) ? cand.target : null;
+      const foe = typeof cand.target === "string" ? s.actors[cand.target]
+        : foeAt ? Object.values(s.actors).find((u) => live(u) && u.side !== a.side && u.x === foeAt[0] && u.y === foeAt[1]) : null;
+      const cast = (d.cost ?? 0) * 0.3;
+      if (d.effect === "paradoxFork") {
+        if (!foe) return 0;
+        const b = newestBenefit(s, foe);
+        const swing = !b ? ((foe.pf ?? 0) > 0 ? Math.min(4, foe.pf) * 0.3 : 0.6) : Math.min(Math.min(4, foe.pf ?? 0) * 0.3, endedBenefit);
+        return swing - cast + premium;
+      }
+      if (d.effect === "paradoxDoors") {
+        if (!foe) return 0;
+        return (newestBenefit(s, foe) ? endedBenefit * 0.5 : 0.6) - cast;
+      }
+      const Rr = d?.area?.radius ?? 2;
+      const foes = Object.values(s.actors || {}).filter((u) => live(u) && u.side !== a.side && Math.max(Math.abs(u.x - a.x), Math.abs(u.y - a.y)) <= Rr && (u.states?.contradiction?.count ?? 0) > 0);
+      const swing = foes.reduce((t, u) => { const n = u.states.contradiction.count, ends = paradoxBenefits(s, u).length;
+        return t + (ends ? Math.min(Math.min(2 * n, u.pf ?? 0) * 0.3, ends * endedBenefit) : Math.min(2 * n, u.pf ?? 0) * 0.3); }, 0);
+      return swing - cast + (foes.length ? premium : 0);
+    }
+
     function grant(s, unit, id, opt = {}) {
       const def = defOf(id); if (!def || !live(unit)) return null;
       for (const oid of Object.keys(unit.states || {})) {   // a held state may refuse a grant (refusesGrant: ids): incapacitated cannot be extended, and steadied refuses it for a turn
@@ -613,10 +768,11 @@
           for (const m of def.mods || []) {
             if (m.on !== on || (m.family && ![].concat(m.family).includes(damageType))) continue;
             if (def.cardMod === on) { if (!best || Math.abs(m.mult - 1) > Math.abs(best.mult - 1)) best = { mult: m.mult, def, st }; continue; }
-            mult *= m.mult; if (!quiet(def, st)) notes.push(`${def.name} ×${m.mult}.`);
+            const eff = flipMult(st, m.mult); mult *= eff;
+            if (!quiet(def, st)) notes.push(flippedNow(st) ? `${def.name} ×${eff} (flipped).` : `${def.name} ×${m.mult}.`);
           }
         });
-        if (best) { mult *= best.mult; if (!quiet(best.def, best.st)) notes.push(`${best.def.name} ×${best.mult}.`); }
+        if (best) { const eff = flipMult(best.st, best.mult); mult *= eff; if (!quiet(best.def, best.st)) notes.push(flippedNow(best.st) ? `${best.def.name} ×${eff} (flipped).` : `${best.def.name} ×${best.mult}.`); }
       };
       read(tgt, "taken"); if (src && src !== tgt) read(src, "dealt");
       return mult === 1 && !notes.length ? null : { mult, notes };
@@ -625,6 +781,7 @@
     // ── Trigger, hurt breaker, hit clock.
     function afterHit(s, src, tgt, inst, dealt, damageType) {
       if (!(dealt > 0)) return;
+      H.Cards?.lavaDamaged?.(s, tgt, dealt);   // Fire Dance D0: damage to the centre breaks the prototype Lava ring at once
       const ctx = { src, dealt, family: damageType || inst?.damageType };
       if (tgt?.states) {
         each(tgt, (st, def) => {
@@ -672,7 +829,9 @@
       H.Factions?.rivalsMeet?.(s);   // rivals on the field: one log line each (factions.js)
     }
     function turnStart(s, a) {
+      for (const st of Object.values(a?.states || {})) if (st?.paradoxFlipTurns != null) { if (st.paradoxFlipTurns > 0) st.paradoxFlipTurns -= 1; else delete st.paradoxFlipTurns; }   // FR1a rework: a Two-Doors flip covers the holder's next full turn, then clears
       H.Cards?.sweep(s);   // Battle Cards C4: a zone grants and takes back its hidden rows at every unit's turn start
+      H.Cards?.lavaTurnStart?.(s, a);   // Fire Dance D0: prototype Lava ring scorches foes adjacent to the centre or its allied links
       H.Factions?.rivalsMeet?.(s);   // a rival who arrived since
       presenceSweep(s);   // someone who arrived since (a late ally) counts from the next turn's start
       placeSweep(s);      // a holder pushed out, or a granter gone, during someone else's turn
@@ -685,6 +844,7 @@
       });
     }
     function roundEnd(s) {
+      paradoxAccrue(s);   // Paradox FR1a: scoped accrual before the clocks tick
       for (const u of Object.values(s.actors)) if (u.curePeelUntil && !unmasks(u))
         for (const [id, until] of Object.entries(u.curePeelUntil)) if (until <= s.round) restoreLayer(s, u, id);
       H.Cards?.zoneTick(s);   // Battle Cards C4: a zone's rounds tick down before the rows' own clocks
@@ -772,6 +932,7 @@
     }
     function aiValue(s, a, cand) {
       if (cand?.type !== "ability") return null;
+      { const pv = paradoxAi(s, a, cand); if (pv != null) return pv; }   // Paradox FR1a: the three dilemmas price their foe's cheaper horn
       { const hv = huntAi(s, a, cand); if (hv != null) return hv; }   // Treasure Hunter (TH1b): his Survey on loot and his three techniques
       const d = abOf(cand.ability);
       if (d?.effect === "cure") return cureAi(s, a, cand);
@@ -808,6 +969,6 @@
       return out;
     }
 
-    return { States: { traceTarget, traceResolve, markTrace, refreshMarkTraces, cureTarget, cureResolve, cureBill, relicClaim, huntSurvey, huntTarget, huntResolve, relicPathAt, sunWardOpen, sunWardPrimed, grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
+    return { States: { traceTarget, traceResolve, markTrace, refreshMarkTraces, cureTarget, cureResolve, cureBill, relicClaim, huntSurvey, huntTarget, huntResolve, paradoxResolve, paradoxTurnEnd, relicPathAt, sunWardOpen, sunWardPrimed, grant, remove, refuses, refusesAbility, refusesKind, blocksAll, damageMods, afterHit, turnStart, roundEnd, afterAction, battleStart, aiValue, beforeDefeat, healed, breakFor, observed, visibleTo, defOf, holdBack, anySide, anySideOf: ANY_SIDE, unmasks, traitIgnored, RESTRAINT } };
   })();
 });

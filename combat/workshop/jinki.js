@@ -32,12 +32,15 @@
   // Worn souls (JG1, claude-jinki-gifts-spec; R-20261111-34 shape A, R-20261111-43): a second line per kind, for garments
   // (head, body, feet). The line follows what the object is, recorded once at awakening (soul.line); held things (tools,
   // weapons, charms, instruments) keep GIFTS above, and a soul with no line reads as held, so no awake soul's gift changes.
-  // Each worn gift lends an existing verb and technique. The humble worn row (Diver's Breath) lands with the dive (JG2): until
-  // then a humble garment wakes held. Keys read once each: battleSlotsAdd (loot.js battleSlots), cardCapAdd (cardbook.js
-  // cap), inspirationOnUltimate (Inspiration.ultimateFired, engine/ledgers.js).
+  // Each worn gift lends an existing verb and technique. Keys read once each: battleSlotsAdd (loot.js battleSlots), cardCapAdd
+  // (cardbook.js cap), inspirationOnUltimate (Inspiration.ultimateFired, engine/ledgers.js), breathTurnsAdd (dive/dive.js
+  // breathMax: +20 breath on a Pond dive; the battle dive, sunken ruins BD1, will read it as +2 turns below and must widen
+  // the line's words then). The humble worn row (Diver's Breath, JG2) landed with the Pond dive (sunken ruins R1): a humble
+  // garment that woke before it stays held (Decision 6, R-20261111-43; the line is recorded once, at awakening).
   const WORN_GIFTS = {
+    humble: { name: "Diver's Breath", does: "+20 breath on a Pond dive", inject: () => ({ breathTurnsAdd: 1 }), verb: "anchor", tech: "rebound" },
     steadfast: { name: "Deep Pockets", does: "carry one more item into battle", inject: () => ({ battleSlotsAdd: 1 }), verb: "adaptiveBrace", tech: "escortScreen" },
-    noble: { name: "Herald's Mantle", does: "your card deck may hold 2 more cost points, up to the 30-point ceiling", inject: () => ({ cardCapAdd: 2 }), verb: "protectiveSleeve", tech: "livingArchive" },
+    noble: { name: "Herald's Mantle", does: "your card deck may hold 2 more cost points, up to the 30-point ceiling", inject: () => ({ cardCapAdd: 2 }), verb: "protectiveSleeve", tech: "livingArchive", techUltimate: true },
     mythic: { name: "Legend's Cloth", does: "+1 Inspiration each time you use your ultimate (a face-down ultimate counts when set)", inject: () => ({ inspirationOnUltimate: 1 }), verb: "vanish", tech: "feignedRetreat" },
   };
   const WORN_SLOTS = ["head", "body", "feet"];
@@ -46,10 +49,22 @@
   const lineFor = (item, kind) => (item && WORN_SLOTS.includes(item.slot) && WORN_GIFTS[kind] ? "worn" : "held");
   // arts keys: the held kind as before (arts.noble is still the held noble: engine/anime-orbit.js reads it), "kind:worn" for worn.
   const artKey = (kind, line) => (line === "worn" ? `${kind}:worn` : kind);
+  // A worn soul's lent arts are free like the held soul arts (R-20261124-06, JG2): the verb (II) once a turn, the technique
+  // (III) once a battle, 0 AP and no charge. Returns "verb", "tech" or null for an ability id and a unit's soulArts. The
+  // engine (engine.js manifest) applies it only when the wearer does not already hold the ability in its own kit.
+  function wornArtRole(soulArts, abilityId) {
+    for (const [key, tier] of Object.entries(soulArts || {})) {
+      const [kind, line] = String(key).split(":"), G = line === "worn" ? WORN_GIFTS[kind] : null;
+      if (!G) continue;
+      if (G.verb === abilityId && tier >= 2) return "verb";
+      if (G.tech === abilityId && tier >= 3) return "tech";
+    }
+    return null;
+  }
   const fromArtKey = (key) => { const [kind, line] = String(key).split(":"); return { kind, line: line === "worn" ? "worn" : "held" }; };
   const NUMERALS = [null, "I", "II", "III"];
   const ART_NAMES = { shortFlight: "Short Flight", soaringStrike: "Soaring Strike", root: "Root", landslide: "Landslide", rally: "Rally", coronation: "Coronation", plotTwist: "Plot Twist", refuseEnding: "Refuse the Ending",
-    adaptiveBrace: "Adaptive Brace", escortScreen: "Escort Screen", protectiveSleeve: "Protective Sleeve", livingArchive: "Living Archive", vanish: "Vanish", feignedRetreat: "Feigned Retreat" };   // content.js names, for the card line
+    adaptiveBrace: "Adaptive Brace", escortScreen: "Escort Screen", protectiveSleeve: "Protective Sleeve", livingArchive: "Living Archive", vanish: "Vanish", feignedRetreat: "Feigned Retreat", anchor: "Anchor", rebound: "Rebound" };   // content.js names, for the card line
   const tierOf = (score) => (score >= 50 ? 3 : score >= 20 ? 2 : score >= 10 ? 1 : 0);
   // The gift an item carries into battle, or null while soulless —
   // worn-out and unequipped gear never reach here (passives() skips it).
@@ -64,7 +79,8 @@
     // The card says what the gift does, and what the next tiers bring (J5 return item 3, landed by Pantry).
     if (!g) return null;
     const G = giftOf(g.kind, g.line), name = (id) => ART_NAMES[id] || id;
-    const more = G ? [g.tier >= 2 ? `verb ${name(G.verb)} (free, once a turn)` : `at II: ${name(G.verb)}`, g.tier >= 3 ? `technique ${name(G.tech)} (free, once a battle)` : `at III: ${name(G.tech)}`].join("; ") : "";
+    const own = g.line === "worn" ? ", unless it is already yours" : "";   // R-20261124-06: a worn soul lends a class ability; one the wearer already holds keeps its own price (engine.js manifest)
+    const more = G ? [g.tier >= 2 ? `verb ${name(G.verb)} (free, once a turn${own})` : `at II: ${name(G.verb)}`, g.tier >= 3 ? `technique ${name(G.tech)} (${G.techUltimate ? "no AP or ΦF, once a battle, still needs a full ultimate bar" : "free, once a battle"}${own})` : `at III: ${name(G.tech)}`].join("; ") : "";
     return `Gift: ${g.name} ${NUMERALS[g.tier]}: ${G?.does || ""}.${more ? ` ${more[0].toUpperCase()}${more.slice(1)}.` : ""}`;
   }
   // One soul at a time (D55, pre-screen cap): the CHOSEN soul speaks when it
@@ -188,5 +204,5 @@
     }
     return { account: a, events };
   }
-  return { LADDER, KINDS, AWAKEN_AT, PROMOTE_AT, GIFTS, WORN_GIFTS, WORN_SLOTS, lineFor, giftOf, artKey, fromArtKey, tierOf, giftsFor, giftLine, activeGifts, restingReason, giftName, artIds, scoreOf, stepOf, kindOf, ensureOrigin, rarityOf, awaken, promote, check, cues };
+  return { LADDER, KINDS, AWAKEN_AT, PROMOTE_AT, GIFTS, WORN_GIFTS, WORN_SLOTS, lineFor, giftOf, artKey, fromArtKey, wornArtRole, tierOf, giftsFor, giftLine, activeGifts, restingReason, giftName, artIds, scoreOf, stepOf, kindOf, ensureOrigin, rarityOf, awaken, promote, check, cues };
 });

@@ -12,47 +12,318 @@
     const { C, log, key, inside, tileAt, actorAt, barrierAt, hasTrait, seededChance, soulMaxFor, insightRules } = H;
     const RESIDENTS = ["moonflower", "archivist_elf", "bard_elf", "astral_security", "celestial_astral"];
 
-    // The pocket is appended once per battle: GAP_W blocking void columns, then POCKET_W pocket columns on
-    // every row. Same arena, same helpers, same turn order. Idempotent; the second projector reuses the pocket.
-    function ensureAstralPocket(s) {
-      const R = s.rules.astral;
+    // Generalised pocket (Sunken Ruins BD1, specs/SUNKEN_RUINS.md 6.2): appends `gap` void columns and a `w`-wide
+    // open-ground pocket east of whatever the arena is now. `s.arena.landW` is recorded once by whichever pocket opens
+    // first. `s.astral` stays as the alias for `s.pockets.astral`.
+    function openPocket(s, kind, opts = {}) {
+      s.pockets ||= {};
+      if (kind === "astral" && s.astral?.ready) return s.astral;
+      if (s.pockets[kind]?.ready) return s.pockets[kind];
+      const R = kind === "deep" ? s.rules.dive : s.rules.astral;
       if (!R) return null;
-      if (s.astral?.ready) return s.astral;
-      const landW = s.arena.w, h = s.arena.h, gap = R.gapW ?? 64, pw = R.pocketW ?? 9;
-      const x0 = landW + gap;
+      const curW = s.arena.w, h = s.arena.h, gap = opts.gapW ?? R.gapW ?? 64, pw = opts.w ?? R.pocketW ?? 9;
+      if (s.arena.landW == null) s.arena.landW = curW;
+      const landW = s.arena.landW;
+      const x0 = curW + gap;
       s.arena.map = s.arena.map.map((row) => row + "#".repeat(gap) + ".".repeat(pw));
-      const hh = s.arena.height?.length === h ? s.arena.height : Array.from({ length: h }, () => Array(landW).fill(0));
+      const hh = s.arena.height?.length === h ? s.arena.height : Array.from({ length: h }, () => Array(curW).fill(0));
       s.arena.height = hh.map((row) => [...row, ...Array(gap).fill(0), ...Array(pw).fill(0)]);
-      s.arena.landW = landW;
       s.arena.w = x0 + pw;
-      const portal = [x0 + Math.floor(pw / 2), Math.floor(h / 2)];
-      s.astral = { ready: true, x0, w: pw, landW, portal, entries: {}, genN: 0 };
-      log(s, { kind: "astral", tiles: [portal], text: `The astral plane opens east of the world: a sealed pocket ${pw} tiles wide behind ${gap} of void.`, why: ["One pocket per battle. Distance and void seal it: no range, line, field, route, aura, or move budget crosses."] });
-      return s.astral;
+      if (kind === "astral") {
+        const portal = [x0 + Math.floor(pw / 2), Math.floor(h / 2)];
+        const rec = { kind: "astral", ready: true, x0, w: pw, landW, portal, entries: {}, genN: 0 };
+        s.pockets.astral = rec;
+        s.astral = rec;
+        log(s, { kind: "astral", tiles: [portal], text: `The astral plane opens east of the world: a sealed pocket ${pw} tiles wide behind ${gap} of void.`, why: ["One astral pocket per battle. Distance and void seal it: no range, line, field, route, aura, or move budget crosses."] });
+        return rec;
+      }
+      const rope = [x0 + Math.floor(pw / 2), 0];
+      const prevN = s.pockets.deep?.n || 0;
+      const seenBy = { player: false, enemy: false };
+      if (opts.openerSide === "player" || opts.openerSide === "enemy") seenBy[opts.openerSide] = true;
+      const rec = { kind: "deep", ready: true, x0, w: pw, landW, rope, opener: opts.opener || null, seenBy, n: prevN + 1 };
+      s.pockets.deep = rec;
+      return rec;
     }
+    const ensureAstralPocket = (s) => openPocket(s, "astral");
     const astralRegionOf = (s, x, y) => {
-      const A = s.astral;
-      if (!A?.ready) return "land";
-      if (x >= A.x0) return "pocket";
-      if (x >= A.landW) return "void";
+      const A = s.pockets?.astral || s.astral;
+      const D = s.pockets?.deep;
+      if (A?.ready && x >= A.x0 && x < A.x0 + A.w) return "pocket";
+      if (D?.ready && x >= D.x0 && x < D.x0 + D.w) return "deep";
+      const landW = s.arena.landW ?? A?.landW ?? D?.landW;
+      if (landW != null && x >= landW) return "void";
       return "land";
     };
     const astralSameRegion = (s, ax, ay, bx, by) => astralRegionOf(s, ax, ay) === astralRegionOf(s, bx, by);
     const astralPocketActive = (s) => !!(s.astral?.ready && Object.values(s.actors).some((a) => a.soulOf && !a.defeated));
 
-    function openPocketTile(s, near, exclude) {
-      const A = s.astral, h = s.arena.h;
+    function openPocketTileFor(s, P, near, exclude) {
+      const h = s.arena.h;
       const taken = new Set((exclude || []).map(([x, y]) => key(x, y)));
-      for (let r = 0; r < Math.max(A.w, h); r++)
+      for (let r = 0; r < Math.max(P.w, h); r++)
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
           const x = near[0] + dx, y = near[1] + dy;
-          if (x < A.x0 || x >= A.x0 + A.w || y < 0 || y >= h || taken.has(key(x, y))) continue;
+          if (x < P.x0 || x >= P.x0 + P.w || y < 0 || y >= h || taken.has(key(x, y))) continue;
           if (tileAt(s, x, y).blocksMove || actorAt(s, x, y) || barrierAt(s, x, y)) continue;
           if ((s.wild || []).some((m) => m.form === "unit" && m.x === x && m.y === y)) continue;
           return [x, y];
         }
       return null;
+    }
+    const openPocketTile = (s, near, exclude) => openPocketTileFor(s, s.astral, near, exclude);
+    function openLandTile(s, near, exclude) {
+      const landW = s.arena.landW ?? s.arena.w, h = s.arena.h;
+      const taken = new Set((exclude || []).map(([x, y]) => key(x, y)));
+      const sx = Math.max(0, Math.min(landW - 1, near?.[0] ?? 0));
+      const sy = Math.max(0, Math.min(h - 1, near?.[1] ?? 0));
+      for (let r = 0; r < Math.max(landW, h); r++)
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = sx + dx, y = sy + dy;
+          if (x < 0 || x >= landW || y < 0 || y >= h || taken.has(key(x, y))) continue;
+          if (tileAt(s, x, y).blocksMove || actorAt(s, x, y) || (barrierAt(s, x, y) && !barrierAt(s, x, y).passable)) continue;
+          if ((s.wild || []).some((m) => m.form === "unit" && !m.defeated && m.x === x && m.y === y)) continue;
+          return [x, y];
+        }
+      return null;
+    }
+    function destroyPocket(s, kind = "deep") {
+      if (kind !== "deep") return false;
+      const D = s.pockets?.deep;
+      if (!D?.ready) return false;
+      const inDeep = (u) => u && u.x >= D.x0 && u.x < D.x0 + D.w;
+      const actorsBelow = Object.values(s.actors).filter(inDeep);
+      const wildBelow = (s.wild || []).filter((m) => m.form === "unit" && inDeep(m));
+      const opener = D.opener ? s.actors[D.opener] : null;
+      const openerWas = opener && inDeep(opener) ? [opener.x, opener.y] : D.rope;
+      const placed = [];
+      const placeUp = (u, fallback) => {
+        const at = openLandTile(s, u.dive?.from || fallback, placed) || openLandTile(s, fallback, placed) || [D.x0 - 1, 0];
+        u.x = at[0]; u.y = at[1];
+        if (at[0] < (s.arena.landW ?? s.arena.w)) placed.push(at);
+        u.dive = null;
+        if (u.status?.drowning) u.status.drowning = null;
+        return at;
+      };
+      let openerLand = opener?.dive?.from || [0, 0];
+      if (opener && inDeep(opener)) openerLand = placeUp(opener, openerLand);
+      else if (opener) { opener.dive = null; if (opener.status?.drowning) opener.status.drowning = null; }
+      const others = [...actorsBelow.filter((u) => !opener || u.id !== opener.id), ...wildBelow];
+      others.sort((u, v) => Math.max(Math.abs(u.x - openerWas[0]), Math.abs(u.y - openerWas[1])) - Math.max(Math.abs(v.x - openerWas[0]), Math.abs(v.y - openerWas[1])));
+      for (const u of others) placeUp(u, openerLand);
+      s.arena.map = s.arena.map.map((row) => row.slice(0, D.x0) + "#".repeat(D.w) + row.slice(D.x0 + D.w));
+      D.ready = false;
+      log(s, { kind: "dive", text: "The water closes over the drowned coast: everyone below comes up." });
+      return true;
+    }
+    function deepBreathFor(s, a) {
+      const R = s.rules.dive || {};
+      const base = hasTrait(a, "swimmer") ? (R.breathSwimmer ?? 5) : (R.breathBase ?? 3);
+      const sources = (a.passives?.breathTurnsAdd || 0) + (hasTrait(a, "breathHolder") ? 1 : 0);
+      return Math.min(R.breathMax ?? 9, base + sources * (R.breathPerSource ?? 2));
+    }
+    function diveValidate(s, a) {
+      const R = s.rules.dive;
+      if (!R) return "Diving is unavailable.";
+      if (!a || a.defeated) return "The dead do not dive.";
+      if (a.soulOf) return "A projected soul cannot dive.";
+      if (a.soulless) return "The body lies soulless while its soul is out.";
+      if (a.dive?.below || astralRegionOf(s, a.x, a.y) === "deep") return "Already below the surface.";
+      if (astralRegionOf(s, a.x, a.y) !== "land") return "Dive starts from the material world.";
+      if (s.film) return "The set is enclosed: there is nowhere to dive.";
+      if (H.cannotSwim?.(a)) return "You would sink.";
+      const ch = s.arena.map[a.y]?.[a.x];
+      if (ch !== "w" && ch !== "~") return "Stand on a water tile to dive.";
+      if (!s.pockets?.deep?.ready) {
+        if (a.side !== "player" && !hasTrait(a, "theDeep")) return "Only the player's side or a fighter with The Deep can open an underwater map.";
+        if ((a.diveOpens || 0) >= (R.opensPerBattle ?? 2)) return "You cannot open another underwater map this battle.";
+      }
+      return null;
+    }
+    function diveEnter(s, a) {
+      const alreadyOpen = !!s.pockets?.deep?.ready;
+      const D = alreadyOpen ? s.pockets.deep : openPocket(s, "deep", { opener: a.id, openerSide: a.side });
+      if (!alreadyOpen) { a.diveOpens = (a.diveOpens || 0) + 1; placeRuins(s); }
+      else if (a.side === "player" || a.side === "enemy") D.seenBy[a.side] = true;
+      const from = [a.x, a.y];
+      const at = openPocketTileFor(s, D, D.rope) || D.rope;
+      const breath = deepBreathFor(s, a);
+      a.x = at[0]; a.y = at[1];
+      a.dive = { from, opener: D.opener, breath, maxBreath: breath, below: true };
+      a.status.drowning = null;
+      if (!D.seenBy.player) log(s, { kind: "dive", actor: a.id, hidden: true, text: `${a.name} dives out of sight.` });
+      else log(s, { kind: "dive", actor: a.id, tiles: [from, at], text: `${a.name} dives below to (${at[0]},${at[1]}) (${breath} turns of breath).` });
+      return D;
+    }
+    // Sunken Ruins BD3 (R-20261124-02, 6.6): ruins below. Two band sites are
+    // placed on a fresh deep map; reads and carried finds ride s.ruins until
+    // the battle-award path settles them (finishBattle via result.ruins).
+    // The engine never touches the account: s.ruinsAcct is a read-only
+    // snapshot of account.dive ({ read, taken, dives }) taken at battle
+    // setup, and every account write happens in loot.js finishBattle.
+    const DiveData = () => (typeof module === "object" && module.exports ? require("../dive/dive-data.js") : (typeof self !== "undefined" ? self.ConceptCombatDiveData : null)) || null;
+    const Dive = () => (typeof module === "object" && module.exports ? require("../dive/dive.js") : (typeof self !== "undefined" ? self.ConceptCombatDive : null)) || null;
+    function ruinsAcct(s) {
+      const d = s.ruinsAcct;
+      return d && typeof d === "object" ? { read: d.read || {}, taken: d.taken || {}, dives: d.dives || 0 } : { read: {}, taken: {}, dives: 0 };
+    }
+    function placeRuins(s) {
+      const DD = DiveData(); if (!DD) return null;
+      const D = s.pockets?.deep; if (!D?.ready) return null;
+      const sites = (DD.sites ? DD.sites(1) : []).filter((b) => b && b.id);
+      if (!sites.length) return null;
+      const acct = ruinsAcct(s);
+      const ordered = [...sites.filter((b) => !acct.read[b.id]), ...sites.filter((b) => acct.read[b.id])].slice(0, 2);
+      const h = s.arena.map?.length || 1;
+      const offs = [[-2, 3], [2, 5]];
+      const keepRead = (s.ruins && Array.isArray(s.ruins.read)) ? s.ruins.read : [];
+      const keepTaken = (s.ruins && s.ruins.taken) ? s.ruins.taken : {};
+      s.ruins = {
+        band: 1,
+        sites: ordered.map((b, i) => ({
+          siteId: b.id,
+          x: Math.min(Math.max(D.x0, D.rope[0] + offs[i][0]), D.x0 + D.w - 1),
+          y: Math.min(Math.max(0, D.rope[1] + offs[i][1]), h - 1),
+        })),
+        read: keepRead,
+        taken: keepTaken,
+      };
+      return s.ruins;
+    }
+    function ruinsSite(s, siteId) {
+      const R = s.ruins;
+      const at = R && R.sites.find((t) => t.siteId === siteId);
+      if (!at) return null;
+      const DD = DiveData(); if (!DD) return null;
+      const site = DD.siteById ? DD.siteById(siteId) : null;
+      if (!site) return null;
+      return { ...at, site };
+    }
+    function ruinsReadValidate(s, a, siteId) {
+      const R = s.rules.dive;
+      if (!R) return "Reading is unavailable.";
+      if (!a || a.defeated) return "The dead do not read.";
+      if (astralRegionOf(s, a.x, a.y) !== "deep") return "Read the ruins below the surface.";
+      if (a.side !== "player") return "Only the player's side reads the ruins.";
+      const hit = ruinsSite(s, siteId);
+      if (!hit || Math.max(Math.abs(a.x - hit.x), Math.abs(a.y - hit.y)) > 1) return "Stand beside a ruin to read it.";
+      if (ruinsAcct(s).read[siteId] || (s.ruins.read || []).includes(siteId)) return "Already read.";
+      const D = Dive(); if (!D) return "Reading is unavailable.";
+      const q = D.questionFor(hit.site, s.seed || 0);
+      if (!q) return "Nothing here to read.";
+      return null;
+    }
+    function ruinsReadApply(s, a, siteId, choice) {
+      const hit = ruinsSite(s, siteId);
+      const D = Dive(); const q = D && hit ? D.questionFor(hit.site, s.seed || 0) : null;
+      if (!q || !Array.isArray(q.choices) || !Number.isInteger(choice) || choice < 0 || choice >= q.choices.length) return "That is not one of its answers.";
+      if (choice === q.answer) {
+        if (!(s.ruins.read || []).includes(siteId)) s.ruins.read.push(siteId);
+        log(s, { kind: "dive", actor: a.id, tiles: [[hit.x, hit.y]], text: `${a.name} reads ${hit.site.name}: ${q.explain}`, why: ["The discovery pays at battle end, win or lose."] });
+        return null;
+      }
+      log(s, { kind: "dive", actor: a.id, tiles: [[hit.x, hit.y]], text: `${a.name} puzzles over ${hit.site.name}: ${q.clue}`, why: ["A wrong answer: read again to try the question once more."] });
+      return null;
+    }
+    function ruinsFindStatus(s, siteId) {
+      const D = Dive(); if (!D) return null;
+      const facade = { dive: ruinsAcct(s) };
+      const carried = Object.entries((s.ruins && s.ruins.taken) || {}).map(([id]) => ({ siteId: id }));
+      return D.findStatus(facade, { over: false, carriedThisDive: carried }, siteId);
+    }
+    function ruinsTakeValidate(s, a, siteId) {
+      const R = s.rules.dive;
+      if (!R) return "Taking is unavailable.";
+      if (!a || a.defeated) return "The dead do not carry.";
+      if (astralRegionOf(s, a.x, a.y) !== "deep") return "Take finds below the surface.";
+      const hit = ruinsSite(s, siteId);
+      if (!hit || Math.max(Math.abs(a.x - hit.x), Math.abs(a.y - hit.y)) > 1) return "Stand beside a ruin to take its find.";
+      const st = ruinsFindStatus(s, siteId);
+      if (!st || !st.offered) return st && st.pickedClean ? `Picked clean: it drifts back in ${st.k} dives.` : "No find to carry here.";
+      return null;
+    }
+    function ruinsTakeApply(s, a, siteId) {
+      const st = ruinsFindStatus(s, siteId);
+      if (!st || !st.offered) return "No find to carry here.";
+      s.ruins.taken[siteId] = { unit: a.id, find: st.offered };
+      a.carryFind = { siteId, ...st.offered };
+      log(s, { kind: "dive", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name} takes ${a.carryFind.pay === "parts" ? `a ${a.carryFind.tier} part` : `a ${a.carryFind.kind} vessel`} from the ruins.` });
+      return null;
+    }
+    // Drawer rows (BD3 Read rides one row per answer choice; Take one row per
+    // offered find). Plain data for the rituals drawer in ui.js and the
+    // engine cards below; the question text comes from Dive.questionFor.
+    function ruinsReadRows(s, a) {
+      const R = s.rules.dive; if (!R || !a || a.defeated) return [];
+      if (astralRegionOf(s, a.x, a.y) !== "deep" || a.side !== "player") return [];
+      const D = Dive(); const DD = DiveData(); if (!D || !DD) return [];
+      const rows = [];
+      for (const t of (s.ruins?.sites || [])) {
+        if (Math.max(Math.abs(a.x - t.x), Math.abs(a.y - t.y)) > 1) continue;
+        if (ruinsReadValidate(s, a, t.siteId)) continue;
+        const site = DD.siteById(t.siteId);
+        const q = site && D.questionFor(site, s.seed || 0);
+        if (!q || !Array.isArray(q.choices)) continue;
+        rows.push({ siteId: t.siteId, name: site.name, ap: R.readAp ?? 20, question: q.q, choices: q.choices.map((c, i) => ({ index: i, text: c })) });
+      }
+      return rows;
+    }
+    function ruinsTakeRows(s, a) {
+      const R = s.rules.dive; if (!R || !a || a.defeated) return [];
+      if (astralRegionOf(s, a.x, a.y) !== "deep") return [];
+      const rows = [];
+      for (const t of (s.ruins?.sites || [])) {
+        if (Math.max(Math.abs(a.x - t.x), Math.abs(a.y - t.y)) > 1) continue;
+        if (ruinsTakeValidate(s, a, t.siteId)) continue;
+        const hit = ruinsSite(s, t.siteId);
+        const st = ruinsFindStatus(s, t.siteId);
+        const f = st && st.offered;
+        rows.push({ siteId: t.siteId, name: hit ? hit.site.name : t.siteId, ap: R.takeAp ?? 10, findText: f ? (f.pay === "parts" ? `a ${f.tier} part` : `a ${f.kind} vessel`) : "a find" });
+      }
+      return rows;
+    }
+    // Battle-end ledger for the award path: reads pay win or lose; finds pay
+    // on a win only, from carriers still standing (a lost carrier's find
+    // drops back to the seabed: taken is never written for it).
+    function ruinsResult(s) {
+      const R = s.ruins; if (!R) return null;
+      const read = [...new Set(R.read || [])];
+      const finds = Object.entries(R.taken || {}).filter(([siteId, t]) => {
+        const u = t && s.actors[t.unit];
+        return u && !u.defeated && !u.fled && !u.banished && !u.returned && u.carryFind && u.carryFind.siteId === siteId;
+      }).map(([siteId, t]) => ({ siteId, find: t.find }));
+      if (!read.length && !finds.length) return null;
+      return { read, finds };
+    }
+    function surfaceActor(s, a) {
+      const D = s.pockets?.deep;
+      if (!D?.ready || astralRegionOf(s, a.x, a.y) !== "deep") return "You are not below the surface.";
+      if (a.x !== D.rope[0] || a.y !== D.rope[1]) return "The way up is at the rope.";
+      if (D.opener === a.id) { destroyPocket(s, "deep"); return null; }
+      const at = openLandTile(s, a.dive?.from || [0, 0]) || [D.x0 - 1, 0];
+      a.x = at[0]; a.y = at[1]; a.dive = null;
+      if (a.status?.drowning) a.status.drowning = null;
+      log(s, { kind: "dive", actor: a.id, tiles: [at], text: `${a.name} climbs the rope and surfaces at (${at[0]},${at[1]}).` });
+      return null;
+    }
+    function deepBreathTick(s, a) {
+      if (!a || a.defeated || !a.dive?.below || astralRegionOf(s, a.x, a.y) !== "deep") return;
+      a.dive.breath = Math.max(0, (a.dive.breath || 0) - 1);
+      if (a.dive.breath <= 0 && !a.status.drowning) {
+        a.status.drowning = { label: "Drowning", nextTickAtOwnerTurn: a.ownerTurns, deep: 1 };
+        log(s, { kind: "drowning", actor: a.id, target: a.id, tiles: [[a.x, a.y]], text: `${a.name} is out of breath below the surface and begins to drown.` });
+      }
+    }
+    function deepDeathCheck(s, force = false) {
+      const D = s.pockets?.deep;
+      if (!D?.ready) return false;
+      const opener = D.opener ? s.actors[D.opener] : null;
+      if (force || !opener || opener.defeated || opener.fled || opener.banished || opener.returned || astralRegionOf(s, opener.x, opener.y) !== "deep") {
+        return destroyPocket(s, "deep");
+      }
+      return false;
     }
     function registerAstralActor(s, actor) {
       s.actors[actor.id] = actor;
@@ -249,6 +520,6 @@
       return true;
     }
 
-    return { astralMirrorShake, ensureAstralPocket, astralRegionOf, astralSameRegion, astralPocketActive, astralProjectValidate, projectSoul, generateMirrors, returnSoul, collapsePocketIfEmpty, astralDeathLink, astralUpkeep };
+    return { astralMirrorShake, openPocket, destroyPocket, ensureAstralPocket, astralRegionOf, astralSameRegion, astralPocketActive, astralProjectValidate, projectSoul, generateMirrors, returnSoul, collapsePocketIfEmpty, astralDeathLink, astralUpkeep, deepBreathFor, diveValidate, diveEnter, surfaceActor, deepBreathTick, deepDeathCheck, placeRuins, ruinsReadValidate, ruinsReadApply, ruinsTakeValidate, ruinsTakeApply, ruinsReadRows, ruinsTakeRows, ruinsResult };
   })();
 });

@@ -65,6 +65,9 @@
     superSpeed:      { name: "Super Speed", text: "Runs on a faster clock: +2 movement, steps cost half AP, and water does not slow them (one who cannot swim can still run across deep water, but not stop on it). Sees a shot at them coming at any range (Guard or dodge it, once a round; the dodge costs no action points, only the reaction, and reaches two tiles farther; not Strikes, fields, areas or direct hits). The first Strike after a sprint of 3 or more tiles hits harder (+1 per 2 tiles walked, up to +6; never added to a Knight's Lance Charge). Acts twice a round, half a turn each. Friction (slowed, staggered, tangled, a hurt leg, grappled) takes the speed away.", open: true, combat: { extra: { moveBudgetAdd: 2 } } },
     superDurability: { name: "Super Durability", text: "Shrugs off what would floor anyone else: all damage ×0.8.", open: true, combat: { extra: { channelDamageMul: { nigredo: 0.8, albedo: 0.8, citrinitas: 0.8, rubedo: 0.8 } } } },
     superHealing:    { name: "Super Healing", text: "Wounds close as you watch: +6 LF at the start of each turn.", open: true, combat: { extra: { healPerTurn: 6 } } },
+    // Instantaneous Regeneration (Mala, 2026-11-22; claude-instant-regeneration-spec IR1): regenPerTurn is a switch (extras add, so any count is on);
+    // the amount is content.js rules.instantRegeneration.lf. Never sold: not in the surgery catalog, not in the Supers draw.
+    instantRegeneration: { name: "Instantaneous Regeneration", text: "Flesh knits as it tears: +20 LF at the start of each turn. Any poison stops it completely.", open: true, combat: { extra: { regenPerTurn: 1 } } },
     // Šammu nikitti SN1a (R-20261122-38/-39): portable biology, the rule in mythic-plants/sammu.js, numbers in content.js rules.juvenescentSap.
     // Not sold in the Lab yet: its graft waits on the discovery gate (SN1d; spec Lab record Strong 520, removal 1040).
     juvenescentSap:  { name: "Juvenescent Sap", category: "biology", text: "Their healing renews: a heal that restores LF adds half as much again (at most +8 LF) and mends the worst injury one grade, on up to three different living people a battle (the healer included), each once.", open: true },
@@ -73,6 +76,8 @@
     weakToCitrinitas:{ name: "Critical weakness: propagation", text: "What spreads, gets in: Citrinitas ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { citrinitas: 1.75 } } } },
     weakToRubedo:    { name: "Critical weakness: resonance", text: "The right frequency undoes them: Rubedo ×1.75.", difficulty: 2, combat: { extra: { channelDamageMul: { rubedo: 1.75 } } } },
     swimmer: { name: "Swimmer", text: "Keeps their head above water during unexpected immersion.", difficulty: 1, open: true },
+    breathHolder: { name: "Breath-Holder", text: "Holds a long breath: going under in the shallows keeps them Concealed a turn longer, the first shove each battle does not move them, and +2 turns of breath below the surface.", open: true },   // Pearl Diver; its readers: class-runtime.js diveDescend and the displacement hold, astral.js deepBreathFor (1.3.578 merge fix: categorised, so it needs a row)
+    theDeep: { name: "The Deep", text: "Can open an underwater map of its own from a water tile.", difficulty: 1, open: true },
     // Lab record (docs/concept-design-brief.md 4b), 2026-11-11. Reference Strong 520, not sold. Comparison: Swimmer (difficulty 1, not sold) only skips surprise immersion. Sinks Like a Stone is the opposite weakness. Gills also skips the cannot-swim start and clears a drowning mark already on the holder. Dry fights are unchanged, so the reference stays Strong. Drawback: nothing on dry ground. If it were sold, removal would be 1040. Not form-only. Biology, so not imitable. Born on the Teal Eel and the Remora Adventurer. Left out of the graft catalog as what those two are, until Mala says the Lab grafts it onto other bodies.
     gills: { name: "Gills", text: "Breathes the water. Drowning does not start, and a drowning mark already on them ends, including when they also cannot swim.", difficulty: 2, open: true },
     sinksLikeAStone: { name: "Critical weakness: can't swim", text: "Sinks like a stone: water drowns them, and drowning hits ×2.5.", difficulty: 2, combat: { extra: { cantSwim: true, drowningDamageMul: 2.5 } } },
@@ -214,6 +219,7 @@
     godlyAgility: { name: "Godly Agility", category: "biology", text: "Dodges accrue no AP debt, and every attack or technique against him is reduced by a rolled 25-100% — unless it has the direct-hit quality.", open: true, combat: { dodgeDebtMul: 0, elusive: { minReduction: 0.25, maxReduction: 1.0 } } },
     drunkenMonkey: { name: "Drunken Monkey Style", category: "psychology", text: "Unpredictable: all his attacks carry the direct-hit quality — foes cannot dodge them or negate the damage with Guard, Rebound, Membrane, or wards.", open: true, combat: { directHit: true } },
     playfulness: { name: "Playfulness", text: "Tests themselves against the strong: prefers foes who fight (recent damage, big presence) and snubs supports and healers who never strike.", difficulty: 2 },
+    looseWrist: { name: "Loose Wrist", category: "biology", text: "Paid single-target nigredo line techniques that pull reach 1 tile farther (not Snap the Thread or The Last Card Returns). Independent hard caps remain. No pair or thread required.", open: true, combat: { linePullRangeAdd: 1 } },
     // Stoner (Mala, 2026-10-12): Cyph's haze. Behavior needs the aura engine hook; mechanics in `planned` until ported.
     stoner:        { name: "Stoner", text: "Always hazy, unbothered by smoke.", difficulty: 2, planned: "Pops their aura free at battle start; each technique thickens the cloud (+1 aura radius, up to +3); technique charge flows despite the open aura; immune to inebriation." },
     // Speed-Talker (Mala, 2026-10-12). Behavior needs the Insight cost/odds hook; mechanics in `planned` until ported.
@@ -263,6 +269,13 @@
     packStrong: { name: "Pack Strong", category: "biology", text: "A back and shoulders built to haul: a shove moves him one tile less far while he carries treasure, and until the end of the round in which his gold cracks.", difficulty: 2 },
     goldFever: { name: "Gold Fever", category: "psychology", text: "He is drawn to loot: his steps lean toward any pickup he can still turn to gold, unless a foe within 2 tiles at 6 LF or less is open.", difficulty: 1 },
     findersKeepers: { name: "Finder's Keepers", category: "values", text: "Whatever he finds is his; the first time each battle someone takes the treasure he dropped, he gains an Inspiration.", difficulty: 2 },
+    // The Anime Duelist (codex-anime-duelist-spec AD1a; Mala R-20261112-27: "card battler", which increases efficacy and size of his deck). Psychology, portable:
+    // any deck holder may carry it. Numbers: cards/cards-data.js rules.cardBattler, read by cards.js limitsFor and engine/cards.js battlerBonus.
+    cardBattler: { name: "Card Battler", category: "psychology", text: "Card Battler: +4 deck points, +2 card slots; the first direct damage, healing or ward of 5 or more on each instant or set card gains 20%, at most +3 once per card. Points still stop at 30.", difficulty: 2 },
+    // Fire Dance D1 (Breakwater IN 2026-11-26, Mala's word to fix at merge): a trained practice, imitable like
+    // swimmer (R-20261124-05); the holder gate Mala approved (burlesque_dancer or this trait) lives in
+    // engine/actions-rites.js isHolder and web/combat/ui.js flameNote. No class grants it yet.
+    fireDance: { name: "Fire Dancer", category: "psychology", text: "Fire Dancer: trained in the Fire Dance; may open and sustain the Flame Dance paired hold with a living ally in ritual range.", difficulty: 1 },
     arcaneMastery: { name: "Arcane Mastery", category: "psychology", text: "Every spell carries a rider: offensive techniques curse each enemy they reach (exposed, entangled, or bleeding); support techniques bless each ally they reach (warded, membraned, or recharged).", difficulty: 3 },
     humanExperience: { name: "The Human Experience", text: "14 willpower instead of 10, and parlays land 20% better. Has lived enough to argue anything.", difficulty: 3 },
     courageous:     { name: "Courageous", text: "Fear does not decide for them: Frighten lands on them far less often, and they hold when an ally falls.", difficulty: 3, fearResist: 0.15 },
@@ -369,16 +382,18 @@
     atlasBones: { name: "Atlas Bones", category: "biology", text: "Mapped in marrow: falls cost no LF (the stagger still lands).", open: true, planned: "Tree travel (chain D unlanded)." },
   });
   const traitCategories = {
-    biology: ["packStrong", "swimmer", "gills", "superStrength", "superSpeed", "superDurability", "superHealing", "weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone",
+    // Swimmer is psychology, not biology (Mala, 2026-11-24, R-20261124-05: "it can be learned"): it can be imitated (a Sailor holds it),
+    // and the Pond dive counts a carried copy (dive/dive.js swims).
+    biology: ["packStrong", "gills", "breathHolder", "theDeep", "superStrength", "superSpeed", "superDurability", "superHealing", "instantRegeneration", "weakToNigredo", "weakToAlbedo", "weakToCitrinitas", "weakToRubedo", "sinksLikeAStone",
       "dreamFragile", "supernaturalWeakness", "immortal", "animatedBody", "catNap", "touchedByMagic",
       "survivalInstincts", "keenSenses", "twentyTwentyVision", "thinVeil", "nightSighted", "hardy", "fleetFooted", "cavalry", "heavyArmor", "plantKin", "ironStomach", "frail", "resonantVoice", "dreamTouched", "reach", "strongGrip",
       "telepathy", "telekinetic", "denseMuscle", "vegetativePropagation", "highTolerance", "robot", "ceaselessAdaptation", "insaneReflexes", "cybernetic", "distributedIntelligence", "stickyFingers", "visage", "godlyAgility", "theLook", "perfectConcentration", "adhd", "fireblooded", "territorial", "quenchable", "spiritSight", "ruleOfTheThreshold", "purified", "exoskeleton", "broodmind", "molting", "faceless", "unbearable", "hollow", "rootbound", "greenblood", "woundedLand", "takeoff", "overheat", "platform", "goldenParachute", "burnRate"   /* form traits (learned forms, 2026-10-17; formOnly) */, "aerodynamic", "lightFrame", "ascended",
       /* anime theorycraft batch, 2026-10-26 */ "ironJaw", "poisonAffinity", "crushingHands", "typedSoul", "gyoEyes", "heavyBones", "copyEye", "oneBlindSpot", "treeWalker", "vesselBody", "soulLayers", "looseFit", "vatGrown", "shockEater", "pluggedEye", "oldBlood", "deepWells", "redSliver", "automailLimb", "softSoles", "filterLungs", "openVessel", "atlasBones",
       /* feats batch, 2026-10-27 */ "packMule", "fourArms",
-      /* prehensile tail PT1, 2026-11-12 */ "prehensileTail", /* Florence F2, 2026-11-15 */ "steadyHands",
+      /* prehensile tail PT1, 2026-11-12 */ "prehensileTail", /* Magenta Trickster MT1 */ "looseWrist", /* Florence F2, 2026-11-15 */ "steadyHands",
       /* tsukumogami structures, 2026-10-29 */ "heavy", "rigid", "brittle", "light",
       /* trepanation, 2026-10-30 */ "trepanation", /* Surpanakha flee chain S1, 2026-11-09: form-only, the golden deer */ "illusory", /* the maid's Vocational form, 2026-11-15: a boss form */ "vocational", /* Chitinous Archbishop F3, 2026-11-16 */ "carapace", /* Shardback F5a, 2026-11-21 */ "stoneHide", /* Šammu nikitti SN1a, 2026-11-22 */ "juvenescentSap", /* Eldritch Intruder F6 */ "unreadableFlesh"],
-    psychology: ["discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
+    psychology: ["swimmer", "discernment", "honest", "guarded", "stubborn", "proud", "fearful", "impatient", "curious", "greedy", "superstitious", "lonely", "skittish", "empathic", "competitive",
       "collaborative", "rivalrous", "talkative", "annoying", "agreeable", "persuasive", "imaginative", "mastery", "inSync", "genius", "fool", "speakWithAnimals", "vengeful", "gambler", "hiker", "botanist", "comparative", "longHunt", "horticultureExpertise", "tinkerer", "contemplative", "restless", "grappler", "stoner", "speedTalker", "scout",
       "greenThumb", "understandingGaia", "collector", "perfectMemory", "drunkenMonkey", "beastTamer", "mainCharacterEnergy",
       "attentionToDetail", "culinaryTraining", "directorsVision", "knowsPeople", "methodActing", "focused", "scattered", "sampler", "adrenalineJunkie", "artist", "unendingChant", "shipsEngineer", "arcaneMastery",
@@ -387,7 +402,7 @@
       /* the respec fruit, 2026-11-01 */ "fruitbound",
       /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "entrainer", /* the Treasure Hunter, TH1 */ "goldFever", /* Florence F2, 2026-11-15 */ "clinician",
       /* Chitinous Archbishop F3, 2026-11-16 */ "liturgist", /* Shardback F5b, R-20261122-10 */ "groundKeeper", /* the Raven Messenger, K3 (re-cut of R2) */ "messenger", /* the Magistrate's bench, court M2a (1.3.572) */ "bench",
-      /* Eldritch Intruder F6 */ "hunterOfWardens"],
+      /* Eldritch Intruder F6 */ "hunterOfWardens", /* the Anime Duelist, AD1a */ "cardBattler", /* Fire Dance D1: a learned practice, imitable like swimmer (R-20261124-05); Breakwater IN 2026-11-26 */ "fireDance"],
     values: ["citesPrecedent", "hardPlace", "believer", "devoutBeliever", "fullBeliever", "convertedDevout", "convertedBeliever", "nonBeliever", "loyal",
       "robotSympathizer", "robotHater", "courageous", "brave", "neverGiveUp", "merciful", "zealous", "honorable", "dutiful", "thrifty", "pacifist", "steward", "truthSeeker", "charitable", "traditionalist", "ambitious", "craftsmansMindset", "dreamer", "animalLover", "animalHater", "playfulness", "petFighting", "awardWinningDirector", "humanExperience", "homestead", "markedGround", "byTheBook", "reckless", "protective",
       /* the Hypnotist, 2026-11-03 (hotbuilds W1a) */ "gentleHand", /* the Treasure Hunter, TH1 */ "findersKeepers", /* Florence F2, 2026-11-15 */ "doNoHarm",
@@ -429,6 +444,7 @@
     doNoHarm: { counters: ["vengeful", "rivalrous"], synergies: ["merciful", "gentleHand", "empathic"] },   // Florence F2 (hotbuilds F2, 1.3.570 merge Northlight IN): mirrors gentleHand, the same spare-at-1-LF mechanic; row added at landing for the trait registry rule (traits.test)
     findersKeepers: { counters: ["charitable", "honest"], synergies: ["greedy", "gambler", "collector"] },   // the Treasure Hunter (TH1)
     goldFever: { counters: ["focused"], synergies: ["greedy", "gambler", "collector"] },   // the Treasure Hunter (TH1)
+    cardBattler: { counters: ["scattered"], synergies: ["gambler", "believer"] },   // the Anime Duelist (AD1a): a deep, rehearsed deck
     honorable: { counters: ["greedy", "fool"], synergies: ["proud", "loyal", "honest", "courageous"] },
     dutiful: { counters: ["impatient", "curious"], synergies: ["loyal", "stubborn", "traditionalist"] },
     byTheBook: { counters: ["fool", "impatient"], synergies: ["dutiful", "honest"] },
@@ -806,6 +822,10 @@
     tactical_operative: { traits: ["dutiful", "scout"], obs: [{ kind: "tell", text: "Signals the dog before moving; the K9 goes first, she covers its line.", difficulty: 1 }] },
     frogan: { traits: ["curious", "restless"], obs: [{ kind: "tell", text: "Tests doorways that aren't there before moving; the fight relocates where he points.", difficulty: 1 }] },
     shaman: { traits: ["contemplative", "empathic", "thinVeil"], chanceTraits: [["culinaryTraining", 0.35], ["kitchenAnimism", 0.10]], obs: [{ kind: "tell", text: "Introduces someone you can't see before acting; the guest arrives where she gestures.", difficulty: 1 }] },
+    magenta_trickster: { traits: ["competitive", "playfulness", "looseWrist"], obs: [
+      { kind: "tell", text: "Names the strongest body on the field before he moves; a card keeps walking between his fingers.", difficulty: 1 },
+      { kind: "weakness", channel: "nigredo", text: "Walk toward him: the thread goes slack and the snap is just a slap.", difficulty: 1 },
+      { kind: "realization", text: "If an ally uniquely leads the field in Life Force, he Palms and Snaps them; a tied or weaker teammate is still illegal. Answer none and the cheap Palm never comes.", difficulty: 2 } ] },
     spirit_raven: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many of its turns remain.", difficulty: 1 }] },
     ancestral_fox: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many of its turns remain.", difficulty: 1 }] },
     spirit_totem: { traits: [], obs: [{ kind: "tell", text: "A guest on a clock; Observe shows how many rounds remain.", difficulty: 1 }] },
@@ -864,6 +884,12 @@
       { kind: "tell", text: "Once he has grabbed something, gold relics wrap him head to foot.", difficulty: 1 },
       { kind: "weakness", channel: "nigredo", text: "The gold is thick but brittle: any blow that lands cracks it, and the treasure falls.", difficulty: 1 },
       { kind: "realization", text: "He is gold only until he is hit. Chip him once with something cheap, then take what falls or fight the man underneath.", difficulty: 2, deep: true } ] },
+    // The Anime Duelist (codex-anime-duelist-spec AD1a): 20/20 Vision is his scrutiny passive, Believer makes him aware of Battle Cards, Card Battler deepens his deck.
+    anime_duelist: { traits: ["twentyTwentyVision", "believer", "cardBattler"], obs: [
+      { kind: "tell", text: "He fans his cards before every move, as if someone in the stands should see them.", difficulty: 1 },
+      { kind: "tell", text: "His deck is thicker than anyone else's here.", difficulty: 1 },
+      { kind: "tell", text: "Every card he plays is one he cannot play again this battle.", difficulty: 1 },
+      { kind: "realization", text: "Study what he carries, vary your answer to his Feint, and do not chase his retreat: the deck is deep, but it runs out.", difficulty: 2, deep: true } ] },
     hypnotist: { traits: ["theLook", "entrainer", "gentleHand"], obs: [
       { kind: "tell", text: "He never takes his eyes off one of you.", difficulty: 1 },
       { kind: "weakness", channel: "albedo", text: "Break the gaze: cut the pendulum's cord and the hold slips.", difficulty: 2 },

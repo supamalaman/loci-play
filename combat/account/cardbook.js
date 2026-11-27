@@ -11,8 +11,8 @@
 //   hasOverride(account, classId) true when the character has its own deck
 //   setDeck(account, ids, classId) store a deck (the shared one when classId is null); stored as given, never repaired silently
 //   useOwnDeck / useSharedDeck    give a character its own copy of the shared deck / go back to the shared one
-//   cap(account)                  the deck points cap from level, Fame and the Cardsharp perk line
-//   validate(account, deck)       Cards.validate with this account's ownership and cap
+//   cap(account)                  the deck points cap from level, Fame, Cardsharp and the holder's traits (Card Battler AD1a)
+//   validate(account, deck)       Cards.validate with this account's ownership and Cards.limitsFor (cap and maxCards)
 //   canAdd(account, deck, id)     { ok, reason } for adding one card to the deck on the screen
 //   giftStarter(account)          { account, changed }: one copy of each starter-gift card whose kind is live, once each
 (function (root, factory) {
@@ -66,8 +66,11 @@
   }
   // Herald's Mantle (JG1): the speaking soul's cardCapAdd widens the cap; the ceiling still holds (cards.js capFor).
   const soulCapBonus = (account) => (JK?.activeGifts ? JK.activeGifts(account, Object.values(account?.gear?.equipped || {})).inject.cardCapAdd || 0 : 0);
-  const cap = (account) => Cards.capFor({ level: account?.level || 1, fame: account?.fame || 0, cardsharp: account?.perks?.cardsharp || 0, bonus: soulCapBonus(account) });
-  const validate = (account, deck) => Cards.validate(deck, { owned: book(account).owned, cap: cap(account) });
+  const traitIds = (account) => (account?.self?.traits || []).map((t) => (typeof t === "string" ? t : t?.id)).filter(Boolean);
+  const ordinaryCap = (account) => Cards.capFor({ level: account?.level || 1, fame: account?.fame || 0, cardsharp: account?.perks?.cardsharp || 0, bonus: soulCapBonus(account) });
+  const limits = (account) => Cards.limitsFor({ cap: ordinaryCap(account), traits: traitIds(account) });   // Card Battler (AD1a): the editor and save validator share the same helper as battle init
+  const cap = (account) => limits(account).cap;
+  const validate = (account, deck) => { const L = limits(account); return Cards.validate(deck, { owned: book(account).owned, cap: L.cap, maxCards: L.maxCards }); };
   function canAdd(account, deck, id) {
     const c = Cards.byId(id); if (!c) return { ok: false, reason: "Not a card." };
     if (!validate(account, deck).ok) return { ok: false, reason: "This deck already breaks a limit: remove a card first." };

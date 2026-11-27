@@ -57,7 +57,7 @@
     // effect — the step is the side effect, not the price — and the log says why nothing banked.
     function bankRiteSideStep(s, a, type) {
       const R = s.rules.rite ?? {}, max = R.maxSteps ?? 3, rite = a.rite || { steps: [], hold: 0 };
-      const no = H.Rites.capture(a) ? "chanting a capture" : rite.steps.length >= max ? "three steps banked already" : rite.stepTurn === a.ownerTurns || a.riteStepTurn === a.ownerTurns ? "one rite step per turn" : "";
+      const no = H.Rites.capture(a) ? "chanting a capture" : a.dance ? "holding a dance" : rite.steps.length >= max ? "three steps banked already" : rite.stepTurn === a.ownerTurns || a.riteStepTurn === a.ownerTurns ? "one rite step per turn" : "";
       if (no) { log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite takes no step from it (${no}).` }); return; }
       H.Rites.step(s, a, type);   // L1: the step banks through the ledger; the mirror keeps the gates' shape
       log(s, { kind: "ritual", actor: a.id, tiles: [[a.x, a.y]], text: `${a.name}'s rite holds ${a.rite.steps.length} step${a.rite.steps.length === 1 ? "" : "s"} (bank keeps ${a.rite.hold} turns).` });
@@ -161,7 +161,7 @@
       if (dh > -2 && onRelicPath(s, mover, nx, ny)) return 1;   // Relic Path (Treasure Hunter TH1b): his own path costs him 1 move point a tile whatever the ground, a climb of any height included (a drop of 2+ stays a Jump, below)
       if (dh >= 2 && !terrain.ramp && !tileAt(s, x, y).ramp) return Infinity;
       if (dh <= -2) return Infinity; // drops of 2+ are explicit Jump actions
-      if (isKraken(mover)) return waterAt(s, nx, ny) ? 0.5 : Infinity;   // Kraken (Mala, 2026-11-05): never leaves the water; a water step costs half a move point, so it swims twice as far per action and per AP as anything walking
+      if (isKraken(mover)) return (waterAt(s, nx, ny) || H.astralRegionOf?.(s, nx, ny) === "deep") ? 0.5 : Infinity;   // Kraken (Mala, 2026-11-05): never leaves the water; deep pocket is all water to it (BD1)
       if (mover?.awakened) return 1;   // Tsukumogami: terrain-blind — every step costs one, cliffs still cliff
       if (usableRamp(s, x, y, nx, ny)) return Math.max(1, Math.abs(dh));
       if (waterAt(s, nx, ny) && terrain.blocksMove) return H.hasTrait(mover, "treeWalker") ? 1 : 2; // swimmers may wade through a deep-water tile, at a large AP surcharge; Tree Walkers pay normal (anime batch)
@@ -220,6 +220,12 @@
         const r = TA.choose(s, s.actors[action.actor], action, { log, hit, spot: answerSpot, gone: (st, u) => { const Spirit = (typeof module === "object" && module.exports ? require("../spirit/spirit.js") : globalThis.ConceptCombatSpirit) || null; Spirit?.onExit?.(st, u, H); } }); if (r) return err(r);
       } else if (s.outcome && action.type === "resolveTrauma") {
         const r = handlers.resolveTrauma(s, s.actors.player, action); if (r) return err(r);
+      } else if (s.trial?.awaitingJudgment) {   // M2b (1.3): an unanswered guilty verdict holds the field until the accused chooses
+        if (action.type !== "trialJudgment") return err("The verdict is guilty. Choose: accept judgment, or fight your way out.");
+        const a = s.actors[action.actor];
+        if (!a || action.actor !== s.trial.accusedId) return err("Only the accused answers the verdict.");
+        const r = handlers.trialJudgment(s, a, action); if (r) return err(r);
+        checkOutcome(s);
       } else if (s.phase === "response") {
         if (action.type !== "respond" && action.type !== "revealIntent") return err("Waiting for a defensive response.");
         if (action.type === "revealIntent") {   // MY-04: the pending responder may voluntarily reveal mid-window; the pending attack waits (pendingStack) while the revealed attack runs its own window
@@ -239,7 +245,7 @@
       } else if (s.film?.kind === "banquet" && s.film.phase === "choice" && Banquet()?.chooser(s)) {   // the Chef's table: the guest chooses before anyone acts; nothing else is taken (banquet/banquet.js)
         if (action.type !== "banquetChoose") return err("Choose: accept the meal or reject hospitality.");
         const a = s.actors[action.actor], B = Banquet(); if (!a || !B) return err("There is no meal to choose.");
-        const r = B.choose(s, a, action, { log }); if (r) return err(r);
+        const r = B.choose(s, a, action, { log, observeFree: H.observeFree }); if (r) return err(r);
       } else {
         if (action.actor !== currentId(s) && action.type !== "callCut") return err(`It is ${s.actors[currentId(s)].name}'s turn.`);
         const a = s.actors[action.actor] || (action.type === "callCut" ? s.film?.saved.actors[action.actor] : null);   // a filming Director acts from the stash
@@ -254,7 +260,7 @@
         // Distributed Intelligence: an attack he can only make from one of his towers is made from that tower; he does not move.
         const relay = ["strike", "ability"].includes(action.type) ? ClassRuntime?.relayFor?.(s, a, action, H.relayH()) : null;
         { const leash = H.summonRules?.Tandem?.actionRefusal(s, a, action, dist); if (leash) return err(leash); }   // Tandem T1: strained, only move and guard; a named destination answers to the leash
-        let r; const reasonFrom = s.log.length;   // AI Sight I2: the reason line joins this act's own entry (its "act" line, else its first that is not the AP spend or the charge)
+        let r; const reasonFrom = s.log.length, proPre = H.Prophecy?.before(s, a);   // Prophecy S1: the target's tile before its own action (a reading reads the change, never a stale moved flag)   // AI Sight I2: the reason line joins this act's own entry (its "act" line, else its first that is not the AP spend or the charge)
         if (relay) { const home = [a.x, a.y]; a.x = relay[0]; a.y = relay[1];
           log(s, { kind: "effect", actor: a.id, tiles: [relay], relay: true, text: `${a.name} acts through the drone tower at (${relay[0]},${relay[1]}).`, why: ["Distributed Intelligence: his range and sight run from every tower. Nothing reaches him back through one."] });
           try { r = (handlers[action.type] || (() => "Unknown action."))(s, a, action); } finally { a.x = home[0]; a.y = home[1]; } }
@@ -264,6 +270,7 @@
         if (s.actors[action.actor]) { const pa = s.actors[action.actor]; delete pa.aiPlan; if (action.plan) pa.aiPlan = { act: action.plan, round: s.round, turnOf: pa.ownerTurns, side: pa.side }; }   // AI Sight I1: a plan is single-use: any successful act consumes the unit's stored plan first, then a walk that carries its paired act stores the new one (replay never runs aiDecide, so only apply-time lifecycle keeps live and replay identical)
         if (!s.preview && a.status?.kneeling && ["move", "strike", "ability"].includes(action.type)) { delete a.status.kneeling; log(s, { kind: "dispatch", actor: a.id, text: `${a.name} rises: the kneeling is over.` }); }
         H.States?.afterAction(s, a, action);   // States: an ability's grants, and the abilities that break a state
+        H.Prophecy?.after(s, s.actors[action.actor] || a, action, proPre);   // Prophecy S1: the first reading this action made true manifests (listed order, D6); fallen units lapse
         // Concept-aligned actions (Mala, 2026-10-15: "anything that aligns with your concepts should progress you towards
         // your ULT"; techniques were the proxy). rules.conceptActions names the concept an action embodies; a unit that
         // holds that concept charges exactly as for a technique of it (chargeUltimate ignores concepts it does not hold).
@@ -306,6 +313,7 @@
       if (!opt.preview) delete s.preview;
       if (!opt.preview) Spirit()?.acted(s, action, H);
       if (s.outcome) Vows?.finishTeaVows(s, H);
+      if (!opt.preview) ClassRuntime?.magenta?.reconcile?.(s, H);
       return { ok: true, state: s, events: s.log.slice(start) };
     }
 

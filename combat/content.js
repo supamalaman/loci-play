@@ -49,6 +49,8 @@
       },
     },
     maxLF: 100, maxPF: 30, pfRegen: 3,          // LF / ΦF baseline, regen at owner turn start
+    instantRegeneration: { lf: 20 },             // the trait's LF at each turn start; any live poison holds it (claude-instant-regeneration-spec IR1)
+    taint: { id: "tainted", label: "Tainted", lf: 2, apLoss: 0, minTurns: 2, maxTurns: 2 },   // IR2 Tainted Blade's poison (applyPoison's def shape, as the nettle's)
     moveBudget: 3,                               // terrain movement points per move action
     waterAi: { depth: 3, drift: 6, surge: 4, fordProgress: 2, fordClaim: 7, displacement: 0.75 },
     fordMoveCost: 2,                              // movement points to enter a submerged crossing stone
@@ -141,6 +143,7 @@
           never: ["I'm not done. I'm not even close to done.", "Knock me down as many times as you want. I know the way back up.", "Giving up was never on the menu!"],
           avenge: ["You took them from me. You don't get to take this too.", "I'll carry their part of this fight. Both halves, if I have to.", "They believed in me. That's twice the reason to stand."],
           protect: ["Everyone behind me is going home. That's the deal.", "If somebody has to take the hit, it's me.", "As long as I'm standing, nobody else falls."] } } },
+    borrowedYears: { max: 12, cashMax: 6 },   // Šammu SN1a2 (loyal): a Sleeve stores the prevention it dealt, at most max; the next Repair the Record spends it for up to cashMax healing
     advice: { weight: 3, threshold: 2, max: 6 },   // states.js holdBack: per valence point from 2 up, at most 6 (Mala, 2026-10-24: "to a small degree")
     factions: { villainHate: 2, rivalHate: 2, feuds: [["ayodhya", "lanka"]], bondValence: [0, 0, 0, 1, 2, 3] },   // villains score hero targets ×2 (muse/factions/SPEC.md); feuds: crew pairs always at war, never on one side (docs/ramayana-faction.md); bondValence: a player's bond by rank feeds valence (Bonds B2a, spec 1.3: Close +1, Allied +2, Full Bond +3)
     allyFavor: { chance: 60 },   // The Errand (Jambavan): a main character with allyFavors rolls a starting ally 60% of the time (else 35%), half of them the favored
@@ -370,6 +373,9 @@
     bigGameHunter: { catalogued: { known: 3, line: "Catalogued." }, ai: { apexCharged: 8, plantedFeet: 4, plantedNear: 3 } },
     treasureHunter: { compassApOff: 10, idolStepTiles: 3, relicPathTurns: 2, secondClaimsPerBattle: 1,
       ai: { survey: 6, idolClaimPerPickup: 5, idolClaimCap: 12, relicPath: 6, secondClaim: 5, nearTiles: 6 } },
+    // Paradox FR1a (claude-formal-rabbit-spec): whoever equips it. ai: horn math on the damage scale (ΦF × 0.3, rules.aiLedger reserve):
+    // ending one benefited effect is worth endedBenefit; forcing the dilemma is worth dilemmaPremium to the caster.
+    paradox: { stackCap: 3, ai: { endedBenefit: 1.5, dilemmaPremium: 0.5 } },
     // AI ledgers (least-used build, 2026-10-12): score() prices what previews can't show. Threat: protection is worth
     // the incoming LF it stops on covered allies (cover fractions per effect), capped by the protector's own LF.
     // Info: an observe-on-hit rider or focus mark is worth hidden cards × perCard when it lands. Order: threat → info.
@@ -545,6 +551,7 @@
     // of the material map. Entry costs AP + ΦF; staying out costs ΦF at each soul turn start. The soul's LF bar IS its
     // soul force; the body lies soulless (husk). Exit is portal-only by choice, concentration by force. Numbers provisional.
     astral: { ap: 30, upkeepPf: 4, gapW: 64, pocketW: 9, mirrorShake: { ap: 25, regen: 1 } },   // mirrorShake (Mala, 2026-10-26): banish a mirror and the real one is soul-shaken: 25 AP off its next turn, and its ΦF recovery drops by 1 for the rest of the battle
+    dive: { ap: 20, gapW: 64, pocketW: 9, breathBase: 3, breathSwimmer: 5, breathPerSource: 2, breathMax: 9, opensPerBattle: 2, readAp: 20, takeAp: 10 },   // Sunken Ruins BD1 (R-20261111-31, -32, -37, -42): battle dive pocket, breath turns, and openings cap; BD3: Read and Take AP below
     // Soul (provisional): a hidden bar (SF on the astral plane). Cipher expose wounds it. At 0 the body is an empty husk.
     // While it is below full, potency, fresh AP, ΦF regen, move budget and strike range all shrink by soul/max.
     // A projected soul's LF bar IS its soul force (SF-as-LF); its mirror in the pocket fights on that bar.
@@ -661,7 +668,7 @@
       mechanism: "Stores energy when deformed and returns it when released.",
       scope: "Snaps, recoils and pressure waves from stored tension.",
       limits: "Returns only what was stored; a slack line has nothing to give.",
-      abilities: ["snapShot", "reelingShot", "shockwave", "recoilCascade"],
+      abilities: ["snapShot", "reelingShot", "shockwave", "recoilCascade", "snapTheThread", "theLastCardReturns"],
       lens: {
         default: "balanced",
         profiles: {
@@ -745,7 +752,7 @@
     },
     resonance: { name: "Resonance", color: "#d6a6ff", mechanism: "Repeated vibrations reinforce a shared frequency.", mathIdea: "A driven oscillator can build amplitude when forcing frequency approaches its natural frequency; resonance is selective, not unlimited growth.", learningPrompt: "What happens to a system's response when periodic input aligns with its natural frequency?", scope: "Repeating a pulse in a marked area builds a stronger returning wave.", limits: "The combat pulse abstracts wave propagation; it does not simulate frequency or repeated-wave interference yet.", abilities: ["resonantPulse", "harmonicRupture"], lens: { default: "balanced", profiles: { balanced: { name: "Balanced", proficiency: 1, trade: "Even timing and reach." }, wideBand: { name: "Wide Band", proficiency: 1, potencyMul: 0.75, radiusAdd: 1, trade: "+1 radius for −25% potency." } } } },
     adaptation: { name: "Adaptation", color: "#78c9d0", mechanism: "A system changes its response after observing a perturbation.", mathIdea: "Feedback control compares an observed state with a target and adjusts the next response; delay and overshoot matter.", learningPrompt: "Which information must a feedback system observe before it can adjust its response?", scope: "Read and prepare for one delivery pattern, then answer it with a counter-step.", limits: "Preparation responds to a known pattern; it cannot prevent unrelated effects.", abilities: ["adaptiveBrace", "livingResponse"], lens: { default: "balanced", profiles: { balanced: { name: "Balanced", proficiency: 1, trade: "One measured response." }, sustainedRead: { name: "Sustained Read", proficiency: 2, guardMultiplier: 0.65, durationAdd: 1, trade: "35% matching-channel resistance for 2 owner turns instead of 50% for 1 (proficiency 2)." } } } },
-    deception: { name: "Deception", color: "#e486a2", mechanism: "A signal changes an opponent's beliefs while the hidden action can differ from the claim.", mathIdea: "In a signaling game with incomplete information, an action and a message shape an opponent's beliefs; credibility depends on incentives.", learningPrompt: "What does the defender know from the signal, and what remains hidden until resolution?", scope: "When equipped, you may announce an ultimate with a deliberately understated range; defenders respond to the declared threat envelope.", limits: "A false-range tell forfeits the announcement potency bonus. Delayed abilities and ranges of one tile or less cannot be bluffed in this prototype.", abilities: ["feint", "falseHorizon"], lens: { default: "balanced", profiles: { balanced: { name: "Balanced", proficiency: 1, trade: "Even reach and force." }, manyFaces: { name: "Many Faces", proficiency: 1, potencyMul: 0.8, radiusAdd: 1, trade: "+1 radius for −20% potency." } } } },
+    deception: { name: "Deception", color: "#e486a2", mechanism: "A signal changes an opponent's beliefs while the hidden action can differ from the claim.", mathIdea: "In a signaling game with incomplete information, an action and a message shape an opponent's beliefs; credibility depends on incentives.", learningPrompt: "What does the defender know from the signal, and what remains hidden until resolution?", scope: "When equipped, you may announce an ultimate with a deliberately understated range; defenders respond to the declared threat envelope.", limits: "A false-range tell forfeits the announcement potency bonus. Delayed abilities and ranges of one tile or less cannot be bluffed in this prototype.", abilities: ["feint", "falseHorizon", "palmTheThread", "theLastCardReturns"], lens: { default: "balanced", profiles: { balanced: { name: "Balanced", proficiency: 1, trade: "Even reach and force." }, manyFaces: { name: "Many Faces", proficiency: 1, potencyMul: 0.8, radiusAdd: 1, trade: "+1 radius for −20% potency." } } } },
     boundary: { name: "Boundary", color: "#e6a26b", mechanism: "A boundary separates regions and controls what may cross between them.", mathIdea: "A cut in a graph is a set of edges whose removal disconnects chosen vertices; blocking one edge may leave alternate paths.", learningPrompt: "Does this boundary disconnect the target from every route, or only the direct path?", scope: "Raise a short boundary line that blocks movement and direct line deliveries.", limits: "Open ends can be crossed by routes around the boundary.", abilities: ["boundaryLine", "closedDomain", "architectDesignWall"], lens: { default: "balanced", profiles: { balanced: { name: "Balanced", proficiency: 1, trade: "Even span and duration." }, enduringCut: { name: "Enduring Cut", proficiency: 1, durationAdd: 1, trade: "+1 owner turn of Boundary duration." }, pressurized: { name: "Pressurized Cut", proficiency: 1, potencyMul: 1.12, radiusAdd: -1, trade: "+12% Closed Domain potency for a 1-tile smaller radius." } } } },
     threshold: { name: "Threshold", color: "#f08c83", mechanism: "A response begins when a declared condition or event is reached.", mathIdea: "A threshold rule is piecewise: inactive before a declared condition, active when that condition is met.", learningPrompt: "What event is being tested, and at which phase does the rule evaluate it?", scope: "Commit a delayed strike that resolves at the target's next turn start.", limits: "This prototype uses a scheduler event as its condition, not a continuous sensor; the warning gives opponents a response window.", abilities: ["tripThreshold", "criticalThreshold"], lens: { default: "balanced", profiles: { balanced: { name: "Balanced", proficiency: 1, trade: "Even timing and force." }, longFuse: { name: "Long Fuse", proficiency: 1, potencyMul: 0.8, rangeAdd: 2, trade: "+2 route length for −20% potency." } } } },
     diffusion: { name: "Diffusion", color: "#81c7e8", mechanism: "A disturbance spreads from a concentrated source into neighboring space.", mathIdea: "Diffusion smooths spatial differences; in continuous models, flux points down the concentration gradient.", learningPrompt: "If concentration is higher on one side, which direction does passive diffusive flux point?", scope: "Radius attacks trade line precision for broad reach.", limits: "These arena attacks are area effects, not a numerical concentration simulation; barriers do not stop field delivery.", abilities: ["diffuseWave", "frontPropagation"], lens: { default: "balanced", profiles: { balanced: { name: "Balanced", proficiency: 1, trade: "Even reach and intensity." }, denseFront: { name: "Dense Front", proficiency: 1, potencyMul: 1.2, radiusAdd: -1, trade: "+20% potency for −1 radius." }, broadFront: { name: "Broad Front", proficiency: 2, potencyMul: 0.75, radiusAdd: 1, trade: "+1 radius for −25% potency (proficiency 2)." } } } },
@@ -1416,6 +1423,7 @@
   abilities.openArchive.cost = 12;   // least-used: kept the concept's ultimate (one-ult-per-concept invariant), priced down from 16 for the phi economy
   abilities.indexEntry.freeFirst = "turn"; abilities.indexEntry.freeFirstFor = ["big_game_hunter"];   // H2: her first Index Entry each turn is free (hot-build rule 5; the Hypnotist's focus precedent: a shared def names its characters)
   archivistMove("protectiveSleeve","Protective Sleeve","preservation","basic","archivistWard","ally","line",4,12,{shape:"single"},"Give a living ally a 12-point ward until their next turn; replacing a ward never adds its protection.");
+  abilities.protectiveSleeve.reactive = true;   // Šammu SN1a2: the Sleeve answers an incoming eligible attack on its carrier (reactiveOptions offers it warding the carrier; castReaction scales it rushed)
   archivistMove("repairRecord","Repair the Record","preservation","refined","archivistHeal","ally","line",4,14,{shape:"single"},"Restore up to 14 LF to a living ally; cannot exceed their maximum or revive them.");
   archivistMove("livingArchive","Living Archive","preservation","ultimate","archivistShelter","self","field",0,0,{shape:"radius",radius:3},"All living allies within 3 recover up to 16 LF and gain a 12-point ward until their next turn.");
 
@@ -2231,6 +2239,13 @@
       breakers: [{ ability: "remind", from: "ally", do: [{ scene: { title: "Hanuman Remembers", line: "You are Hanuman, son of the Wind. Remember what you are." } }] },
         { ability: "rememberWhatYouAre", from: "ally", do: [{ scene: { title: "Jambavan Speaks", line: "Son of the Wind, why do you sit silent? You leapt for the sun as a child. Leap now." } }] },
         { present: "jambavan", side: "ally", do: [{ scene: { title: "Jambavan Speaks", line: "Son of the Wind, why do you sit silent? You leapt for the sun as a child. Leap now." } }] }] },
+    // Paradox FR1a (claude-formal-rabbit-spec): the contradiction condition. Stacks ride inst.count (cap rules.paradox.stackCap);
+    // planted by Paradox abilities, accrued at round end, resolved at the holder's turn end (engine/states.js paradox section).
+    // Polarity is by granter side (engine-derivable; spec-silent, see the shelf NOTE): a state granted by the holder's own
+    // side is benefited, by a foe is burdened, with no granter neither. Two Doors inverts the flipped state's damage
+    // mults and counts it as burdened for the holder's next full turn (rework, Mala's pick).
+    contradiction: { name: "Contradiction", text: "Holds A and not-A at once; whoever holds it pays to resolve it.",
+      why: "A dilemma taxes whatever is kept: each stack costs 2 ΦF or one benefited effect at the end of the holder's turn." },
     // Cure S2: the kit is available to authored holders. The Asker's encounter installs askable in S4.
     curePeeled: { name: "Restraint peeled", hidden: true, text: "A restraint has been peeled.", why: "A reminder restores the most recent layer.", offers: { ability: "remind", to: "allies" } },
     askable: { name: "Able to ask", text: "Who Are You? can be asked of the Asker.", why: "The question is free in the Interview Room.", offers: { ability: "whoAreYou", to: "self" } },
@@ -2380,7 +2395,7 @@
       "Tala", "Teo", "Tomas", "Uma", "Valen", "Vika", "Wren", "Xavi", "Yara", "Yusuf", "Zane", "Zola", "Ikaika", "Makana", "Pua"],
   };
   const SUBFACTION_OF = {
-    barbarian: "street", cloaked_drifter: "street", cyph: "street", detective: "street", hypebeast: "street", kickboxer: "street", maid: "street", mma_fighter: "street", ninja: "street", rapper: "street", rogue: "street", thief: "street", martial_artist: "street",
+    barbarian: "street", magenta_trickster: "street", cloaked_drifter: "street", cyph: "street", detective: "street", hypebeast: "street", kickboxer: "street", maid: "street", mma_fighter: "street", ninja: "street", rapper: "street", rogue: "street", thief: "street", martial_artist: "street",
     actor: "stage", bard: "stage", director: "stage", jazz_musician: "stage", jiang_qing: "stage", jpop_idol: "stage", musician: "stage", neon_dj: "stage", neon_idol: "stage", supermodel: "stage",
     agi: "lab", agent_swarm: "lab", android_maker: "lab", clockwork: "lab", defective_machine: "lab", hacker: "lab", ornithopter: "lab", robot_mechanic: "lab", scientist: "lab", sieve: "lab", steam_walker: "lab",
     animalTamer: "wilds", boarman: "wilds", ecologist: "wilds", esker: "wilds", hedge_witch: "wilds", monkey_king: "wilds", mutant_boar: "wilds", mycologist: "wilds", ranger: "wilds", shaman: "wilds",
@@ -2396,7 +2411,7 @@
     deepsea_warrior: "wake", sailor: "wake", ferryman: "wake", pearl_diver: "wake", teal_eel: "wake", remora_adventurer: "wake",
     hanuman: "ayodhya", jambavan: "ayodhya", rama: "ayodhya", lakshmana: "ayodhya", sita: "ayodhya", jatayu: "ayodhya", ravana: "lanka", maricha: "lanka", kumbhakarna: "lanka", indrajit: "lanka", mandodari: "lanka", surpanakha: "lanka",
     hot_pot_berserker: "interdimensional",
-    chef: "street", treasure_hunter: "street",   // the Treasure Hunter (TH1; crew street: "hands, a hustle, or a night shift", he scavenges the map)
+    chef: "street", treasure_hunter: "street", anime_duelist: "stage",   // the Treasure Hunter (TH1; crew street: "hands, a hustle, or a night shift", he scavenges the map)
     hooded_cyber_rogue: "posterity",
     memorialist: "posterity",
     seedkeeper: "posterity",
@@ -2606,9 +2621,34 @@
         if (!concepts.periodicity.abilities.includes(id)) concepts.periodicity.abilities.push(id);
       }
     }
-    for (const c of ["mise_en_place", "homology", "ma", "credit", "cooperative_principle", "substitution"]) if (!concepts[c] && Kits.stagedConcepts[c]) {   // playable (Mala, 2026-10-28): whoever equips it gets its kit; Rack and Label and Parallel Prep carry no class pair (the Chef, 2026-10-30, holds it but leaves them open) Cooperative Principle (five-concepts P1, 2026-11-11) joins that list.
+    for (const c of ["mise_en_place", "homology", "ma", "credit", "cooperative_principle", "substitution", "paradox", "augury"]) if (!concepts[c] && Kits.stagedConcepts[c]) {   // playable (Mala, 2026-10-28): whoever equips it gets its kit; Rack and Label and Parallel Prep carry no class pair (the Chef, 2026-10-30, holds it but leaves them open) Cooperative Principle (five-concepts P1, 2026-11-11) joins that list.
       const { channel, ...def } = Kits.stagedConcepts[c];
       concepts[c] = { ...def, abilities: [] }; conceptDamageTypes[c] = channel;
+      for (const id of def.abilities || []) if (abilities[id] && !concepts[c].abilities.includes(id)) concepts[c].abilities.push(id);   // Paradox FR1a: kit abilities authored in Kits.abilities (no staged ultimate yet) join the list here, after the playableKits merge
+    }
+    // Prophecy S2 (muse-prophecy-spec; R-20261124-20): Augury's two techniques are castable rows here, riding prophecy/prophecy.js (S1).
+    // Written Before, its ultimate, stays a staged kit row (not castable in S2). The readings are the resolver's: moves | acts.
+    if (concepts.augury) {
+      // Text lives here, not in Kits.staged: the staged-kits guard forbids a staged row sharing a playable id,
+      // so the S2 seals carry their own mechanism/reveal/price/counter/teaches (verbatim from the S2 shelf rows;
+      // Breakwater IN merge fix 2026-11-26). Only Written Before stays staged.
+      abilities.castTheLots = { name: "Cast the Lots", tier: "basic", concepts: ["augury"], delivery: "signal", target: "enemy", area: { shape: "single" }, cost: 4, tempoCost: 25, range: 4, potency: 0, damageType: "albedo",
+        effect: "augurySeal", effectCategory: "conditional", domains: ["action", "others"],
+        mechanism: "A vague statement pays on whichever of its readings the future picks.",
+        reveal: "Both readings are public: the target can choose which comes true, or try to make neither.",
+        price: "4 PF and 25 AP; your one open prophecy until it resolves.",
+        counter: "Guard out the turn (a miss), or fulfil the cheaper reading on purpose.",
+        teaches: "A broad prediction is easy to hit and pays little.",
+        readings: [{ on: "moves", effects: [{ key: "root", turns: 1 }] }, { on: "acts", effects: [{ key: "apGain", n: 10 }] }] };
+      abilities.doubleMeaning = { name: "Double Meaning", tier: "refined", concepts: ["augury"], delivery: "line", target: "enemy", area: { shape: "single" }, cost: 6, tempoCost: 35, range: 4, potency: 10, damageType: "albedo",
+        effect: "damage", effectCategory: "conditional", domains: ["action", "others"],
+        mechanism: "A strike that says two things about what comes next.",
+        reveal: "The second blow comes only from the target's own choice: it can stand and guard to answer neither reading.",
+        price: "6 PF and 35 AP; your one open prophecy until it resolves.",
+        counter: "Block the line, or spend the next turn guarding; a feint fulfils the acts reading for little.",
+        teaches: "A threat that names two futures shapes the next move either way.",
+        readings: [{ on: "moves", effects: [{ key: "damage", potency: 8, type: "albedo" }] }, { on: "acts", effects: [{ key: "stagger", ap: 15 }] }] };
+      concepts.augury.abilities.push("castTheLots", "doubleMeaning");
     }
     for (const [id, w] of Object.entries(W)) {
       const def = Kits.staged[id]; if (!def || abilities[id]) continue;
@@ -2626,6 +2666,7 @@
     if (concepts.homology) concepts.homology.aiOnly = true;   // no human picks it until the casting picker (L3) exists: see ui.js pickableConceptIds
     for (const id of ["chargeWave", "hurlFeast", "vowOpenHand", "vowNeverQuench", "vowSharedBowl"]) { const home = concepts.bird_mountain; if (home && abilities[id] && !home.abilities.includes(id)) home.abilities.push(id); }
     Object.assign(abilities, ClassRuntime.auditor.abilities);
+    Object.assign(abilities, ClassRuntime.magenta.abilities);
     if(!concepts.laws_of_gods_of_men.abilities.includes("objection"))concepts.laws_of_gods_of_men.abilities.push("objection");
     abilities.survey.freeFirst="turn"; abilities.survey.freeFirstTraits=["attentionToDetail"];
     for (const [cls, [p, sec]] of Object.entries(ClassRuntime.CLASS_PAIRS)) {
@@ -2641,6 +2682,7 @@
       configs: [{ id: "treasure_hunter-1", label: "Discovery + Extraction", primary: "discovery", secondary: "extraction", reserve: ["pathway"], lens: {} },
         { id: "treasure_hunter-path", label: "Discovery + Alternate Pathway", primary: "discovery", secondary: "pathway", reserve: ["extraction"], lens: {} }] });
     if (characters.auditor_goblin) Object.assign(characters.auditor_goblin,{traits:["twentyTwentyVision","attentionToDetail","citesPrecedent"],wheelhouse:"indexing",wheelhouseEnabled:true,reserve:["indexing"],conceptPool:["laws_of_gods_of_men","discovery","indexing"],configs:[{id:"auditor-main",label:"Law + Discovery",primary:"laws_of_gods_of_men",secondary:"discovery",reserve:["indexing"],lens:{}},{id:"auditor-ledger",label:"Law + Indexing",primary:"laws_of_gods_of_men",secondary:"indexing",reserve:["discovery"],lens:{}}]});
+    if (characters.magenta_trickster) Object.assign(characters.magenta_trickster,{traits:["competitive","playfulness","looseWrist"],wheelhouse:"sightline",wheelhouseEnabled:true,reserve:["sightline"],conceptPool:["deception","elasticity","sightline"],configs:[{id:"magenta-main",label:"Deception + Elasticity",primary:"deception",secondary:"elasticity",reserve:["sightline"],lens:{}}]});
     if (characters.hanuman) Object.assign(characters.hanuman, { traits: ["loyal", "courageous", "playfulness", "rivalrous"], startStates: ["hanumanBase", "hanumanForgotten"],
       learned: ["formBase", "formMonkey", "formGiant", "vanish"], allyFavors: ["jambavan"] });
     if (characters.jambavan) characters.jambavan.traits = ["contemplative", "traditionalist", "honorable"];

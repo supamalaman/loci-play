@@ -84,6 +84,7 @@
     saveBroken: w(null, "ui.js:1329", ["showSaveBroken"], null, "system overlay (broken save guard, 2026-11-03): plain words about the player's data, no keeper"), firstPick: w(null, "ui.js:1340", ["showFirstPick"], null, "its own scene (Familiar S2, 2026-11-03): the first-launch familiar choice"),
     enemyBubbles: w("served", "ui.js:3883", ["showDialogueFrom"], null, "already served: speakers.js heads"),
     bondLedger: w("jatayu", "bonds/ledger-ui.js:mount", [], "S1"),   // Bonds B1 (claude-bonds-spec, R-20261122-11): the Bonds window opens inside Jatayu's strip from its Bonds button, no show* function
+    dive: w(null, "ui.js:showDive", ["showDive"], null, "a dive is silent: the lamp and the breath bar are the only voices (sunken ruins R1, claude-sunken-ruins-spec 4.1)"),
     museum: w("museumKeeper", "ui.js:showMuseum", ["showMuseum"], "S6"),   // Museum M2: the town door's panel; keeper unnamed (M9)
     familiarPicker: w("contextual", "ui.js:showFamiliarPicker", ["showFamiliarPicker"], "S6"),   // Familiar S3 (codex-familiar-s3-build rev 1): the familiar collection, opened from the field and from the battle's Familiars command; like the summon card, S6 names who speaks
   };

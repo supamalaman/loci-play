@@ -423,6 +423,10 @@
     if (boundTandem) out = { ...out, startingActor: "player", tandemTrial: { summon: boundTandem, at: null, rounds: S.objective.deadline, bound: true } };
     if (S.lendTenant) out = { ...out, tenant: { id: S.lendTenant, coherence: ctx?.rules?.tenancy?.rungs?.[1]?.from ?? 20, borrowed: true } };   // Exile T0a: the exile lodges for this battle only (engine/tenancy.js; ui.js keeps it and settles nothing)
     if (Array.isArray(S.lend) && S.lend.length) out = { ...out, lendSummons: S.lend.slice() };
+    if (typeof S.lendConcept === "string" && S.lendConcept) {   // Prophecy S2 teaching: a concept lent as the player's secondary for this battle only; nothing is written to the account
+      const P = out.loadouts?.player || {};
+      out = { ...out, loadouts: { ...(out.loadouts || {}), player: { ...P, secondary: S.lendConcept } } };
+    }
     if (typeof S.answerTeach === "string" && S.answerTeach) out = { ...out, answerTeach: S.answerTeach };
     if (S.lendVouch && typeof S.lendVouch === "object") out = { ...out, lendVouch: { ...S.lendVouch } };   // Bonds B6 teaching: a vouch lent for this battle; nothing is written to the account
     if (S.stageHearing && typeof S.stageHearing === "object") out = { ...out, stageHearing: { ...S.stageHearing, count: { ...(S.stageHearing.count || {}) } } };   // Bonds B6 teaching: court opens on the player at battle start   // Tandem T5b: the lent tandem may show the Answer here; nothing is written to the account

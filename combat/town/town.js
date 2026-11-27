@@ -90,16 +90,31 @@
     return list;
   }
 
+  // The lamp (opts.sight): a tile is drawn within `radius` tiles (Chebyshev) of the walker's tile; a building when any of
+  // its tiles is, or when its id is in `seen`.
+  const tileInSight = (pos, x, y, radius) => Math.max(Math.abs(x - Math.floor(pos[0])), Math.abs(y - Math.floor(pos[1]))) <= radius;
+  function seenBuilding(pos, b, sight) {
+    if ((sight.seen || []).includes(b.id)) return true;
+    for (let x = b.at[0]; x < b.at[0] + b.size; x++) for (let y = b.at[1]; y < b.at[1] + b.size; y++) if (tileInSight(pos, x, y, sight.radius)) return true;
+    return false;
+  }
+
   const GROUND = { grass: ["#5d8c3c", "#588637"], road: ["#8b8478", "#857e72"], plaza: ["#bdb19b", "#b5a993"] };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   // Mount the town in `host`. opts: spriteUrl(key) → image URL; nav: [{ id, label }]; onOpen(id) when a door, an NPC's
   // errand or a side-menu entry is chosen. Returns { destroy, state }.
+  // The Pond dive (dive/dive-ui.js; claude-sunken-ruins-spec 4.1, slice R1) walks its own layout here with four more
+  // options, each absent for the town, which then draws and walks exactly as before: ground (surface -> two colours),
+  // sight ({ radius, seen: [building ids always drawn], dark: colour past the lamp }: only tiles and buildings within
+  // `radius` tiles of the walker are drawn), onMove(pos) after each step, and title (the side panel's heading).
   function create(host, opts = {}) {
     const town = opts.town || D, url = opts.spriteUrl || ((k) => `combat/sprites/${k}.png`);
+    const ground = opts.ground || GROUND, sight = opts.sight || null, title = opts.title || "Town";
+    const label = opts.title ? `${title}. Walk with WASD or the arrow keys; press E beside something.` : "The town. Walk with WASD or the arrow keys; press E at a door or beside someone.";
     host.innerHTML = `<div class="cc-town">
-      <canvas class="cc-town-canvas" aria-label="The town. Walk with WASD or the arrow keys; press E at a door or beside someone."></canvas>
-      <nav class="cc-town-nav" aria-label="Quick navigation"><h2>Town</h2>${(opts.nav || []).map((n) => `<button type="button" data-town-nav="${esc(n.id)}" id="ccTown-${esc(n.id)}">${esc(n.label)}</button>`).join("")}
+      <canvas class="cc-town-canvas" aria-label="${esc(label)}"></canvas>
+      <nav class="cc-town-nav" aria-label="Quick navigation"><h2>${esc(title)}</h2>${(opts.nav || []).map((n) => `<button type="button" data-town-nav="${esc(n.id)}" id="ccTown-${esc(n.id)}">${esc(n.label)}</button>`).join("")}
         <p class="cc-muted"><kbd>WASD</kbd> walk · <kbd>E</kbd> enter or talk</p></nav>
       <div class="cc-town-prompt" hidden></div>
       <div class="cc-town-talk" role="dialog" aria-live="polite" hidden><b></b><p></p><small></small></div>
@@ -162,7 +177,7 @@
       for (const k of S.keys) { dx += KEYS[k][0]; dy += KEYS[k][1]; }
       dx = Math.sign(dx); dy = Math.sign(dy);
       S.moving = !!(dx || dy) && !S.talk;
-      if (S.moving) { S.facing = facingFor(S.facing, dx, dy); S.pos = step(S.pos, dx, dy, dt, town); S.t += dt; }
+      if (S.moving) { S.facing = facingFor(S.facing, dx, dy); S.pos = step(S.pos, dx, dy, dt, town); S.t += dt; opts.onMove?.(S.pos); }
       const near = S.talk ? null : nearby(S.pos, town);
       if ((near && near.it) !== (S.near && S.near.it)) {
         S.near = near; prompt.hidden = !near;
@@ -179,17 +194,23 @@
       const px = wx * 0.65 + mx * 0.35, py = wy * 0.65 + my * 0.35;   // the camera leans toward the town's middle, so the edge of the map never fills the screen
       g.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * (W / 2 - px * zoom), dpr * (H * 0.56 - py * zoom));
       g.imageSmoothingEnabled = false;
-      g.fillStyle = "#1c2a22"; g.fillRect(px - W / zoom, py - H / zoom, 2 * W / zoom, 2 * H / zoom);
+      g.fillStyle = (sight && sight.dark) || "#1c2a22"; g.fillRect(px - W / zoom, py - H / zoom, 2 * W / zoom, 2 * H / zoom);
+      let drawnTiles = 0;
       for (let y = 0; y < town.SIZE; y++) for (let x = 0; x < town.SIZE; x++) {
-        const s = town.surfaceAt(x, y), [a, b] = GROUND[s] || GROUND.grass;
+        if (sight && !inSight(x, y)) continue;
+        drawnTiles++;
+        const s = town.surfaceAt(x, y), [a, b] = ground[s] || ground.grass || Object.values(ground)[0];
         const [sx, sy] = project(x, y);
         g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + TW / 2, sy + TH / 2); g.lineTo(sx, sy + TH); g.lineTo(sx - TW / 2, sy + TH / 2); g.closePath();
         g.fillStyle = ((x * 7 + y * 13) % 5) < 2 ? b : a; g.fill();
         if (s !== "grass") { g.strokeStyle = "#00000018"; g.lineWidth = 1; g.stroke(); }
       }
       const figures = [{ id: "warden", at: S.pos, warden: true }, ...town.npcs];
-      for (const e of depthOrder(town.buildings, figures)) e.kind === "building" ? drawBuilding(e.it) : drawFigure(e.it);
+      const shown = sight ? town.buildings.filter(buildingInSight) : town.buildings;
+      S.drawn = { tiles: drawnTiles, buildings: shown.map((b) => b.id) };   // draw counts for checks (tests/town.test.mjs: the lamp)
+      for (const e of depthOrder(shown, figures)) e.kind === "building" ? drawBuilding(e.it) : drawFigure(e.it);
     }
+    const inSight = (x, y) => tileInSight(S.pos, x, y, sight.radius), buildingInSight = (b) => seenBuilding(S.pos, b, sight);
     function drawBuilding(b) {
       const im = img(b.sprite); if (!im.complete || !im.naturalWidth) return;
       const w = b.size * TW, k = w / im.naturalWidth, h = im.naturalHeight * k;
@@ -219,5 +240,5 @@
     };
   }
 
-  return { create, step, collides, nearby, facingFor, frameFor, depthOrder, gridDir, project, SPEED, RADIUS };
+  return { create, step, collides, nearby, facingFor, frameFor, depthOrder, gridDir, project, tileInSight, seenBuilding, SPEED, RADIUS };
 });

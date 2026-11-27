@@ -148,7 +148,7 @@
     { id: "drawer:move", label: "Move ▸", title: "Move", has: (id) => ["move", "jump", "climb", "disengage", "breakGrapple"].includes(id) || id === "scramble" || id.startsWith("press:") },
     // Rituals (Mala, 2026-10-20): dreams, Palace summons, capture ritual, communes, rites, Contains Multitudes and
     // Become the Integrated Self all ride one tab; the old Dream drawer folded into it.
-    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "familiars", "summons", "orderSummonUltimate", "stretchLeash", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteTea", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") || id.startsWith("plantOrgonite") || id.startsWith("rewriteProgram:") },
+    { id: "drawer:rituals", label: "Rituals ▸", title: "Rituals", has: (id) => ["dreamSpace", "aura", "wakeDream", "familiars", "summons", "orderSummonUltimate", "stretchLeash", "multitudes", "dismissEmbodiment", "becomeGolden", "commune", "communeIngredient", "communeStructure", "nameDream", "ritual", "ritualHold", "bead", "riteWords", "riteSigils", "riteBlood", "riteDeep", "riteBurial", "riteTea", "riteComplete", "riteAbandon", "riteNote", "tameBeast", "markVessel", "callPack", "palingenesis", "palingenesisBurn", "astralProject", "astralReturn", "dive", "surface", "readSite", "takeFind", "flameOpen", "flameSustain", "flameNote"].includes(id) || id === "mockTrial" || id === "declarePresence" || id.startsWith("declareWard:") || id.startsWith("focusDream:") || id.startsWith("treeant") || id.startsWith("maxChannel") || id.startsWith("riteTog:") || id.startsWith("plantOrgonite") || id.startsWith("rewriteProgram:") || id.startsWith("readSite:") || id.startsWith("takeFind:") },   // Sunken Ruins BD3: Read rows ride one id per answer choice
     { id: "drawer:talk", label: "Talk ▸", title: "Talk", has: (id) => id === "insight" || id === "trial" || id === "convene" || id === "stakes" || id.startsWith("accept:") || id.startsWith("decline:") || id.startsWith("terms:") || id.startsWith("convert") || id.startsWith("display:") || id.startsWith("borrow:") || id.startsWith("order:") || id === "repayDebt" || id === "settleVisit" || id === "declareBankruptcy" },
     // Observe is its own tab now; studying a plant stays here, but the commune selection moved to Rituals.
     { id: "drawer:observe", label: "Observe ▸", title: "Observe", has: (id) => ["observe", "investigate", "observeSelf"].includes(id) || id?.startsWith("journal:") || id?.startsWith("finding:") },
@@ -220,7 +220,7 @@
     "dream-vampire": "dream-vampire", "dream-mummy": "dream-mummy", "dream-skeleton": "dream-skeleton",
     "dream-frankenstein": "dream-frankenstein", "dream-zombie": "dream-zombie", "dream-werewolf": "dream-werewolf", "dream-ghost": "dream-ghost", "gold-form": "gold-form",
     dragon: "dragon-boss", oni: "oni-boss", kaiju: "kaiju-boss", "gaia-wounded": "gaia-wounded", "gaia-accord": "gaia-accord", gaia: "gaia-accord", emissary: "emissary-boss", tallyman: "tallyman", sealednext: "sealednext", sasquatch: "sasquatch",   // Gaia as the boss rush fields her (modes/boss-rush.js); accord = restored ally form (land.js setGaiaForm)
-    esker: "esker", "modern-artist": "modern-artist", "field-botanist": "field-botanist", cyph: "cyph", hypebeast: "hypebeast", "tech-billionaire": "tech-billionaire", "oil-billionaire": "oil-billionaire", doctor: "doctor", odysseus: "odysseus", maid: "maid", general: "general", bastet: "bastet", the_king: "the_king", mitsuko: "mitsuko", "mitsuko-true-form":"mitsuko-true-form", inner_child: "inner_child", perimeter_guardian: "perimeter_guardian",
+    esker: "esker", "modern-artist": "modern-artist", "field-botanist": "field-botanist", cyph: "cyph", hypebeast: "hypebeast", "tech-billionaire": "tech-billionaire", "oil-billionaire": "oil-billionaire", doctor: "doctor", odysseus: "odysseus", maid: "maid", anime_duelist: "anime-duelist", "anime-duelist": "anime-duelist", general: "general", bastet: "bastet", the_king: "the_king", mitsuko: "mitsuko", "mitsuko-true-form":"mitsuko-true-form", inner_child: "inner_child", perimeter_guardian: "perimeter_guardian",
     napoleon: "napoleon", kobe: "kobe", aristotle: "aristotle", genghis_khan: "genghis_khan", zherm: "zherm", little_king: "little_king", "monkey-king": "monkey-king", director: "director", barbarian: "barbarian", clockwork: "clockwork", rogue: "rogue", medusa: "medusa", cleric: "cleric", steam_walker: "steam_walker", ornithopter: "ornithopter", engineer: "engineer",
     mycologist: "mycologist", hacker: "hacker", sailor: "sailor", astronaut: "astronaut", "ritual-chanter": "ritual-chanter", mangaka: "mangaka", "aviator-hero": "aviator-hero", "jiang-qing": "jiang-qing", "android-maker": "android-maker", origamist: "origamist", starfarer: "starfarer", pioneer: "pioneer",
     celestial_priestess: "celestial_priestess", cyanotype_artist: "cyanotype_artist", new_oni: "new_oni", artemesia: "artemesia", fbi_agent: "fbi_agent", telekinetic_hero: "telekinetic_hero", deepsea_warrior: "deepsea_warrior", black_armor: "black_armor", oni_yokozuna: "oni_yokozuna", black_swan_warrior: "black_swan_warrior", forest_spirit: "forest_spirit", neon_dj: "neon_dj", cloaked_drifter: "cloaked_drifter", neon_idol: "neon_idol", jpop_idol: "jpop_idol", mao_zedong: "mao_zedong", ember_judge: "ember_judge", devouring_mother: "devouring_mother", tactical_operative: "tactical_operative", celest_crystal: "celest-crystal", "celest-crystal": "celest-crystal", cuban_rooster: "cuban-rooster", "cuban-rooster": "cuban-rooster",
@@ -230,6 +230,7 @@
     "martial-artist": "martial-artist", "martial-artist-ascended": "martial-artist-ascended",   // Martial Artist (2026-10-22): base + gold ascended form
     raven: "raven", mosaic: "mosaic", greedigut: "greedigut", triumvirate_hero: "triumvirate_hero",   // Raven K2: faces right in the sheet (cut-build NOTE); dodge and knockback recoil left; Mosaic (T2a summon / Ordeal)
     "goethe": "goethe", "goethe-true-form": "goethe-true-form", "goethe-ascended": "goethe-ascended",   // Goethe hot-build (2026-10-27): Young palace summon + True-Form Dream manifestation + Ascended Scholar max form (art only; no engine wiring yet)
+    "roman-emperor": "roman-emperor", "greek-hero": "greek-hero",   // Roman Emperor S1 (2026-11-24): callable normal form + Marcus Aurelius true form (the greek-hero folder holds Marcus art per cursor-marcus-aurelius-cut)
     storm_mage: "storm_mage", tree_spirit: "tree_spirit", disheveled_politician: "disheveled_politician", astral_security: "astral_security", mesoamerican_priestess: "mesoamerican_priestess",
     celestial_astral: "celestial_astral", moonflower: "moonflower", archivist_elf: "archivist_elf", bard_elf: "bard_elf", lying_lawyer: "lying_lawyer",   // hot builds wave 4 (2026-10-23)
     "hot-pot-berserker": "hot-pot-berserker", chef: "chef", seedkeeper: "seedkeeper", memorialist: "memorialist", pearl_diver: "pearl_diver", ferryman: "ferryman",   // hot builds wave 5 (2026-10-24): Posterity + Wake 3v3 buildup
@@ -238,7 +239,7 @@
     "treasure-hunter": "treasure-hunter", treasure_hunter: "treasure-hunter", "golden-relic-hunter": "golden-relic-hunter",   // the Treasure Hunter (TH1): base form and the gold relic form (state relicGold swaps unit.sprite)
     orgonite_trooper: "manavu-anti-gravity-soldier", leviathan_suit: "manavu-anti-gravity-blue", scale_firmware: "manavu-future-warrior-crimson-reptilian", white_jacket_gunner: "manavu-future-warrior-white-jacket-gunner", bronze_admin: "manavu-space-admin-bronze-hooded", horned_suit: "manavu-space-admin-crimson-horned",
     "manavu-anti-gravity-soldier": "manavu-anti-gravity-soldier", "manavu-anti-gravity-blue": "manavu-anti-gravity-blue", "manavu-future-warrior-crimson-reptilian": "manavu-future-warrior-crimson-reptilian", "manavu-future-warrior-white-jacket-gunner": "manavu-future-warrior-white-jacket-gunner", "manavu-space-admin-bronze-hooded": "manavu-space-admin-bronze-hooded", "manavu-space-admin-crimson-horned": "manavu-space-admin-crimson-horned",
-    hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", "auditor-goblin": "auditor-goblin", auditor_goblin: "auditor-goblin", hypnotist: "hypnotist", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
+    hanuman: "hanuman", "hanuman-chibi": "hanuman-chibi", "hanuman-giant": "hanuman-giant", jambavan: "jambavan", rama: "rama", lakshmana: "lakshmana", sita: "sita", "auditor-goblin": "auditor-goblin", auditor_goblin: "auditor-goblin", "magenta-trickster": "magenta-trickster", magenta_trickster: "magenta-trickster", hypnotist: "hypnotist", ravana: "ravana", kumbhakarna: "kumbhakarna", "shadow-archer": "shadow-archer", mandodari: "mandodari", surpanakha: "surpanakha", jatayu: "jatayu",   // Hanuman (2026-10-24): base, monkey and giant forms (State Kit body.sprite)
     bard_artificer: "bard-artificer", big_game_hunter: "big-game-hunter", burlesque_dancer: "burlesque-dancer", clown: "clown", mma_fighter_alternate: "mma-fighter-alternate", hermes: "hermes", kaikeyi: "kaikeyi",
     "brood-mite": "brood-mite",   // the Insect Kaiju's brood (true-forms.js callBrood): art cut 2026-11-01, registered 2026-11-08 (claude-bestiary-art-b1-build); until then the Bestiary and the battle drew a placeholder
     "tofu-yokai": "tofu-yokai", "tofu-archer": "tofu-archer", "tofu-warden": "tofu-warden",   // the Tofu trio (random-event pack, landed 1.3.497 without art): art registered 2026-11-08 (claude-tofu-trio-art-build)
@@ -255,6 +256,7 @@
   SUMMON_SPRITES.push("mosaic");   // Mosaic (T2a summon / Ordeal): faces right
   SPRITE.archivist="#ddad58";SPRITE["archivist-kaiba"]="#ddad58";
   SPRITE.mosaic = "#7da8c3";
+  SPRITE["roman-emperor"] = "#a83a32"; SPRITE["greek-hero"] = "#b8ad8a";   // Roman Emperor S1: imperial red, worn marble
   SPRITE.greedigut = "#e8e4d8";
   SPRITE.triumvirate_hero = "#2f7d4a";   // hot builds trio T3a: claude-triumvirate-cut (green, gold and red)   // Exile G1: claude-greedigut-cut
   SPRITE["modern-artist"]="#df93d4"; SPRITE["field-botanist"]="#8fbf6a"; SPRITE.kickboxer="#d9a441"; SPRITE.fighting_coach="#c7584a"; SPRITE["fighting-coach"]="#c7584a";
@@ -285,12 +287,13 @@
   SPRITE_FACES_RIGHT.greedigut = true;
   SPRITE_FACES_RIGHT.triumvirate_hero = true;   // trio T3a: claude-triumvirate-cut's directional poses face right as drawn (its NOTE, Facing)   // Exile G1: claude-greedigut-cut, casts mirrored to face right with the rest (R-20261116-11)
   SPRITE_FACES_RIGHT["auditor-goblin"]=true; SPRITE_FACES_RIGHT.auditor_goblin=true;   // goblin W2 rev 1 (Bulwark IN stage return, item 3): the character key draws the same right-facing sheet
+  SPRITE_FACES_RIGHT["magenta-trickster"]=true; SPRITE_FACES_RIGHT.magenta_trickster=true;   // Magenta Trickster MT1: consume cursor-magenta-trickster-cut
   for (const key of ["treasure-hunter", "treasure_hunter", "golden-relic-hunter"]) SPRITE_FACES_RIGHT[key] = true;   // Treasure Hunter TH1: both sheets face right (eye-checked at the 1.3.568 merge, Gangway IN; tools/check-sprite-facing.mjs VERIFIED)
   for (const key of CARD_FAMILIARS) { SPRITE_FACES_RIGHT[key] = true; SPRITE[key] ||= "#e9a23b"; }   // the sheets draw them facing right (unreviewed: the Cutter's NOTE)
   for (const sprite of [...SUMMON_SPRITES,...TRUE_FORM_SPRITES,...MAX_SPRITES,"mitsuko-true-form"]) SPRITE_FACES_RIGHT[sprite] = true;
   SPRITE_FACES_RIGHT["dream-frankenstein"] = true;   // the 1.3.561 re-cut (cursor-frankenstein-recut) faces right; eye-checked at the ship (Bowline IN)
   SPRITE_FACES_RIGHT["modern-artist"]=true; SPRITE_FACES_RIGHT["field-botanist"]=true; SPRITE_FACES_RIGHT["chef"]=true;   // chef directionals face right (Berry CU facing call, 2026-10-30)
-  SPRITE_FACES_RIGHT.fighting_coach=true; SPRITE_FACES_RIGHT.hypebeast=true;
+  SPRITE_FACES_RIGHT.fighting_coach=true; SPRITE_FACES_RIGHT.hypebeast=true; SPRITE_FACES_RIGHT.anime_duelist=true; SPRITE_FACES_RIGHT["anime-duelist"]=true;   // AD1a: sheet strides right (cursor-anime-duelist-cut NOTE, Facing)
   SPRITE_FACES_RIGHT.archivist=true;SPRITE_FACES_RIGHT["archivist-kaiba"]=true;
   SPRITE_FACES_RIGHT["neo-warden"]=true;
   SPRITE_FACES_RIGHT["neo-warden-dragon"]=true; SPRITE_FACES_RIGHT["neo-warden-cyberpunk"]=true; SPRITE_FACES_RIGHT["neo-warden-purple-neon"]=true;   // learned forms: the Warden's Dragon-blooded and Founder Mode sheets (2026-10-17); purple-neon alt (2026-10-23, walk mirrored at import)
@@ -307,6 +310,7 @@
   SPRITE_FACES_RIGHT.esker = true;   // gray-keyed sheet faces right, verified pose by pose (muse, 2026-10-14)
   SPRITE_FACES_RIGHT.odysseus = true;
   for (const key of ["goethe", "goethe-true-form", "goethe-ascended"]) SPRITE_FACES_RIGHT[key] = true;   // Goethe hot-build: cutter-verified right-facing (Muse-2, 2026-10-27); sprite review by Pantry, landed 1.3.468
+  for (const key of ["roman-emperor", "greek-hero"]) SPRITE_FACES_RIGHT[key] = true;   // Roman Emperor S1: cutter-verified right-facing sheets (Kerf CU; knockback/dodge notes in each cut NOTE)
   SPRITE_FACES_RIGHT.dragon = true;
   SPRITE_FACES_RIGHT.kaiju = true;
   SPRITE_FACES_RIGHT.arantxa = true;
@@ -341,7 +345,7 @@
   Object.assign(SPRITE, { frogan: "#6ab86a", shaman: "#7a6fd0", hedge_witch: "#4f8f4f", robot_mechanic: "#d08a3e" });
   for (const sprite of ["storm_mage", "tree_spirit", "disheveled_politician", "astral_security", "mesoamerican_priestess", "celestial_astral", "moonflower", "archivist_elf", "bard_elf", "lying_lawyer"]) SPRITE_FACES_RIGHT[sprite] = true;   // hot builds wave 4 (2026-10-23): all strike right; left-facing idles/walks/dodges mirrored at import
   for (const sprite of ["hanuman", "hanuman-chibi", "hanuman-giant", "jambavan", "rama", "lakshmana", "sita", "ravana", "kumbhakarna", "shadow-archer", "mandodari", "surpanakha", "jatayu"]) SPRITE_FACES_RIGHT[sprite] = true;   // Kumbhakarna: the attack faces right at full size (qa/repeats.md #18)   // Jambavan: checked at full size, all strike right   // Hanuman: all three cuts strike right (Codex's cut notes)
-  Object.assign(SPRITE, { "treasure-hunter": "#b8892b", "golden-relic-hunter": "#e6c200", "auditor-goblin":"#739667", auditor_goblin:"#739667", hanuman: "#e0a23a", "hanuman-chibi": "#e0a23a", "hanuman-giant": "#e0a23a", jambavan: "#8a5a3a", rama: "#3e6fb0", lakshmana: "#c08a2e", sita: "#d4607a", hypnotist: "#6a3aa0", ravana: "#7a2e3a", kumbhakarna: "#5a3a2a", "shadow-archer": "#5a2a6a", mandodari: "#7a4ab0", surpanakha: "#b04a6a", jatayu: "#a8743a" });
+  Object.assign(SPRITE, { "treasure-hunter": "#b8892b", "golden-relic-hunter": "#e6c200", "auditor-goblin":"#739667", auditor_goblin:"#739667", "magenta-trickster":"#d040a0", magenta_trickster:"#d040a0", hanuman: "#e0a23a", "hanuman-chibi": "#e0a23a", "hanuman-giant": "#e0a23a", jambavan: "#8a5a3a", rama: "#3e6fb0", lakshmana: "#c08a2e", sita: "#d4607a", hypnotist: "#6a3aa0", ravana: "#7a2e3a", kumbhakarna: "#5a3a2a", "shadow-archer": "#5a2a6a", mandodari: "#7a4ab0", surpanakha: "#b04a6a", jatayu: "#a8743a" });
   Object.assign(SPRITE, { storm_mage: "#8a7ae0", tree_spirit: "#5d8a48", disheveled_politician: "#5a6e8a", astral_security: "#8676f2", mesoamerican_priestess: "#c9753a", celestial_astral: "#b9a7e8", moonflower: "#e8e4f0", archivist_elf: "#6a5a9e", bard_elf: "#9d7bd8", lying_lawyer: "#3e5a8a" });
   Object.assign(SPRITE, { bard_artificer: "#c9a227", big_game_hunter: "#6b7f4e", burlesque_dancer: "#d44d7a", clown: "#e05a3a", mma_fighter_alternate: "#4a4a52", hermes: "#7ab8e0", kaikeyi: "#8e3b5c",
     "bard-artificer": "#c9a227", "big-game-hunter": "#6b7f4e", "burlesque-dancer": "#d44d7a", "mma-fighter-alternate": "#4a4a52" });   // fighter hot-builds wave 6 (Muse Berry BD, 2026-10-29); kebab keys RETURN-2 T-1
@@ -594,7 +598,8 @@
   // Face portraits for whoever is speaking (sprites/<folder>/face-<expression>.png; docs/conversational-cast.md).
   // faceFile falls back from the asked expression to neutral, then to null: the caller shows the battle sprite instead,
   // never someone else's face.
-  const FACE_ART = { "auditor-goblin":["neutral","happy","angry","sad","surprised"], "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "dream-frankenstein":["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"], "treasure-hunter":["neutral","happy","angry","sad","surprised"], "golden-relic-hunter":["neutral","happy","angry","sad","surprised"], "sammu-nikitti":["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
+  const FACE_ART = { "auditor-goblin":["neutral","happy","angry","sad","surprised"], "magenta-trickster":["neutral","happy","angry","sad","surprised"], "arantxa-leisure":["neutral","happy","angry","sad","surprised"], "paladin-crusader":["neutral","happy","angry","sad","surprised"], raven:["neutral","happy","angry","sad","surprised"], "ember-moth":["neutral","happy","angry","sad","surprised"], "hedge-sprite":["neutral","happy","angry","sad","surprised"], "gatepost-sentry":["neutral","happy","angry","sad","surprised"], "stone-warden":["neutral","happy","angry","sad","surprised"], "pair-of-lanterns":["neutral","happy","angry","sad","surprised"], "long-memory":["neutral","happy","angry","sad","surprised"], chef:["neutral","happy","angry","sad","surprised"], control:["neutral","happy","angry","sad","surprised"], hanuman:["neutral","happy","angry","sad","surprised"], "hanuman-chibi":["neutral","happy","angry","sad","surprised"], "hanuman-giant":["neutral","happy","angry","sad","surprised"], jambavan:["neutral","happy","angry","sad","surprised"], rama:["neutral","happy","angry","sad","surprised"], lakshmana:["neutral","happy","angry","sad","surprised"], sita:["neutral","happy","angry","sad","surprised"], ravana:["neutral","happy","angry","sad","surprised"], kumbhakarna:["neutral","happy","angry","sad","surprised"], "dream-frankenstein":["neutral","happy","angry","sad","surprised"], "shadow-archer":["neutral","happy","angry","sad","surprised"], mandodari:["neutral","happy","angry","sad","surprised"], surpanakha:["neutral","happy","angry","sad","surprised"], jatayu:["neutral","happy","angry","sad","surprised"], pioneer:["neutral","happy","angry","sad","surprised"], starfarer:["neutral","happy","angry","sad","surprised"], freemason: ["neutral", "speaking", "thinking", "amused", "angry", "tired", "determined"], salmacis: ["neutral", "happy", "determined", "sad", "surprised"], haliphron:["neutral","happy","angry","sad","surprised"], "mech-jellyfish":["neutral","happy","angry","sad","surprised"], hypnotist:["neutral","happy","angry","sad","surprised"], "treasure-hunter":["neutral","happy","angry","sad","surprised"], "golden-relic-hunter":["neutral","happy","angry","sad","surprised"], "sammu-nikitti":["neutral","happy","angry","sad","surprised"] };   // hypnotist: registered at merge (Capstan IN, 1.3.546; hotbuilds W1a shipped the five faces without the FACE_ART row).   // haliphron + mech-jellyfish: R-20261106-04 art land (Bollard IN, 1.3.540); faces registered, nothing speaks as them until wired
+  FACE_ART["anime-duelist"] = ["neutral","happy","angry","sad","surprised"];   // AD1a consumes cursor-anime-duelist-cut (rework 1 FACE_ART row)
   for (const key of ["tofu-yokai", "tofu-archer", "tofu-warden"]) FACE_ART[key] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Tofu trio (claude-bestiary-art-spec B2): the same five portraits a bark shows from heads/
   FACE_ART["brood-mite"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the mite's five portraits were cut as portrait-<x>.png, a name nothing reads; face-<x>.png are the same files (claude-bestiary-art-spec B1-a)
   FACE_ART["feathered-shaman"] = ["neutral", "happy", "angry", "sad", "surprised"];   // the Shaman's Feathered look: the cut's portrait-<x>.png land as face-<x>.png (Mala, 2026-11-11)
@@ -851,7 +856,7 @@
             <div class="cc-agent-row"><strong id="ccAgentStatus" role="status"></strong><button type="button" id="ccAgentReconnect">Reconnect agent</button><button type="button" id="ccAgentBuiltin">Use built-in AI</button></div>
             <details id="ccAgentConnection"><summary>Connect your agent</summary><p>Copy this command into your active agent chat. Keep that chat working while you play.</p><div class="cc-agent-row"><input id="ccAgentCommand" aria-label="Agent connection command" readonly><button type="button" id="ccAgentCopy">Copy agent command</button></div></details>
           </section>
-          <div class="cc-arena"><canvas id="ccCanvas"></canvas><p class="cc-ring-key" id="ccRingKey" aria-label="Unit rings: solid is an ally, notched is an enemy, dotted is anyone else"><span class="ally">solid: ally</span> · <span class="enemy">notched: enemy</span> · <span class="other">dotted: other</span></p><div class="cc-board-tabs" id="ccBoardTabs" role="tablist" hidden><button type="button" data-board="land" title="The material map">World</button><button type="button" data-board="pocket" title="The astral pocket, where the souls fight">Astral plane</button></div><div class="cc-view" id="ccView" hidden><button type="button" id="ccIso" title="Switch this arena between the flat board and the isometric view. Rules are the same in both.">View: Flat</button><button type="button" id="ccIsoCut" title="Hide the parapet, rails and canopy so nothing stands in front of the fighters">Cutaway Off</button></div><div class="cc-zoom" id="ccZoom" hidden><button type="button" id="ccFollowPaused" title="You moved the camera, so Follow is paused until the next unit acts. Click to follow again." hidden>Follow paused</button><button type="button" id="ccFollow" title="Follow: the camera eases to a close-up of the unit that is acting, walks with it as it moves, and frames both units when it acts on another (after the attack close-up closes, if one plays). Off: the camera is yours; turning it off returns the board to your saved zoom, centred.">Follow: Off</button><button type="button" id="ccCenter" title="Centre the camera on your character (C)">Center</button><button type="button" id="ccZoomOut" title="Zoom out (−)">−</button><button type="button" id="ccZoomPct" title="Reset zoom (0)">100%</button><button type="button" id="ccZoomIn" title="Zoom in (+)">+</button></div><div class="cc-tip" id="ccTip" hidden></div><aside class="cc-unitinfo" id="ccUnitInfo" aria-label="What you know about this unit" aria-live="polite" hidden></aside></div>
+          <div class="cc-arena"><canvas id="ccCanvas"></canvas><p class="cc-ring-key" id="ccRingKey" aria-label="Unit rings: solid is an ally, notched is an enemy, dotted is anyone else"><span class="ally">solid: ally</span> · <span class="enemy">notched: enemy</span> · <span class="other">dotted: other</span></p><div class="cc-board-tabs" id="ccBoardTabs" role="tablist" hidden><button type="button" data-board="land" title="The material map">World</button><button type="button" data-board="pocket" title="The astral pocket, where the souls fight">Astral plane</button><button type="button" data-board="deep" title="The underwater seabed below the battle">Below</button></div><div class="cc-view" id="ccView" hidden><button type="button" id="ccIso" title="Switch this arena between the flat board and the isometric view. Rules are the same in both.">View: Flat</button><button type="button" id="ccIsoCut" title="Hide the parapet, rails and canopy so nothing stands in front of the fighters">Cutaway Off</button></div><div class="cc-zoom" id="ccZoom" hidden><button type="button" id="ccFollowPaused" title="You moved the camera, so Follow is paused until the next unit acts. Click to follow again." hidden>Follow paused</button><button type="button" id="ccFollow" title="Follow: the camera eases to a close-up of the unit that is acting, walks with it as it moves, and frames both units when it acts on another (after the attack close-up closes, if one plays). Off: the camera is yours; turning it off returns the board to your saved zoom, centred.">Follow: Off</button><button type="button" id="ccCenter" title="Centre the camera on your character (C)">Center</button><button type="button" id="ccZoomOut" title="Zoom out (−)">−</button><button type="button" id="ccZoomPct" title="Reset zoom (0)">100%</button><button type="button" id="ccZoomIn" title="Zoom in (+)">+</button></div><div class="cc-tip" id="ccTip" hidden></div><aside class="cc-unitinfo" id="ccUnitInfo" aria-label="What you know about this unit" aria-live="polite" hidden></aside></div>
           <div class="cc-windows">
             <div class="cc-win cc-cmd" id="ccCmd"></div>
             <div class="cc-win cc-detail" id="ccDetail"></div>
@@ -908,6 +913,19 @@
         if (e && e.kind === "act" && Array.isArray(e.folded)) return e.folded;
       }
       return [];
+    }
+    // FX3 F4: the foe squeezed between its slabs. Reads the live Bastion script and returns the draw-width
+    // scale for one actor: 1 unless FX3 owns this frame and the actor is inside its impact window.
+    function fx3Squeeze(s, a) {
+      try {
+        if (!root.FX3 || typeof root.FX3.squeezeFor !== "function") return 1;
+        if (!U || !U.fx3 || !U.fullAnimation || !U.fxPlayer || typeof U.fxPlayer.current !== "function") return 1;
+        if (typeof isoOn === "function" && isoOn()) return 1;
+        const cur = U.fxPlayer.current(performance.now());
+        if (!cur || !cur.script) return 1;
+        if (!root.FX3.mine({ on: !!U.fx3, fullAnimation: !!U.fullAnimation, iso: false, playing: true, script: cur.script })) return 1;
+        return root.FX3.squeezeFor(cur.script, lastFolded(s), { id: a && a.id, x: a && a.x, y: a && a.y }, cur.elapsed || 0);
+      } catch (e) { return 1; }
     }
     function wallArt(s, b) {
       if (["berm", "swale", "mulch", "smoke"].includes(b.concept) || b.passiveGround) return null;
@@ -1362,7 +1380,7 @@
     // The town (Mala, 2026-10-17; docs/town-hub.md). Each door or side-menu entry opens a screen the classic menu already
     // had; the classic menu's panels open one at a time from here, with a way back to the town.
     const TOWN_NAV = [{ id: "scenarios", label: "▦ Town Hall · battles" }, { id: "character", label: "♙ Home · character" }, { id: "index", label: "▤ The Archive" },
-      { id: "account", label: "👜 Ledger House · kit & purse" }, { id: "courthouse", label: "⚖ Courthouse · laws, cases" }, { id: "hall", label: "✉ Hiring Hall · mercs, mediators" }, { id: "museum", label: "▣ The Museum · cherished gear" }, { id: "board", label: "▤ Notice board · missions" }, { id: "threat", label: "☰ Threat leaderboard" }, { id: "lab", label: "⚗ The Lab" }, { id: "codex", label: "§ The Magistrate's Codex" }, { id: "workshop", label: "✦ Workshop · three benches" }, { id: "school", label: "✎ School · drills" }, { id: "square", label: "🎩 Town square · busk" }, { id: "classic", label: "☷ Classic menu" }];
+      { id: "account", label: "👜 Ledger House · kit & purse" }, { id: "courthouse", label: "⚖ Courthouse · laws, cases" }, { id: "hall", label: "✉ Hiring Hall · mercs, mediators" }, { id: "museum", label: "▣ The Museum · cherished gear" }, { id: "dive", label: "≈ The Pond · dive" }, { id: "board", label: "▤ Notice board · missions" }, { id: "threat", label: "☰ Threat leaderboard" }, { id: "lab", label: "⚗ The Lab" }, { id: "codex", label: "§ The Magistrate's Codex" }, { id: "workshop", label: "✦ Workshop · three benches" }, { id: "school", label: "✎ School · drills" }, { id: "square", label: "🎩 Town square · busk" }, { id: "classic", label: "☷ Classic menu" }];
     function openFromTown(id) {
       leaveTown();
       if (id === "account") { U.mode = "setup"; return showAccount(); }
@@ -1375,6 +1393,7 @@
       if (id === "board") return showBoard();
       if (id === "codex") return showCodex();
       if (id === "courthouse") return showCourthouse();   // Investigate I5b: the Courthouse door (claude-investigate-spec 12.1)
+      if (id === "dive") return showDive("town");   // Sunken ruins R1: the Pond dive (claude-sunken-ruins-spec 4.1)
       U.menuView = "classic";
       U.setupPanels = { deck: U.setupPanels.deck, scenarios: id === "scenarios", character: id === "character", index: id === "index", threat: id === "threat" };
       U.focusPanel = ["scenarios", "character", "index", "threat"].includes(id) ? id : null;   // a town door opens its own room (Mala, 2026-10-27: "all three of these open the same window")
@@ -1480,6 +1499,14 @@
       $("ccHallBack").onclick = () => showSetup(); $("ccHallBack").focus();
     }
     // The Museum (M2; specs/MUSEUM.md T8): twelve plinths, Place / Take back. C10: the panel lives in town/museum-ui.js.
+    // The Pond dive (sunken ruins R1, claude-sunken-ruins-spec 4.1; dive/dive-ui.js). The walker is the town's, so the
+    // overlay keeps the town's frame and the town's key rule (U.mode "town": the battle keys and Enter-to-start stay out).
+    function showDive(from = "town") {
+      const ov = $("ccOverlay"), UI = root.ConceptCombatDiveUI; U.mode = "town"; stopAi(); ov.hidden = false;
+      if (!UI || !TOWN) { U.mode = "setup"; ov.innerHTML = `<div class="cc-card cc-town-hall"><h2>The Pond</h2><p>The water is too dark to dive today.</p><button type="button" id="ccDiveBack">← Back to town</button></div>`; $("ccDiveBack").onclick = () => showSetup(); return; }
+      ov.classList.add("cc-town-host");
+      UI.mount(ov, { account: () => U.account, setAccount: (a) => { U.account = a; saveAccount(); }, passives: (a) => Loot.passives(a), Town: TOWN, back: () => { U.mode = "setup"; ov.classList.remove("cc-town-host"); return from === "town" ? showTown() : showSetup(); } });
+    }
     function showMuseum(note = "", scene = false) {
       U.mode = "setup"; const ov = $("ccOverlay"); ov.hidden = false;
       const UI = root.ConceptCombatMuseumUI;
@@ -1498,6 +1525,7 @@
       const lg = LB.fresh(U.account.legacy), led = lg.ledger, nameOf = (id) => C.abilities[id]?.name || LB.partsOf(id, C)?.sourceName || lg.scribed.find((d) => d.id === id)?.name || id;
       const takeInfo=id=>{const p=LB.partsOf(id,C),count=lg.parts.filter(x=>x.source===id).length;return count?`Unspent parts already owned ×${count}`:p?.effects?.length?`Recover: ${p.effects.map(e=>e.label).join(", ")}`:"No adapters yet: it can still be Taken apart for its carrier.";};
       const books = LB.shop(lg, U.account.battles || 0), save = (l, msg) => { U.account.legacy = l; saveAccount(); showCodex(msg); };
+      const lawView = root.ConceptCombatCourtRecord?.lawView?.(root.ConceptCombatCourtRecord.normalize(U.account.record).law);   // M2b (3.6): the Codex shows standing now; the M3 record block subsumes this line
       const W = root.ConceptCombatWorkshop || null;   // landing 2 / A7: Recopy row calls W.recopy; defStamp 2 is the current tariff (workshop.js)
       const TARIFF_STAMP = root.ConceptCombatDeskMargin?.table?.tariff?.defStamp ?? 2;   // landing2 rework: read the stamp, don't pin 2
       const copyBtn = (id) => { const p = LB.partsOf(id, C), T = root.ConceptCombatDeskMargin?.table?.transcribe; if (!p || !T || !(p.effects || []).length) return ""; const st = lg.journal?.studies?.[id], waived = !!(st?.complete && !st.transcribed), price = T.seeds + T.perComponent * (p.effects || []).length, off = lg.parts.some((x) => x.source === id) || (!waived && (U.account.seeds || 0) < price) || lg.transcribedAt?.[id] === (U.account.battles || 0); return ` <button type="button" data-copy-parts="${esc(id)}"${off ? " disabled" : ""}>Copy parts · ${waived ? "free: study complete" : `${price} Seeds`}</button>`; };   // landing 2 / B1e
@@ -1518,7 +1546,7 @@
             ${st.complete && !st.donated ? `<button type="button" data-donate="${esc(st.technique)}">Donate (+1 favor)</button>` : ""}${st.complete && canMem && !lg.memory.held.includes(st.technique) ? `<button type="button" data-memorize="${esc(st.technique)}" ${pr < LB.MEMORIZE_AT ? "disabled" : ""}>Memorize</button>` : ""}${st.complete && !canMem ? `<small class="cc-muted">can't be held: ${esc(LB.unmemorizableWhy(st.technique, C) || "sealed")}</small>` : ""}${st.complete && boss ? `<button type="button" data-take="${esc(st.technique)}" ${LB.legendary(lg) && !lg.parts.some(p=>p.source===st.technique) ? "" : "disabled"}>Take apart${LB.legendary(lg) ? "" : " (needs a legendary tradition)"}</button>` : ""}</div>`; }).join("") : `<p class="cc-muted">Empty. In battle, Observe ▸ Take notes on a technique a foe used: it spends your reaction. Three notes finish a study.</p>`}`)}
         ${cx("notebook", "Field notebook", lg.findingNotebook.length, `${lg.findingNotebook.length ? lg.findingNotebook.map(f=>`<p>${esc(f.text)} <small>· ${esc(f.method)} · via ${esc(f.viaName||f.originName||f.via||f.origin)}</small></p>`).join("") : `<p class="cc-muted">Record a learned or verified finding during battle to preserve it here.</p>`}`)}
         ${cx("systems", "Systems studied", `${sysSeen.length}/${sysRows.length}`, `<p class="cc-muted">The first look at each kind of Observe is kept here. A system you have not studied yet is marked “Not studied yet”.</p>${sysRows.map((r) => (U.account.seenSystems || {})[r.k] ? `<div class="cc-hall-offer"><div><b>${esc(r.n.title)}</b><p>${esc(r.n.text)}</p></div></div>` : `<div class="cc-hall-offer"><div><b>${esc(r.n.title)}</b> <small class="cc-muted">Not studied yet</small></div></div>`).join("")}`)}
-        ${root.ConceptCombatPracticeTrial ? cx("court", "The court", "practice", `<p class="cc-muted">Practice a trial on a made-up case, tried by the real court rules. Nothing you do here counts: no record, no Fame, no cost.</p><button type="button" class="cc-primary" id="ccPracticeTrial">Practice a trial ↗</button>`) : ""}
+        ${root.ConceptCombatPracticeTrial ? cx("court", "The court", "practice", `<p class="cc-muted">Practice a trial on a made-up case, tried by the real court rules. Nothing you do here counts: no record, no Fame, no cost.</p>${lawView ? `<p>The law's view of you: ${esc(lawView)}.</p>` : ""}<button type="button" class="cc-primary" id="ccPracticeTrial">Practice a trial ↗</button>`) : ""}
         ${PF && CM ? (() => { const rows = PF.species().map((t) => ({ t, pr: CM.profile(t), nt: PF.notes(U.account.plantFacts, t) })).filter((r) => r.pr && r.nt.N), heard = rows.reduce((n, r) => n + r.nt.n, 0), all = rows.reduce((n, r) => n + r.nt.N, 0);
           return cx("plantnotes", "Plant field notes", `${heard}/${all}`, `<p class="cc-muted">What each plant has told you when it answered a commune. A fact you have not heard yet shows as a numbered blank. Each time a plant answers a commune you hear one of its facts, a new one first until you have heard them all.</p>${rows.map((r) => `<details class="cc-fn-species"><summary><b>${esc(r.pr.common)}</b> <small>${r.nt.n} of ${r.nt.N} heard${r.nt.cycles ? ` · ${r.nt.n >= r.nt.N ? "all" : "the earlier facts"} ${r.nt.cycles > 1 ? `${r.nt.cycles} times` : "once"}` : ""}</small></summary><ol>${r.nt.bank.map((f, i) => r.nt.heard.includes(f.id) ? `<li><span>${esc(f.text)}</span> <small class="cc-muted">Source: ${esc(f.source)}</small></li>` : `<li class="cc-fn-blank" aria-label="Not heard yet">Not heard yet</li>`).join("")}</ol></details>`).join("")}`); })() : ""}
         ${CardsUI?.almanac ? (() => { const al = CardsUI.almanac(U.account); return cx("cardalmanac", "Card almanac", `${al.playable}/${al.total}`, al.html); })() : ""}
@@ -2998,10 +3026,14 @@
       if (!o?.setupOpts?.vessels && !U.setupOpts.vessels) { U.setupOpts.vessels = practice ? { shard: 3, bead: 2, orb: 1, free: 0 } : SL ? SL.takePack(U.account.vessels || (U.account.vessels = { shard: 0, bead: 0, orb: 0 })) : null; U.packedVessels = !practice && !!SL; if (U.packedVessels) saveAccount(); } else U.packedVessels = false;   // vessel economy: pack the pouch from the stash (practice/playground pouches come from thin air and never return)
       U.teach = { last: null, seen: [], asked: 0, right: 0, wisdom: 0 }; U.teachCard = null;   // Teach mode starts fresh each battle
       if (PC && U.account.contracts?.active) { PC.endCall(U.account.contracts, { how: "abandoned" }); saveAccount(); }   // a call left open by an abandoned battle ends here, with no standing, before the book is snapshotted: the new battle's calls must not trip on it
-      if (!Object.hasOwn(o?.setupOpts || {}, "courtPrior")) U.setupOpts.courtPrior = practice || testBattle() ? null :
-        root.ConceptCombatCourtRecord?.priors(U.account.record)[0] || null;
+      if (!Object.hasOwn(o?.setupOpts || {}, "courtPrior")) {   // M2b (3.6): standing and the second prior ride in on the prior — engine.js sits 6 chars under its size cap, so no new battle keys
+        const law = practice || testBattle() ? 0 : root.ConceptCombatCourtRecord?.normalize(U.account.record).law || 0;
+        const worst = practice || testBattle() ? null : root.ConceptCombatCourtRecord?.priors(U.account.record)[0] || null;
+        const second = law <= -3 && worst ? root.ConceptCombatCourtRecord?.priors(U.account.record, 2)[1] || null : null;
+        U.setupOpts.courtPrior = worst || law ? { ...(worst || {}), law, ...(second ? { second } : {}) } : null;
+      }
       resetFollow();
-      U.s = E.create({ ...U.setupOpts, receiptId: `tourist-${Date.now()}-${seed}`, cognitive: U.account.cognitive, seeds: U.account.seeds, orgonite: { player: U.account.orgonite || 0 }, inspiration: U.setupOpts?.inspiration ?? (U.account.inspiration || 0), victories: U.setupOpts?.victories ?? (U.account.victories || {}), emissaryMemory: U.setupOpts?.emissaryMemory ?? (U.account.emissary || {}), self: U.account.self, mirror: U.account.mirror, unlockedSummons: U.account.unlocked, contracts: U.account.contracts, imitatedTraits: IM ? IM.carried(U.account) : [], gaiaBoons: GB && !U.setupOpts?.focusedDreamTest ? GB.battleOptions(GB.of(U.account).standing) : [], perkMods: A.perkMods(U.account) }); U.actions = []; U.report = null; U.answered = null; U.fxPlayer?.skip(); if (root.FX3) FX3.release(); U.fxFrame = null; U.bubbles = []; U.actionCues = {}; U.facing = {};
+      U.s = E.create({ ...U.setupOpts, receiptId: `tourist-${Date.now()}-${seed}`, cognitive: U.account.cognitive, seeds: U.account.seeds, orgonite: { player: U.account.orgonite || 0 }, inspiration: U.setupOpts?.inspiration ?? (U.account.inspiration || 0), victories: U.setupOpts?.victories ?? (U.account.victories || {}), emissaryMemory: U.setupOpts?.emissaryMemory ?? (U.account.emissary || {}), self: U.account.self, mirror: U.account.mirror, unlockedSummons: U.account.unlocked, contracts: U.account.contracts, imitatedTraits: IM ? IM.carried(U.account) : [], gaiaBoons: GB && !U.setupOpts?.focusedDreamTest ? GB.battleOptions(GB.of(U.account).standing) : [], perkMods: A.perkMods(U.account) }); U.s.ruinsAcct = { read: { ...(U.account.dive?.read || {}) }, taken: { ...(U.account.dive?.taken || {}) }, dives: U.account.dive?.dives || 0 }; U.actions = []; U.report = null; U.answered = null; U.fxPlayer?.skip(); if (root.FX3) FX3.release(); U.fxFrame = null; U.bubbles = []; U.actionCues = {}; U.facing = {};   // Sunken Ruins BD3: read-only dive-record snapshot for ruins below (the engine never writes the account)
       if (!practice && root.ConceptCombatInjury) { const kept = U.setupOpts?.injuries ?? U.account.injuries ?? {}; for (const a of Object.values(U.s.actors)) if (a.side === "player" && kept[a.character]) a.injuries = root.ConceptCombatInjury.begin(a, a, { injuries: kept }); }   // wounds cross battles (practice bodies arrive clean)
       if (!practice && U.s.actors.player) for (const text of Loot?.speakingLines?.(U.account) || []) U.s.log.push({ round: U.s.round, kind: "announce", actor: "player", text });   // Active Jinki (J1): round 1 names each soul that speaks
       U.tapeCards = TP ? TP.captureEntering(E, U.s) : null; U.tapeRec = { actions: [] }; U.lastTapeId = null;   // Fight Tapes FT1: the entering stat cards, once, after create and the carried wounds
@@ -3408,7 +3440,7 @@
     // The controlled fighter: the player, or their projected soul while it is out on the plane.
     const controlledId = (s) => { const soul = s && Object.values(s.actors).find((a) => a.soulOf === "player" && !a.defeated); return soul ? soul.id : "player"; };
     const controlledFighter = (s) => (s ? s.actors[controlledId(s)] : null) || (s ? s.actors.player : null);
-    const isAi = (id) => id !== controlledId(U.s) || params.autoplay;
+    const isAi = (id) => (id !== controlledId(U.s) && !(U.s?.trial?.awaitingJudgment && id === "player")) || params.autoplay;
     // The camera follows the active unit when a new decision starts off-screen (also the plane-switch:
     // a soul's turn pans east to the pocket, the body's turn pans home). Never yanks mid-decision.
     function followDecider(d) {
@@ -3760,7 +3792,7 @@
           runBuiltinAI(current.actor);
         }, params.fast ? 0 : 650);
       } else {
-        U.mode = d.kind === "answer" ? "answer" : d.kind === "mind" ? "mind" : d.kind === "response" ? "response" : (U.mode === "move" || U.mode === "target" ? U.mode : "menu");
+        U.mode = d.kind === "answer" ? "answer" : d.kind === "judgment" ? "judgment" : d.kind === "mind" ? "mind" : d.kind === "response" ? "response" : (U.mode === "move" || U.mode === "target" ? U.mode : "menu");
         render();
       }
     }
@@ -3970,30 +4002,44 @@
     // The tab follows the turn (whoever acts, their region); a clicked tab holds until the next turn.
     const soulsOut = () => !!U.s?.astral?.ready && Object.values(U.s.actors).some((a) => a.soulOf && !a.defeated && !a.returned);
     const astralShown = () => (soulsOut() && !isoOn() ? U.s.astral : null);
+    const deepShown = () => (U.s?.pockets?.deep?.ready && U.s.pockets.deep.seenBy?.player && !isoOn() ? U.s.pockets.deep : null);
+    const landWidth = () => U.s ? (U.s.arena.landW ?? U.s.astral?.landW ?? U.s.pockets?.deep?.landW ?? U.s.arena.w) : 9;
     const turnKey = () => `${U.s.round}:${U.s.turnIndex}:${U.s.phase}`;
     function boardRegion() {
-      const A = astralShown(); if (!A) return "land";
-      if (U.boardTab && U.boardTabTurn === turnKey()) return U.boardTab;
+      const A = astralShown(), D = deepShown();
+      if (!A && !D) return "land";
+      if (U.boardTab && U.boardTabTurn === turnKey()) {
+        if (U.boardTab === "pocket" && A) return "pocket";
+        if (U.boardTab === "deep" && D) return "deep";
+        if (U.boardTab === "land") return "land";
+      }
       const who = U.s.actors[E.decider(U.s)?.actor];
-      return who && who.x >= A.x0 ? "pocket" : "land";
+      if (who && A && who.x >= A.x0 && who.x < A.x0 + A.w) return "pocket";
+      if (who && D && who.x >= D.x0 && who.x < D.x0 + D.w) return "deep";
+      return "land";
     }
     function viewXY(x, y) {
-      const A = astralShown();
-      if (!A) return U.s?.astral?.ready && x >= U.s.astral.landW ? null : [x, y];   // the plane has collapsed (Mala, 2026-10-26): only the map is left
-      if (boardRegion() === "pocket") return x >= A.x0 ? [x - A.x0, y] : null;
-      return x < A.landW ? [x, y] : null;   // the void and the far region: not drawn, never picked
+      const A = astralShown(), D = deepShown(), reg = boardRegion();
+      if (reg === "pocket" && A) return x >= A.x0 && x < A.x0 + A.w ? [x - A.x0, y] : null;
+      if (reg === "deep" && D) return x >= D.x0 && x < D.x0 + D.w ? [x - D.x0, y] : null;
+      return x < landWidth() ? [x, y] : null;   // the void and any other region: not drawn, never picked
     }
     function syncBoardTabs() {
       const bar = $("ccBoardTabs"); if (!bar) return;
-      const A = astralShown(); bar.hidden = !A; if (!A) return;
+      const A = astralShown(), D = deepShown();
+      bar.hidden = !A && !D; if (bar.hidden) return;
       const here = boardRegion();
-      for (const b of bar.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.board === here));
+      for (const b of bar.querySelectorAll("button")) {
+        if (b.dataset.board === "pocket") b.hidden = !A;
+        if (b.dataset.board === "deep") b.hidden = !D;
+        b.setAttribute("aria-pressed", String(b.dataset.board === here));
+      }
     }
     function layout() {
       const box = cv.parentElement.getBoundingClientRect(); const dpr = window.devicePixelRatio || 1;
-      const A = astralShown(), pocket = A && boardRegion() === "pocket";
-      if (U.s && (pocket ? "pocket" : "land") !== U.lastRegion) { U.panX = 0; U.panY = 0; U.lastRegion = pocket ? "pocket" : "land"; }   // a tab switch starts centred
-      const W = U.s ? (A ? (pocket ? A.w : A.landW) : U.s.astral?.ready ? U.s.astral.landW : U.s.arena.w) : 9, H = U.s ? U.s.arena.h : 5;
+      const A = astralShown(), D = deepShown(), reg = boardRegion();
+      if (U.s && reg !== U.lastRegion) { U.panX = 0; U.panY = 0; U.lastRegion = reg; }   // a tab switch starts centred
+      const W = U.s ? (reg === "pocket" && A ? A.w : reg === "deep" && D ? D.w : landWidth()) : 9, H = U.s ? U.s.arena.h : 5;
       if (U.s && U.s.arena.id !== U.panArena) { U.panX = 0; U.panY = 0; U.panArena = U.s.arena.id; }   // a new board starts centred
       const maxHeight = U.s ? Math.max(0, ...U.s.arena.height.flat(), ...U.s.barriers.map(b => E.geometry.heightAt(U.s, b.x, b.y))) : 0;
       const fit = Math.min((box.width - 24) / W, (box.height - 60) / (H * 0.66 + maxHeight * 0.22 + 0.4));
@@ -4462,6 +4508,8 @@
       }
       if (cam) isoFlush(cam, guides);
       drawMarkTrace(s);
+      { const Overlay = (typeof self !== "undefined" ? self : this).ConceptCombatMagentaOverlay;
+        Overlay?.draw?.(g, s, { centre, viewer: s.actors?.player, reduced: typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches, H: { hasSight: (st, x1, y1, x2, y2) => !unseen(x2, y2), dist: (st, x1, y1, x2, y2) => Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2)) } }); }
       if (s.dreamSpace) drawDreamFilter();
       else if (GF) {
         const look = GF.veil(s);
@@ -4639,7 +4687,8 @@
           const bodyArt = FXS?.bodyAura(a, U.s.rules), bodyImg = bodyArt ? transformImage(`auras/${bodyArt}`, "frame-1") : null;   // fx-sprites.js: power / communing aura behind the unit
           if (bodyImg) { const ah = imageH * 1.55, aw = ah * bodyImg.naturalWidth / bodyImg.naturalHeight; g.save(); g.globalAlpha = .62 + Math.sin(now / 260) * .14; g.drawImage(bodyImg, cx - aw / 2, baseY + ah * .06 - ah, aw, ah); g.restore(); }
           g.save(); g.imageSmoothingEnabled = false; g.globalAlpha = a.defeated ? .78 : 1;
-          g.translate(cx, 0); if (shouldFlipSprite(actorKey, targetIsRight)) g.scale(-1, 1);
+          const f4sx = fx3Squeeze(U.s, a);
+          g.translate(cx, 0); if (shouldFlipSprite(actorKey, targetIsRight)) g.scale(-f4sx, 1); else g.scale(f4sx, 1);
           if (bodyCastImg) {
             const scale = imageH / bodyFrame.bodyHeight;
             g.drawImage(bodyCastImg, -bodyFrame.footX * scale, baseY - bodyFrame.footY * scale,
@@ -4653,11 +4702,15 @@
         }
       }
       // body: cloak + head + concept glyph (original primitives)
+      // FX3 F4: squeeze the body width while the slabs meet; rings, wards, status and the LF bar stay unsqueezed.
+      const f4sxp = fx3Squeeze(U.s, a);
+      g.save(); g.translate(cx, 0); g.scale(f4sxp, 1); g.translate(-cx, 0);
       g.fillStyle = col; g.beginPath(); g.moveTo(cx - bw / 2, cy + th * .1); g.lineTo(cx + bw / 2, cy + th * .1); g.lineTo(cx + bw * .32, cy - h * .55); g.lineTo(cx - bw * .32, cy - h * .55); g.closePath(); g.fill();
       g.fillStyle = "#00000033"; g.fillRect(cx - bw / 2, cy - h * .05, bw, h * .07);
       g.fillStyle = "#f3e2c8"; g.beginPath(); g.arc(cx, cy - h * .7, tw * .12, 0, 7); g.fill();
       g.fillStyle = "#1c1a21"; const fx = a.side === "player" ? 1 : -1; g.fillRect(cx + fx * tw * .03, cy - h * .73, tw * .03, tw * .04);
       g.strokeStyle = "#1c1a21"; g.lineWidth = 2; glyph(a.primary, cx, cy - h * .3, tw * .11);
+      g.restore();
       // statuses (an unrevealed enemy-side parry would be hidden; the player's own is always shown)
       const icons = statusMarks(a, { showParry: a.side === "player" || !!U.s.disclosures[a.id].rebound, actors: U.s.actors });
       // A ward is drawn as what it is: a gold ring round the unit and a shield plate with the protection left.
@@ -4806,7 +4859,7 @@
         const tiles = Array.from({ length: (m.size?.w || 1) * (m.size?.h || 1) }, (_, i) => [m.x + (i % (m.size?.w || 1)), m.y + Math.floor(i / (m.size?.w || 1))]), at = tiles.reduce((b, t) => E.geometry.dist(s, p.x, p.y, t[0], t[1]) < E.geometry.dist(s, p.x, p.y, b[0], b[1]) ? t : b, tiles[0]);
         const pct = Math.round(100 * m.lf / Math.max(1, m.maxLF)), d = E.geometry.dist(s, p.x, p.y, at[0], at[1]), weak = m.lf < m.maxLF * R.weakBelow, near = d <= R.range;
         const chanting = Object.values(s.actors).some((u) => u.ritual?.monsterId === m.id);   // the engine refuses a second chant (actions.js ritual)
-        const no = chanting ? "Someone is already chanting over it." : !weak ? `Weaken it below ${Math.round(R.weakBelow * 100)}% first (it is at ${pct}%).` : !near ? `Get within ${R.range} tiles (it is ${d} away).` : p.tempo < R.ap ? `Needs ${R.ap} action points.` : "";
+        const no = p.dance ? "The dance needs its keeper: one channel at a time." : chanting ? "Someone is already chanting over it." : !weak ? `Weaken it below ${Math.round(R.weakBelow * 100)}% first (it is at ${pct}%).` : !near ? `Get within ${R.range} tiles (it is ${d} away).` : p.tempo < R.ap ? `Needs ${R.ap} action points.` : "";
         out.push({ id: "ritual", at, label: `Capture ritual: ${m.name} · ${R.ap} AP`, off: !!no, why: no || "It is weak enough to bind. It hangs suspended while you chant: nothing can hit it and it cannot act. Hold still and unhurt for two of your turns and it becomes a bead." });
       }
       (p.beads || []).forEach((b, index) => {
@@ -4815,6 +4868,12 @@
       });
       if (SL) for (const u of Object.values(s.actors).filter((u) => u.side === p.side && u.id !== p.id && !u.defeated))   // Duy's rule: name the precious ward a death-priced seal protects
         out.push({ id: `declareWard:${u.id}`, label: `Declare ${u.name} precious · ${SL.RULES.declareAp} AP`, off: p.tempo < SL.RULES.declareAp, why: s.wards?.[p.id]?.ward === u.id ? `${u.name} is already named.` : "Duy's rule: a death-priced seal opens only to protect something precious. One live declaration; re-declaring replaces." });
+      const danceCards = E.actionOptions ? E.actionOptions(s, p.id, "rituals").filter((c) => c.act?.type === "flameOpen" || c.act?.type === "flameSustain") : [];   // Fire Dance D1: preview-checked Rituals drawer rows from action cards (T11 GUARD: empty for non-holders)
+      for (const c of danceCards) out.push({ id: c.act.type, target: c.act.target, label: c.label, off: c.off, why: c.off ? c.why : c.help });
+      if (p.dance?.form === "flame" && p.dance.role === "dancer") out.push({ id: "flameNote", label: `Flame Dance · ${p.dance.turnsLeft} left`, off: true, why: "Holding Flame Dance with your keeper. Take no damage or soak to earn +1 Inspiration." });
+      else if (!danceCards.length && !p.dance && (p.character === "burlesque_dancer" || (p.traits || []).some((t) => (t?.id || t) === "fireDance"))) {
+        out.push({ id: "flameNote", label: "Flame Dance · 15 AP", off: true, why: "Flame Dance needs a living ally within 4 tiles." });
+      }
       return out;
     }
     function riteMenu() {   // Rites (Muse-2 rituals prototype): bank steps, then seal them into a technique
@@ -4823,7 +4882,7 @@
       const stepped = rite?.stepTurn === p.ownerTurns || p.riteStepTurn === p.ownerTurns, maxed = (rite?.steps?.length || 0) >= (R.maxSteps ?? 3);
       const artist = C.characters?.[p.character]?.subfaction === "ink" || (p.traits || []).some((t) => (t?.id || t) === "artist");
       const hands = p.status.bloodyHands?.expiresAt > p.ownerTurns, own = !!p.status.bleed;
-      if (p.ritual) { out.push({ id: "riteNote", label: "Rites wait while you chant a capture", off: true, why: "One channel at a time. Finish or break the capture first." }); return out; }
+      if (p.ritual || p.dance) { out.push({ id: "riteNote", label: p.dance ? "Rites wait while you hold a dance" : "Rites wait while you chant a capture", off: true, why: "One channel at a time. Finish or break the active channel first." }); return out; }
       if (rite?.steps?.length) out.push({ id: "riteNote", label: `Rite banked: ${rite.steps.map((x) => x.type).join(" · ")} (holds ${rite.hold})`, off: true, why: "Each step banks twice its row in hold turns. Seal it into a technique, keep building (3 steps max), or abandon it. Damage can break concentration." });
       const wAp = R.wordsAp ?? 10, gAp = R.sigilsAp ?? 25, bLf = R.bloodLf ?? 3, dLf = R.deepLf ?? 8;
       const dreamy = !!s.dreamSpace, dEase = dreamy ? (R.dreamBloodEase ?? 2) : 0;   // blood runs easier in dreams (the dream seam)
@@ -4911,7 +4970,8 @@
         if (fallen && poseSprites[communeArt(fallen.sprite)]?.["knocked-out"]?.naturalWidth) return;
         g.save(); g.filter = "grayscale(1) brightness(.55)"; const drawn = drawLivingObject(o, x, y, tw, th, palette); g.restore(); return drawn;
       }
-      return drawLivingObject(o, x, y, tw, th, palette);
+      const drawn = drawLivingObject(o, x, y, tw, th, palette), DTA = root.ConceptCombatDroneTowerArt;   // drone tower art TA1 (drone-tower-art.js): a towered object's tower stands over it
+      return DTA ? DTA.drawOver(g, o, drawn, x, y, tw, th, { foot: spriteFoot(th), artBox, log: spriteLog, redraw: () => { if (U.s) draw(); } }) : drawn;
     }
     const objectSpriteId = (o) => o.kind === "plant" ? (o.form === "tree" ? "tree" : o.form) : o.type === "house" || o.type === "orgonite" ? o.sprite : o.type?.startsWith("parterre") ? `parterre/${o.type}` : o.type;   // parterre art lives in its own folder; the loading screen asks the same question
     function drawLivingObject(o, x, y, tw, th, palette) {
@@ -5248,6 +5308,31 @@
           if (p.soulId) return [];
           const no = p.tempo < R.ap ? `Needs ${R.ap} AP.` : p.pf < R.upkeepPf ? `Needs ${R.upkeepPf} ΦF to hold.` : "";
           return [{ id: "astralProject", label: `Project · ${R.ap} AP · ${R.upkeepPf} ΦF`, off: !!no, why: no || `Leave the body and fight on the astral plane on your soul-force bar. ${R.upkeepPf} ΦF each soul turn to stay out. Only the portal brings you back by choice; if the soul falls, the body dies.` }]; })(),
+        ...(() => { const R = s.rules.dive; if (!R || p.soulOf || p.soulless) return [];
+          const D = s.pockets?.deep;
+          if (D?.ready && E.astral.regionOf(s, p.x, p.y) === "deep") {
+            const atRope = D.rope && p.x === D.rope[0] && p.y === D.rope[1];
+            return [{ id: "surface", label: "Surface · free", off: !atRope, why: atRope ? "Climb the rope back to the surface. If you opened the map, everyone below comes up alive." : "The way up is at the rope: stand on it first." }];
+          }
+          const ch = s.arena.map[p.y]?.[p.x];
+          if (ch !== "w" && ch !== "~") return [];
+          const pv = E.preview(s, { type: "dive", actor: p.id });
+          const turns = Math.min(R.breathMax ?? 9, ((p.traits || []).some((t) => (t?.id || t) === "swimmer") ? (R.breathSwimmer ?? 5) : (R.breathBase ?? 3)) + ((p.passives?.breathTurnsAdd || 0) + ((p.traits || []).some((t) => (t?.id || t) === "breathHolder") ? 1 : 0)) * (R.breathPerSource ?? 2));
+          return [{ id: "dive", label: `Dive · ${R.ap} AP (${turns}t)`, off: !pv.ok, why: pv.ok ? `Drop into the underwater seabed (${turns} turns of breath before drowning).` : pv.error }]; })(),
+        ...(() => { const R = s.rules.dive; if (!R || !E.astral?.ruinsReadRows) return [];   // Sunken Ruins BD3: ruins below ride the Rituals tab; one row per answer choice, no overlay
+          if (E.astral.regionOf(s, p.x, p.y) !== "deep") return [];
+          const out = [];
+          for (const r of E.astral.ruinsReadRows(s, p)) for (const c of r.choices) {
+            const act = { type: "readSite", actor: p.id, site: r.siteId, choice: c.index };
+            const pv = E.preview(s, act);
+            out.push({ id: `readSite:${r.siteId}:${c.index}`, label: `Read ${r.name} — ${c.text} · ${r.ap} AP`, off: !pv.ok, why: pv.ok ? `${r.question} The discovery pays at battle end, win or lose.` : pv.error });
+          }
+          for (const r of E.astral.ruinsTakeRows(s, p)) {
+            const act = { type: "takeFind", actor: p.id, site: r.siteId };
+            const pv = E.preview(s, act);
+            out.push({ id: `takeFind:${r.siteId}`, label: `Take ${r.findText} · ${r.ap} AP`, off: !pv.ok, why: pv.ok ? `Carry ${r.findText} from ${r.name}. It joins the rewards on a win; on a loss it stays on the seabed.` : pv.error });
+          }
+          return out; })(),
         ...(() => { const R = s.rules.palingenesis; if (!R) return [];
           const burnNo = p.tempo < R.burnAp ? `Needs ${R.burnAp} AP.` : "";
           const callNo = p.tempo < R.restoreAp ? `Needs ${R.restoreAp} AP.` : "";
@@ -5471,7 +5556,7 @@
       return [];
     }
     function courtView() {
-      const s = U.s, actor = controlledId(s);
+      const s = U.s, actor = s.trial?.awaitingJudgment && s.trial.accusedId === "player" ? "player" : controlledId(s);
       if (!s.trial || (!s.trial.over && E.decider(s)?.actor !== actor)) return null;
       return root.ConceptCombatCourtroomUI?.liveView(s, actor, root.ConceptCombatCourtroom.RULES.playTempo, (unit) => {
         const portrait = portraitSource(unit, "neutral");
@@ -5492,7 +5577,9 @@
         view: courtView,
         play(type, move) {
           const actor = controlledId(U.s);
-          return type === "trialDefend" ? act({ type: "trialDefend", actor, move }) : act({ type: "trialPlay", actor, move });
+          if (type === "trialDefend") return act({ type: "trialDefend", actor, move });
+          if (type === "trialJudgment") return act({ type: "trialJudgment", actor: U.s.trial?.accusedId || actor, move });   // M2b (1.3)
+          return act({ type: "trialPlay", actor, move });
         },
         restore() {
           if (U.mode === "menu") { U.menu = from; U.menuIndex = 0; renderCommands(); }
@@ -5508,6 +5595,13 @@
       }
       if (U.mode === "wait") { el.innerHTML = `<div class="cc-title">Opponents act…</div><div class="cc-muted">Watch the log for what each edge did.</div>`; return; }
       if (U.mode === "answer" && s.answerOffer && globalThis.ConceptCombatTandemAnswerPanel) { const P = globalThis.ConceptCombatTandemAnswerPanel; el.innerHTML = P.html(s, { esc }); P.wire(el, s, act); return; }   // Tandem T5b: the Answer prompt
+      if (U.mode === "judgment" && s.trial?.awaitingJudgment) {   // M2b (1.3): guilty verdict holds the command bar until the player answers
+        const vm = courtView();
+        el.innerHTML = `<div class="cc-title">Guilty verdict</div><div class="cc-muted">The court waits for your answer: accept judgment, or fight your way out.</div>${(vm?.actions || []).map((a) => `<button type="button" class="cc-item" data-judge="${esc(a.move)}">${esc(a.label)}</button>`).join("")}${vm ? '<button type="button" class="cc-item" data-court-command>Open courtroom ▸</button>' : ""}`;
+        el.querySelectorAll("[data-judge]").forEach((b) => { b.onclick = () => act({ type: "trialJudgment", actor: s.trial.accusedId, move: b.dataset.judge }); });
+        el.querySelector("[data-court-command]")?.addEventListener("click", openCourt);
+        return;
+      }
       if (U.mode === "mind") { el.innerHTML = `<div class="cc-title">Battle of minds</div><div class="cc-muted">Argue in the window. Turn order does not exist here — only reads matter.</div>`; return; }
       if (U.mode === "response") {
         const d = s.actors[E.decider(s).actor], ro = E.responseOptions(s), safe = ro.filter((r) => r.kind === "reposition" && r.safe).length;
@@ -5833,8 +5927,14 @@
         if (it.id === "settleVisit") return act({ type: "settleDebtVisit", actor: "player" });
         if (it.id === "declareBankruptcy") return act({ type: "declareBankruptcy", actor: "player" });
         if (it.id === "ritual") return act({ type: "ritual", actor: "player", at: it.at });
+        if (it.id === "flameOpen") return act({ type: "flameOpen", actor: controlledId(U.s), target: it.target });   // Fire Dance D1
+        if (it.id === "flameSustain") return act({ type: "flameSustain", actor: controlledId(U.s) });   // Fire Dance D1
         if (it.id === "astralReturn") return act({ type: "astralReturn", actor: "player" });
         if (it.id === "astralProject") return act({ type: "astralProject", actor: "player" });
+        if (it.id === "dive") return act({ type: "dive", actor: "player" });
+        if (it.id === "surface") return act({ type: "surface", actor: "player" });
+        if (it.id.startsWith("readSite:")) { const [, site, choice] = it.id.split(":"); return act({ type: "readSite", actor: "player", site, choice: +choice }); }   // Sunken Ruins BD3
+        if (it.id.startsWith("takeFind:")) return act({ type: "takeFind", actor: "player", site: it.id.slice(9) });   // Sunken Ruins BD3
         if (it.id === "plantOrgonite") {
           const legal = (OG?.plantSites(s, p) || []).map((at) => ({ at, tiles: [at] }));
           if (!legal.length) return flashTip(OG?.plantError(s, p, [p.x + 1, p.y]) || "No adjacent open tile.");
@@ -6128,10 +6228,12 @@
       const update = () => {
         const v = read(), b = v.boon && V.BOONS[v.boon], no = v.boon ? (vowOn() === "word" ? V.validate("word", v, me, IR, U.s) : V.validate(kind, v, me, IR, U.s)) : "Pick a boon to swear a vow.";
         const restrictions = V.restrictionsOf(v);
+        const req = !b?.binding && b?.requires;   // Stunning Restraint: Dazing Blow pre-selects and locks its mandatory price; Inspiration cannot pay it
+        if (req) { const r1 = ov.querySelector("#ccVowR1"); if (r1 && [...r1.options].some((o) => o.value === req)) r1.value = req; }
         for (const id of ["ccVowR1", "ccVowR2", "ccVowInsp"]) {
           const control = ov.querySelector(`#${id}`);
           if (!control) continue;
-          control.disabled = !!b?.binding;
+          control.disabled = !!b?.binding || (id === "ccVowR1" && !!req) || (id === "ccVowInsp" && !!req);
           control.closest("label").style.display = b?.binding ? "none" : "";
         }
         ov.querySelector("#ccVowPolicy").textContent = b?.binding
@@ -6454,7 +6556,7 @@
       const feintBait = id === "feint" && U.announce;   // Mala's Feint ruling: announced Feint discounts instead of buffing
       const category = C.effectCategories[m.effectCategory] || C.effectCategories.uncategorized;
       const area = m.area.shape === "radius" ? `radius ${m.area.radius} around you` : m.area.shape === "plus" ? "target + 4 neighbours" : m.area.shape === "line" ? "every tile on the line" : "single target";
-      const reach = m.delivery === "routed" ? `route ≤ ${m.routeBudget}` : m.effect === "barrier" ? (m.range ? `place ≤ ${m.range}` : "self only") : m.range ? `range ${m.range}` : "self";
+      const reach = m.delivery === "routed" ? `route ≤ ${m.routeBudget}` : m.effect === "barrier" ? (m.range ? `place ≤ ${m.range}` : d?.ownTurnRange ? `self, or an ally ≤ ${d.ownTurnRange} on your turn` : "self only") : m.range ? `range ${m.range}` : "self";
       const multi = ["radius", "plus", "line"].includes(m.area.shape);
       const pv = U.mode === "target" ? previewFor(U.sel.self ? null : U.hover) : null;
       const foes = Object.values(s.actors).filter((a) => (s.mode === "warfare" ? a.side !== p.side : s.mode === "melee" ? a.side !== p.side && a.side !== "civilian" && a.side !== "bystander" : a.side === "enemy") && !a.defeated);
@@ -6686,7 +6788,7 @@
                 const preNodes = (U.account.ownedNodes || []).length;
                 const result = Loot.finishBattle(U.account, { winner: U.s.outcome.winner, mode: U.s.mode, scenario: SCN?.tagOf(U.s) ?? null, random: !!SCN?.isRandomBattle(U.s), arena: SCN?.arenaOf(U.s) ?? null, jackpotSeeds: E.jackpotMeter ? E.jackpotMeter(U.s) : 0, vowsKept, showboat: dopeVoid > 0 ? 0 : showboat, enemiesDefeated: defeated.filter(a => !a.monster).length, foes: defeated.filter((a) => !a.mirrorOf && !a.soulOf && !a.clone && !a.summon).map((a) => a.character).filter(Boolean),   // copies drop no relics
           monstersDefeated, correctAnswers: (U.answered?.correct ? 1 : 0) + (U.s.summonCorrectAnswers || 0), round: U.s.round, foughtBeside, royalTribute: U.s.royalTribute || null,
-          pvSeeds: pv.seeds, pvXp: pv.xp, pvCredits: pv.credits, pvMarks: pv.marks, pvLines: pv.lines, boardSeeds, scenarioBonusSeeds, titleTransfer, weighing, dopeLines, convertMarks: U.s.convertMarks || [], fragments: U.s.fragments || [] },
+          pvSeeds: pv.seeds, pvXp: pv.xp, pvCredits: pv.credits, pvMarks: pv.marks, pvLines: pv.lines, boardSeeds, scenarioBonusSeeds, titleTransfer, weighing, dopeLines, convertMarks: U.s.convertMarks || [], fragments: U.s.fragments || [], ruins: E.astral?.ruinsResult ? E.astral.ruinsResult(U.s) : null },   // Sunken Ruins BD3: reads pay win or lose, finds on a win
           { seed: U.s.seed, biome: U.s.arena?.biome || null, stakes: U.s.stakes?.state === "agreed" ? { ...U.s.stakes, held: U.stakeHeld } : null });
         U.account = { ...result.account, stakeEscrow: null }; U.reward = result; U.stakeHeld = null;   // the escrow is settled by finishBattle
         if (CardsLoot && Cardbook && !testBattle()) {   // Battle Cards (C6a): a battle can leave a card; a constrained board job pays its card in kind (test battles: neither)
@@ -7046,7 +7148,7 @@
       if (K.toLowerCase() === "g") { e.preventDefault(); const gr = $("ccGraph"); gr.hidden ? openGraph() : (gr.hidden = true); return; }
       if (K.toLowerCase() === "i" && U.s && U.mode !== "over") { e.preventDefault(); unitInfoAt(U.hover || U.cursor); return; }   // unit window for the tile under the cursor
       if (K === "Escape" && U.unitInfo && $("ccGraph").hidden) { e.preventDefault(); openUnitInfo(null); return; }
-      if (K === "Escape") { e.preventDefault(); if (!$("ccGraph").hidden) { $("ccGraph").hidden = true; return; } if (U.mode !== "wait" && U.mode !== "response" && U.mode !== "over") back(); return; }
+      if (K === "Escape") { e.preventDefault(); if (!$("ccGraph").hidden) { $("ccGraph").hidden = true; return; } if (U.mode !== "wait" && U.mode !== "response" && U.mode !== "over" && U.mode !== "judgment") back(); return; }
       const arrows = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
       if (U.s && (K === "+" || K === "=")) { e.preventDefault(); zoomStep(1); return; }
       if (U.s && K === "-") { e.preventDefault(); zoomStep(-1); return; }

@@ -21,7 +21,31 @@
         if (s.film) return "The set is enclosed: there is nowhere to run.";   // Mala, 2026-10-19: no exits but CUT, ruin, or the twelfth take
         if (!onEdge(s, a)) return "It has not reached the edge of the map.";
         if (a.soulOf) { const err = H.returnSoul(s, a, "flee"); if (err) return err; if (!s.outcome && currentId(s) === a.id) endTurn(s); return; }   // a soul that breaks does not leave the battle: it wakes in its body
-        fleeBattle(s, a); for (const e of (Sealing?.onSealerDown?.(s, a) || [])) log(s, { kind: "seal", actor: e.foe, text: e.text }); if (!s.outcome && currentId(s) === a.id) endTurn(s);   // W2.3: a fled sealer's binds drop
+        fleeBattle(s, a); H.deepDeathCheck?.(s); for (const e of (Sealing?.onSealerDown?.(s, a) || [])) log(s, { kind: "seal", actor: e.foe, text: e.text }); if (!s.outcome && currentId(s) === a.id) endTurn(s);   // W2.3: a fled sealer's binds drop; BD1: fleeing opener closes deep map
+      },
+      // Sunken Ruins BD1 (R-20261111-31, -32, -37): battle dive into a sealed underwater pocket, and surfacing at the rope.
+      dive(s, a) {
+        const R = s.rules.dive; if (!R) return "Diving is unavailable.";
+        const no = H.diveValidate(s, a); if (no) return no;
+        const spend = spendTempo(s, a, R.ap, "Dive"); if (spend) return spend;
+        H.diveEnter(s, a);
+      },
+      surface(s, a) {
+        if (!s.rules.dive) return "Diving is unavailable.";
+        return H.surfaceActor(s, a);
+      },
+      // Sunken Ruins BD3 (R-20261124-02, 6.6): read a ruin's question and take its find below.
+      readSite(s, a, act) {
+        const R = s.rules.dive; if (!R) return "Reading is unavailable.";
+        const no = H.ruinsReadValidate(s, a, act.site); if (no) return no;
+        const spend = spendTempo(s, a, R.readAp ?? 20, "Read"); if (spend) return spend;
+        return H.ruinsReadApply(s, a, act.site, act.choice);
+      },
+      takeFind(s, a, act) {
+        const R = s.rules.dive; if (!R) return "Taking is unavailable.";
+        const no = H.ruinsTakeValidate(s, a, act.site); if (no) return no;
+        const spend = spendTempo(s, a, R.takeAp ?? 10, "Take"); if (spend) return spend;
+        return H.ruinsTakeApply(s, a, act.site);
       },
       // Astral projection (pocket model, Mala 2026-10-24): a ritual. The soul leaves the body for the
       // sealed pocket east of the world and fights there as its own fighter on its SF bar. The body lies
@@ -41,7 +65,7 @@
       move(s, a, act) {
         { const refused = moveRefusal(s, a, act); if (refused) return refused; }   // the reasons a unit cannot move at all, shared with Scramble
         const [tx, ty] = act.to || [];
-        if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
+        if (isKraken(a) && tx != null && !waterAt(s, tx, ty) && H.astralRegionOf?.(s, tx, ty) !== "deep") return "The kraken cannot leave the water.";
         if((a.committed?.noRetreat||a.promise?.surrender==="retreat")&&presidentRules&&!presidentRules.canMove({...presidentUnits(s).find(u=>u.id===a.id),committed:{noRetreat:true}},{x:tx,y:ty},presidentUnits(s).filter(u=>u.side!==a.side)))return "Your commitment has surrendered retreat: that move would increase your distance from the nearest enemy.";
         const baseBudget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a) - (a.pathwayPromise ? 2 : 0));   // the homeward extra sits on top of the legs-adjusted base
         const budget = H.Injury.moveBudget(s, a, moveBudgetFor(s, a)), moveMap = H.movePaths(s, a, budget), route = moveMap.pathTo(tx, ty);   // Injury: the move action reads the same legs budget as moveOptions (wounded −1, maimed 0)
@@ -132,7 +156,7 @@
         const spendError = a.tempo < jumpCost(s, a) ? `Jump needs ${jumpCost(s, a)} action points (have ${a.tempo}).` : null;
         if (spendError) return spendError;
         const [tx, ty] = act.to || [];
-        if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
+        if (isKraken(a) && tx != null && !waterAt(s, tx, ty) && H.astralRegionOf?.(s, tx, ty) !== "deep") return "The kraken cannot leave the water.";
         if (!inside(s, tx, ty) || dist(s, a.x, a.y, tx, ty) !== 1) return "Jump to an adjacent tile.";
         const drop = heightAt(s, a.x, a.y) - heightAt(s, tx, ty);
         if (drop < 2) return "Jump is only needed for a drop of 2 or more levels.";
@@ -150,7 +174,7 @@
         if (grappled(s, a)) return `${a.name} is held and cannot move.`;
         if (Vows) { const no = Vows.gate(s, a, "move", null, act, { log }); if (no) return no; }   // Vows: Rooted; breakVow elects the breach
         const [tx, ty] = act.to || [];
-        if (isKraken(a) && tx != null && !waterAt(s, tx, ty)) return "The kraken cannot leave the water.";
+        if (isKraken(a) && tx != null && !waterAt(s, tx, ty) && H.astralRegionOf?.(s, tx, ty) !== "deep") return "The kraken cannot leave the water.";
         if (!climbOptions(s, a.id).some(o => o.to[0] === tx && o.to[1] === ty)) return "Choose an adjacent ledge you can climb.";   // TS-01: climbOptions already drops ledges the whole footprint cannot fit
         const climbCost = H.climbCost(s, a);
         const spendError = spendTempo(s, a, climbCost, "Climb"); if (spendError) return spendError;
@@ -169,5 +193,45 @@
     };
     for (const type of Object.keys(family)) if (Object.prototype.hasOwnProperty.call(K.handlers, type)) throw new Error(`action type ${type} is installed twice (actions-movement.js)`);
     Object.assign(K.handlers, family);
+    // Action seams cards (R-20261110-46): dive and surface (Sunken Ruins BD1).
+    const diveCards = {
+      dive: { type: "dive", drawer: "rituals", options(s, a, extra = {}) {
+        const R = s.rules.dive; if (!R || !a || a.defeated || H.astralRegionOf?.(s, a.x, a.y) === "deep") return [];
+        const ch = s.arena.map[a.y]?.[a.x]; if (ch !== "w" && ch !== "~") return [];
+        const act = { type: "dive", actor: a.id };
+        const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+        const turns = H.deepBreathFor ? H.deepBreathFor(s, a) : (R.breathBase ?? 3);
+        return [{ act, label: `Dive · ${R.ap} AP (${turns}t breath)`, cost: R.ap, off: !pv.ok, why: pv.ok ? "" : pv.error, help: `Drop into the underwater seabed (${turns} turns of breath before drowning).` }];
+      } },
+      surface: { type: "surface", drawer: "rituals", options(s, a, extra = {}) {
+        if (!s.rules.dive || !a || a.defeated || H.astralRegionOf?.(s, a.x, a.y) !== "deep") return [];
+        const act = { type: "surface", actor: a.id };
+        const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+        return [{ act, label: "Surface at rope · free", cost: 0, off: !pv.ok, why: pv.ok ? "" : pv.error, help: "Climb the rope back to the surface. If you opened the map, everyone below comes up alive." }];
+      } },
+      readSite: { type: "readSite", drawer: "rituals", options(s, a, extra = {}) {
+        const rows = (H.ruinsReadRows || (() => []))(s, a);
+        const out = [];
+        for (const r of rows) for (const c of r.choices) {
+          const act = { type: "readSite", actor: a.id, site: r.siteId, choice: c.index };
+          const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+          out.push({ act, label: `Read ${r.name} — ${c.text} · ${r.ap} AP`, cost: r.ap, off: !pv.ok, why: pv.ok ? `${r.question} The discovery pays at battle end, win or lose.` : pv.error, help: `${r.question} A right answer pays a discovery at battle end; a wrong answer gives a clue and can be retried.` });
+        }
+        return out;
+      } },
+      takeFind: { type: "takeFind", drawer: "rituals", options(s, a, extra = {}) {
+        const rows = (H.ruinsTakeRows || (() => []))(s, a);
+        const out = [];
+        for (const r of rows) {
+          const act = { type: "takeFind", actor: a.id, site: r.siteId };
+          const pv = (extra.preview || ((st, ac) => H.preview(st, ac)))(s, act);
+          out.push({ act, label: `Take ${r.findText} · ${r.ap} AP`, cost: r.ap, off: !pv.ok, why: pv.ok ? `Carry ${r.findText} from ${r.name}. It joins the rewards on a win; on a loss it stays on the seabed.` : pv.error, help: `Carry the find. It joins the battle's rewards on a win.` });
+        }
+        return out;
+      } },
+    };
+    H.actionCards ||= {};
+    for (const type of Object.keys(diveCards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-movement.js)`);
+    Object.assign(H.actionCards, diveCards);
   })();
 });

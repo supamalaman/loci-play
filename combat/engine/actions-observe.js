@@ -33,6 +33,44 @@
     // A rig's compute (its gear passive, computeAdd) is the battle's Forecasts; a Hardware holder gets one more, with a rig only.
     const holdsHardware = (a) => a.primary === "hardware" || a.secondary === "hardware";
     const forecastLimit = (a) => { const c = a.passives?.computeAdd || 0; return c > 0 ? c + (holdsHardware(a) ? 1 : 0) : 0; };
+    function runInsightObserve(s, a, t, know, invest) {
+      return insightRules.observe({ focusPointBonus: hasTrait(a, "perfectConcentration") ? s.rules.concentration?.perfect?.observePoints || 0 : 0, dreamerPointBonus: hasTrait(a, "trepanation") ? dreamSpaceRules?.modsFor(a, s.dreamSpace, s.arena.objects)?.dreamObservePointBonus || 0 : 0,   /* TP-02: only the hole reads the extra point; plain dreamers (casterMods also carries 1) are unchanged */ demonstrated: demonstratedTraits(s, t.id), demonstratedBonus: REVEAL.observeBonus, deck: s.insight.decks[t.id], know, cognitive: H.Observation.cognitive(s, a), subjectKey: t.id, invest, inDreamSpace: !!s.dreamSpace && dreamSpaceRules.contains(s.dreamSpace, a.x, a.y), seed: s.seed + s.round,
+        visualPointBonus: (hasTrait(a, "twentyTwentyVision") ? insightRules.data.rules.observe.twentyTwentyBonus : 0) + (hasTrait(a, "directorsVision") ? 2 : 0) + (hasTrait(a, "spiritSight") ? 1 : 0),   // Spirit Sight (Oni-blooded): one more
+        shared: (s.scoutShare?.[a.id]?.[t.id] || 0) + (H.perfectRecall?.(a) ? 1 : 0), seesSpirits: insightRules.seesSpirits(a) });   // Perfect Recall (S6c): +1 familiarity on every Observe
+    }
+    // Chef W3 (CHEF.md sections 3b, 23.3; R-20261125-19): free Observe with its own log line ("the meal teaches", never
+    // the codex's), spending 0 AP, gated by Observation.eligible, flowing through observeTail (increments a.observes),
+    // and skipping mysteryForce / Cards.glimpse so a peaceful meal never rips a foe's face-down Mystery card.
+    function observeFree(s, a, t, invest = 20, { reason = "the meal teaches" } = {}) {
+      if (!a || !t || a.id === t.id || a.defeated || t.defeated) return { ok: false, revealed: [] };
+      if (!H.Observation.eligible(a)) return { ok: false, revealed: [] };
+      if (t.form?.golden || (t.form?.learned && hasTrait(t, "faceless"))) return { ok: false, revealed: [] };
+      const step = Math.max(10, Math.min(50, Math.floor((invest || 20) / 10) * 10));
+      if (insightRules) {
+        if (!s.insight?.decks?.[t.id]) return { ok: false, revealed: [] };
+        const bySubject = H.Observation.knowledge(s, a, true);
+        const know = bySubject[t.id] || insightRules.spawnKnowledge(s.insight.decks[t.id]);
+        const result = runInsightObserve(s, a, t, know, step);
+        if (result.error) return { ok: false, revealed: [] };
+        observedFx(s, a, t);
+        log(s, { kind: "observe", actor: a.id, target: t.id, free: true, text: `${a.name} reads ${t.name} across the table (${reason}).` });
+        observeTail(s, a, t, result, { bySubject, invest: step, free: true });
+        { const wheelNote = H.wheelhouseName?.(s, t); if (wheelNote) log(s, { kind: "observe", actor: a.id, target: t.id, text: wheelNote }); }
+        return { ok: true, revealed: result.revealed || [], result };
+      }
+      const k = s.knowledge?.[a.id]?.[t.id];
+      if (!k) return { ok: false, revealed: [] };
+      const hidden = abilitiesOf(t).filter((id) => !k.abilities[id]);
+      observedFx(s, a, t);
+      k.secondary = true; k.lens = true; a.observes = (a.observes || 0) + 1;
+      const learned = hidden.slice(0, 2); for (const id of learned) k.abilities[id] = true;
+      ClassRuntime?.law?.debrief?.(s, a, t);
+      log(s, { kind: "observe", actor: a.id, target: t.id, free: true,
+        text: `${a.name} reads ${t.name} across the table (${reason}): ${conceptName(t.primary)} primary, ${conceptName(t.secondary)} secondary.`,
+        why: learned.length ? learned.map((id) => `Learned ${ab(id).name}: ${ab(id).reveal}`) : ["Nothing new to learn."] });
+      { const wheelNote = H.wheelhouseName?.(s, t); if (wheelNote) log(s, { kind: "observe", actor: a.id, target: t.id, text: wheelNote }); }
+      return { ok: true, revealed: learned };
+    }
     const family = {
       forecast(s, a, act) {   // Rigs RG1: spend 10 AP and one compute to read a visible foe's next move from the current board
         const R = s.rules.forecast, t = s.actors[act.target], lim = forecastLimit(a);
@@ -144,9 +182,7 @@
           const snap = { round: s.round, units: Object.values(s.actors), wild: s.wild, playerSeeds: s.seeds || 0,
             alliesOf: Object.fromEntries(Object.values(s.actors).map((u) => [u.id, Object.values(s.actors).filter((v) => v.side === u.side && v.id !== u.id && !v.defeated).map((v) => v.id)])),
             fire: s.arena.map.some((row) => row.includes("f")) };
-          const result = insightRules.observe({ focusPointBonus: hasTrait(a, "perfectConcentration") ? s.rules.concentration?.perfect?.observePoints || 0 : 0, dreamerPointBonus: hasTrait(a, "trepanation") ? dreamSpaceRules?.modsFor(a, s.dreamSpace, s.arena.objects)?.dreamObservePointBonus || 0 : 0,   /* TP-02: only the hole reads the extra point; plain dreamers (casterMods also carries 1) are unchanged */ demonstrated: demonstratedTraits(s, t.id), demonstratedBonus: REVEAL.observeBonus, deck: s.insight.decks[t.id], know, cognitive: H.Observation.cognitive(s,a), subjectKey: t.id, invest: invest + (detail ? 10 : 0), inDreamSpace: !!s.dreamSpace && dreamSpaceRules.contains(s.dreamSpace,a.x,a.y), seed: s.seed + s.round,
-            visualPointBonus: (hasTrait(a, "twentyTwentyVision") ? insightRules.data.rules.observe.twentyTwentyBonus : 0) + (hasTrait(a, "directorsVision") ? 2 : 0) + (hasTrait(a, "spiritSight") ? 1 : 0),   // Spirit Sight (Oni-blooded): one more
-            shared: (s.scoutShare?.[a.id]?.[t.id] || 0) + (H.perfectRecall?.(a) ? 1 : 0), seesSpirits: insightRules.seesSpirits(a) });   // Perfect Recall (S6c): +1 familiarity on every Observe
+          const result = runInsightObserve(s, a, t, know, invest + (detail ? 10 : 0));
           if (result.error) return result.error;
           if (free) spendFree(); else { const spend=spendTempo(s,a,invest+woundTax,"Observe");if(spend)return spend; }
           if (detail) { a.focus.detail = false; log(s, { kind: "observe", actor: a.id, target: t.id, text: `${a.name}'s retained detail on ${t.name} adds +1 point to the study.` }); }
@@ -688,6 +724,7 @@
           });
       } },
     };
+    H.observeFree = observeFree;
     H.actionCards ||= {};
     for (const type of Object.keys(cards)) if (Object.prototype.hasOwnProperty.call(H.actionCards, type)) throw new Error(`action card ${type} is installed twice (actions-observe.js)`);
     Object.assign(H.actionCards, cards);

@@ -10,6 +10,7 @@
 //   problems(card)                what is wrong with a card's data (empty = a card may ship live)
 //   liveCards() / byId(id)        the cards a deck may hold: status live, kind live, no problems (no phantom cards)
 //   capFor({ level, fame, cardsharp, bonus })   the deck points cap (section 2.3); bonus from a soul's cardCapAdd
+//   limitsFor({ cap, traits })                  the one deck-limits helper: { cap, maxCards } after the holder's traits (Card Battler: +4 points, ceiling 30, +2 cards)
 //   validate(deck, { owned, cap })       { ok, errors, points, legal } for a list of card ids (section 2.4)
 // The closed lists (kinds, conditions, effect menu, rules) are data in cards-data.js: no number is typed here.
 (function (root, factory) {
@@ -24,7 +25,7 @@
     "contracts-bingo", "codex-library", "lab-crafting-cooking", "ui-patterns", "secret-fights", "kaiba", "widened-perks", "shop-keeper", "belief-awakening", "vows",
     "dream-space", "auras", "true-forms", "stealth", "wild-creatures", "classes", "landscape-lexicon", "ap-tempo", "civilians", "companions"];
   // A card with this effect must name this contact (section 15 item 3).
-  const REQUIRED = { push: "grapple", root: "grapple", familiar: "summons", reveal: "observe-insight", pullTowardWater: "grapple", spawnFish: "terrain-climate-dream", listening: "parley-valence", oliveBranch: "parley-valence" };
+  const REQUIRED = { push: "grapple", root: "grapple", familiar: "summons", reveal: "observe-insight", pullTowardWater: "grapple", spawnFish: "terrain-climate-dream", listening: "parley-valence", oliveBranch: "parley-valence", lavaRing: "terrain-climate-dream" };
 
   // Effect points (section 1.3). The ratios are the `rules.points` data; the shapes are the scribing component table.
   const P = rules.points;
@@ -35,11 +36,14 @@
     regen: (e) => ceil(round6(e.lf * e.turns / P.regenPer)), lethalSave: () => P.lethalSave, cardLock: () => P.cardLock,
     // familiar: `bodies` = ONE familiar drawn with several bodies (the Pair of Lanterns): `lf` is the total, priced per body; `count` = separate familiars
     familiar: (e) => ceil(round6(e.lf / (e.bodies || 1) / P.familiarLfPer + e.potency * e.turns / P.familiarPotencyPer)) * (e.bodies || e.count || 1), apGain: (e) => ceil(e.n / P.apGainPer), pullTowardWater: () => P.pull, spawnFish: () => P.spawnFish,
-    listening: () => P.listening, oliveBranch: () => P.oliveBranch,
+    listening: () => P.listening, oliveBranch: () => P.oliveBranch, lavaRing: () => P.lavaRing,
   };
   const areaMul = (r) => (r >= 4 ? rules.areaMul.r4 : r === 3 ? rules.areaMul.r3 : rules.areaMul.base);
+  // Prophecy S1: a card with `readings` races them and only one ever fires, so it is priced by its largest reading (CLARIFY A3, D).
+  const sumOf = (effs) => effs.reduce((n, e) => n + E[e.key](e), 0);
+  const allEffects = (card) => [...(card.effects || []), ...(card.readings || []).flatMap((r) => r.effects || [])];
   function payload(card) {
-    let p = card.effects.reduce((n, e) => n + E[e.key](e), 0);
+    let p = card.readings ? max(0, ...card.readings.map((r) => sumOf(r.effects))) : sumOf(card.effects);
     if (card.kind === "field") p *= areaMul(card.zone.radius);
     return up(p);
   }
@@ -66,6 +70,10 @@
   const needsTail = (card) => (card.condition.id !== "none" ? ` Needs: ${needs(card)}.` : "");
   function textOf(card) {
     const eff = card.effects;
+    if (card.readings) {   // Prophecy S1: the statement's readings and payoffs, public (D8 a); the words are the resolver's own (prophecy/prophecy.js)
+      const PR = typeof module === "object" && module.exports ? require("../prophecy/prophecy.js") : globalThis.ConceptCombatProphecy;
+      return `Seal a prophecy on a foe within ${card.range || rules.defaultRange}, until the end of its next turn. The first reading to come true manifests: ${card.readings.map(PR.readingText).join("; ")}. One open prophecy at a time.` + needsTail(card);
+    }
     if (card.kind === "summon") {
       const f = eff.find((e) => e.key === "familiar"), h = eff.find((e) => e.key === "heal"), each = f.count > 1 ? "each " : "";
       const twice = f.bodies > 1 ? " twice" : "";   // one familiar with two bodies acts once per body
@@ -92,7 +100,7 @@
     let first = !(card.kind === "set" && card.trigger[0] === "onAttacked");
     const foe = [], self = [];
     for (const e of eff) {
-      const lead = first; if (["damage", "push", "stagger", "root", "reveal", "pullTowardWater", "spawnFish"].includes(e.key) || e.key === "itemLock") first = false;
+      const lead = first; if (["damage", "push", "stagger", "root", "reveal", "pullTowardWater", "spawnFish", "lavaRing"].includes(e.key) || e.key === "itemLock") first = false;
       if (e.key === "damage") foe.push(lead ? `Deal ${e.potency} ${e.type} damage to a foe within ${range}` : `deal ${e.potency} ${e.type} damage to it`);
       else if (e.key === "push") foe.push(lead ? `Push a foe within ${range} away ${e.tiles} tiles` : `push it away ${e.tiles} tiles`);
       else if (e.key === "pullTowardWater") foe.push(lead ? `Pull a foe within ${range} ${e.tiles} tile${e.tiles === 1 ? "" : "s"} toward you` : `pull it ${e.tiles} tile${e.tiles === 1 ? "" : "s"} toward you`);
@@ -101,6 +109,7 @@
       else if (e.key === "itemLock") foe.push(`Lock a foe within ${range} out of items for ${plural(e.turns, "turn")}`);
       else if (e.key === "reveal") foe.push(lead ? `Reveal a concealed unit within ${range}` : "reveal it");
       else if (e.key === "spawnFish") foe.push(lead ? `Lure a dream fish onto open water within ${range}` : "lure one there");
+      else if (e.key === "lavaRing") foe.push(lead ? `Form a Lava Ring around a living ally on dry ground within ${range} for ${plural(e.rounds, "round")}: heat builds up to ${e.cap}, scorching adjacent foes for ${e.base} plus heat each turn until the centre is hurt` : `form a Lava Ring for ${plural(e.rounds, "round")}`);
       else if (e.key === "listening") foe.push(lead ? `A foe within ${range} is Listening for ${plural(e.rounds, "round")}: talk and coming to terms against them gain ${e.points} points for anyone on your side, and damage from your side ends it` : `they are Listening for ${plural(e.rounds, "round")}`);
       else if (e.key === "oliveBranch") foe.push(lead ? `Offer a foe within ${range} an olive branch: the next time terms fail, talk with them stays open` : "the next failed terms stays open");
       else if (e.key === "ward") self.push(`gain a ward of ${e.protection} for 1 turn`);
@@ -123,7 +132,7 @@
 
   // ── Contacts (sections 15 and 17): a card's own rows plus the auto rows its kind and effects carry ──
   function contactsOf(card) {
-    const r = [], has = (k) => card.effects.some((e) => e.key === k), add = (system, how, auto = true) => { if (!r.some((x) => x.system === system && x.how === how)) r.push({ system, how, auto }); };
+    const r = [], has = (k) => allEffects(card).some((e) => e.key === k), add = (system, how, auto = true) => { if (!r.some((x) => x.system === system && x.how === how)) r.push({ system, how, auto }); };
     if (has("push") || has("root") || has("pullTowardWater")) add("grapple", "forced movement of a holder or held unit follows the live rule (a push of the holder breaks the hold); the card never starts a hold");
     if (has("familiar")) add("summons", "shares the palace summon slot; leaves with the text \"fades\"; a Warden or a summon-trait unit gets +4 LF and +1 turn");
     if (has("reveal")) add("observe-insight", "reveals concealment only (not card knowledge: that is the awareness gate, CARDS.md section 18); the card name never enters s.insight");
@@ -156,8 +165,16 @@
     if (!cond) return [...why, `${id}: unknown condition ${card.condition?.id}`];
     if (!(card.condition.tier in rules.conditionMul)) why.push(`${id}: unknown condition tier ${card.condition.tier}`);
     if ((card.condition.id === "none") !== (card.condition.tier === "none")) why.push(`${id}: the none condition and the none tier go together`);
-    if (!Array.isArray(card.effects) || !card.effects.length) return [...why, `${id}: no effects`];
-    for (const e of card.effects) {
+    if (card.readings !== undefined) {   // Prophecy S1: 2 or 3 readings, each a trigger on the closed list with its own effects on the menu; `effects` stays empty
+      if (!Array.isArray(card.readings) || card.readings.length < 2 || card.readings.length > 3) return [...why, `${id}: a prophecy card races 2 or 3 readings`];
+      if (card.effects?.length) why.push(`${id}: a prophecy card's effects live in its readings`);
+      if (card.kind !== "instant" || card.target !== "foe") why.push(`${id}: a prophecy is an instant sealed on a foe`);
+      for (const r of card.readings) {
+        if (!D.readings?.[r.on]) return [...why, `${id}: reading ${r.on} is not on the closed list`];
+        if (!Array.isArray(r.effects) || !r.effects.length) return [...why, `${id}: reading ${r.on} has no effect`];
+      }
+    } else if (!Array.isArray(card.effects) || !card.effects.length) return [...why, `${id}: no effects`];
+    for (const e of allEffects(card)) {
       const def = D.effects[e.key];
       if (!def) return [...why, `${id}: effect ${e.key} is not on the closed menu`];
       if (def.proposed && card.status === "live") why.push(`${id}: effect ${e.key} is only a proposal, so the card must stay staged`);
@@ -187,7 +204,7 @@
       if (!c.how) why.push(`${id}: contact ${c.system} says nothing about how`);
     }
     const sys = contactsOf(card).map((c) => c.system);
-    for (const e of card.effects) if (REQUIRED[e.key] && !sys.includes(REQUIRED[e.key])) why.push(`${id}: effect ${e.key} needs the ${REQUIRED[e.key]} contact`);
+    for (const e of allEffects(card)) if (REQUIRED[e.key] && !sys.includes(REQUIRED[e.key])) why.push(`${id}: effect ${e.key} needs the ${REQUIRED[e.key]} contact`);
     try { if (!textOf(card)) why.push(`${id}: empty rule text`); } catch (error) { why.push(`${id}: ${error.message}`); }
     return why;
   }
@@ -202,9 +219,17 @@
     return Math.min(c.ceiling, c.base + lv + Math.max(0, fame) + c.perCardsharp * ranks + Math.max(0, bonus));
   }
 
+  // ── The deck limits after the holder's traits (codex-anime-duelist-spec AD1a): Card Battler adds capAdd points (the ceiling still holds) and
+  // countAdd cards; it never lowers a cap already over the ceiling (a lab override). Every reader takes its limits here: battle init, the enemy deck builder, the per-battle play bound. `cap` is the ordinary cap
+  // already worked out for this holder (capFor, or the enemy's 0.6x), so the trait is applied once, after it. ──
+  function limitsFor({ cap = capFor(), traits = [] } = {}) {
+    const B = rules.cardBattler, has = !!B && (traits || []).some((t) => (typeof t === "string" ? t : t?.id) === B.trait);
+    return { cap: has ? Math.max(cap, Math.min(rules.cap.ceiling, cap + B.capAdd)) : cap, maxCards: rules.deck.maxCards + (has ? B.countAdd : 0) };
+  }
+
   // ── Deck validation (section 2.4). `owned` is { cardId: n } (omit it to ignore ownership). Returns the errors for the whole deck
   // and `legal`, the longest legal prefix: a battle starts with that and never repairs the deck silently. ──
-  function validate(deck, { owned = null, cap = capFor(), proto = false } = {}) {
+  function validate(deck, { owned = null, cap = capFor(), proto = false, maxCards = rules.deck.maxCards } = {}) {   // maxCards: limitsFor's count (Card Battler 14)
     const ids = Array.isArray(deck) ? deck : [], errors = [], err = (code, text, id = null) => errors.push({ code, text, id });
     const count = {}, seen = new Set(); let points = 0, legendary = 0, rare = 0;
     const bad = (id) => { const c = byId(id); if (!c) return `${id} is not a card`; if (c.status === "prototype" && !proto) return `${c.name} is a prototype: player decks and the lab deck only`; if (c.status !== "live" && c.status !== "prototype") return `${c.name} is not available yet`; if (!kindLive(c.kind)) return `${c.name} (${D.kinds[c.kind].label}) is not available yet`; return problems(c).length ? `${c.name} cannot be used` : null; };
@@ -212,7 +237,7 @@
       if (seen.has(id)) continue; seen.add(id);
       const why = bad(id); if (why) err("unavailable", why, id);
     }
-    if (ids.length > rules.deck.maxCards) err("count", `A deck holds at most ${rules.deck.maxCards} cards (this one has ${ids.length}).`);
+    if (ids.length > maxCards) err("count", `A deck holds at most ${maxCards} cards (this one has ${ids.length}).`);
     for (const id of ids) {
       count[id] = (count[id] || 0) + 1;
       const c = byId(id); if (!c) continue;
@@ -229,7 +254,7 @@
     // The longest legal prefix: add cards in order and stop at the first that breaks a rule.
     const legal = [], have = {}; let pts = 0, leg = 0, rr = 0;
     for (const id of ids) {
-      const c = byId(id); if (!c || bad(id) || legal.length >= rules.deck.maxCards) break;
+      const c = byId(id); if (!c || bad(id) || legal.length >= maxCards) break;
       const n = (have[id] || 0) + 1, isLeg = c.rarity === "legendary", isRare = isLeg || c.rarity === "rare";
       if (n > c.copies || (owned && n > (owned[id] || 0)) || pts + c.cost > cap || leg + (isLeg ? 1 : 0) > rules.deck.maxLegendary || rr + (isRare ? 1 : 0) > rules.deck.maxRareUp) break;
       legal.push(id); have[id] = n; pts += c.cost; leg += isLeg ? 1 : 0; rr += isRare ? 1 : 0;
@@ -237,5 +262,5 @@
     return { ok: !errors.length, errors, points, legal };
   }
 
-  return { CONTACT_SYSTEMS, payload, price, copiesFor, textOf, needs, contactsOf, problems, byId, liveCards, capFor, validate };
+  return { CONTACT_SYSTEMS, payload, price, copiesFor, textOf, needs, contactsOf, problems, byId, liveCards, capFor, limitsFor, validate };
 });

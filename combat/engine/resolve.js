@@ -17,6 +17,7 @@
     const seededChance = (...args) => H.seededChance(...args);   // late binding: queries installs after resolve
     const sapAfterHeal = (s, a, u, healed) => ((typeof module === "object" && module.exports ? require("../mythic-plants/sammu.js") : globalThis.ConceptCombatSammu) || null)?.sap(s, a, u, healed, { rules: s.rules, hasTrait: H.hasTrait, log: H.log, Injury: H.Injury });   // Juvenescent Sap (SN1a): a carrier's useful heal
     const INS = () => (typeof module === "object" && module.exports ? (() => { try { return require("../workshop/instruments.js"); } catch { return null; } })() : globalThis.ConceptCombatWorkshopInstruments) || null;   // Resonant Heirlooms JI1
+    const SN1A2 = () => (typeof module === "object" && module.exports ? (() => { try { return require("../mythic-plants/sammu.js"); } catch { return null; } })() : globalThis.ConceptCombatSammu) || null;   // Šammu SN1a2: Tend, Borrowed Years, the reactive Sleeve (lazy per call, like the sap line: the page may load this part first)
 
     // Bastion Collapse (Mala and Muse, 2026-10-15): count the boundaries within the area's reach of the caster, at most
     // fold.cap: each barrier and each ward (consumed), each solid wall tile or blocking object (counted, left standing),
@@ -186,15 +187,15 @@
         const present=Object.values(s.actors).filter(u=>!u.defeated && inst.tiles.some(([x,y])=>H.coversTile(u,x,y)));   // a big unit is present on any of its tiles
         const ally=inst.targets?.map(id=>s.actors[id]).find(u=>u && !u.defeated && u.side===a.side);
         const crafts=(x)=>x&&(x.primary==="craftsmanship"||x.secondary==="craftsmanship"),wellMade=(u)=>CRAFT&&(crafts(a)||crafts(u))?CRAFT.wellMadeTurns:0;
-        const protect=(u,amount)=>{u.status.ward={label:"Preservation",owner:u.id,protection:Math.max(u.status.ward?.protection || 0,Math.round(amount*inst.mult)),expiresAt:u.ownerTurns+1+wellMade(u)};log(s,{kind:"preservation",actor:a.id,target:u.id,text:`${u.name} gains ${u.status.ward.protection} Preservation ward ${wellMade(u)?"that is well made and holds a turn longer [opp-craft-makes-it-keep]":"until their next turn"}.`});};
-        const heal=(u,amount)=>{const old=u.lf;const sv=ClassRuntime?.Teleology?.servingHeal(s,a,u);if(sv)log(s,{kind:"teleology",actor:a.id,target:u.id,text:sv.note});u.lf=Math.min(u.maxLF,u.lf+Math.round(amount*inst.mult*(sv?.mult||1)));log(s,{kind:"heal",actor:a.id,target:u.id,text:`${a.name} restores ${u.lf-old} LF to ${u.name}.`});sapAfterHeal(s,a,u,u.lf-old);};
+        const protect=(u,amount,sleeve)=>{u.status.ward={label:"Preservation",owner:u.id,protection:Math.max(u.status.ward?.protection || 0,Math.round(amount*inst.mult)),expiresAt:u.ownerTurns+1+wellMade(u)};if(sleeve){u.status.ward.sleeve=sleeve;if(inst.reaction)u.status.ward.sleeveReaction=true;SN1A2()?.wardCast(s,a,sleeve.ward,{hasTrait:H.hasTrait});}log(s,{kind:"preservation",actor:a.id,target:u.id,text:`${u.name} gains ${u.status.ward.protection} Preservation ward ${wellMade(u)?"that is well made and holds a turn longer [opp-craft-makes-it-keep]":"until their next turn"}.`});};
+        const heal=(u,amount,cashBY)=>{const old=u.lf;const sv=ClassRuntime?.Teleology?.servingHeal(s,a,u);if(sv)log(s,{kind:"teleology",actor:a.id,target:u.id,text:sv.note});u.lf=Math.min(u.maxLF,u.lf+Math.round(amount*inst.mult*(sv?.mult||1)));log(s,{kind:"heal",actor:a.id,target:u.id,text:`${a.name} restores ${u.lf-old} LF to ${u.name}.`});const base=u.lf-old,by=cashBY?(SN1A2()?.cashAfterRepair(s,a,u,{hasTrait:H.hasTrait,log:H.log,Inspiration:H.Inspiration})||0):0;sapAfterHeal(s,a,u,base+by);};
         if(inst.effect==="archivistIndex")for(const u of present.filter(u=>u.side!==a.side)){index(u);ClassRuntime?.hunterIndexed?.(s,a,u);}   // H2: her Index Entry names the Quarry (Archive does not: spec 6 names Index Entry and Observe only)
         if(inst.effect==="archivistArchive")for(const u of present.filter(u=>u.side!==a.side))index(u);
         if(inst.effect==="archivistArchive"&&ab(inst.ability)?.allyCharge)for(const u of present.filter(u=>u.side===a.side&&u.id!==a.id)){const max=s.rules.ultimateChargeMax||100,old=u.ultimateCharge||0;u.ultimateCharge=Math.min(max,old+ab(inst.ability).allyCharge);if(u.ultimateCharge>old)log(s,{kind:"charge",actor:a.id,target:u.id,text:`${u.name} listens: +${u.ultimateCharge-old} ultimate charge.`});}   // Jambavan's Counsel of the Ages
         // Trophy Eye fires on Cross Reference too (spec 3a): pending evaluated per foe like beforeStrike; the spend rides hit()'s shared afterHit (verified: Used sets with no explicit call).
         if(inst.effect==="archivistReference")for(const u of present.filter(u=>u.side!==a.side)){const known=knowledge[u.id]?.revealed?.length || s.insight.decks[u.id]?.cards.filter(c=>c.open).length || 0;let pot=inst.potency*inst.mult*(1+Math.min(5,known)*.1);const why=[`Cross Reference: ${known} known entries, bonus capped at 50%.`];if(a?.trophyEyePending)a.trophyEyePending=null;const eye=ClassRuntime?.trophyEyeOf?.(s,a,u);if(eye){a.trophyEyePending=u.id;pot+=eye.effect.potencyAdd;why.push(`Trophy Eye: +${eye.effect.potencyAdd} potency (bigger game).`);}const lf0=u.lf;hit(s,a,u,inst,pot,why);ClassRuntime?.hunterCatalogued?.(s,a,u,u.lf<lf0,{Inspiration:H.Inspiration});ClassRuntime?.hunterBloodTrail?.(s,a,u);}   // H2: on her Quarry it lays the Blood Trail; H3c: Catalogued
-        if(inst.effect==="archivistWard" && ally)protect(ally,inst.potency);
-        if(inst.effect==="archivistHeal" && ally)heal(ally,inst.potency);
+        if(inst.effect==="archivistWard" && ally)protect(ally,inst.potency,{by:a.id,ward:"sl"+(++s.seq)});   // Šammu SN1a2: the Sleeve names its carrier and its ward, so Borrowed Years banks only this ward's prevention
+        if(inst.effect==="archivistHeal" && ally)heal(ally,inst.potency,true);   // Šammu SN1a2: a successful Repair the Record spends the carrier's Borrowed Years ledger before Sap reads the heal
         if(inst.effect==="archivistShelter"){const helped=present.filter(u=>u.side===a.side);if(!helped.includes(a))helped.push(a);for(const u of helped){heal(u,16);protect(u,12);}}   // radius tiles exclude d=0 (targeting.js), so the caster is never "present": shelter her explicitly. "All living allies within 3" includes her, and the AI already values it that way.
         return;
       }
@@ -203,6 +204,12 @@
       if (inst.effect === "tuneStrings") {
         const f = INS()?.focusOf(a);
         log(s, { kind: "effect", actor: a.id, ability: inst.ability, text: `${a.name} tunes the ${f ? f.id : "instrument"}: one charge held until the start of ${a.name}'s second subsequent turn.`, why: ["Tune the Strings: a refined performance consumes the charge, or the player pays 1 Inspiration instead."] });
+        return;
+      }
+      if (inst.effect === "augurySeal") {   // Prophecy S2: Cast the Lots seals the ability row's readings on the target (prophecy/prophecy.js)
+        const t = s.actors[inst.targets?.[0]];
+        if (!t || t.defeated || t.side === a.side) { log(s, { kind: "miss", actor: a.id, text: `${inst.name} finds no foe to foretell.` }); return; }
+        H.Prophecy.seal(s, a, ab(inst.ability), t);
         return;
       }
       if (inst.effect === "erhuWanderingNote" || inst.effect === "erhuAnswerAche") {   // JI1c: Answer the Ache is the same heal-and-steady at its refined value (14)
@@ -500,6 +507,7 @@
         return;
       }
       if (inst.effect === "treasureHunt") { H.States?.huntResolve?.(s, a, inst); return; }   // Treasure Hunter (TH1b): Idol Claim, Relic Path, Second Claim (engine/states.js)
+      if (inst.effect === "paradoxFork" || inst.effect === "paradoxDoors" || inst.effect === "paradoxBlade") { H.States?.paradoxResolve?.(s, a, inst); return; }   // Paradox FR1a: Morton's Fork, Two Doors, Barber's Blade (engine/states.js)
       if(inst.effect==="secondGaze"){
         const targetId=inst.targets[0],targetActor=s.actors[targetId];
         if(!targetActor){log(s,{kind:"miss",actor:a.id,text:`${inst.name} has no living target.`});return;}
@@ -1122,6 +1130,7 @@
           const dealt = strikeTarget(s, a, t, inst, terrainPotency * coverFactor, why.concat(lineArea?.why || [],focusWhy,coverWhy));
           if (inst.instrumentPaid?.perf && t.side !== a.side) INS()?.credit(s, inst.instrumentPaid.perf, Math.max(0, lf0 - t.lf), H);   // True Performance: hostile LF actually lost
           if (inst.ability === "pipaThreeNotesOneCut" && lf0 - t.lf > 0 && !t.defeated && !s.outcome) addStun(s, a, t, ab(inst.ability)?.stunOnSurvive || 10);   // JI1c: one hit; a survivor that actually lost LF takes the native 10 AP stun (resists and timing are addStun's)
+          if (ab(inst.ability)?.readings && lf0 - t.lf > 0 && !t.defeated && !s.outcome && !H.Prophecy.openFor(s, a.id)) H.Prophecy.seal(s, a, ab(inst.ability), t);   // Prophecy S2: Double Meaning seals on a line blow that took LF
           for (const c of cover.filter((c) => c.wall)) { const own = s.actors[c.wall.owner], comp = H.compositionEdge(own), dfl = comp?.op.kind === "enableEdge" ? C.opposition.find((e) => e.id === comp.op.edge) : null;
             const caught = terrainPotency * c.fraction; c.wall.protection -= caught; if (c.wall.protection <= 0) s.barriers = s.barriers.filter((x) => x !== c.wall);
             if (dfl?.op.fraction && !own.defeated && !a.defeated) hit(s, own, a, null, caught * dfl.op.fraction * (1 - (H.shooterCover?.(s, a, t.x, t.y) || 0)), [`The ${conceptName(own.primary)} + ${conceptName(own.secondary)} composition returns ${Math.round(dfl.op.fraction * 100)}% of what the rushed wall caught [${comp.id}].`], { label: `Deflected ${inst.name}`, edge: comp.op.edge, damageType: inst.damageType }); }

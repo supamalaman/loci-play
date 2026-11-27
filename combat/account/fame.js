@@ -27,6 +27,7 @@
     perBattleCap: 4,                                           // rows of one battle together; a busk is its own town action
     window: 10,                                                // finished battles a foe key is remembered for: full, half (rounded down), then nothing
     maxSeen: 24,                                               // keys kept in fameSeen (oldest by `last` dropped)
+    dirty: 2,                                                  // IR2 Tainted Blade (R-20261123-02): points a battle you fought dirty costs; never a level (Decisions, pending Mala)
     persuasionPer: 0.01, hallPer: 0.04, hallMaxLevel: 5,       // E1 and E3 (section 3); the 0.3 persuasion cap stays in parley.js
     perk: "nameRecognition",                                   // the perk line whose ranks lift the cap (the perks shelf; absent until it lands)
     tiers: ["Unknown", "Noticed", "Known", "Respected", "Renowned", "Legend", "Storied", "Fabled", "Mythic"],
@@ -47,9 +48,12 @@
   // ── reading a finished battle ──
   // Eligible: the player won, and the foe is a real-class fighter (the filter of account.js beatenIn) that is not a boss or secret warrior (they pay 0 Fame).
   // One row per foe, best route first: persuade, spared, knockout. Beasts are sealed or tamed by nature and key on the monster kind.
+  // IR2: the player's side swore Tainted Blade this battle (the vow declaration ledger, vows.js swear).
+  const foughtDirty = (s) => (s?.declarations || []).some((d) => d.boon === "taintedBlade" && s.actors?.[d.actor]?.side === "player");
   function eventsFrom(s, characters = {}) {
     const out = s?.outcome;
-    if (!s || out?.winner !== "player" || s.focusedDreamTest) return [];
+    if (!s || s.focusedDreamTest) return [];
+    if (out?.winner !== "player") return out && foughtDirty(s) ? [{ row: "dirty", key: "dirty", name: "the field" }] : [];   // a dirty fight costs Fame, won or lost
     const actors = Object.values(s.actors || {}), sideOf = (id) => s.actors?.[id]?.side;
     const foeSide = (a) => ["enemy", "posthuman"].includes(a.side) || (s.mode === "melee" && a.side !== "player" && a.side !== "civilian" && a.side !== "bystander");
     const real = (a) => characters[a.character] && !a.boss && !a.summon && !a.summonBinding && !a.companion && !a.beast && !a.monster && !a.dream && !a.wild && !a.communed && !a.escaped && !a.notArrived;
@@ -74,6 +78,7 @@
     // Bonus: nobody died. A foe that fell and is neither knocked out nor spared died; rides on a paid award (checked in award).
     // A foe died if it fell and was neither knocked out, spared nor won over: a boss, a beast or a monster counts, a summon or a foe that never arrived does not.
     const died = actors.some((a) => foeSide(a) && !a.summon && !a.summonBinding && !a.notArrived && !a.escaped && a.defeated && !a.knockedOut && !a.spared && !(a.persuaded && sideOf(a.persuaded.with) === "player"));
+    if (foughtDirty(s)) { events.push({ row: "dirty", key: "dirty", name: "the field" }); return events; }   // IR2: no "won without a death" for a tainted fight
     if (out.nonLethal && !died && events.some((e) => e.row !== "perform" && e.row !== "trial")) events.push({ row: "bonus", key: "bonus", name: "the field" });
     return events;
   }
@@ -121,6 +126,9 @@
     const applied = add(next, total, null), byNext = { ...(applied.account.fameBy || {}) };
     for (const r of rows) if (r.pts > 0) byNext[r.row] = (byNext[r.row] || 0) + r.pts;
     let result = { ...applied.account, fameBy: byNext };
+    const dirty = events.some((e) => e.row === "dirty");   // IR2: taken off the progress toward the next level after the gains; a level is never lost
+    let dirtyLost = 0;
+    if (dirty) { const had = Math.max(0, Math.floor(Number(result.fameXp) || 0)); dirtyLost = Math.min(had, RULES.dirty); result = { ...result, fameXp: had - dirtyLost }; }
     // Lines: one per paid row, merged into one "capped" line when the cap bit; a repeat says why it paid less.
     const capped = rows.reduce((n, r) => n + r.wanted, 0) > RULES.perBattleCap && total >= RULES.perBattleCap;
     const named = (r) => (RULES.unnamed.includes(r.row) ? "" : ` the ${r.name}`), deed = (r) => `${RULES.deeds[r.row]}${named(r)}`;
@@ -130,6 +138,7 @@
       else if (r.pts > 0) lines.push(`Fame +${r.pts}: ${deed(r)}.`);
     }
     if (total === 0 && stale) lines.push("Fame +0: you have beaten that fight before; people stop listening.");
+    if (dirty) lines.push(dirtyLost ? `Fame −${dirtyLost}: you fought dirty (Tainted Blade). Progress toward your next level drops by ${dirtyLost}; a level is never lost.` : "Fame −0: you fought dirty (Tainted Blade), but you had no progress toward your next level to lose; a level is never lost.");
     if (applied.levelUp) {
       const fx = effects(applied.level), hall = applied.level > RULES.hallMaxLevel ? `Hall prices stay -${fx.hallPct}%` : `Hiring Hall prices -${fx.hallPct}%`;
       lines.push(`Fame ${applied.level}: ${tierName(applied.level)}. Persuasion +${fx.persuasion.toFixed(2)}, ${hall}.`);
@@ -138,7 +147,7 @@
       lines.unshift(`Fame is what people remember. Winning without a kill earns it: ${RULES.points.persuade} for coming to terms, ${RULES.points.presence} for a victory by presence, ${RULES.points.perform} for a performance the crowd remembers (Inspiration spent on one), up to ${RULES.perBattleCap} a battle. Each level adds ${RULES.persuasionPer.toFixed(2)} to your talk and takes ${Math.round(RULES.hallPer * 100)}% off the Hiring Hall. Killing never costs Fame. Beating a boss or a secret warrior pays nothing.`);
       result = { ...result, fameIntro: true };
     }
-    return { account: result, pts: total, level: applied.level, lines, rows };
+    return { account: result, pts: total, level: applied.level, lines, rows, dirty: dirty ? dirtyLost : null };
   }
 
   // ── the account's keys ──

@@ -1,0 +1,18 @@
+{
+  "size_class": "person",
+  "footprint_tiles": [
+    1,
+    1
+  ],
+  "world_height": 1.0,
+  "world_height_definition": "a person = 1.0 (a robed philosopher-emperor, the same class as the Warden and roman-emperor); set from the class, not the sheet's pixels",
+  "minimum_pixel_size_px": 96,
+  "idle_alpha_size_px": [
+    279,
+    245
+  ],
+  "runtime_consumed": false,
+  "source": "Marcus Aurelius_ Imperium Sprite Sheet.png (cursor-marcus-aurelius-cut, Kerf CU; rework + size record Thwart BD and Trunnel BD 2026-11-12/14; idle bounds measured with the 4px pad in that shelf's qa-evidence/size-record.json)",
+  "note": "Nothing in web/combat reads size_class or world_height yet; per-file bounds are in the cut shelf's qa-evidence/size-record.json. The five heads/*.png are class portrait.",
+  "face_size_class": "portrait"
+}

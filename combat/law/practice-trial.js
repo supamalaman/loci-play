@@ -46,6 +46,7 @@
     defense: { argue: ["Argue", "Speak against the count. It strikes an unproven count; on a witnessed one it moves the room a little."],
       appeal: ["Appeal for leniency", "Spend goodwill to soften the room. Under the Magistrate it fails badly."],
       finalPlea: ["Final plea", "Lay everything bare, once per trial. It hurts you if sworn counts still stand."],
+      plead: ["Plead guilty", "End the mock trial at once: every count guilty one tier lower. No Sword on a plea."],   // M2b (1.4)
       end: ["Rest", "Let the count stand as graded."] },
     prosecution: { press: ["Press the count", "Push the charge. A sworn count barely needs it; an unproven one needs a witness."],
       end: ["Rest", "Let the count stand as graded."] },
@@ -69,6 +70,7 @@
     const k = byId(caseId); if (!k) return { ok: false, error: `No practice case ${caseId}.` };
     const side = opts.side === "prosecution" ? "prosecution" : "defense";
     const t = TR.openTrial({ form: "courtroom", accusedId: YOU, prosecutorId: PROSECUTOR, seed: 7, units: k.units, counts: k.counts, magistrate: k.counts.some((c) => c.severity >= TR.SEV.serious) });
+    t.pleaOpen = true;   // M2b (1.4): the mock trial grows the plea, the judgment choice and the death warning
     const session = { caseId: k.id, side, t, turns: 0 };
     if (side === "defense") TR.play(t, "prosecution", policy(t, "prosecution"));   // the prosecution opens each round
     return { ok: true, session };
@@ -76,7 +78,12 @@
 
   // The player's choices: the trial core's legal plays for that bench, with one button per witness for "evidence".
   function options(session) {
-    const t = session.t, side = session.side; if (t.over) return [];
+    const t = session.t, side = session.side;
+    if (t.over) {   // M2b (1.4): a guilty mock verdict offers the same choice a real court would — answered, never applied
+      if (side !== "defense" || session.judged || !t.verdicts?.counts.some((v) => v.verdict === "guilty")) return [];
+      return [{ move: "accept", label: "Accept judgment", help: "In a real court, the sentences would stand, the entries would be absolved, and your standing would rise." },
+        { move: "fight", label: "Fight your way out", help: "In a real court, no sentence now — but the charges would stay open, a resistedJudgment entry would follow you, and your standing would fall." }];
+    }
     const c = openCount(t); if (!c) return [];
     const out = [];
     for (const move of TR.legalPlays(t, side)) {
@@ -92,7 +99,14 @@
 
   // One player move, then the other bench answers (if the trial is still open), the way a live round runs.
   function step(session, move) {
-    const t = session.t; if (t.over) return { ok: false, error: "The trial is over." };
+    const t = session.t;
+    if (t.over) {   // M2b (1.4): the mock judgment is an answer, not an application — nothing here touches the account
+      if (move !== "accept" && move !== "fight") return { ok: false, error: "The trial is over." };
+      if (session.side !== "defense" || session.judged) return { ok: false, error: "No judgment waits." };
+      if (!t.verdicts?.counts.some((v) => v.verdict === "guilty")) return { ok: false, error: "No judgment waits." };
+      session.judged = move;
+      return { ok: true };
+    }
     const legal = options(session).some((o) => JSON.stringify(o.move) === JSON.stringify(move));
     if (!legal) return { ok: false, error: "Not a legal play right now." };
     const r = TR.play(t, session.side, move); if (r && r.ok === false) return r;
@@ -125,7 +139,13 @@
       <div class="cc-row"><button type="button" id="ccPtBack">← Back to the Codex</button></div></div>`;
     const trialView = () => {
       const t = session.t, k = byId(session.caseId), res = result(session);
-      const docket = CourtUI.render({ t, practice: true, playerSide: session.side, actingSide: session.side, actions: options(session), note,
+      const judgeNote = !session.judged ? "" : session.judged === "accept"
+        ? "Accepted. In a real court, the sentences would stand, the entries would be absolved, and your standing would rise."
+        : "Fought free. In a real court, no sentence now — but the charges would stay open, a resistedJudgment entry would follow you, and your standing would fall.";
+      const swordPossible = t.magistrate && t.counts.some((c) => c.status !== "struck" && c.status !== "absolved" && c.status !== "restituted" && (c.severity ?? 1) >= (TR.SEV?.serious ?? 2));
+      const warnNote = !t.over && swordPossible && t.pleaOpen && session.side === "defense" ? "Death is on the table. A plea takes it off." : "";   // M2b (1.4): the mock trial warns exactly as a live court does
+      const judging = !!(res && options(session).length);
+      const docket = CourtUI.render({ t, practice: true, playerSide: session.side, actingSide: session.side, actions: options(session), note: judgeNote || warnNote || note, judgment: judging || undefined,
         verdict: res && { counts: res.counts, sentences: session.side === "defense" ? [...res.real, "In a real battle, the record would show the court’s decision on each charge."] : res.real } });
       return `<div class="cc-card cc-town-hall cc-codex cc-practice cc-court-practice"><p class="cc-court-mode">Practice trial</p><h2>${esc(k.title)}</h2>
         <p class="cc-muted">${esc(k.blurb)}</p><p class="cc-pt-coach">“${esc(k.coach)}”</p>${docket}

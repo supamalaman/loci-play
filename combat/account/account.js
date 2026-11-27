@@ -27,7 +27,7 @@
     xpPerMonster: 15,
     lossShare: 0.25, minLossXp: 10,                         // losing still teaches something
     // Summon unlock levels: the first summon is there from level 1, then they spread out.
-    unlockLevels: [1, 2, 3, 5, 7, 9, 11, 13, 16, 20, 22],   // + Goethe capstone at 22 (Muse Berry BD hot-build, 2026-10-29)
+    unlockLevels: [1, 2, 3, 5, 7, 9, 11, 13, 16, 20, 22, 24],   // + Goethe capstone at 22 (Muse Berry BD hot-build, 2026-10-29); + Roman Emperor at 24 (1.3.577 merge fix, Halyard IN)
     // Familiar choice S1 (specs/FAMILIARS.md T1, 12.1): under the token model a token is earned at each of these levels (the twelfth, 26, is the
     // builder's pick, FAMILIARS.md T1), spent on any familiar whose gate (familiarGates, by id) the account meets. unlockLevels above stays the
     // legacy positional schedule. familiarTokens is the switch: false = every save derives its palace from `order` exactly as before; the
@@ -76,6 +76,7 @@
     { id: "little_king",        why: "Control that enemies can resist by guarding." },
     { id: "inner_child",        why: "Changes the rules for everyone, enemies included: an expert's tool." },
     { id: "goethe",             why: "The complete striving: roots, a nova, and three ascending forms." },   // Goethe hot-build (Muse Berry BD, 2026-10-29): capstone unlock, existing levels untouched
+    { id: "roman_emperor",      why: "Sovereign poise: calls allies to stand firm under fire." },   // Roman Emperor S1 (1.3.577 merge fix, Halyard IN): level-24 unlock beside senate bond
     { id: "raven",              starter: true, why: "Flies ahead and sees what you cannot." },   // Raven K2 (FAMILIARS.md 13, O3): the shared starter, in every palace from the first call; no gate, no token, never positional
   ];
 
@@ -87,7 +88,7 @@
   const dreamKey = (id) => typeof id === "string" && id.startsWith("enemyDream:") ? id.slice(11) : null;
   const gateOf = (id) => familiarGates[id] ?? dreamGates[dreamKey(id)];
   const isFamiliar = (id) => typeof id === "string" && (Object.prototype.hasOwnProperty.call(familiarGates, id) || Object.prototype.hasOwnProperty.call(dreamGates, dreamKey(id)));
-  const familiarGates = { mitsuko: 1, perimeter_guardian: 2, napoleon: 3, the_king: 5, genghis_khan: 7, zherm: 9, kobe: 11, aristotle: 13, little_king: 16, inner_child: 20, goethe: 22 };
+  const familiarGates = { mitsuko: 1, perimeter_guardian: 2, napoleon: 3, the_king: 5, genghis_khan: 7, zherm: 9, kobe: 11, aristotle: 13, little_king: 16, inner_child: 20, goethe: 22, roman_emperor: 24 };
 
   function hash(str) {
     let h = 2166136261;
@@ -101,6 +102,8 @@
   const BondLedger = () => (typeof module === "object" && module.exports ? require("../bonds/ledger.js") : (typeof self !== "undefined" ? self.ConceptCombatBondLedger : null)) || null;
   // Investigate I5a (claude-investigate-spec 12.3): the casebook, looked up when used (account/casebook.js loads before this file).
   const Casebook = () => (typeof module === "object" && module.exports ? require("./casebook.js") : (typeof self !== "undefined" ? self.ConceptCombatCasebook : null)) || null;
+  // Sunken ruins R1 (claude-sunken-ruins-spec 4.1): the dive's record, normalised by dive/dive.js, looked up when used.
+  const DiveRules = () => (typeof module === "object" && module.exports ? require("../dive/dive.js") : (typeof self !== "undefined" ? self.ConceptCombatDive : null)) || null;
   function createAccount({ name = "Warden", unlockOrder = "benefit", seed = 0, created = null, choose = false } = {}) {
     let order = benefitOrder.map((b) => b.id);
     if (unlockOrder === "random") order = [...order.filter((id) => !benefitOrder.find((b) => b.id === id)?.starter).sort((a, b) => hash(`${seed}:${a}`) - hash(`${seed}:${b}`)), ...order.filter((id) => benefitOrder.find((b) => b.id === id)?.starter)];   // a starter has no level slot: it stays last, outside the shuffle (Raven K2)
@@ -108,6 +111,7 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
     account.stakesLedger = []; account.stakeCooldowns = {}; account.justWon = {};   // W1.5: ante ledger + cooldowns, beside the account core
     account.sageDream = { battles: 0, pvWins: 0 };   // W5.3: the Sage's dream ladder persists across demonstrations
     account.cases = Casebook() ? Casebook().normalize() : { open: {}, closed: [], convicted: {} };   // Investigate I5a: open cases against enemy classes (account/casebook.js)
+    account.dive = DiveRules() ? DiveRules().normalize() : { read: {}, taken: {}, dives: 0, band: 1, opened: [1] };   // Sunken ruins R1: the Pond dive's record (dive/dive.js)
     account.exiles = {}; account.crewRep = {};   // Exile T0a: housed exiles by id, and the per-subfaction standing (empty until T1 moves it)
     if (choose || rules.familiarTokens) account.familiars = { tokens: tokensEarnedAt(1), picks: [], lastPick: null, done: false };   // a new account chooses its first familiar (S2 draws the scene)
     return { ...account, unlocked: unlocksUpTo(account, 1) };
@@ -497,9 +501,10 @@ const account = { version: VERSION, name, created, record: CourtRecord.normalize
   // is ever lost and new summons still arrive (at the last unlock level).
   function reconcileOrder(saved) {
     const keep = new Set(benefitOrder.map((b) => b.id));
+    const starters = new Set(benefitOrder.filter((b) => b.starter).map((b) => b.id));
     const base = (Array.isArray(saved) ? saved : []).filter((id) => keep.has(id));
     for (const b of benefitOrder) if (!base.includes(b.id)) base.push(b.id);
-    return base;
+    return [...base.filter((id) => !starters.has(id)), ...base.filter((id) => starters.has(id))];   // starters stay last (outside unlockLevels), so post-Raven saves gain new level-gated summons before them (1.3.577)
   }
   // Fame keys (FAME.md section 1; the same rule as fame.js migrate, which a test pins equal): an old save with fame > 0 and no fameBy had all its
   // Fame from busking, and has seen Fame. `fame` is clamped to 0..8 in the file's reading, never lowered by the cap.
@@ -528,6 +533,7 @@ stakesLedger: Array.isArray(a.stakesLedger) ? a.stakesLedger : [], stakeCooldown
     d.sageDream = a.sageDream && typeof a.sageDream.battles === "number" ? { battles: a.sageDream.battles, pvWins: a.sageDream.pvWins || 0 } : { battles: 0, pvWins: 0 };   // W5.3: the Sage's dream ladder
     { const obj = (v) => v && typeof v === "object" && !Array.isArray(v) ? v : {}; d.exiles = obj(a.exiles); d.crewRep = obj(a.crewRep); }   // Exile T0a: an old save has neither; both default to empty
     { const BL = BondLedger(); d.bonds = BL ? BL.normalize(a.bonds) : (a.bonds && typeof a.bonds === "object" && !Array.isArray(a.bonds) ? a.bonds : {}); }   // Bonds B1: an old save has none and loads with {}
+    { const DR = DiveRules(); d.dive = DR ? DR.normalize(a.dive) : { read: {}, taken: {}, dives: 0, band: 1, opened: [1] }; }   // Sunken ruins R1: an old save has no dive record and loads an empty one
     d.cases = Casebook() ? Casebook().normalize(a.cases) : (a.cases && typeof a.cases === "object" ? a.cases : { open: {}, closed: [], convicted: {} });   // Investigate I5a: an old save has none and loads empty
     return d;
   }

@@ -74,7 +74,7 @@
         const rank = ranks[other.character] || 0, table = s.rules?.factions?.bondValence || [];
         return Number.isFinite(table[rank]) ? table[rank] : 0;
       },
-      valence(s, a, b) {
+      valence(s, a, b, opts) {
         if (!a || !b || a.id === b.id) return 0;
         const ids = (u) => [...new Set((u.traits || []).map((x) => x?.id ?? x))], ta = ids(a), tb = ids(b);
         let v = Math.max(Bonds?.maxFriends?.(a, b) ? 3 : 0, Factions.bondValence(s, a, b)) + (H.C.characters?.[a.character]?.attachments?.[b.character] || 0);   // Bonds B2a: the larger of max friendship and the player's bond, never both (spec 1.3)
@@ -83,6 +83,7 @@
         for (const t of ta) { const d = H.insightRules?.dynamicsOf?.(t); if (d) for (const u of tb) v += (d.synergies.includes(u) ? 1 : 0) - (d.counters.includes(u) ? 1 : 0); }
         if (Factions.feud(s, a, b)) v -= 2;
         if (Factions.rivalOf(a, b)) v -= 2;
+        if (!opts?.noMeal) { const mb = s?.valenceBonus?.[`${a.id}>${b.id}`]; if (Number.isFinite(mb)) v += mb; }   // Chef W4 (CHEF.md 3e): directional meal warmth, clamp [-5, 5] kept
         return Math.max(-5, Math.min(5, v));
       },
       // Rivals meet (Mala, 2026-10-24: "thats a cool idea build it"): the first time a rivalrous unit and its named rival both stand
@@ -137,8 +138,8 @@
         return v && stanceFor(s, v, subject) === "enemy";
       });
     }
-    // Perks S1a / Chef S2: Parley.valenceAdd reads Factions.valence (natural now; meal valenceBonus later).
-    if (H.Parley?.useValence) H.Parley.useValence((s, a, b) => Factions.valence(s, a, b));
+    // Perks S1a / Chef W4: Parley.valenceAdd reads Factions.valence (natural + meal valenceBonus; opts.noMeal excludes meal share in secret fights, R-20261125-11).
+    if (H.Parley?.useValence) H.Parley.useValence((s, a, b, opts) => Factions.valence(s, a, b, opts));
     // Scenario afterCreate (SCENARIOS.md slice 5): place authored customers before the first turn (Market Day, Hostage Hall), then the scenario's own hook. Moved here from engine.js at merge (engine cap).
     function scenarioCivilians(s, opts) {
       if (s.mirror) s.mirror.salvagePicked = 0;   // SC17 salvage count starts at zero (slice 4; moved from engine.js at merge, engine cap)

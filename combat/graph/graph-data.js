@@ -18,8 +18,8 @@
 
   const families = {
     structure: { name: "Structure", text: "Holds or edits the shape of the place: what stops, shelters, resists, or is removed.", concepts: ["barrier", "boundary", "berm", "gradingDrainage", "inertia", "pruning", "constraint", "interposition", "load_distribution", "fault_tolerance", "hardware", "craftsmanship", "austerity", "poise", "hospitality", "borrowed_scenery", "folding", "substitution", "settlement", "mise_en_place"] },
-    flow:      { name: "Flow",      text: "Moves through space and time: routes, spreads, collects and triggers.", concepts: ["pathway", "diffusion", "extraction", "swale", "threshold", "dependency", "adjacency", "timing", "periodicity", "transference", "desire_line", "compression_and_release", "aeronautics", "retrocausality", "affordance"] },
-    signal:    { name: "Signal",    text: "Information: what is seen, attended to, filtered, learned or misrepresented.", concepts: ["sightline", "selectivity", "adaptation", "deception", "focus", "inference", "indexing", "software", "expertise", "parapsychology", "discovery", "stealth", "mystery", "truthsaying", "forecasting", "cipher", "homology", "telepresence", "mesmerism"] },
+    flow:      { name: "Flow",      text: "Moves through space and time: routes, spreads, collects and triggers.", concepts: ["pathway", "diffusion", "extraction", "swale", "threshold", "dependency", "adjacency", "timing", "periodicity", "transference", "desire_line", "compression_and_release", "aeronautics", "retrocausality", "affordance", "warp_metric"] },
+    signal:    { name: "Signal",    text: "Information: what is seen, attended to, filtered, learned or misrepresented.", concepts: ["sightline", "selectivity", "adaptation", "deception", "focus", "inference", "indexing", "software", "expertise", "parapsychology", "discovery", "stealth", "mystery", "truthsaying", "forecasting", "augury", "cipher", "homology", "telepresence", "mesmerism", "paradox"] },   // Paradox FR1a: a signal concept, beside Deception and Inference
     energy:    { name: "Energy",    text: "Stores and releases force: tension and vibration.", concepts: ["elasticity", "resonance", "leverage", "tension", "solfeggio", "bird_mountain"] },
     living:    { name: "Living",    text: "Changes through growth, disturbance, and care over time.", concepts: ["succession", "plasticity", "preservation", "traditional_medicine", "herbal_medicine", "continuousImprovement", "aging", "cybernetic_ecology", "synthetic_biomedical", "edge_effect", "antifragility", "transmigration", "super_empathy", "thorn", "resilience", "reconstitution"] },
     accord:    { name: "Accord",    text: "Between actors: recognition, promises and obligations that change what others will do.", concepts: ["legitimacy", "strategic_commitment", "complementarity", "reciprocal_obligation", "delegation", "harmony", "utilitarianism", "gratitude", "stoicism", "laws_of_gods_of_men", "credit", "damnation", "co_creation", "bushido", "love", "friendship", "cooperative_principle", "longtermism", "teleology", "fae", "disinhibition"] },
@@ -31,6 +31,8 @@
   // domains: the Venn of gameplay (self, others, ideas, action). Every concept is in ideas + action; the rest says who it's about.
   const nodes = {
     mesmerism: { family: "signal", channel: null, deliveries: ["self", "field", "signal"], categories: ["conditional"], domains: ["ideas", "action", "others"], role: "Holds attention and prepares one cue-gated instruction.", status: "proposed" },
+    // Paradox FR1a (claude-formal-rabbit-spec): admitted, playable for whoever equips it. Edges stay HY (impl new); impls land in FR1b/FR2.
+    paradox: { family: "signal", channel: null, deliveries: ["line", "field"], categories: ["signal", "conditional"], domains: ["ideas", "action", "others"], role: "Asserts A and not-A at once; whoever holds the contradiction pays to resolve it.", status: "proposed" },
     disinhibition: { family: "accord", channel: null, deliveries: ["contact", "signal"], categories: ["conditional"], domains: ["ideas", "action", "others"], role: "Peels a bounded set of learned restraints.", status: "proposed" },
     cybernetic_ecology: {"family": "living", "channel": null, "deliveries": ["placed", "signal", "field"], "categories": ["conditional", "constructive"], "domains": ["ideas", "action", "others"], "role": "Uses a living anchor and measured disturbance to spend a finite corrective budget; no signal means no correction.", "status": "proposed"},
     imagination: { family: "representation", channel: null, deliveries: ["self", "line", "field"], categories: ["constructive", "conditional"], domains: ["ideas", "action", "self", "others"], role: "Rehearses a possible arrival and sustains finite imagined allies; a model is not evidence that something exists.", status: "proposed" },
@@ -154,6 +156,7 @@
     // techniques; Expertise was already staged (kit rewritten to the doc's domain-mastery reading).
     truthsaying: { family: "signal", channel: null, deliveries: ["signal", "self"], categories: ["signal", "conditional"], domains: ["ideas", "action", "others"], role: "Asserts facts with stakes: a claim backed by evidence pays allies, an unbacked one costs credibility, and an honest mistake costs neither.", status: "proposed",
       about: "Truthsaying is warranted assertion: saying what the evidence supports. An honest speaker can be wrong (the evidence misled them), and a speaker can be right by luck (no evidence at all). Only the first is a mistake; only a habit of the second is a liar's problem. Credibility tracks warrant, not luck." },
+    augury: { family: "signal", channel: "albedo", deliveries: ["signal", "line"], categories: ["signal", "conditional"], domains: ["ideas", "action", "others"], role: "Seals one vague statement on a foe with two or three readings that race through its next turn: the first its own acts make true manifests, and none true is a logged miss (Prophecy S2, R-20261124-20).", status: "proposed" },
     forecasting: { family: "signal", channel: null, deliveries: ["placed"], categories: ["signal", "conditional"], domains: ["ideas", "action", "others"], role: "Commits to explicit predictions about where enemies will go, with responses prepared for each branch; right calls pay, wrong calls cost.", status: "proposed",
       about: "A forecast is useful only when it is specific enough to be wrong. Good forecasters attach a response to each plausible branch instead of betting on one, and keep score: a forecast that cannot fail teaches nothing and prepares nothing." },
     homology: { family: "signal", channel: null, deliveries: ["signal"], categories: ["signal", "conditional"], domains: ["ideas", "action", "others"], role: "Verifies whether two enemy techniques share one inherited feature, and only then turns that into a bounded, specific counter.", status: "proposed",
@@ -166,6 +169,7 @@
       about: "The copying is fiction (the doc's inspiration is a superhero who absorbs powers by being near people). The real foundation is observational learning and attunement: people learn by watching others they are close to, and feel what those others feel, fear included. An imitation is never the original's mastery." },
     // Aeronautics (Mala, 2026-10-18; the Aviator Hero): the four forces of flight. Distinct from Pathway (routes around what is in the way) and Inertia (resists a change of motion): only this one buys speed by committing to a line and leaving the ground.
     aeronautics: { family: "flow", channel: "albedo", deliveries: ["self", "contact", "line"], categories: ["conditional"], domains: ["ideas", "action", "self"], role: "Trades turning for speed: straight-line flight that passes over the ground and its troubles, and pays for every change of heading.", status: "proposed" },
+    warp_metric: { family: "flow", channel: "citrinitas", deliveries: ["self", "line"], categories: ["conditional", "constructive"], domains: ["ideas", "action", "self", "others"], role: "Moves the ground, not the body: arrives without crossing what lies between, and pays next turn by the square of the distance.", status: "proposed" },
     // Longtermism (Mala, 2026-10-21): a later ally may step through. Distinct from Forecasting (predicts, brings no one),
     // Preservation (wards what is here), Utilitarianism (the sum decides) and Transmigration (a soul into a marked vessel).
     longtermism: { family: "accord", channel: null, deliveries: ["self", "signal"], categories: ["conditional", "constructive"], domains: ["ideas", "action", "others"], role: "A resolved Longtermism technique may call one Child of the Future onto an open tile beside the holder. A second success refreshes that same body. The call is a chance, not a promise, except the announced ultimate.", status: "proposed",
@@ -193,6 +197,13 @@
 
   // Operations an edge can perform. One implementation each in the engine; edges only pass parameters.
   const opKinds = {
+    hollowFulfilment: { impl: "new", params: [], text: "A feint or a decoy act makes a prophecy's acts reading come true for nothing: the reading pays on an act that cost the target little." },
+    deadReading: { impl: "new", params: [], text: "A target that cannot move itself (rooted, anchored) cannot make a moves reading true: that reading is dead and the others race alone." },
+    readingWatchesUnit: { impl: "new", params: [], text: "A sealed reading watches the unit, not the eye: a concealed target's own acts still resolve the prophecy." },
+    foreseenMoment: { impl: "new", params: [], text: "An act timed to its best moment is still an act: a prophecy's acts reading turns the timed act into the prophet's payoff." },
+    veiledReadings: { impl: "new", params: [], text: "The readings go face-down: the target sees that a prophecy is sealed, not what would fulfil it (the D8 b option)." },
+    baitedOmen: { impl: "new", params: [], text: "A false opening invites the target to act or to move, which races a sealed reading toward its manifestation." },
+    namedTile: { impl: "new", params: [], text: "A moves reading names the tiles a forecast called: it manifests only when the target enters one of them." },
     cureHypothesis: { impl: "new", text: "Candidate interaction between attention, restraint and existing concepts." },
     overfly: { impl: "new", text: "Airborne passage: ground effects of the bypassed concept (slow, soak, hazard) do not apply to the flyer's straight-line movement." },
     stopLine: { impl: "new", text: "A solid obstacle ends a straight-line flight or dash on the tile before it." },
@@ -298,6 +309,14 @@
     committedStand: { impl: "new", params: ["add"], text: "While a Hold promise stands, displacement resistance + add." },
     resolvedFocus: { impl: "new", text: "Focus on the promised target doesn't break when the focuser is hit." },
     goalNotMethod: { impl: "new", text: "Changing route doesn't break a promise about the destination." },
+    // Paradox FR1a (claude-formal-rabbit-spec, R-20261123-34 trim: voidBond dropped, guardedEcho folded into echoTechnique): 7 new op kinds.
+    collapseFalseTell: { impl: "new", text: "While the unit holds Contradiction, its false tells are revealed (treated as true announcements)." },
+    explodesEvidence: { impl: "new", text: "At 2+ Contradiction the unit cannot gain verified Inference stacks; existing ones reset." },
+    quarantineClaim: { impl: "new", text: "A verified Inference explanation resolves one Contradiction free at each resolution." },
+    echoTechnique: { impl: "new", params: ["mul", "cap"], text: "The foe's next basic technique is echoed at x<mul> potency (cap <cap>) in its own channel." },
+    sandboxBug: { impl: "new", text: "While the unit runs a Software technique each round, its Contradiction cap is 1." },
+    theseusEcho: { impl: "new", params: ["turns"], text: "Restoration returns the effect plus a <turns>-turn echo of its previous version." },
+    modelContradiction: { impl: "new", text: "Each held Contradiction grants +1 to the unit's next Inference weigh instead of taxing." },
     // class expansion pack (hypotheses until a scenario validates them)
     leverAnchor: { impl: "new", params: ["tiles"], text: "With contact and a fulcrum, an anchored target can still be moved this far." },
     removeFulcrum: { impl: "new", text: "The support point under or beside the caster no longer counts as a fulcrum." },
@@ -821,6 +840,15 @@
     remoteEyes: { impl: "new", text: "With Sightline as secondary, proxy observation radius becomes 3 and the caster's own radius drops by 1. Hypothesis only." },
     sensorProxy: { impl: "new", text: "With Telepresence as secondary, place an immobile 6-LF sensor within 3 that observes radius 3 until next turn. Hypothesis only." },
     sentryProxy: { impl: "new", text: "With Delegation as primary, an ordinary proxy becomes a fixed sentry: first enemy ending adjacent takes 6 nigredo and consumes it. Hypothesis only." },
+    warpWallStop: { impl: "new", text: "A wall or pillar on the declared line stops the pocket at the last open tile before it; the shock, if any, releases there." },
+    warpCarryFreeFall: { impl: "new", text: "Carry the Bubble carries an Inertia holder: nothing pushes the body, so resistance to force does not resist being carried." },
+    warpLineMarked: { impl: "new", text: "A Sightline holder who sees any tile of a declared warp line marks the landing tile and the three shock tiles for the whole delay." },
+    warpShockThinned: { impl: "new", text: "Bow Shock potency is halved when its tiles lie inside a Diffusion field: piled-up matter thins as it spreads." },
+    warpRouteEmpty: { impl: "new", text: "A routed technique in flight toward the caster finds the old tile empty after relocation: a route follows ground, not a target." },
+    warpHeldHeading: { impl: "new", text: "Slip Bubble reaches 4 tiles when the caster did not change heading on her last relocation." },
+    warpTurnDebt: { impl: "new", text: "A flight's cost for changing heading is paid as exotic debt next turn and not in AP now." },
+    warpMassCommit: { impl: "new", text: "A Run in progress is not collapsed by forced movement; Slip Bubble's reach falls to 2." },
+    warpIdleCarry: { impl: "new", text: "A body that will not be pushed may still be carried: Carry the Bubble takes her and one ally 1 tile at no debt." },
   };
 
   // e(id, kind, source, target, type, op, conditions, why, example, teaches)
@@ -835,6 +863,11 @@
   const HA = (...a) => ({ ...E(...a), status: "hypothesis", provenance: "archivist" });
   const HS = (...a) => ({ ...E(...a), status: "hypothesis", provenance: "staged-concepts" });
   const opposition = [
+    // augury (Prophecy S2, R-20261124-20; hypotheses until a scenario validates them)
+    HY("opp-deception-dampens-augury", "deception", "augury", "dampens", { kind: "hollowFulfilment" }, ["a prophecy on a deceiver is open and the deceiver feints"], "A prophecy that pays on any act pays on a hollow one: the deceiver chooses which reading comes true and spends little on it.", "Double Meaning seals on a Thief; on its turn it plays an announced Feint (5 AP): the acts reading staggers it 15 AP, the moves reading lapses, and its real turn goes on.", "A vague statement can be fulfilled on the cheap by whoever reads it."),
+    HY("opp-inertia-negates-augury", "inertia", "augury", "negates", { kind: "deadReading" }, ["the target is rooted or anchored before its turn"], "What cannot move itself cannot walk into a reading: a held body leaves only the acts reading in the race.", "Cast the Lots on a foe already rooted by Rootbind: it cannot move, so only a Strike or a technique can manifest, and a guard-only turn is a miss.", "A prophecy is only as wide as what its subject can still do."),
+    HY("opp-augury-constrains-stealth", "augury", "stealth", "constrains", { kind: "readingWatchesUnit" }, ["a sealed foe conceals itself during its next turn"], "Concealment hides a body from eyes; a sealed reading watches the unit itself, so hiding does not stop the race.", "A rogue under Cast the Lots vanishes and then strikes from hiding: the acts reading still banks the prophet 10 AP.", "What has been foretold of you follows you into the dark."),
+    HY("opp-augury-disrupts-timing", "augury", "timing", "disrupts", { kind: "foreseenMoment" }, ["a sealed foe waits for its best moment to act"], "Timing wins by acting at the right moment; a prophecy that pays on the act itself taxes the timed blow, however well it lands.", "A duelist holds a perfect counter for the end of its turn; Double Meaning's acts reading staggers it 15 AP as the counter lands.", "Being predictable in kind costs you even when you are perfect in timing."),
     HY("opp-mesmerism-focus", "mesmerism", "focus", "disrupts", { kind: "cureHypothesis" }, ["A subject is fixated"], "Holding the subject may interrupt their own attention.", "Holding the subject may interrupt their own attention.", "A subject is fixated."),
     HY("opp-focus-mesmerism", "focus", "mesmerism", "dampens", { kind: "cureHypothesis" }, ["The subject already attends to something"], "Existing attention may shorten a fixation.", "Existing attention may shorten a fixation.", "The subject already attends to something."),
     HY("opp-selectivity-mesmerism", "selectivity", "mesmerism", "blocks", { kind: "cureHypothesis" }, ["A subject filters incoming signals"], "A filter can refuse fixation and suggestion.", "A filter can refuse fixation and suggestion.", "A subject filters incoming signals."),
@@ -1659,9 +1692,28 @@
       "Comparative analysis benefits from accessible, traceable observations.", "A recorded wing strike remains eligible for comparison three rounds after use rather than two.", "Better records extend the opportunity to test historical hypotheses."),
     HS("opp-reversal-negates-homology", "reversal", "homology", "negates", { kind: "clearTacticalEffect", effects: ["correspondence", "preparedResponse"] }, ["Reversal successfully targets an active Correspondence or Prepared Response effect."],
       "Tactical knowledge can persist even after the temporary advantage derived from it has been undone.", "Reversal clears a defender's prepaid sidestep before the predicted strike arrives.", "A verified fact and the temporary intervention built from it are different things."),
+    // Paradox FR1a (claude-formal-rabbit-spec, docs/paradox-concept.md relationships): hypotheses until a scenario validates them.
+    HY("opp-paradox-falsifies-deception", "paradox", "deception", "falsifies", { kind: "collapseFalseTell" }, ["a unit holding Contradiction announces a false tell"], "A liar-paradox ('this statement is false') forces the feint to assert its own falsity: the false show and the deed collide.", "Foe holds 1 Contradiction and claims range 3 on a range-5 ultimate; the envelope shows at true 5.", "A contradiction in hand collapses every lie told with it."),
+    HY("opp-paradox-disrupts-inference", "paradox", "inference", "disrupts", { kind: "explodesEvidence" }, ["a unit holds 2+ Contradiction"], "From a contradiction anything follows (explosion), so weighing evidence by independence and provenance breaks.", "Ranger at 2 stacks banks no verified track this round; their banked 2 reset.", "You cannot weigh evidence while asserting both sides."),
+    HY("opp-paradox-bypasses-barrier", "paradox", "barrier", "bypasses", { kind: "echoTechnique", guard: 4 }, ["a Quine echo hits a guarded target holding Contradiction"], "Unstoppable force, immovable object: the wall both stands and falls, so the guard cannot decide.", "Echo for 6 into Guard 4 on a stacked foe lands the full 6, once per round.", "A guard cannot hold against its own reflection."),
+    HY("opp-inference-constrains-paradox", "inference", "paradox", "constrains", { kind: "quarantineClaim" }, ["a unit with a verified explanation resolves Contradiction"], "Quarantine by provenance: label which claim came from where and the contradiction cannot spread.", "Doctor banks a verified diagnosis, then clears 1 stack free at each resolution.", "Provenance quarantines paradox."),
+    HY("opp-barrier-blocks-warp_metric", "barrier", "warp_metric", "blocks", { kind: "warpWallStop" }, ["a wall stands on her line"],
+      "the pocket needs unbroken space; matter in the way is where it must stop", "a wall placed on an announced Run's fourth tile stops her at the third and the shock goes off there", "a committed line can be cut after it is declared"),
+    HY("opp-warp_metric-bypasses-inertia", "warp_metric", "inertia", "bypasses", { kind: "warpCarryFreeFall" }, ["Carry the Bubble carries an Inertia holder"],
+      "nothing pushes a carried body: it is in free fall, and Inertia resists pushes", "an Inertia holder beside her is carried 3 tiles though no shove could move it", "resistance to force is not resistance to being carried"),
+    HY("opp-sightline-reveals-warp_metric", "sightline", "warp_metric", "reveals", { kind: "warpLineMarked" }, ["a Sightline holder sees any tile of the line"],
+      "a straight, declared line is the easiest thing there is to read", "a Sightline holder's side sees the landing tile and the three shock tiles marked for the whole delay", "commitment is information for the other side"),
+    HY("opp-diffusion-dampens-warp_metric", "diffusion", "warp_metric", "dampens", { kind: "warpShockThinned" }, ["the shock tiles lie inside a Diffusion field"],
+      "the shock is piled-up matter released at once; a spreading medium thins it", "a Bow Shock of 28 deals 14 inside a spread", "what arrives all at once can be spread out"),
+    HY("opp-warp_metric-bypasses-pathway", "warp_metric", "pathway", "bypasses", { kind: "warpRouteEmpty" }, ["a routed technique is in flight toward her when she relocates"],
+      "a route is a path over floor; she left without using the floor", "a routed strike aimed at her old tile finds it empty", "a route follows ground, not a target"),
   ];
 
   const composition = [
+    // augury (Prophecy S2, R-20261124-20; hypotheses)
+    HY("comp-augury-deception", "augury", "deception", "transform", { kind: "veiledReadings" }, ["primary Augury, secondary Deception"], "A prophet who also deceives hides what the prophecy watches for, so the target cannot race the weakest reading on purpose.", "Cast the Lots with Deception equipped: the foe sees a prophecy, not its two readings, and walks into the moves reading unawares.", "Vagueness is stronger when the listener cannot see its edges."),
+    HY("comp-deception-augury", "deception", "augury", "augment", { kind: "baitedOmen" }, ["primary Deception, secondary Augury"], "A deceiver leads with a false opening, and the prophecy collects on whatever the target does about it.", "A feinted retreat opens a gap; the sealed foe steps into it and the moves reading roots it there.", "Bait and prediction are one move seen from two sides."),
+    HY("comp-augury-forecasting", "augury", "forecasting", "constrain", { kind: "namedTile" }, ["primary Augury, secondary Forecasting"], "A forecaster names where; the prophecy narrows its moves reading to those tiles, trading breadth for a sharper payoff.", "Cast the Lots narrowed by a Predicted Path: the foe walks, but not onto the two named tiles, so the moves reading does not manifest.", "A narrower prediction is easier to miss and worth more when it lands."),
     HY("comp-mesmerism-transference", "mesmerism", "transference", "transform", { kind: "cureHypothesis" }, ["The bearer accepts the carried capability"], "Passing the capacity changes its holder.", "Passing the capacity changes its holder.", "The bearer accepts the carried capability."),
     HY("comp-mesmerism-disinhibition", "mesmerism", "disinhibition", "augment", { kind: "cureHypothesis" }, ["One layer has been peeled"], "A peeled subject can receive a latent instruction.", "A peeled subject can receive a latent instruction.", "One layer has been peeled."),
     HY("comp-disinhibition-mesmerism", "disinhibition", "mesmerism", "constrain", { kind: "cureHypothesis" }, ["An instruction has already loosened a subject"], "An unmasked subject refuses another instruction.", "An unmasked subject refuses another instruction.", "An instruction has already loosened a subject."),
@@ -2218,10 +2270,31 @@
       "Confirmed correspondence supports prediction in either descendant lineage.", "The caster prepares against two related striking techniques. Whichever one attacks the protected ally first triggers the defense.", "Verified shared mechanisms allow broader but still bounded predictions."),
     HS("comp-inference-homology", "inference", "homology", "transform", { kind: "eliminatedHypothesis", apOff: 10, floor: 10 }, ["primary Inference, secondary Homology"],
       "Falsified hypotheses constrain the remaining search space.", "Two apparent wing techniques fail verification. The investigator uses the discarded hypothesis to narrow the next comparison.", "Negative evidence can improve investigation without proving the next hypothesis true."),
+    // Paradox FR1a (claude-formal-rabbit-spec, docs/paradox-concept.md relationships): hypotheses until a scenario validates them.
+    HY("comp-paradox-software", "paradox", "software", "transform", { kind: "echoTechnique", mul: 0.5, cap: 8 }, ["primary Paradox, secondary Software"], "The contradiction compiles itself into the foe's next action: a quine that runs on the enemy.", "After the merge, the foe's next basic Strike 10 echoes back at them for 5.", "Self-reproducing code runs anywhere, including on you."),
+    HY("comp-software-paradox", "software", "paradox", "constrain", { kind: "sandboxBug" }, ["primary Software, secondary Paradox"], "The program type-checks: the contradiction is sandboxed to one variable and cannot spread.", "A unit running Patch each round caps at 1 stack no matter how many plants land.", "Good fences make true contradictions."),
+    HY("comp-paradox-preservation", "paradox", "preservation", "augment", { kind: "theseusEcho", turns: 1 }, ["primary Paradox, secondary Preservation"], "The preserved thing both is and isn't the original: restoration returns the effect and an echo of what it was.", "Restore Guard 4 returns Guard 4 plus a 1-turn echo of the old Guard 2.", "Theseus sails twice."),
+    HY("comp-inference-paradox", "inference", "paradox", "transform", { kind: "modelContradiction" }, ["primary Inference, secondary Paradox"], "Dialetheism: a logic that tolerates true contradictions turns the weapon into a model.", "Detective holding 2 stacks weighs their next clue at +2 instead of paying 4 ΦF.", "Some contradictions are data."),
+    HY("comp-warp_metric-aeronautics", "warp_metric", "aeronautics", "augment", { kind: "warpHeldHeading" }, ["primary Warp Metric, secondary Aeronautics"],
+      "flight teaches holding a line; a held line is cheaper to extend", "Slip Bubble reaches 4 tiles when she did not change heading on her last relocation", "a held heading is cheaper to keep"),
+    HY("comp-aeronautics-warp_metric", "aeronautics", "warp_metric", "transform", { kind: "warpTurnDebt" }, ["primary Aeronautics, secondary Warp Metric"],
+      "the turn is still paid for, later, by the field", "a flight's cost for changing heading is paid as exotic debt next turn and not in AP now", "the field collects what the turn spent"),
+    HY("comp-warp_metric-inertia", "warp_metric", "inertia", "constrain", { kind: "warpMassCommit" }, ["primary Warp Metric, secondary Inertia"],
+      "mass that resists being moved also resists being carried far", "a Run in progress is not collapsed by forced movement; Slip Bubble's reach falls to 2", "mass holds the line and shortens the hop"),
+    HY("comp-inertia-warp_metric", "inertia", "warp_metric", "augment", { kind: "warpIdleCarry" }, ["primary Inertia, secondary Warp Metric"],
+      "free fall costs a heavy body nothing", "a body that will not be pushed may still be carried: her own Carry the Bubble can take her and one ally 1 tile at no debt", "resistance to a shove is not a tax on being carried"),
   ];
 
   // Pairs players would expect to interact that deliberately don't. Taught as explicitly as edges.
   const notableNone = [
+    // Paradox FR1a (claude-formal-rabbit-spec): 4 notable nones.
+    { source: "paradox", target: "reversal", why: "A contradiction has no magnitude to overdrive: it is unresolved or it isn't." },
+    { source: "paradox", target: "tension", why: "A tether pulls whatever is tied to it, regardless of claims." },
+    { source: "paradox", target: "load_distribution", why: "A force is a force whether or not it was announced consistently." },
+    { source: "paradox", target: "diffusion", why: "A spread follows routes, not reasons; contradiction changes no pathway." },
+    { source: "augury", target: "barrier", why: "A wall blocks sight and passage, not fate: once sealed, a prophecy resolves on the target's own acts whether or not the prophet can see it." },
+    { source: "augury", target: "diffusion", why: "A prophecy names one unit and its next turn; spread across a crowd it would be unfalsifiable, so it never spreads." },
+    { source: "harmony", target: "augury", why: "An ally's heal or song is not the target's own act: readings watch only what the sealed foe does, so support never fulfils or breaks them." },
     { source: "mesmerism", target: "barrier", why: "An instruction lives in its subject rather than crossing as a projectile." },
     { source: "mesmerism", target: "elasticity", why: "An instruction stores no force." },
     { source: "mesmerism", target: "succession", why: "Remembering a cue does not grow anything." },
@@ -2548,6 +2621,10 @@
     { source: "homology", target: "resonance", why: "Identical frequencies or synchronized effects do not establish common ancestry.", example: "Two resonating attacks do not qualify for a conserved Homology counter without matching origin and cue records.", teaches: "Correlation and synchronization do not prove descent." },
     { source: "homology", target: "transference", why: "Homology does not physically transfer an ability from one fighter to another.", example: "Learning that two limbs share an ancestor does not let a human perform a bat's flight.", teaches: "Structural inheritance does not imply functional interchangeability." },
     { source: "homology", target: "synthetic_biomedical", why: "A synthetic prosthetic can reproduce the shape and function of an inherited limb without inheriting that limb through biological descent.", example: "An independently engineered forelimb mechanism is not automatically homologous to an organic forelimb.", teaches: "Functional equivalence is not genealogical identity." },
+    { source: "elasticity", target: "warp_metric", why: "Stretching space stores no tension in her; a Rebound has nothing of hers to spring back, since she did not travel the line. (A Rebound still catches the Bow Shock, which is an ordinary line attack.)" },
+    { source: "warp_metric", target: "stealth", why: "The pocket hides nothing. Light leaves it as usual, and the Run is announced; relocating does not conceal her." },
+    { source: "resonance", target: "warp_metric", why: "The wall is a shape of space, not a body with a natural frequency; a pulse does not shake it loose." },
+    { source: "warp_metric", target: "threshold", why: "A Threshold effect on a tile between is never crossed, but that is the shared relocation rule and not an edge: no number of Threshold's changes." },
   ];
 
   // Why and what-it-teaches for the edges already in content.js, so the whole graph reads the same way.

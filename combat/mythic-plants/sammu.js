@@ -9,6 +9,20 @@
 //   sap(s, carrier, recipient, healed, H) → after a heal that restored `healed` LF (> 0): adds the bonus and mends one grade,
 //                                         records the recipient only when something changed; returns { bonus, zone } or null.
 //                                         H: { rules, hasTrait, log, Injury }. No Sap event calls Sap again.
+//
+// SN1a2 (same spec; Tend Before Triumph, Borrowed Years, the reactive Sleeve, Inspiration earn):
+//   tendFree(s, carrier, ability, hasTrait) → "battle" when this pioneerPatch cast is the carrier's free preparation,
+//                                            false otherwise. H: hasTrait only (called from the technique commit path).
+//   wardCast(s, carrier, wardId, H)         → a Sleeve just warded: replace the carrier's Borrowed Years ledger
+//                                            (stored 0, this ward, through the end of the carrier's next own turn).
+//                                            A carrier without Loyal holds no ledger. H: { hasTrait }.
+//   bankAfterWard(s, beneficiary, absorbed, ward, H) → a Sleeve ward absorbed a hit: bank the actual prevention
+//                                            (at most rules.borrowedYears.max, default 12) on the recorded ward only.
+//                                            Returns the banked amount. H: { hasTrait, log }.
+//   cashAfterRepair(s, carrier, beneficiary, H) → a successful Repair the Record spends the whole ledger for up to
+//                                            rules.borrowedYears.cashMax (default 6) healing, bounded by missing LF.
+//                                            Returns the bonus added. Cashing 6 actual extra LF earns 1 Inspiration,
+//                                            once a battle. H: { hasTrait, log, Inspiration }.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ConceptCombatSammu = factory();
@@ -128,5 +142,67 @@
     H.hermitCharge(s, a, "eat");
   }
 
-  return { sapZone, sapBonus, sapReady, sap, HARVEST, THEFT_RANGE, harvestError, applyHarvest, thiefFor, eatPreview, applyEat };
+  // Tend Before Triumph (empathic): the first successful Pioneer Patch in a battle costs 0 AP and
+  // 0 ΦF when a living same-side other ally within 3 (Chebyshev) is below half LF. Normal legal soil and
+  // range checks remain: they run after the cost waiver, and a failed validation consumes nothing (the
+  // once-a-battle stamp is written at commit, so a refused cast never stamps).
+  function tendFree(s, carrier, ability, hasTrait) {
+    if (!s || !carrier || carrier.defeated || ability !== "pioneerPatch") return false;
+    if ((carrier.freeBattle || {}).pioneerPatch) return false;
+    if (!hasTrait?.(carrier, "empathic")) return false;
+    const hurt = Object.values(s.actors || {}).some((u) => u && u.id !== carrier.id && u.side === carrier.side &&
+      !u.defeated && !u.notArrived && (u.lf || 0) > 0 && u.lf < u.maxLF / 2 &&
+      Math.max(Math.abs(u.x - carrier.x), Math.abs(u.y - carrier.y)) <= 3);
+    return hurt ? "battle" : false;
+  }
+  const byRules = (s) => s.rules?.borrowedYears || {};
+  const byMax = (s) => byRules(s).max ?? 12;
+  const byCashMax = (s) => byRules(s).cashMax ?? 6;
+  // Borrowed Years (loyal): a Protective Sleeve the carrier owns stores the actual damage it prevented, at
+  // most byMax, in one carrier ledger. A new Sleeve replaces the ledger and the source-ward id, so only the
+  // currently recorded ward can add prevention. Storage lasts through the end of the carrier's next own turn.
+  function wardCast(s, carrier, wardId, H) {
+    if (!s || !carrier || carrier.defeated) return;
+    if (!H.hasTrait?.(carrier, "loyal")) { if (s.borrowedYears) delete s.borrowedYears[carrier.id]; return; }
+    (s.borrowedYears ||= {})[carrier.id] = { stored: 0, ward: wardId, until: (carrier.ownerTurns || 0) + 1 };
+  }
+  function bankAfterWard(s, beneficiary, absorbed, ward, H) {
+    if (!(absorbed > 0) || !ward?.sleeve?.by || !ward.sleeve.ward) return 0;
+    const carrier = (s.actors || {})[ward.sleeve.by];
+    if (!carrier || carrier.defeated || !H.hasTrait?.(carrier, "loyal")) return 0;
+    const cur = (s.borrowedYears || {})[carrier.id];
+    if (!cur || cur.ward !== ward.sleeve.ward || (carrier.ownerTurns || 0) > cur.until) return 0;
+    const add = Math.min(byMax(s) - cur.stored, absorbed);
+    if (!(add > 0)) return 0;
+    cur.stored += add;
+    H.log?.(s, { kind: "preservation", actor: carrier.id, target: beneficiary.id,
+      text: `Borrowed Years: ${carrier.name} banks ${add} prevented LF (${cur.stored}/${byMax(s)}).`,
+      why: [`A loyal carrier's Protective Sleeve stores what it prevented, at most ${byMax(s)}; the next Repair the Record spends it for up to ${byCashMax(s)} healing.`] });
+    return add;
+  }
+  // The next successful Repair the Record spends the entire ledger for up to cashMax healing, bounded by the
+  // stored prevention and the recipient's missing LF. Cashing cashMax actual extra LF earns 1 Inspiration,
+  // once a battle. Removing Loyal clears the ledger (a removal with no repair after it banks nothing: bank
+  // already requires the trait, and the entry below is spent the moment a repair lands).
+  function cashAfterRepair(s, carrier, beneficiary, H) {
+    if (!s || !carrier || !beneficiary) return 0;
+    const cur = (s.borrowedYears || {})[carrier.id];
+    if (!cur) return 0;
+    delete s.borrowedYears[carrier.id];
+    if (!H.hasTrait?.(carrier, "loyal")) return 0;
+    if (!((cur.stored || 0) > 0) || (carrier.ownerTurns || 0) > cur.until) return 0;
+    const bonus = Math.min(cur.stored, byCashMax(s), Math.max(0, beneficiary.maxLF - beneficiary.lf));
+    if (!(bonus > 0)) return 0;
+    beneficiary.lf += bonus;
+    H.log?.(s, { kind: "heal", actor: carrier.id, target: beneficiary.id,
+      text: `${carrier.name}'s Borrowed Years mend ${beneficiary.name} for ${bonus} more LF.`,
+      why: [`The ledger spends whole: ${cur.stored} stored became ${bonus} healing (bounded by missing LF).`] });
+    if (bonus >= byCashMax(s) && byCashMax(s) > 0 && !((s.borrowedYearsInspired ||= {})[carrier.id])) {
+      s.borrowedYearsInspired[carrier.id] = true;
+      H.Inspiration?.gain(s, carrier, 1, `${carrier.name} turned prevented harm into a full mending: Borrowed Years earns Inspiration, once a battle.`);
+    }
+    return bonus;
+  }
+
+  return { sapZone, sapBonus, sapReady, sap, HARVEST, THEFT_RANGE, harvestError, applyHarvest, thiefFor, eatPreview, applyEat, tendFree, wardCast, bankAfterWard, cashAfterRepair };   // SN1b + SN1a2 (merged at stage, Clevis BD)
 });

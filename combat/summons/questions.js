@@ -110,6 +110,13 @@
       { id: "raven-memory", prompt: "Thought and Memory takes damage off your allies. From which harm?", choices: ["Every channel", "Channels already used in a hit this battle", "Only impact"], answer: 1,
         explain: "Memory keeps only what it has seen: a channel counts once any hit this battle has used it, so it does little before the first hits land." },
     ],
+    // Roman Emperor S1 (muse-roman-emperor-spec S1): what the call costs, what the reveal changes.
+    roman_emperor: [
+      { id: "emperor-cost", prompt: "Calling the Emperor spends most of a turn. What does the call itself cost?", choices: ["80 action points and 8 phi", "Nothing but the pact", "Half his remaining life"], answer: 0,
+        explain: "Summoning is a big spend: most of a turn plus phi, so bank a turn with Stall first." },
+      { id: "emperor-reveal", prompt: "Dream Space reveals Marcus Aurelius. What changes?", choices: ["He returns to the palace", "Name, sprite, greater life and potency", "Nothing until the next battle"], answer: 1,
+        explain: "The reveal swaps his name and sprite, raises his life and potency. His Meditations has no battle effect yet." },
+    ],
   };
 
   function hash(str) {

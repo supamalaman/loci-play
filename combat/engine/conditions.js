@@ -37,6 +37,7 @@
     const hasGills=a=>(a?.traits||[]).some(t=>H.traitKey(t)==="gills");
     function refreshWaterDrowning(s,a,cause="water opens beneath them",surprise=false) {
       if(!a || a.defeated || a.notArrived || a.waterRunning)return;   // waterRunning: a speedster mid-run over deep water (the move action sets and clears it)
+      if(H.astralRegionOf?.(s,a.x,a.y)==="deep")return;   // Sunken Ruins BD1: deep breath drowning ticks on its own clock, never cleared by dry seabed tiles
       const wet=H.waterAt(s,a.x,a.y) && !H.ClassRuntime?.flies(a), at=H.key(a.x,a.y);
       const depth=wet ? (H.surfaceAt(s,a.x,a.y)==="~"?"deep":"shallow") : "dry";
       const opened=wet && (a.waterContact!==at || (a.waterDepth==="shallow" && depth==="deep"));
@@ -695,7 +696,20 @@
       const keep = (Lg.memory || []).filter((id) => C.abilities[id]);
       if (keep.length) hero.learned = [...new Set([...(hero.learned || []), ...keep])];
     }
+    // A worn Jinki soul's lent art is free like the held soul arts (R-20261124-06, Jinki gifts JG2): 0 AP and no charge, the
+    // verb once a turn and the technique once a battle (workshop/jinki.js wornArtRole). An ability the wearer already holds in
+    // its own kit keeps its own price. Runs first in legacyPrice, the manifest's hook for carried abilities: engine.js is at
+    // its size cap (tools/check-syntax.mjs), so it gains no call of its own.
+    const JinkiRules = () => (typeof module === "object" && module.exports ? require("../workshop/jinki.js") : globalThis.ConceptCombatJinki) || null;
+    function soulArtPrice(s, a, abilityId, m) {
+      const role = a.passives?.soulArts ? JinkiRules()?.wornArtRole?.(a.passives.soulArts, abilityId) : null;
+      if (!role || H.abilitiesOf({ ...a, passives: { ...a.passives, soulArtIds: [] } }).includes(abilityId)) return;
+      m.cost = 0; m.tempoCost = 0; m.noCharge = true;
+      if (role === "verb") m.oncePerTurn = true; else m.oncePerBattle = true;
+      m.notes?.push(m.tier === "ultimate" ? "A worn soul lends it: no AP or ΦF, once a battle; it still needs a full ultimate bar." : `A worn soul lends it: free, once a ${role === "verb" ? "turn" : "battle"}.`);   // an ultimate keeps its bar (actions-technique.js tier gate)
+    }
     function legacyPrice(s, a, abilityId, m) {
+      soulArtPrice(s, a, abilityId, m);
       const b = s.legacy?.bonuses?.[abilityId]; if (!b || a.id !== s.legacy.hero) return;
       const pf = Math.round(m.cost * b.chargeDiscount), ap = Math.round(m.tempoCost * b.control);
       if (pf) m.cost = Math.max(0, m.cost - pf); if (ap) m.tempoCost = Math.max(1, m.tempoCost - ap);
@@ -912,8 +926,8 @@
       const had = unit.status.poison?.turnsLeft || 0;
       unit.status.poison = { label: P.label, owner: sourceId || null, lf: P.lf, apLoss: P.apLoss, turnsLeft: Math.max(had, turns) };
       log(s, { kind: "poison", actor: sourceId || null, target: unit.id, tiles: [[unit.x, unit.y]], turns: unit.status.poison.turnsLeft,
-        text: `${unit.name} is ${how === "touched" ? "stung by the spines they struck" : "stung"}: ${P.label} for ${unit.status.poison.turnsLeft} turns.`,
-        why: [`Each of their turns: −${P.lf} LF and ${P.apLoss} fewer action points.`, how === "touched" ? "Striking it by contact is touching it. Techniques that never touch it are safe." : "Its spines break off in whatever comes beside it."] });
+        text: `${unit.name} is ${how === "touched" ? "stung by the spines they struck" : how === "tainted" ? "poisoned by a tainted blade" : "stung"}: ${P.label} for ${unit.status.poison.turnsLeft} turns.`,
+        why: [`Each of their turns: −${P.lf} LF and ${P.apLoss} fewer action points.`, how === "touched" ? "Striking it by contact is touching it. Techniques that never touch it are safe." : how === "tainted" ? "Tainted Blade: the swearer's techniques that draw blood poison their target." : "Its spines break off in whatever comes beside it."] });
     }
     function poisonTick(s, a) {
       const p = a.status.poison; if (!p || a.defeated) return;
@@ -1031,9 +1045,11 @@
     // Flee edges are per-region: the pocket's edges are the pocket rect, the land's are the land rect.
     // (Without the pocket both are the whole map, as before.)
     const regionRect = (s, x) => {
-      const A = s.astral;
-      if (A?.ready && x >= A.x0) return { x0: A.x0, x1: A.x0 + A.w - 1, y0: 0, y1: s.arena.h - 1 };
-      const landW = A?.ready ? A.landW : s.arena.w;
+      const A = s.pockets?.astral || s.astral;
+      const D = s.pockets?.deep;
+      if (A?.ready && x >= A.x0 && x < A.x0 + A.w) return { x0: A.x0, x1: A.x0 + A.w - 1, y0: 0, y1: s.arena.h - 1 };
+      if (D?.ready && x >= D.x0 && x < D.x0 + D.w) return { x0: D.x0, x1: D.x0 + D.w - 1, y0: 0, y1: s.arena.h - 1 };
+      const landW = s.arena.landW ?? (A?.ready ? A.landW : s.arena.w);
       return { x0: 0, x1: landW - 1, y0: 0, y1: s.arena.h - 1 };
     };
     const onEdge = (s, a) => { const r = regionRect(s, a.x); return a.x === r.x0 || a.y === r.y0 || a.x === r.x1 || a.y === r.y1; };

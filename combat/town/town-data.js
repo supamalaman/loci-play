@@ -34,7 +34,7 @@
     { id: "courthouse", name: "Courthouse", sprite: "objects/building-courthouse", at: [19, 8], size: 4, opens: "courthouse", verb: "Laws and open cases" },   // Investigate I5b (claude-investigate-spec 12.1, Decision 11): the Courthouse takes the Manor's lot; the Manor is retired from the map
     { id: "rowhouses", name: "Row Houses", sprite: "objects/house-rowhouse", at: [19, 14], size: 4 },
     { id: "suburban", name: "House", sprite: "objects/house-suburban", at: [2, 14], size: 4 },
-    { id: "pond", name: "Pond", sprite: "objects/park-pond", at: [8, 20], size: 4 },
+    { id: "pond", name: "Pond", sprite: "objects/park-pond", at: [8, 20], size: 4, opens: "dive", verb: "Dive the drowned shelf" },   // Sunken ruins R1 (claude-sunken-ruins-spec 4.1): the Pond dive
     { id: "playground", name: "Playground", sprite: "objects/park-playground", at: [14, 20], size: 4 },
   ];
 

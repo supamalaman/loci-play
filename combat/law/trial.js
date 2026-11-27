@@ -219,6 +219,7 @@
     if (side === "defense" && FORMS[t.form].confession && !c.confessed) moves.push("confess");
     if (side === "defense" && FORMS[t.form].karmic && !c.restituted) moves.push("restitute");
     if (side === "defense" && !t.pleaUsed) moves.push("finalPlea");
+    if (side === "defense" && t.form === "courtroom" && t.pleaOpen && t.counts.some((k) => k.status === "open")) moves.push("plead");   // M2b: guilty plea in a convened or arrest trial (courtroom.js sets pleaOpen; the plea ends the trial at once)
     if (side === "defense" && lawyer(t, side)) moves.push("objection", "perjury");
     if (side === "defense" && t.vouchers?.length && !t.vouch && c.grade !== "sworn") moves.push("vouch");   // Bonds B6: once a trial, never on a sworn count
     if (c.victimId && isAlive(unit(t, c.victimId)) && !c.absolved) moves.push("absolve");
@@ -329,6 +330,23 @@
         closeCount(t, c, "confessed");
         break;
       }
+      case "plead": {   // M2b (MAGISTRATE-COURT.md 1.2): guilty plea in the courtroom for the whole docket
+        if (side !== "defense") return { ok: false, error: "only the accused pleads guilty" };
+        if (t.form !== "courtroom" || !t.pleaOpen) return { ok: false, error: "no plea in this court" };
+        const targets = t.counts.slice(0, 3).filter((k) => k.status !== "struck" && k.status !== "absolved" && k.status !== "restituted");
+        if (!targets.length) return { ok: false, error: "nothing to plead to" };
+        const name = unit(t, t.accusedId)?.name || "The accused";
+        const verdicts = t.counts.slice(0, 3).map((k) => {
+          if (k.status === "struck" || k.status === "absolved" || k.status === "restituted") return { count: k.id, verdict: "innocent", how: k.status };
+          k.severity = Math.max(SEV.minor, (k.severity ?? 1) - 1); k.status = "pleaded";
+          return { count: k.id, verdict: "guilty", how: "plea", severity: k.severity };
+        });
+        t.plea = true;
+        say(t, `${name} PLEADS GUILTY to the docket: every count guilty one tier lower. No Sword can fall on a plea.`, ["A plea ends the trial at once: the reduced tiers sentence as usual, and the Sword never falls."]);
+        t.verdicts = { reason: "plea", favor: t.favor, counts: verdicts, sentences: sentence(t, verdicts) };
+        t.over = true;
+        break;
+      }
       case "restitute": {
         if (!FORMS[t.form].karmic) return { ok: false, error: "restitution is a karmic rite" };
         if (c.severity >= SEV.grave) return { ok: false, error: "grave and capital counts cannot be bought" };
@@ -425,7 +443,7 @@
         if (c.status === "struck" || c.status === "absolved") { verdicts.push({ count: c.id, verdict: "innocent", how: c.status }); continue; }
         if (c.status === "confessed") { verdicts.push({ count: c.id, verdict: "guilty", how: "confessed", severity: c.severity }); continue; }
         if (t.favor >= 2) verdicts.push({ count: c.id, verdict: "innocent", how: `favor+${t.favor}` });
-        else if (t.favor <= -2) verdicts.push({ count: c.id, verdict: "guilty", how: "sword", severity: SEV.capital });
+        else if (t.favor <= -2) verdicts.push(t.magistrate && (c.severity ?? 1) < SEV.serious ? { count: c.id, verdict: "guilty", how: "harsh", severity: SEV.minor } : { count: c.id, verdict: "guilty", how: "sword", severity: SEV.capital });
         else verdicts.push({ count: c.id, verdict: "guilty", how: "confiscate", severity: SEV.serious, confiscate: true });
       }
     }

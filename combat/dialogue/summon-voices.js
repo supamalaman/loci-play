@@ -197,6 +197,20 @@
       ultimate: ["Thought saw it coming. Memory kept it."],
       defeat: ["Back to the palace. The notes stay.", "Gone. What I saw is still true."],
       rethink: ["Wrong branch. Try the other."] } },
+
+    // Roman Emperor S1 (muse-roman-emperor-spec S1): measured, Stoic; calls the player citizen. Flavour only: no digits.
+    roman_emperor: { summary: "Measured and Stoic; calls the player citizen, and answers every order as a duty.", lines: {
+      summoned: ["The Senate called, and he came.", "Citizen. Rome stands with you."],
+      dismissed: ["Rome recalls its servant.", "The legions march home."],
+      attack: ["By order of the Senate.", "Hold the line."],
+      hit: ["So falls the presumptuous.", "The law answers."],
+      hurt: ["Even an emperor bleeds.", "A wound is also a lesson."],
+      ally_hurt: ["Who strikes my citizen answers to Rome.", "Form on me."],
+      low_lf: ["The empire outlasts its emperor.", "Still standing. Still Rome."],
+      ordered: ["It shall be done.", "The command is received."],
+      ultimate: ["Pax Romana. Be still, and be kept."],
+      defeat: ["The laurel passes. Rome remains.", "Carry the law home, citizen."],
+      rethink: ["Another road to Rome.", "The plan needs a steadier hand."] } },
   };
 
   const fallback = { summoned: "Here.", dismissed: "Back to the palace.", attack: "Now.", hit: "Got one.", hurt: "Ah.", ally_hurt: "Hold on!", ordered: "Understood.",

@@ -34,6 +34,10 @@
     farShot:      { for: ["technique"], name: "Far Shot", price: 1, text: "Your techniques reach 1 farther until the end of your next turn.", effect: { rangeAdd: 1, stanceTurns: 1 } },
     heavyHands:   { for: ["technique"], name: "Heavy Hands", price: 1, text: "Your techniques hit +2 potency until the end of your next turn.", effect: { potencyAdd: 2, stanceTurns: 1 } },
     piercingOath: { for: ["technique"], name: "Piercing Oath", price: 2, text: "Your techniques gain piercing until the end of your next turn.", effect: { piercing: true, stanceTurns: 1 } },
+    // Instantaneous Regeneration IR2 (R-20261122-82, R-20261123-02): the one vow a player can poison with. Taking it costs Fame and
+    // Talk for the battle (account/fame.js "dirty", insight/parley.js persuasion); the poison def is content.js rules.taint.
+    taintedBlade: { for: ["technique"], name: "Tainted Blade", price: 1, text: "Until the end of your next turn, your techniques that draw blood also poison their target (never a wild creature or a dream monster): Tainted, 2 LF a turn for 2 turns (a poison of another kind already there is kept instead, and lasts at least 2 more turns). Fighting dirty costs Fame, and your words carry less for the rest of the battle.", effect: { taint: true, stanceTurns: 1 } },
+    dazingBlow:   { for: ["technique"], name: "Dazing Blow", price: 2, text: "Your first qualifying hit attempts 30 AP of Stun. Requires Restrained Force; Inspiration cannot replace this price.", effect: { stunAttempt: 30, stanceTurns: 1 }, requires: "restrainedForce" },
     neverPour: { for: ["technique"], name: "Never Pour", price: 1, text: "The plain cup: +2 potency on the first technique that draws your rite ink this battle.", effect: { plainCup: 2 }, binding: "noTea" },
     fullObservance: { for: ["technique"], name: "Full Observance", price: 1, text: "A rite whose last step is tea gains 1 charge while you keep this vow.", effect: { observanceCharge: 1 }, binding: "sealTea" },
     // Rama's word (Mala, 2026-10-24; docs/rama-build.md): sworn once a battle by a character who keeps one (swearsWord), and it
@@ -51,12 +55,13 @@
     bloodPrice:    { name: "Blood Price", worth: 1, text: "Pay 15% of your max LF now.", lasts: "once" },
     spentTomorrow: { name: "Spent Tomorrow", worth: 1, text: "Your next turn starts with 30 fewer AP.", lasts: "once" },
     burnedBridge:  { name: "Burned Bridge", worth: 2, text: "No ultimate techniques for the rest of this battle.", lasts: "battle" },
+    restrainedForce: { name: "Restrained Force", worth: 2, text: "Deal 40% attack potency while this oath lasts. Technique stances only.", lasts: "while", techniqueOnly: true },
   };
   const MAX_RESTRICTIONS = 2, BREACH_AP = 25;
 
   const options = (target) => ({
     boons: Object.entries(BOONS).filter(([, b]) => b.for.includes(target)).map(([id, b]) => ({ id, ...b })),
-    restrictions: Object.entries(RESTRICTIONS).filter(([, r]) => !r.boundOnly).map(([id, r]) => ({ id, ...r })),
+    restrictions: Object.entries(RESTRICTIONS).filter(([, r]) => !r.boundOnly && (target === "technique" || !r.techniqueOnly)).map(([id, r]) => ({ id, ...r })),
   });
   const restrictionsOf = (vow) => {
     const binding = BOONS[vow?.boon]?.binding;
@@ -76,9 +81,12 @@
     if (rs.length > MAX_RESTRICTIONS) return `At most ${MAX_RESTRICTIONS} restrictions.`;
     if (new Set(rs).size !== rs.length) return "Each restriction can be sworn once.";
     if (rs.some((id) => !RESTRICTIONS[id] || RESTRICTIONS[id].boundOnly)) return "Unknown restriction.";
+    if (rs.some((id) => RESTRICTIONS[id].techniqueOnly && target !== "technique")) return `${RESTRICTIONS[rs.find((id) => RESTRICTIONS[id].techniqueOnly)].name} can only be sworn on a technique stance.`;
     if (b.binding && (rs.length || vow.inspiration)) return `${b.name} requires its own restriction as payment.`;
     const binding = restrictionsOf(vow);
     const n = Math.max(0, Math.floor(vow.inspiration || 0));
+    if (b.requires && !rs.includes(b.requires)) return `${b.name} requires ${RESTRICTIONS[b.requires].name}; Inspiration cannot replace this price.`;
+    if (b.requires && n) return `${b.name} requires ${RESTRICTIONS[b.requires].name}; Inspiration cannot replace this price.`;
     if (n && !R) return "Inspiration cannot pay for this.";
     if (n > (a?.inspiration || 0)) return `That takes ${n} Inspiration; you have ${a?.inspiration || 0}.`;
     if (n && paid({ inspiration: n - 1 }, R) + worth(rs) >= price) return `${b.name} costs ${price}: that is more Inspiration than it needs.}`;
@@ -92,7 +100,8 @@
     if (!vow?.boon) return null;
     const b = BOONS[vow.boon], rs = restrictionsOf(vow);
     a.vows ||= [];
-    (s.declarations ||= []).push({ actor: a.id, on: target, boon: vow.boon, round: s.round, consent: !!vow.consent });   // W4.4: the declaration ledger (Collective Promise reads this; W4.6: AI declarations consent)
+    (s.declarations ||= []).push({ actor: a.id, on: target, boon: vow.boon, round: s.round, consent: !!vow.consent });
+    if (b?.effect?.taint) a.foughtDirty = true;   // IR2: lasts the battle, whether or not the stance does (parley.js persuasion reads it)   // W4.4: the declaration ledger (Collective Promise reads this; W4.6: AI declarations consent)
     a.vows.push({ on: target, boon: vow.boon, consent: !!vow.consent, restrictions: rs.filter((id) => RESTRICTIONS[id].lasts === "while" || RESTRICTIONS[id].lasts === "battle"), at: [a.x, a.y], round: s.round,
       ...(target === "technique" && !b.binding ? { untilTurn: a.ownerTurns + (b.effect.stanceTurns ?? 1) } : {}) });
     { const v = a.vows[a.vows.length - 1]; if (v.restrictions.length) Orders()?.onVow(s, a.id, "swear", v); }   // V1: a lasting restriction, sworn in front of the side
@@ -117,8 +126,9 @@
   const live = (s, a) => (a.vows || []).filter((v) => sourceLasts(s, a, v));
   const holds = (s, a, id) => live(s, a).some((v) => v.restrictions.includes(id));
   // Merged technique-stance boons, for manifest: ranges and potencies add across stances, piercing needs one oath.
+  // Dazing Blow stays out: its price is a harmful-payload factor and a post-hit stun attempt, not an additive bonus.
   const techBoon = (s, a) => {
-    const stances = live(s, a).filter((v) => (v.on === "technique" && !BOONS[v.boon]?.binding) || v.on === "word");
+    const stances = live(s, a).filter((v) => ((v.on === "technique" && !BOONS[v.boon]?.binding && v.boon !== "dazingBlow" && !BOONS[v.boon]?.effect?.taint) || v.on === "word"));   // Dazing Blow and Tainted Blade add nothing to a cast's numbers: both are post-hit riders (tryDazing, tryTaint)
     if (!stances.length) return null;
     const out = { rangeAdd: 0, potencyAdd: 0, piercing: false, names: [] };
     for (const v of stances) { const e = BOONS[v.boon]?.effect || {}; out.rangeAdd += e.rangeAdd || 0; out.potencyAdd += e.potencyAdd || 0; out.piercing ||= !!e.piercing; out.names.push(BOONS[v.boon]?.name || v.boon); }
@@ -136,6 +146,47 @@
       if (holds(s, a, "singleMind") && !(ability.concepts || []).includes(a.primary)) return "You swore Single Mind: only techniques of your primary concept.";
     }
     return null;
+  }
+
+  // Stunning Restraint (SR1): a live Restrained Force vow weakens the swearer's own harmful output.
+  // The factor applies once per hit: commit-time paths (manifest, Strike) stamp inst.restrained, and the
+  // resolution paths (strikeTarget, hit) skip stamped instances and only price unstamped ones live.
+  const restrainedLive = (s, a) => !!(a && live(s, a).some((v) => (v.restrictions || []).includes("restrainedForce")));
+  const restraintMul = (s, a) => (restrainedLive(s, a) ? 0.4 : 1);
+  const restrainPotency = (p) => Math.max(1, Math.round(p * 0.4));
+  const dazingQualifies = (inst) => {
+    if (!inst || inst.card) return false;
+    if (inst.ability === "strike") return true;   // ordinary Strike: contact, single, direct
+    if (inst.effect !== "damage" || inst.target !== "enemy") return false;
+    if (inst.area && inst.area.shape !== "single") return false;
+    if (inst.delivery === "field") return false;   // fields pulse; only aimed single-target techniques qualify
+    return true;
+  };
+  // Returns the stun points to apply (30) or 0. Marks the origin spent before calling: resistance still spends it.
+  function tryDazing(s, src, tgt, inst, dealt, H) {
+    if (!src || src.defeated || !tgt || tgt.defeated || tgt.wild) return 0;
+    if (!(dealt >= 1)) return 0;   // misses and zero-LF/fully absorbed hits do not spend the rider
+    if (!tgt || tgt.side === src.side || tgt.side === "bystander" || src.side === "bystander") return 0;
+    if (tgt.side === "civilian" && !((H && H.preHitHostile) || []).includes(src.side)) return 0;   // Stunning Restraint: actual hostility at impact, not side !== side — hit marking runs before the rider, so the mark from THIS hit does not count (spec contact row)
+    if (tgt.truce && tgt.truce.side === src.side && tgt.truce.until >= s.round) return 0;   // a live mediator truce toward the striker's side never triggers the rider either
+    if ((tgt.truceWith === src.id && tgt.truceUntil >= s.round) || (src.truceWith === tgt.id && src.truceUntil >= s.round)) return 0;   // nor the observe-effect pair truce (Befriend, oil buy-out: truceWith/truceUntil), the same pair test as states.js truce()
+    if (src.dazingSpent) return 0;   // one attempt per origin per battle; no reset on expiry, breach or toggle
+    if (!live(s, src).some((v) => v.boon === "dazingBlow" && v.on === "technique")) return 0;
+    if (!dazingQualifies(inst)) return 0;
+    src.dazingSpent = true;
+    if (H && H.log) H.log(s, { kind: "vow", actor: src.id, target: tgt.id, text: `${src.name}'s restraint breaks into violence: Dazing Blow attempts to stun ${tgt.name} (30 AP).`, why: ["One Dazing Blow attempt per oath; resistance still spends it."] });
+    return 30;
+  }
+
+  // IR2 Tainted Blade: a live stance poisons the target of each of the swearer's techniques that takes LF from a hostile.
+  // Returns the poison def for applyPoison (damage.js hit), or null. A plain Strike is not a technique; cards are not either.
+  function tryTaint(s, src, tgt, inst, dealt, H) {
+    if (!src || src.defeated || !tgt || tgt.defeated || !(dealt >= 1)) return null;
+    if (!inst || inst.card || !inst.ability || inst.ability === "strike" || inst.effect === "strike") return null;
+    if (tgt.side === src.side || tgt.side === "bystander" || src.side === "bystander") return null;
+    if (tgt.side === "civilian" && !((H && H.preHitHostile) || []).includes(src.side)) return null;
+    if (!live(s, src).some((v) => v.on === "technique" && BOONS[v.boon]?.effect?.taint)) return null;
+    return s.rules?.taint ? { poison: s.rules.taint } : null;
   }
 
   function vowForKind(s, a, kind, ability) {
@@ -247,5 +298,5 @@
     a.vows = a.vows.filter((v) => !v.broken && sourceLasts(s, a, v));
   }
 
-  return { BOONS, RESTRICTIONS, MAX_RESTRICTIONS, BREACH_AP, options, worth, validate, swear, refuses, turnStart, live, techBoon, gate, confirmLine, restrictionsOf, riteEvent, finishTeaVows, applyPlainCup, plainCupReady };
+  return { BOONS, RESTRICTIONS, MAX_RESTRICTIONS, BREACH_AP, options, worth, validate, swear, refuses, turnStart, live, techBoon, tryTaint, gate, confirmLine, restrictionsOf, riteEvent, finishTeaVows, applyPlainCup, plainCupReady, restraintMul, restrainPotency, tryDazing, dazingQualifies, restrainedLive };
 });

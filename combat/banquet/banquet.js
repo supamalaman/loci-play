@@ -17,6 +17,9 @@
 // W1a built the room, the choice, the seal and Reject. W1b adds Accept: the pairwise truce (section 5d: Parley.blocks,
 // areaRecipients, knock, and the bleed and infection ticks held), the meal (+15% max LF and +6 ΦF each, capped), the fed
 // ledger (a guest is fed once per battle; the host at most twice) and the accepted guest's skipped turn.
+// W3 adds Accept's studies and warmth: two free studies each way through H.observeFree ("the meal teaches", 0 AP,
+// R-20261125-19) and ordered directional s.valenceBonus writes (section 3e, R-20261103-07: guest>host +3, guest>seated
+// host allies +2, host and seated host allies>guest +1; plain JSON, not stashed so warmth persists after collapse).
 // Welcome is still staged: nothing in play opens a room yet (slice W2 casts it); tests open it with open().
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
@@ -28,6 +31,8 @@
   const RULES = {
     size: 3, rejectRounds: 2,
     heal: 0.15, phi: 6, hostFedCap: 2,   // section 3b: the meal; the host is fed at most twice a battle
+    mealStudies: 2, mealStudyInvest: 20,   // section 3b (W3): two free standard studies each way
+    valence: { guestToHost: 3, guestToAlly: 2, hostToGuest: 1, allyToGuest: 1 },   // section 3e (W3; R-20261103-07)
     summonReach: 3, summonsPerOwner: 2,
     hostFreshTurn: false,   // the sim lever (section 3): true would give the host a fresh 100 AP turn inside; ships false
   };
@@ -127,20 +132,47 @@
     return null;
   }
   // Accept: both are fed (+15% of max LF and +6 ΦF, each capped); the guest goes on the ledger; the host is fed once per meal
-  // that fed a guest, at most twice a battle; the accepted guest has nothing left to do, so her turn in the pass is skipped.
+  // that fed a guest, at most twice a battle; each side studies the other twice for free ("the meal teaches") and ordered
+  // directional meal warmth is recorded in s.valenceBonus (plain JSON, not stashed so it persists after collapse); the accepted
+  // guest has nothing left to do, so her turn in the pass is skipped.
   function feed(s, u, H, why) {
     const lf0 = u.lf, pf0 = u.pf || 0;
     u.lf = Math.min(u.maxLF, u.lf + Math.round(u.maxLF * RULES.heal));
     if (u.maxPF != null) u.pf = Math.min(u.maxPF, pf0 + RULES.phi);
     H.log(s, { kind: "banquet", actor: u.id, text: `${u.name} eats ${why}: +${u.lf - lf0} LF, +${(u.pf || 0) - pf0} ΦF.` });
   }
+  function study(s, host, guest, H) {
+    if (!host || !guest || typeof H?.observeFree !== "function") return;
+    for (let i = 0; i < RULES.mealStudies; i++) H.observeFree(s, host, guest, RULES.mealStudyInvest, { reason: "the meal teaches" });
+    for (let i = 0; i < RULES.mealStudies; i++) H.observeFree(s, guest, host, RULES.mealStudyInvest, { reason: "the meal teaches" });
+  }
+  function warm(s, host, guest, H) {
+    if (!host || !guest || guest.side === host.side) return;
+    const f = s.film, V = RULES.valence, B = (s.valenceBonus ||= {});
+    const add = (a, b, n) => { const k = `${a.id}>${b.id}`; B[k] = (B[k] || 0) + n; };
+    add(guest, host, V.guestToHost);
+    add(host, guest, V.hostToGuest);
+    for (const id of f.seated) {
+      if (id === host.id || id === guest.id || f.guests.includes(id)) continue;
+      const ally = s.actors[id];
+      if (!live(ally) || ally.side !== host.side || ownerOf(ally)) continue;
+      add(guest, ally, V.guestToAlly);
+      add(ally, guest, V.allyToGuest);
+    }
+    H.log(s, { kind: "banquet", actor: guest.id, target: host.id, text: `The meal warms ${guest.name} towards the host: valence +${V.guestToHost}.` });
+  }
   function serve(s, guest, H) {
     const f = s.film, host = s.actors[f.hostId], book = ledger(s, f.hostId);
+    const first = !book.fed[guest.id];
     H.log(s, { kind: "banquet", actor: guest.id, target: f.hostId, choice: "accept", text: `${guest.name} accepts the meal.` });
     book.fed[guest.id] = true;
     feed(s, guest, H, "at the Chef's table");
     if (host && !f.hostFedHere && book.hostFed < RULES.hostFedCap) { book.hostFed += 1; f.hostFedHere = true; feed(s, host, H, "with the guest"); }
     else if (host && !f.hostFedHere) H.log(s, { kind: "banquet", actor: host.id, text: `${host.name} has eaten twice this battle: he serves, but does not eat.` });
+    if (first) {
+      study(s, host, guest, H);
+      warm(s, host, guest, H);
+    }
     const at = s.order.indexOf(guest.id);
     if (at > s.turnIndex) s.order.splice(at, 1);   // fed, with nothing left to do: no turn in the pass
   }

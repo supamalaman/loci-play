@@ -332,6 +332,33 @@
       a = { ...a, seeds: a.seeds + (result.pvSeeds || 0), discoveries: (a.discoveries || 0) + (result.pvCredits || 0), marks: [...(a.marks || []), ...(result.pvMarks || [])].slice(-50) };
       pvLines = result.pvLines || [];
     }
+    let ruinsLines = [];   // Sunken Ruins BD3 (R-20261124-02, 6.6): reads pay a discovery win or lose (Decision 13);
+    if (result.ruins && (result.ruins.read?.length || result.ruins.finds?.length)) {   // finds join the wallets on a win only; taken is written on a win, never on a loss
+      const dive = (a.dive && typeof a.dive === "object") ? a.dive : { read: {}, taken: {}, dives: 0 };
+      const read = { ...(dive.read || {}) };
+      let discoveries = a.discoveries || 0, parts = a.parts, vessels = a.vessels;
+      const taken = { ...(dive.taken || {}) };
+      for (const siteId of result.ruins.read || []) {
+        if (!siteId || read[siteId]) continue;
+        read[siteId] = true; discoveries += 1;
+        ruinsLines.push(`Read: ${siteId}. +1 discovery`);
+      }
+      if (result.winner === "player") {
+        for (const f of result.ruins.finds || []) {
+          if (!f || !f.siteId || !f.find) continue;
+          if (f.find.pay === "parts" && (f.find.tier === "common" || f.find.tier === "uncommon" || f.find.tier === "rare")) {
+            parts = { ...parts, [f.find.tier]: (parts[f.find.tier] || 0) + 1 };
+            taken[f.siteId] = dive.dives || 0;
+            ruinsLines.push(`Find banked: a ${f.find.tier} part.`);
+          } else if (f.find.pay === "vessels" && (f.find.kind === "shard" || f.find.kind === "bead" || f.find.kind === "orb")) {
+            vessels = { ...vessels, [f.find.kind]: (vessels[f.find.kind] || 0) + 1 };
+            taken[f.siteId] = dive.dives || 0;
+            ruinsLines.push(`Find banked: a ${f.find.kind} vessel.`);
+          }
+        }
+      }
+      a = { ...a, discoveries, parts, vessels, dive: { ...dive, read, taken } };
+    }
     let titleLines = [];   // W9.5: title-bout transfers (decided upstream in ui.js; loot only applies)
     if (result.titleTransfer) {
       const t = [...withBags(a).schoolTitles];
@@ -384,7 +411,7 @@
     if (earned) a = earned.account;
     const show = Math.max(0, Math.min(40, result.showboat || 0));   // W6.5: the crowd pays for theater (capped, UI-judged)
     if (show > 0) a = { ...a, seeds: a.seeds + show };
-    const lines = [...xpResult.lines, `+${seeds - (result.winner === "player" ? result.jackpotSeeds || 0 : 0)} Seeds`, ...(result.winner === "player" && result.jackpotSeeds > 0 ? [`Jackpot: +${result.jackpotSeeds} Seeds from the table.`] : []), ...stakeLines, ...(earned ? earned.lines : []), ...pvLines, ...(board.seeds ? [`Contract board pays ${board.seeds} Seeds${board.flag ? ` (${board.flag})` : ""}.`] : board.flag ? [board.flag] : []), ...(scenario.seeds ? [`Scenario bonus pays ${scenario.seeds} Seeds${scenario.flag ? ` (${scenario.flag})` : ""}.`] : scenario.flag ? [scenario.flag] : []), ...titleLines, ...weighLines, ...(result.dopeLines || []), ...(show > 0 ? [`Showboat: +${show} Seeds from the crowd.`] : []), ...wearLines, ...careLines];
+    const lines = [...xpResult.lines, `+${seeds - (result.winner === "player" ? result.jackpotSeeds || 0 : 0)} Seeds`, ...(result.winner === "player" && result.jackpotSeeds > 0 ? [`Jackpot: +${result.jackpotSeeds} Seeds from the table.`] : []), ...stakeLines, ...(earned ? earned.lines : []), ...pvLines, ...ruinsLines, ...(board.seeds ? [`Contract board pays ${board.seeds} Seeds${board.flag ? ` (${board.flag})` : ""}.`] : board.flag ? [board.flag] : []), ...(scenario.seeds ? [`Scenario bonus pays ${scenario.seeds} Seeds${scenario.flag ? ` (${scenario.flag})` : ""}.`] : scenario.flag ? [scenario.flag] : []), ...titleLines, ...weighLines, ...(result.dopeLines || []), ...(show > 0 ? [`Showboat: +${show} Seeds from the crowd.`] : []), ...wearLines, ...careLines];
     for (const d of drops) {
       const it = catalog(d.kind)[d.id];
       if (d.kind === "equipment" && a.gear.owned.includes(d.id)) {

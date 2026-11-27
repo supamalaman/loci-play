@@ -15,7 +15,7 @@
   else root.ConceptCombatVoice = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const PRIORITY = { quote: 9, defeat: 10, victory: 10, encounter: 9, summoned: 9, dismissed: 9, ordered: 9, appear: 9, named: 9, unnamed: 8, fade: 9, ally_hurt: 6, ultimate: 8, rethink: 7, ally_down: 7, low_lf: 7, player_correct: 7, player_wrong: 7,
-    fall: 6, terrain: 6, reveal: 5, parried: 5, slammed: 5, hurt: 4, hit: 3, climb: 3, attack: 2, dream_opened: 7, supernatural: 7, authority_attacked: 8, dispatched: 9, adapt: 6, transcend: 9, swear: 8 };
+    fall: 6, terrain: 6, reveal: 5, parried: 5, slammed: 5, hurt: 4, hit: 3, climb: 3, attack: 2, dream_opened: 7, supernatural: 7, authority_attacked: 8, dispatched: 9, adapt: 6, transcend: 9, swear: 8, flee: 9 };
   // Cutscene events: any undefeated battlefield speaker with its OWN lines for the event
   // speaks, friend or foe (speakers.js side variants), one speaker per event.
   const CUTSCENE = new Set(["dream_opened", "supernatural", "authority_attacked", "dispatched"]);
@@ -50,6 +50,9 @@
       return a.character || byName;
     }
     const sideOf = (a) => (a && a.side === "player" ? "ally" : "foe");
+    // S3: the live guise a unit wears, if its speaker has a voice for it (speakers.js `guises`, keyed by state id).
+    const guiseOf = (a) => { const g = speakers.speakers[speakerId(a)]?.guises; return g ? Object.keys(g).find((k) => a?.states?.[k]) || null : null; };
+    const guiseLines = (a, event) => speakers.ownOf ? speakers.ownOf(speakers.speakers[speakerId(a)], guiseOf(a), event) : [];
     const ownLines = (id, event) => {
       const v = speakers.speakers[id]?.events?.[event];
       if (!v) return [];
@@ -63,14 +66,15 @@
     const isDream = (a) => !!(a && a.dream && dreamVoices && dreamVoices.voices[a.dream.key]);
     const canSpeak = (a) => !!a && ((a.side === "enemy" && !!speakers.speakers[speakerId(a)]) || isSummon(a) || isDream(a) || isCutsceneCapable(speakerId(a)));
     function dialogue(a) {
-      const key = isSummon(a) ? "summon:" + a.summon.key : isDream(a) ? "dream:" + a.dream.key : speakerId(a) + ":" + sideOf(a);
+      const g = !isSummon(a) && !isDream(a) ? guiseOf(a) : null;   // S3: a worn guise has its own grammar
+      const key = isSummon(a) ? "summon:" + a.summon.key : isDream(a) ? "dream:" + a.dream.key : speakerId(a) + ":" + sideOf(a) + (g ? ":" + g : "");
       if (!cache.has(key)) cache.set(key, isSummon(a) ? tracery.fromObjects(summonVoices.spec(a.summon.key), {})
-        : isDream(a) ? tracery.fromObjects(dreamVoices.spec(a.dream.key), {}) : tracery.fromObjects(speakers.spec(speakerId(a), sideOf(a)), grammar));
+        : isDream(a) ? tracery.fromObjects(dreamVoices.spec(a.dream.key), {}) : tracery.fromObjects(speakers.spec(speakerId(a), sideOf(a), g), grammar));
       return cache.get(key);
     }
     // Cutscene pickup: first undefeated battlefield speaker with own lines for the event, player side first.
     const cutsceneSpeaker = (s, event) => (s.order || [])
-      .filter((id) => { const a = s.actors[id]; return a && !a.defeated && ownLines(speakerId(a), event).length; })
+      .filter((id) => { const a = s.actors[id]; return a && !a.defeated && (guiseOf(a) ? guiseLines(a, event) : ownLines(speakerId(a), event)).length; })   // S3: a worn guise is judged by its own lines, so the cue passes on
       .sort((p, q) => (s.actors[p].side === "player" ? 0 : 1) - (s.actors[q].side === "player" ? 0 : 1))[0] || null;
 
     // Candidate (actorId, event) pairs for one log entry. `ctx` carries running facts.
@@ -78,7 +82,8 @@
       const A = (id) => s.actors[id], out = [];
       const add = (id, event) => {
         const a = A(id);
-        if (!canSpeak(a) || (a.defeated && event !== "defeat")) return;
+        if (!canSpeak(a) || (a.defeated && event !== "defeat" && event !== "flee")) return;   // flee: a fled unit is marked defeated and escaped
+        if (!isSummon(a) && !isDream(a) && (guiseOf(a) || (speakers.ownEvents || []).includes(event)) && !guiseLines(a, event).length) return;   // S3: a guise, a flight and an arrival speak only their own lines
         if (isSummon(a) && !summonVoices.events.includes(event)) return;    // summons only voice their own event set
         if (isDream(a) && !dreamVoices.events.includes(event)) return;
         if (a.side !== "enemy" && !isSummon(a) && !isDream(a) && event !== "encounter" && !CUTSCENE.has(event)) return;  // allies only cutscene
@@ -90,6 +95,8 @@
       switch (e.kind) {
         case "act": if (e.ability) add(e.actor, "attack"); ctx.lastActor = e.actor; break;
         case "announce": add(e.actor, "ultimate"); ctx.lastActor = e.actor; break;
+        case "flee": add(e.actor, "flee"); break;                       // S3: a flight (engine/conditions.js fleeBattle); silent for speakers with no flee lines
+        case "hire": if (e.arrived) add(e.actor, "appear"); break;      // S3: a kin arrival (engine/hires.js), the deer or the mendicant; silent without own appear lines
         case "reveal": add(e.actor, "reveal"); break;
         case "quote": { const a = A(e.actor); if (canSpeak(a) && !a.defeated && e.quote) out.push({ actor: e.actor, event: "quote" }); break; }   // a line the engine wrote (Never Give Up): spoken as written, allies too
         case "damage": {

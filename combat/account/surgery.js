@@ -30,6 +30,7 @@
   // Biology traits she can graft. Left out: weaknesses (nobody buys those), what you are rather than what you have (robot,
   // immortal, touchedByMagic, dreamTouched, visage, distributedIntelligence), and form-only traits.
   // animatedBody is left out the same way (a whole cartoon body, not a part; reference Game-altering 1400, R-20261122-44).
+  // instantRegeneration is not sold (Mala, 2026-11-22: "cant be bought"; reference Game-altering 1400, claude-instant-regeneration-spec).
   const catalog = {
     survivalInstincts: 1, keenSenses: 1, nightSighted: 1, hardy: 1, ironStomach: 1, highTolerance: 1, resonantVoice: 1, plantKin: 1, twentyTwentyVision: 1, thinVeil: 1,
     fleetFooted: 2, reach: 2, cavalry: 2, vegetativePropagation: 2, stickyFingers: 2, catNap: 2, heavyArmor: 2,
@@ -45,6 +46,7 @@
     packMule: 2,   // feats batch, 2026-10-27: carrying, not killing (reach/stickyFingers precedent)
     fourArms: 3,   // feats batch, 2026-10-27: doubles strikes — changes how you fight (strongGrip precedent)
     prehensileTail: 1,   // PT1 (R-20261111-56): +1 battle hand and half-cost climbing, equal to heavyBones
+    looseWrist: 1,   // Magenta Trickster MT1: Minor 80 Seeds; +1 range on paid single-target nigredo pull lines
     trepanation: 4,   // grok SPEC, Mala locked 2026-10-28: two-state plus a thinner wall rewrites fights (godlyAgility precedent)
     // gills is not sold. Reference Strong 520 (insight-data.js). Born on the Teal Eel and the Remora Adventurer. Grafting it onto other bodies waits on Mala.
   };

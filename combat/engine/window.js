@@ -87,6 +87,7 @@
         if (coverOnly && x.id !== "fixedGaze" && x.id !== "purpleLitany" && x.id !== "guestPortion" && x.id !== "objection") continue;
         if (def?.answer) { if (answerReady(s, d, x, atk, def, inst)) out.push({ kind: "technique", ability: x.id, target: [atk.x, atk.y], apCost: answerAp(s, m, d, inst), pf: H.inspiredPay(s, d, m) ? 0 : m.cost, name: m.name, answer: true, ...(H.inspiredPay(s, d, m) ? { inspired: true } : {}) }); continue; }
         if (!def?.reactive || d.pf < m.cost || !canPayAp(s, d, answerAp(s, m, d, inst))) continue;
+        if ((m.oncePerTurn && (d.onceTurns || {})[x.id] === d.ownerTurns) || (m.oncePerBattle && (d.onceBattle || {})[x.id])) continue;   // a spent once-a-turn or once-a-battle art (a worn soul's lent Rebound, R-20261124-06) is not offered
         // JI1: an instrument answer is offered only with its source rights. Untuned but Inspired
         // gets its own row carrying the substitute flag; nothing else changes shape.
         let insSub = false;
@@ -127,6 +128,9 @@
           const c = inst.concept, beaten = c && (H.findOpp(c, "barrier", "disrupts", inst.delivery) || H.findOpp(c, "barrier", "bypasses", inst.delivery, "ignoreParry"));
           if ((def.parry?.catches || []).includes(shown) && !(knowsAttack(s, d, inst) && (beaten || inst.ignoreParry))) out.push(opt([d.x, d.y]));
         } else if (m.effect === "membrane") { if (shown === "line" && !(knowsAttack(s, d, inst) && !(inst.concept && H.findOpp("selectivity", inst.concept, "negates", "line")))) out.push(opt([d.x, d.y])); }
+        else if (m.effect === "archivistWard" && def?.reactive) {   // Šammu SN1a2: Protective Sleeve answers an eligible attack on the carrier itself, warding the carrier (cast on the own turn it still wards any legal ally)
+          if (targeted && atk && !coverOnly && dist(s, atk.x, atk.y, d.x, d.y) >= (RD(s)?.minRange ?? 2)) out.push(opt([d.x, d.y]));
+        }
       }
       return out;
     }
@@ -194,6 +198,8 @@
       const crescendoAnswer = H.Inspiration.crescendoAnswer(s, d);   // a Crescendo's answer bend: this answer spends no reaction and is not rushed
       if (crescendoAnswer) H.Inspiration.crescendoAnswerUsed(d); else d.reaction -= 1;
       ClassRuntime?.auditor.committed(s,d,{...m,id:opt.ability},H);
+      if (m.oncePerTurn) (d.onceTurns ||= {})[opt.ability] = d.ownerTurns;   // the once stamps, as engine/actions-technique.js writes them on the own-turn path (R-20261124-06: a worn soul's lent art used as a reaction)
+      if (m.oncePerBattle) (d.onceBattle ||= {})[opt.ability] = true;
       s.stats.abilityUses[opt.ability] = (s.stats.abilityUses[opt.ability] || 0) + 1;
       log(s, { kind: "respond", actor: d.id, response: "technique", ability: opt.ability, tiles: t.tiles, apCost,
         text: `${d.name} answers ${attack.name} with ${m.name} (${crescendoAnswer ? "Crescendo: no reaction spent" : "reaction spent"}; ${m.cost} ΦF, ${apCost} AP ${now ? "spent now" : "charged as next-turn tempo debt"}).`,
@@ -232,6 +238,12 @@
       if (m.effect === "parry" && d.status.parry) { const pn = d.status.parry.name || "Rebound"; Object.assign(d.status.parry, crescendoAnswer ? { reacted: true, label: `${pn} (Crescendo)` } : perfect ? { reacted: true, perfect: true, label: `${pn} (perfect)` } : { reacted: true, rushed: caught, label: `${pn} (rushed)` }); }   // armed by the reaction: catching this hit costs no second one
       if (m.effect === "membrane" && d.status.membrane && !perfect && !crescendoAnswer) Object.assign(d.status.membrane, { rushed: caught, label: "Membrane (rushed)" });
       if (m.effect === "barrier" && m.range === 0 && d.status.ward && !opt.coverFor) d.status.ward.protection = Math.round(d.status.ward.protection * caught);
+      if (m.effect === "archivistWard" && d.status.ward?.sleeveReaction) {   // Šammu SN1a2: the rushed Sleeve catches a share of its 12 (prepared 12, rushed 6, from cover 3, perfect 12); the ward resolves against this hit and keeps its native expiry
+        const w = d.status.ward; delete w.sleeveReaction;
+        const full = w.protection; w.protection = Math.round(full * caught);
+        if (w.protection <= 0) { d.status.ward = null; log(s, { kind: "respond", actor: d.id, ability: opt.ability, text: `${d.name}'s rushed Protective Sleeve spends itself whole against ${attack.name}.`, why: [`A rushed answer catches ${Math.round(caught * 100)}% of ${full} protection: nothing is left to hold.`] }); }
+        else if (caught < 1) log(s, { kind: "respond", actor: d.id, ability: opt.ability, text: `${d.name}'s rushed Protective Sleeve meets ${attack.name} with ${w.protection} of ${full} protection.`, why: [`A rushed answer catches ${Math.round(caught * 100)}% (prepared catches all; a perfect answer catches everything).`] });
+      }
       if (opt.coverFor && m.effect === "barrier" && m.range === 0) { const ally = s.actors[opt.coverFor];   // W1c cover: project the image's protection onto the ally for the one shot; the held image itself is untouched, the ally books whatever gets through
         if (ally && !ally.defeated && !ally.status?.ward) { ally.status.ward = { label: opt.ability === "purpleLitany" ? "Projected dome" : "Projected gaze", owner: d.id, protection: Math.round((d.status.ward?.protection || 0) * caught), expiresAt: (ally.ownerTurns ?? 0) + 1, gazeCover: true };
           log(s, { kind: "respond", actor: d.id, target: ally.id, ability: opt.ability, text: opt.ability === "purpleLitany" ? `${d.name} stands the dome over ${ally.name}: ${ally.status.ward.protection} protection against the one shot.` : `${d.name} stands the image over ${ally.name}: ${ally.status.ward.protection} protection against the one shot.`, why: [`Cover: the ${opt.ability === "purpleLitany" ? "dome" : "image"}'s ${d.status.ward?.protection ?? 0} protection fires ${perfect || fixedPrimed ? "whole (primed)" : "rushed"} over an unwarded ally.`] }); } }
@@ -363,6 +375,7 @@
         if (freeRead) d.freeReactionVs = null;
         log(s, { kind: "respond", actor: id, text: p.inst.convene ? `${d.name} answers the summons (keeps the reaction).` : `${d.name} takes it without responding (keeps the reaction).` });
       } else return "Respond with guard, reposition, dodgeThrow, kneel, technique or none.";
+      ClassRuntime?.magenta?.onRespond?.(s, d, act, p, H);
       p.responded.push(id);
       skipUnable(s);
     }

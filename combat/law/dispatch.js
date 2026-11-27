@@ -196,6 +196,7 @@
     }
     const trial = TR.openTrial({ form: "courtroom", accusedId, prosecutorId: officerId, seed: s.seed,
       units: H.Courtroom.fixtures(s), counts, vouchers: H.Courtroom.vouchersFor ? H.Courtroom.vouchersFor(s, accusedId) : [] });   // Bonds B6: an arrested player may be vouched for too
+    trial.pleaOpen = true;   // M2b: the plea lives in convened and arrest trials (1.2), not the rite
     s.trial = { t: trial, invokerId: officerId, accusedId, queued: null, queuedDefense: null,
       contempt: [], over: false, foundAtOpen: H.Courtroom.foundIds(s, accusedId), arrestTrial: true };
     H.log(s, { kind: "trial", actor: accusedId, target: officerId,

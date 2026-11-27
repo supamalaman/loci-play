@@ -42,7 +42,7 @@
   else root.ConceptCombat = factory(Observation, Tourist, root.ConceptCombatPostures, root.ConceptCombatPresident, Sight, Belief, GraphLive, ClassRuntime, root.ConceptCombatDirector, RandomEvents, Climate, Auras, Parley, Bonds, Vows, MaidSystems, Workflow, UtilityAI, Communion, Traps, Tsukumogami, Imitation, EmergentIdeas, EnemySummons, MindDuel, root.ConceptCombatConversion, root.ConceptCombatCourtroom, root.ConceptCombatDispatch, root.ConceptCombatPresence, root.ConceptCombatDebt, root.ConceptCombatSealing, root.ConceptCombatVisitors, (root.ConceptCombatBuild && root.ConceptCombatBuild.version) || "dev");
 })(typeof self !== "undefined" ? self : this, function (Observation = null, Tourist = null, Postures = null, President = null, Sight = null, Belief = null, GraphLive = null, ClassRuntime = null, Director = null, RandomEvents = null, Climate = null, Auras = null, Parley = null, Bonds = null, Vows = null, MaidSystems = null, Workflow = null, UtilityAI = null, Communion = null, Traps = null, Tsukumogami = null, Imitation = null, EmergentIdeas = null, EnemySummons = null, MindDuel = null, Conversion = null, Courtroom = null, Dispatch = null, Presence = null, Debt = null, Sealing = null, Visitors = null, BUILD = "dev") {
   // The engine's parts, in install order (web/combat/engine/). Node requires them; the pages load them as scripts first.
-  const ENGINE_PARTS = ["charge","ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","tenancy","greedigut","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
+  const ENGINE_PARTS = ["charge","civilians","ledgers","conditions","turns","true-forms","damage","targeting","actions","resolve","window","queries","ai","focus-plans","kaiba","land","houses","tamer","tally","hires","factions","longtermism","living-map","contracts","astral","states","ante","mystery","hyper","fruit","tenancy","greedigut","anime-orbit","instinct","injury","cards","wheelhouse"].map((name) => typeof module === "object" && module.exports
     ? require("./engine/" + name + ".js") : globalThis.ConceptCombatEngineParts[name.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase())]), Affinity = typeof module === "object" && module.exports ? require("./vows/affinity.js") : globalThis.ConceptCombatAffinity, VK = typeof module === "object" && module.exports ? require("./vows/vowkit.js") : globalThis.CombatVowKit;   // W4.5-6: vow-drive audit + declaration kit
 
 
@@ -886,7 +886,7 @@
       const m = {
         observedChannel: a.lastDamageType || null, scribedEffects: d.scribedEffects ? clone(d.scribedEffects) : null, ability: abilityId, name: d.name, tier: d.tier, announce: d.announce || null, announced: !!options.announce, revelation: options.announce ? Math.max(1, Math.min(3, Math.round(+options.revelation || 1))) : 0, concept, timing:d.timing||null, effectCategory: d.effectCategory || "uncategorized", delivery: d.delivery, target: d.target, effect: d.effect,
         damageType: d.damageType || C.conceptDamageTypes[concept] || "nigredo",
-        area: clone(d.area || { shape: "single" }), cost: d.cost, lfPrice: d.lfPrice || 0, potency: d.potency, range: d.range,
+        area: clone(d.area || { shape: "single" }), cost: d.cost, lfPrice: d.lfPrice || 0, potency: d.potency, range: d.range, ownTurnRange: d.ownTurnRange,
         tempoCost: d.tempoCost ?? s.rules.actionCosts.ability[d.tier] ?? s.rules.actionCosts.ability.basic,
         stunTempo: d.stunTempo || 0, piercing: !!d.piercing, holy: !!d.holy, destructive: !!d.destructive || d.concepts.includes("anti_urbanism"),   // piercing ignores ward; destructive ×2 vs structures, every Anti-Urbanism technique (Mala, 2026-10-18)
         guardMultiplier: lens.guardMultiplier,
@@ -1000,7 +1000,7 @@
       }
       if(a.status?.verse?.id===abilityId && a.status.verse.until>=a.ownerTurns){m.cost=0;m.verse=true;if(a.status.verse.freeAp)m.tempoCost=0;m.notes.push("Borrowed verse: original prerequisites and counters; ΦF already paid.");}
       if (a.exposure?.longCut && abilityId === s.rules.exposure?.cut?.ability) { m.range += s.rules.exposure.cut.reach; m.notes.push(`The long cut: reach +${s.rules.exposure.cut.reach}. It leaves you open until your next turn.`); }   // Exposure, sample 9
-      if (abilityId === "focus" && H.FocusPlans?.free(s,a)) { m.cost=0; m.tempoCost=0; m.freeFocus=true; m.notes.push("Free Fix Attention: eliminate this opponent to renew the allowance."); } H.adhdPrice?.(s, a, abilityId, m); ClassRuntime?.price?.(s, a, abilityId, m); H.legacyPrice?.(s, a, abilityId, m);
+      if (abilityId === "focus" && H.FocusPlans?.free(s,a)) { m.cost=0; m.tempoCost=0; m.freeFocus=true; m.notes.push("Free Fix Attention: eliminate this opponent to renew the allowance."); } H.adhdPrice?.(s, a, abilityId, m); ClassRuntime?.price(s, a, abilityId, m, options); H.legacyPrice?.(s, a, abilityId, m);
       { const ra = m.revelation > 1 ? s.rules.revelation?.apAdd?.[m.revelation] || 0 : 0; if (ra) { m.tempoCost += ra; m.notes.push(`${s.rules.revelation.names[m.revelation]}: +${ra} AP to give that much away (Revelation).`); } } H.Contracts?.decorate(s,a,m);if(m.effect==="cure")H.States.cureBill(a,m); if (!options.copySource) Vows?.applyPlainCup(s, a, m); return m;   // Revelation AP (Mala, 2026-10-26: depth costs AP until readers exist)
     }
     const ownerOfConcept = (a, concept) => concept === a.primary ? "primary" : concept === a.secondary ? "secondary" : null;
@@ -1260,129 +1260,8 @@
     // H for the parts after it and unpacked below so the rest of this file can call them by name.
     // Post-Humanity, Inspiration and Contains Multitudes live in engine/ledgers.js (a part, reached as H.PostHuman,
     // H.Inspiration, H.Multitudes).
-    // ── Civilians (Mala, 2026-10-12; docs/civilians.md): shoppers who want to be left alone. They never start a
-    // fight; a hit makes them hostile to that side only, and until then their attacks do nothing. Never hold the battle open.
-    const isCop = (u) => !!u && u.character === "police_officer";
-    const isThief = (u) => !!u && (u.character === "thief" || (u.primary === "stealth" && u.secondary === "deception"));
-    const Civilian = {
-      side: "civilian", name: "Civilians",
-      is: (u) => !!u && u.side === "civilian",
-      hostileTo: (s, side) => !!s.civilians?.hostileTo.includes(side),
-      sideName: (side) => (side === "player" ? "the player's side" : side === "enemy" ? "the opposing side" : `the ${side} side`),
-      atWar(s, a, t) {
-        if (!a || !t) return true;
-        if (isCop(a)) return t.side !== "civilian" && (this.hostileTo(s, t.side) || isThief(t) || t.id === a.hunting);
-        if (isCop(t) && (isThief(a) || t.hunting === a.id)) return true;   // the quarry fights back
-        if (a.side === "civilian") return t.side !== "civilian" && this.hostileTo(s, t.side);
-        if (t.side === "civilian") return this.hostileTo(s, a.side);
-        return true;
-      },
-      blocked(s, src, tgt) {
-        if (src && tgt && isCop(src) && (isThief(tgt) || tgt.id === src.hunting)) return false;
-        return !!src && !!tgt && src.side === "civilian" && tgt.side !== "civilian" && src.id !== tgt.id && !this.hostileTo(s, tgt.side);
-      },
-      attacked(s, src, tgt) {
-        if (!src || !tgt || src.id === tgt.id || !s.actors[src.id] || src.side === tgt.side || src.side === "civilian" || tgt.side !== "civilian" || s.preview || src.mirrorOf || tgt.mirrorOf || H.astralRegionOf?.(s, tgt.x, tgt.y) === "pocket") return;   // mirrors and the astral pocket: no civilian law there (Mala, 2026-10-26)
-        const book = (s.civilians ||= { hostileTo: [], members: [] });
-        if (!book.members.includes(tgt.id)) book.members.push(tgt.id);
-        if (!book.hostileTo.includes(src.side)) {
-          book.hostileTo.push(src.side);
-          log(s, { kind: "faction", actor: tgt.id, target: src.id, text: `${src.name} attacks ${tgt.name}: the civilians are now hostile to ${this.sideName(src.side)}.`, why: ["Civilians shove back only at a side that has hit one of them, and they still do not hold the battle open."] });
-        }
-        Civilian.respond(s, src, tgt);
-      },
-      // The muscle: a standing officer without a case takes it; otherwise one backup roll per round.
-      respond(s, src, tgt) {
-        const free = Object.values(s.actors).find((u) => !u.defeated && !u.notArrived && isCop(u) && !u.hunting);
-        const didHarm = isCop(tgt) ? "attacked an officer" : "harmed a civilian";   // officers wear civilian colors; the charge names the victim truly
-        const forHarm = isCop(tgt) ? "attacking an officer" : "harming a civilian";
-        if (free) {
-          free.hunting = src.id; free.forceTarget = src.id; free.forceTargetUntil = 999;
-          log(s, { kind: "faction", actor: free.id, target: src.id, text: `${free.name} takes the case: ${src.name} ${didHarm}.`, why: ["The officer stays hostile until the offender is subdued."] });
-          return;
-        }
-        if (s.copRolledRound === s.round) return;   // one backup roll per round; failed rolls burn no badge numbers (Wetland 4099738187 went Officer 3 → Officer 6)
-        s.copRolledRound = s.round;
-        if (H.seededChance(`${s.seed}:coprespond:${(s.copN || 0) + 1}`) >= 0.5) return;
-        s.copN = (s.copN || 0) + 1;
-        const open = (x, y) => x >= 0 && y >= 0 && x < s.arena.w && y < s.arena.h && !tileAt(s, x, y).blocksMove && !actorAt(s, x, y);
-        const edge = [];
-        for (let x = 0; x < s.arena.w; x++) for (const y of [0, s.arena.h - 1]) if (open(x, y)) edge.push([x, y]);
-        for (let y = 1; y < s.arena.h - 1; y++) for (const x of [0, s.arena.w - 1]) if (open(x, y)) edge.push([x, y]);
-        edge.sort((a, b) => (Math.abs(a[0] - tgt.x) + Math.abs(a[1] - tgt.y)) - (Math.abs(b[0] - tgt.x) + Math.abs(b[1] - tgt.y)));
-        if (!edge.length) { log(s, { kind: "faction", text: "The call goes out, but no unit can reach the scene." }); return; }
-        const ch = C.characters.police_officer, id = `officer-${s.copN}`, at = edge[0];
-        const base = s.actors.player || Object.values(s.actors)[0];
-        const a = H.freshBody(base, s);
-        Object.assign(a, {
-          id, character: "police_officer", name: `Officer ${s.copN}`, category: "civilian", side: "civilian", sprite: ch.sprite,
-          ai: "police_officer", controller: "ai", posture: "aggressive", permanentAlly: false, selectedConfig: null,
-          x: at[0], y: at[1], maxLF: 80, lf: 80, pf: s.rules.maxPF, maxPF: s.rules.maxPF, ultimateCharge: 0,
-          primary: ch.primary, secondary: ch.secondary, reserve: [], reserveSlots: 0, lens: clone(ch.lens || {}), level: 1, xp: 0, proficiency: 1,
-          traits: [...(ch.traits || [])], passives: {}, abilities: [], aiAbilities: null, learned: [],
-          inventory: [], inventoryCapacity: pickupRules?.rules?.slots || 2, reaction: 0, ownerTurns: 0, boss: null, size: null, massive: false,
-          tempo: 0, tempoCapacity: 0, bankedTempo: 0, tempoDebt: 0, tempoSpent: 0, actionsThisTurn: 0,
-          moved: false, acted: false, guardUsedThisTurn: false, defeated: false, notArrived: false, arrivesRound: null,
-          eventActor: false, eventRole: null, aggressive: true, persuaded: false, standDownUntil: null, willpower: 10, maxWillpower: 10, soul: H.soulMaxFor(s.rules, ch.soulKind, "police_officer", ch.traits), maxSoul: H.soulMaxFor(s.rules, ch.soulKind, "police_officer", ch.traits), soulKind: ch.soulKind || null, husk: false,
-          hunting: src.id, forceTarget: src.id, forceTargetUntil: 999,
-          vows: [], rite: null, riteAugment: null, inspiration: 0, role: null, audition: null, typecast: null, bond: null,   // fresh badge (Officer 6 fought under Warden's Far Shot)
-        });
-        a.status = { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null, immovable: null, exposed: null, attention: null, rangeBuff: null, tippingPoint: null, ambush: null, catharsis: null, drowning: null };
-        s.actors[id] = a;
-        H.wheelhouseSettle?.(s, a, ch);
-        if (!s.order.includes(id)) s.order.push(id);
-        s.disclosures[id] = {}; s.knowledge[id] = {}; s.observedAbilities[id] = [];
-        for (const other of Object.keys(s.actors)) {
-          (s.knowledge[other] ||= {})[id] ||= { secondary: true, lens: true, abilities: {} };
-          if (other !== id) s.knowledge[id][other] = { secondary: true, lens: true, abilities: {} };
-        }
-        const members = (s.civilians ||= { hostileTo: [], members: [] });
-        if (!members.members.includes(id)) members.members.push(id);
-        log(s, { kind: "faction", actor: id, target: src.id, tiles: [at], text: `${a.name} responds: ${src.name} is wanted for ${forHarm}.`, why: ["The officer stays hostile until the offender is subdued."] });
-      },
-      // Places the first member, a customer with the grocery-bag sprite. Not a concept class.
-      present(s, spec = {}) {
-        const id = spec.id || "customer";
-        if (s.actors[id]) return s.actors[id];
-        const open = (x, y) => x >= 0 && y >= 0 && x < s.arena.w && y < s.arena.h && !tileAt(s, x, y).blocksMove && !actorAt(s, x, y);
-        let spot = spec.at || null;
-        if (!spot) {
-          const px = s.actors.player?.x ?? 1, py = s.actors.player?.y ?? 3, found = [];
-          for (let y = 0; y < s.arena.h; y++) for (let x = 0; x < s.arena.w; x++) if (open(x, y) && Math.abs(x - px) + Math.abs(y - py) >= 2) found.push([x, y]);
-          found.sort((a, b) => (Math.abs(a[0] - px) + Math.abs(a[1] - py)) - (Math.abs(b[0] - px) + Math.abs(b[1] - py)) || a[0] - b[0] || a[1] - b[1]);
-          spot = found[0] || null;
-        }
-        if (!spot || !open(spot[0], spot[1])) return null;
-        const base = s.actors.player || Object.values(s.actors)[0];
-        const a = H.freshBody(base, s);
-        const name = spec.name || "Customer";
-        Object.assign(a, {
-          id, character: "customer", name, category: "civilian", side: "civilian", sprite: spec.sprite || "customer",
-          ai: null, controller: "ai", posture: "protective", permanentAlly: false, selectedConfig: null,
-          x: spot[0], y: spot[1], maxLF: 40, lf: 40, pf: s.rules.maxPF, maxPF: s.rules.maxPF, ultimateCharge: 0,
-          primary: null, secondary: null, reserve: [], reserveSlots: 0, lens: {}, level: 1, xp: 0, proficiency: 1,
-          traits: ["pacifist"], passives: {}, abilities: [], aiAbilities: [], learned: [],
-          inventory: [], inventoryCapacity: 0, reaction: 0, ownerTurns: 0, boss: null, size: null, massive: false,
-          tempo: 0, tempoCapacity: 0, bankedTempo: 0, tempoDebt: 0, tempoSpent: 0, actionsThisTurn: 0,
-          moved: false, acted: false, guardUsedThisTurn: false, defeated: false, notArrived: false, arrivesRound: null,
-          eventActor: false, eventRole: null, aggressive: false, persuaded: false, standDownUntil: null, willpower: 10, maxWillpower: 10, soul: H.soulMaxFor(s.rules, null, "customer", ["pacifist"]), maxSoul: H.soulMaxFor(s.rules, null, "customer", ["pacifist"]), soulKind: null, husk: false,
-        });
-        a.status = { guard: null, ward: null, parry: null, membrane: null, anchor: null, stun: null, entangled: null, immovable: null, exposed: null, attention: null, rangeBuff: null, tippingPoint: null, ambush: null, catharsis: null, drowning: null };
-        s.actors[id] = a;
-        if (!s.order.includes(id)) s.order.push(id);
-        s.disclosures[id] = {}; s.knowledge[id] = {}; s.observedAbilities[id] = [];
-        for (const other of Object.keys(s.actors)) {
-          (s.knowledge[other] ||= {})[id] ||= { secondary: true, lens: true, abilities: {} };
-          if (other !== id) s.knowledge[id][other] = { secondary: true, lens: true, abilities: {} };
-        }
-        const book = (s.civilians ||= { hostileTo: [], members: [] });
-        if (!book.members.includes(id)) book.members.push(id);
-        log(s, { kind: "faction", actor: id, tiles: [spot], text: `${name} is here with the groceries, and wants to be left alone.`, why: ["Civilians do not start fights, and they do not have to fall for the battle to end."] });
-        return a;
-      },
-    };
     const H = {
-      Civilian, Observation, observationH, Tourist, touristH, Auras, Belief, Bonds, C, CRAFT, CRAFT_OWN, ClassRuntime, Climate, Communion, DIRS, EM, EmergentIdeas, EnemySummons, FEAR, GraphLive, INTERDICT, Imitation, MED, MaidSystems,
+      Observation, observationH, Tourist, touristH, Auras, Belief, Bonds, C, CRAFT, CRAFT_OWN, ClassRuntime, Climate, Communion, DIRS, EM, EmergentIdeas, EnemySummons, FEAR, GraphLive, INTERDICT, Imitation, MED, MaidSystems,
       Parley, Conversion, Courtroom, Dispatch, Presence, Debt, Sealing, Performers, Postures, President, REVEAL, RITUAL, RandomEvents, SHADE, Sight, Stealth, Traps, Tsukumogami, UtilityAI, Visitors, Vows, Affinity, VK, WX, Workflow, ab, abilitiesOf, Director, MindDuel,
       accountItems, activeTerrainEffect, actorAt, addRandomTerrain, addStun, allyLook, answerTransfer, archivistTestOptions, auraH, barrierAt,
       borrowedPools, bossAbilityIds, bossRules, cannotSwim, classH, clone, compositionEdge, conceptName, content, coversTile, create,
@@ -1465,14 +1344,14 @@
       parleyOptions: (s, id) => (Parley ? Parley.options(s, id) : { terms: [], offers: [] }), tallyStatus: (s, id) => (H.Tally ? H.Tally.status(s, id) : null), anteLeader: (s) => H.anteLeader(s), anteCarry: (s) => H.anteCarry(s), antePreBlood: (s) => H.antePreBlood(s), gamblerHeat: (s, id) => H.heatOf(s, id), myolOffer: (s) => s.lastRoll, hyperRules: () => H.hyperRules, jackpotMeter: (s) => H.jackpotMeter(s),   // Parley menu entries; tally (engine/tally.js), ante (W1.5), hyper (W5.3)
       talkChance: (s, id, targetId) => (Parley && s.actors[targetId] ? (Parley.cannotTalk(s, s.actors[id], s.actors[targetId]) ? 0 : Parley.talkChance(s, s.actors[id], s.actors[targetId])) : null),
       mindIntel: (s, viewerId) => (MindDuel ? MindDuel.intel(s, viewerId) : null),   // Mind duel: window data for the UI
-      placeCivilian: (s, spec) => Civilian.present(s, spec),
+      placeCivilian: (s, spec) => H.Civilian.present(s, spec),
       touristTestOptions: () => ({ encounter:"firstWall",title:"The Tourist · postcard test",seed:5,tourist:{at:[2,3]},startingActor:"player",arenaData:{name:"Camera Garden",map:Array(8).fill("............"),objects:[{id:"fern",kind:"plant",type:"Fern",form:"groundcover",material:"plant",x:5,y:1,hp:12,blocksMove:false}]},participants:[{id:"player",character:"warden",side:"player",at:[5,3]},{id:"student",character:"student",side:"enemy",at:[10,6]}] }),
       multitudes: (s, id) => H.Multitudes.view(s, s.actors[id]), multitudesTestOptions, embodiedConceptsTestOptions: () => ({ encounter: "firstWall", focusedDreamTest: true, title: "Embodied Concepts · test", seed: 53, startingActor: "player", initialSummons: [], rules: { embodiedConcepts: { ...C.rules.embodiedConcepts, enabled: true } }, arenaData: { name: "Embodiment test", map: Array(7).fill("..........."), objects: [] }, participants: [{ id: "player", character: "warden", side: "player", at: [3, 3] }, { id: "student", character: "student", side: "enemy", at: [8, 3] }] }),   // reachability: the opt-in rides opts.rules (folded here: engine.js stays under its cap)
       aiFailure, aiSnapshot, stallPreview, deathDoorOdds, proficientSummonerTestOptions: () => H.proficientSummonerTestOptions(), summonProfile, summonReadiness, dreamReadiness: (s, id, key, unlocked) => H.dreamReadiness(s, id, key, unlocked), summonQuestionHints: H.summonQuestionHints, emergentIdeas: (s, id) => EmergentIdeas?.active(s.actors[id]) || [], performerTestOptions, focusedDreamTestOptions, devPlaygroundOptions, themedBattleOptions, meleeTestOptions, summonTrueFormTestOptions, archivistTestOptions, fullCourtPressOptions,
       markTrace: (s, id) => H.States.markTrace(s, id),
       geometry: { line, hasSight: (s, ...p) => hasSight(s, ...p), paths: (s, ...p) => paths(s, ...p), dist: (s, ...p) => dist(s, ...p), tileAt: (s, x, y) => tileAt(s, x, y), surfaceAt: (s, x, y) => surfaceAt(s, x, y), barrierAt: (s, x, y) => barrierAt(s, x, y), actorAt: (s, x, y) => actorAt(s, x, y), heightAt: (s, x, y) => heightAt(s, x, y), observedAbilities: (s, id) => (s.observedAbilities?.[id] || []).filter(aid => ab(aid)?.tier !== "ultimate").map(aid => ({ id: aid, name: ab(aid).name, concepts: ab(aid).concepts })) },
       lensOf: (s, id, c) => lensOf(s.actors[id], c), compositionEdge: (s, id) => compositionEdge(s.actors[id]), content: C, stance: (s, v, t) => H.stanceFor(s, s.actors[v], s.actors[t]), hostileSides: (s, t) => H.hostileSidesFor(s, s.actors[t]),
-      astral: { regionOf: (s, x, y) => H.astralRegionOf(s, x, y), sameRegion: (s, ax, ay, bx, by) => H.astralSameRegion(s, ax, ay, bx, by) }, applyRevealEffect: (s, id) => applyRevealEffect(s, s.actors[id]) };   // astral pocket queries + reveal effects, for tests
+      astral: { regionOf: (s, x, y) => H.astralRegionOf(s, x, y), sameRegion: (s, ax, ay, bx, by) => H.astralSameRegion(s, ax, ay, bx, by), ruinsReadRows: (s, a) => H.ruinsReadRows(s, a), ruinsTakeRows: (s, a) => H.ruinsTakeRows(s, a), ruinsResult: (s) => H.ruinsResult(s) }, applyRevealEffect: (s, id) => applyRevealEffect(s, s.actors[id]) };   // astral pocket queries + reveal effects, for tests; BD3 ruins rows + ledger
   }
 
   return { engine };

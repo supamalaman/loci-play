@@ -385,6 +385,7 @@
       if (!fruitOf(t) || t.defeated) return;
       // expire() runs before regen at turn start: +2 keeps Soaked over the next turn it is meant to damp.
       t.status.soaked = { label: "Soaked", owner: t.id, expiresAt: t.ownerTurns + 2 };
+      H.FireDance?.checkBreaks(s);   // Fire Dance D1: soaked breaks Flame Dance at once
       const lost = [t.status.coils?.n ? "the stored coils" : "", t.status.mainspring ? "the wound mainspring" : "", t.status.hideShape || t.status.ward?.hide ? "the borrowed shape and its hide" : "", frontOn(t) ? "the weather front" : ""].filter(Boolean);
       if (t.status.weatherFront) { t.status.weatherFront = null; s.barriers = (s.barriers || []).filter((b) => !(b.front && b.owner === t.id)); }
       if (fruitOf(t)?.id === "locus") { emptyRooms(s, t, `soaked by ${by}`); t.status.palace = null; }

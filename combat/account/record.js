@@ -5,6 +5,7 @@
   else root.ConceptCombatCourtRecord = factory(root.ConceptCombatCrimes);
 })(typeof self !== "undefined" ? self : this, function ({ crimes }) {
   const grades = { unproven: 0, found: 1, witnessed: 2, sworn: 3, proven: 4 };
+  const lawView = (law) => (law <= -3 ? "hunted" : law <= -2 ? "hostile" : law <= -1 ? "wary" : "clean");   // M2b (3.6): "The law's view of you: clean / wary / hostile / hunted"
   const HISTORY_LIMIT = 50;
   const knownCrime = (kind) => Object.hasOwn(crimes, kind);
   const signature = (entry) => JSON.stringify([entry.kind, entry.victim?.classId, entry.victim?.name, entry.real]);
@@ -82,14 +83,42 @@
     for (const harm of cls.civilianHarm || []) {
       add(harm.killed ? "civilianKilling" : harm.targeted ? "civilianAttack" : "civilianCollateral", { by: harm.targetId });
     }
+    const ledgers = (state.trialLedger || []).slice();
+    if (state.trial?.awaitingJudgment && state.trial.accusedId === "player" && !ledgers.some((d) => d.accused === "player" && d.judgment)) {   // M2b rework: an unanswered guilty verdict at battle end resolves as fought (cannot escape consequences)
+      const tr = state.trial;
+      const recordCounts = (tr.t?.verdicts?.counts || []).map((verdict) => {
+        const count = tr.t?.counts?.find((entry) => entry.id === verdict.count);
+        return { source: count?.courtKey, real: count?.ledgerAct !== false, grade: count?.grade || "unproven",
+          severity: count?.severity ?? verdict.severity ?? 1, verdict: verdict.verdict, how: verdict.how, sentence: null };
+      });
+      ledgers.push({ accused: tr.accusedId, by: tr.invokerId,
+        verdicts: tr.t?.verdicts?.counts?.map((v) => `${v.count}:${v.verdict}`) || [],
+        round: state.round, recordCounts, swordDispelled: false, judgment: "fought",
+        ...(tr.t?.vouch ? { vouch: { ...tr.t.vouch } } : {}) });
+    }
+    for (const docket of ledgers) {   // M2b (1.3): fighting your way out writes a real, serious resistedJudgment entry
+      if (docket.accused !== "player" || docket.judgment !== "fought") continue;
+      add("resistedJudgment", { by: null, source: `trial:${docket.round ?? battle}`, grade: "witnessed", real: true });
+    }
 
     const lines = [];
-    for (const docket of state.trialLedger || []) {
+    for (const docket of ledgers) {
       if (docket.accused !== "player") continue;
       const charges = docket.recordCounts || [];
+      const acceptedSword = docket.judgment === "accepted" && (docket.swordSentenced ?? charges.some((charge) => charge.verdict === "guilty" && charge.how === "sword"));   // M2b (3.5): only an accepted death sentence (actual Sword sentence) erases
+      const caught = docket.judgment === "fought" && !!state.actors?.[docket.accused]?.defeated;   // M2b (1.3): caught after fighting out — the sentences apply after all, but the erase does not
       const jailed = charges.filter((charge) => charge.verdict === "guilty" && charge.severity >= 2 && charge.sentence !== "sword" && !docket.swordDispelled);
+      if (docket.judgment === "fought" && !caught) for (let i = jailed.length - 1; i >= 0; i--) {   // fought free: nothing was applied, so the charges stay open
+        if (!jailed[i].sentence) jailed.splice(i, 1);
+      }
       let jail = null;
-      if (jailed.length) {
+      if (acceptedSword) {   // M2b (3.5): the erase replaces jail — it is total, served at battle end whether the Sword killed, was dodged, or was dispelled
+        account = stripLevels(account, (account.level || 1) - 1, "death sentence", date).account;
+        account = { ...account, perks: {}, perkStack: [], seatPick: undefined };
+        account.unlocked = unlocksUpTo(account, account.level);
+        lines.push("Sentenced to death. Every level and every feat is gone.");
+      }
+      if (jailed.length && !acceptedSword) {
         const worst = Math.max(...jailed.map((charge) => charge.severity));
         jail = { levels: Math.min(3, worst - 1 + jailed.length - 1), feats: Math.min(3, worst - 1) };
         const before = account.level;
@@ -111,7 +140,7 @@
         let entry = bySource.get(charge.source);
         if (!entry && !charge.real) entry = add("testimony", { by: docket.by, source: charge.source, grade: charge.grade, real: false });
         const verdict = charge.verdict === "innocent" ? "acquitted" : "guilty";
-        const sentence = jailed.includes(charge) ? "jail" : charge.sentence;
+        const sentence = verdict === "guilty" && acceptedSword ? "death" : jailed.includes(charge) ? "jail" : charge.sentence;
         if (entry) resolve(entry, verdict, sentence);
         if (verdict === "guilty") guilty.push({ ...charge, real: entry?.real ?? charge.real, entry, sentence });
       }
@@ -122,6 +151,13 @@
         resolve(conviction, "guilty", guilty.every((charge) => charge.sentence) ? worst.sentence : null);
       }
     }
+
+    let lawDelta = 0;   // M2b (3.6): standing with the law moves only on the judgment choice — up on accept (never above 0), down on a fight-out
+    for (const docket of ledgers) {
+      if (docket.accused !== "player" || !docket.judgment) continue;
+      lawDelta += docket.judgment === "accepted" ? 1 : docket.judgment === "fought" ? -1 : 0;
+    }
+    if (lawDelta) record.law = Math.min(0, (record.law || 0) + lawDelta);
 
     const entries = record.entries.slice();
     for (const entry of batch) {
@@ -138,5 +174,5 @@
     return { account: { ...account, record: normalize(record) }, lines };
   }
 
-  return { normalize, priors, settle };
+  return { normalize, priors, settle, lawView };
 });

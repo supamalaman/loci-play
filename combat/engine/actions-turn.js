@@ -28,7 +28,7 @@
         if (a.tempo <= 0) return "There are no action points left to bank.";
         const nap=stallPreview(s,a.id),banked=nap.banked;
         if(nap.healed){a.lf+=nap.healed;log(s,{kind:"catNap",actor:a.id,amount:nap.healed,text:`${a.name} takes a Cat Nap: spends ${nap.spent} AP to restore ${nap.healed} LF (${a.lf}/${a.maxLF}); ${banked} AP remain to bank.`,why:["5 bankable AP per LF; at most 8 LF per nap. Spent AP cannot also be banked."]});}
-        { const M = s.rules.mastery, heal = M && (a.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === M.trait) ? Math.min(M.stallHeal, a.maxLF - a.lf) : 0;   // Mastery: rest is recovery
+        { const M = s.rules.mastery, heal = M && !a.routed && (a.traits || []).some((t) => (typeof t === "string" ? t : t?.id) === M.trait) ? Math.min(M.stallHeal, a.maxLF - a.lf) : 0;   // Mastery: rest is recovery (not while routed/cowering, 1.3.577 termination fix)
           if (heal > 0) { a.lf += heal; log(s, { kind: "effect", actor: a.id, amount: heal, text: `${a.name} stalls with a master's ease: +${heal} LF (${a.lf}/${a.maxLF}).`, why: [`Mastery: Stall also restores ${M.stallHeal} Life Force.`] }); } }
         // True Super Speed SS4: beat 2 is not an owner turn, so beat 1's bank has not been spent yet: ending beat 2 with points left adds to it (to the bank cap) instead of replacing it.
         const prior = a.beatNo === 1 ? (a.bankedTempo || 0) : 0, total = Math.min(s.rules.maxBankedActionPoints ?? 100, prior + banked), lost = prior + banked - total;
@@ -38,8 +38,10 @@
       },
       kneel(s, a) {
         if (a.status?.kneeling) return `${a.name} is already kneeling.`;
-        const spend = spendTempo(s, a, (H.Dispatch?.RULES.kneelAp) ?? 10, "Kneel"); if (spend) return spend;
+        const wanted = a.id === "player" && (s.courtPrior?.law || 0) <= -1;   // M2b (3.6): the law wants more from the wanted — kneeling costs double (builder's pick)
+        const spend = spendTempo(s, a, ((H.Dispatch?.RULES.kneelAp) ?? 10) + (wanted ? 10 : 0), "Kneel"); if (spend) return spend;
         H.Dispatch.kneel(s, H, a.id);
+        if (wanted) log(s, { kind: "dispatch", actor: a.id, text: `${a.name} kneels, and the law names its premium: the wanted pay double to submit.` });
       },
       meditate(s, a) {   // C15: 40 AP for ultimate charge. Once per turn, any number of turns running, and no Guard in the same turn.
         if (a.ultimateCharge >= s.rules.ultimateChargeMax) return "Ultimate charge is already full.";
